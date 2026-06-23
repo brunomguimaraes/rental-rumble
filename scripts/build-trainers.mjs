@@ -77,20 +77,37 @@ function build(srcFile, key) {
     join(outDir, `${key}.png`),
   ]);
 
-  // Idle gif: the four front-facing frames, looping.
+  // Idle gif: the four front-facing frames, looping. GIF has no alpha channel,
+  // and these rips hide a blue matte color *underneath* their transparent
+  // pixels, which a naive export re-exposes as an ugly blue background. So we
+  // composite each frame onto a magenta key (using its alpha, which neutralizes
+  // whatever matte is hidden), drop the alpha, then flag that key transparent.
+  // `-dispose background` keeps frames from smearing into one another.
+  const KEY = '#FF00FF';
+  const keyed = ['f_00', 'f_01', 'f_02', 'f_03'].map((f) => {
+    const dst = join(tmp, `k_${f}.png`);
+    magick([
+      join(tmp, `${f}.png`),
+      '-background',
+      KEY,
+      '-alpha',
+      'remove',
+      '-alpha',
+      'off',
+      dst,
+    ]);
+    return dst;
+  });
   magick([
     '-dispose',
-    'previous',
+    'background',
     '-delay',
     '18',
     '-loop',
     '0',
-    '-background',
-    'none',
-    join(tmp, 'f_00.png'),
-    join(tmp, 'f_01.png'),
-    join(tmp, 'f_02.png'),
-    join(tmp, 'f_03.png'),
+    ...keyed,
+    '-transparent',
+    KEY,
     join(outDir, `${key}.gif`),
   ]);
 }
