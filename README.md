@@ -7,37 +7,60 @@ team. Inspired by the rental-Pokémon format (everyone at level 50, the skill is
 in the *build*) and the instant roll → build → simulate loop of
 [7a0](https://7a0.com.br/en).
 
-> Private project for me and my friends. Pokémon data and sprites come from
-> [PokeAPI](https://pokeapi.co/); all Pokémon are © Nintendo/Game Freak.
+> Private project for me and my friends — not for commercial use. Pokémon data
+> comes from [PokeAPI](https://pokeapi.co/). Battle sprites (front/back) and
+> team icons come from a local Gen 9 Pokémon Essentials sprite pack, served from
+> `public/sprites`. The selector-card **portraits are the non-commercial,
+> fan-made PMD-style portraits** from the [PMD Sprite Repository](https://sprites.pmdcollab.org/)
+> ([PMDCollab/SpriteCollab](https://github.com/PMDCollab/SpriteCollab)), © their
+> respective artists. Each species ships a *set* of emotion portraits (Normal,
+> Happy, Sad, Angry, Inspired, …); every rolled rental Pokémon is dealt a random
+> emotion for extra flavour. Gym/League **badge icons** are the Paldea (Scarlet/Violet)
+> badges from [Bulbagarden Archives](https://archives.bulbagarden.net/wiki/Category:Badges).
+> All Pokémon, badges, and trademarks are © Nintendo/Game Freak.
+>
+> Sprites are imported with helper scripts (run once, output committed under
+> `public/sprites`): `node scripts/import-sprites.mjs "<pack>/Graphics/Pokemon"`
+> copies Front/Back/Icons keyed by Dex id, `node scripts/fetch-portraits.mjs`
+> downloads every emotion portrait into `public/sprites/portrait/<id>/<Emotion>.png`
+> and regenerates the `src/game/portraits.gen.ts` manifest (use `--resume` to skip
+> files already saved, or `--manifest-only` to rebuild just the manifest), and
+> `node scripts/fetch-badges.mjs` downloads the type/League badges.
 
 ## How it plays
 
-1. **Roll** — a seed deterministically generates a draft pool of 15 Pokémon.
-2. **Build** — pick your team of six, minding the type matchups.
-3. **Gauntlet** — auto-battle (always **6v6**) through 4 gym leaders, 2 Elite
+1. **Pick a difficulty** — it sets how many sets you can skip: Easy 5, Normal 3,
+   Hard 1, Master 0.
+2. **Draft** — a seed deterministically deals **3** Pokémon at a time. Pick one
+   and the next, totally fresh set of three appears, until you've drafted six.
+3. **Skip** — don't like a set? Skip it for a brand-new trio (within your
+   budget). Roles are auto-assigned to each card (tuning stats and moves).
+4. **Gauntlet** — auto-battle (always **6v6**) through 4 gym leaders, 2 Elite
    Four, and the Champion. Lose one battle and the run is over.
-4. **Recruit** — after each win, swap any of your Pokémon for the ones you just
+5. **Recruit** — after each win, swap any of your Pokémon for the ones you just
    defeated. Your team snowballs as you climb.
-5. **Share** — every run is defined by its seed, so a friend can take the exact
-   same pool and gauntlet. Did *your* build do better?
+6. **Share** — the draft pool is reproducible from its seed.
 
 ## Core systems
 
-- **Real 18-type chart** with dual types and immunities — see
-  `src/game/typechart.ts`.
-- **Seeded RNG** (`src/game/rng.ts`) — fully reproducible, shareable runs.
-- **Battle engine** (`src/game/battle.ts`) — a pure function that takes two
-  teams + a seed and returns the winner plus a replayable event log (STAB,
-  crits, burn/paralysis, lifesteal, heals). The UI just plays that log back
-  with HP bars and animations.
-- **60 Pokémon** (gen 1–4 favourites) with real base stats and types, fetched
-  via `scripts/gen-pokedex.ts` into `src/game/pokedex.gen.ts`. Movesets are
-  assigned from a real-move table in `src/game/moves.ts`.
+- **All 1025 Pokémon** with real base stats and types, plus a rarity tier
+  (legendary / mythical / pseudo-legendary). Generated via
+  `scripts/gen-pokedex.ts` (one PokeAPI GraphQL query) into
+  `src/game/pokedex.gen.ts`.
+- **Rarity rules** — at most one legendary/mythical/pseudo-legendary per draft
+  pool; specials get a gold card. Trainers never use legendaries/mythicals
+  (pseudo-legendaries like Dragonite are fair game); a legendary is a rare
+  player-only boon.
+- **Real 18-type chart** with dual types and immunities (`src/game/typechart.ts`).
+- **Roles** (`src/game/roles.ts`) — Sweeper/Bruiser/Tank/Support tilt stats and
+  movesets, with stat-based eligibility (frail Pokémon can't Tank).
+- **Seeded RNG** (`src/game/rng.ts`) and a pure **battle engine**
+  (`src/game/battle.ts`) returning a replayable event log.
 
 ## Regenerating the Pokédex
 
 ```bash
-npx tsx scripts/gen-pokedex.ts   # edit the IDS array to change the roster
+npx tsx scripts/gen-pokedex.ts   # set MAX_DEX to change how many are included
 ```
 
 ## Run it

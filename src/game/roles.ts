@@ -1,4 +1,5 @@
 import type { BaseStats, Role } from './types';
+import type { RNG } from './rng';
 
 export const ALL_ROLES: Role[] = ['Sweeper', 'Bruiser', 'Tank', 'Support'];
 
@@ -62,4 +63,27 @@ export function eligibleRoles(s: BaseStats): Role[] {
 
 export function defaultRole(s: BaseStats): Role {
   return eligibleRoles(s)[0];
+}
+
+// Probability of landing on the Nth-best eligible role. Most Pokémon end up in
+// their natural role, but a minority get a twist — this is the draft variance.
+const RANK_WEIGHTS = [0.6, 0.25, 0.11, 0.04];
+
+/**
+ * Seeded auto-assignment of a role for the draft. Weighted toward the best-fit
+ * role (≈60%) but occasionally picks a secondary eligible role, so the same
+ * Pokémon can show up built differently from run to run. Never picks a role the
+ * stats can't support (eligibleRoles already filters those out).
+ */
+export function rollRole(s: BaseStats, rng: RNG): Role {
+  const roles = eligibleRoles(s);
+  if (roles.length === 1) return roles[0];
+  const weights = roles.map((_, i) => RANK_WEIGHTS[i] ?? 0.02);
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = rng.next() * total;
+  for (let i = 0; i < roles.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return roles[i];
+  }
+  return roles[0];
 }

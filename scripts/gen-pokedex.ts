@@ -1,43 +1,29 @@
-// Fetches a curated roster from PokeAPI and writes src/game/pokedex.gen.ts.
+// Fetches ALL base-species Pokémon (national dex 1..MAX) from the PokeAPI
+// GraphQL endpoint and writes src/game/pokedex.gen.ts, classifying each as
+// normal / legendary / mythical / pseudo-legendary.
+//
 // Run:  npx tsx scripts/gen-pokedex.ts
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-// Curated roster with broad type coverage (gen 1–4 fan favourites).
-const IDS = [
-  // Fire
-  6, 59, 136, 38, 78, 126, 157, 229,
-  // Water
-  9, 130, 134, 131, 121, 350, 160, 80,
-  // Grass
-  3, 45, 103, 254, 154, 114, 470, 407,
-  // Electric
-  25, 26, 135, 125, 82, 181, 310, 145,
-  // Psychic
-  65, 196, 122, 97, 282, 376, 199,
-  // Dragon
-  149, 373, 330, 230, 334, 445, 612,
-  // Coverage / other types
-  143, 94, 68, 248, 448, 212, 306, 232, 34, 473, 461, 468, 142, 169,
-];
+const MAX_DEX = 1025;
+const ENDPOINT = 'https://beta.pokeapi.co/graphql/v1beta';
 
-interface RawStat {
-  base_stat: number;
-  stat: { name: string };
+interface GqlPokemon {
+  id: number;
+  name: string;
+  pokemon_v2_pokemontypes: { pokemon_v2_type: { name: string } }[];
+  pokemon_v2_pokemonstats: {
+    base_stat: number;
+    pokemon_v2_stat: { name: string };
+  }[];
+  pokemon_v2_pokemonspecy: {
+    is_legendary: boolean;
+    is_mythical: boolean;
+  } | null;
 }
 
-function role(
-  hp: number,
-  atk: number,
-  def: number,
-  spd: number,
-): 'Sweeper' | 'Tank' | 'Support' | 'Bruiser' {
-  if (spd >= 95 && atk >= 95) return 'Sweeper';
-  if (hp >= 95 && spd < 75) return 'Tank';
-  if (atk >= 110) return 'Bruiser';
-  if (def >= 100) return 'Tank';
-  return 'Support';
-}
+type Tier = 'normal' | 'legendary' | 'mythical' | 'pseudo';
 
 function title(name: string): string {
   return name
@@ -47,44 +33,76 @@ function title(name: string): string {
 }
 
 async function main() {
-  const ids = [...new Set(IDS)];
-  const out: string[] = [];
-  for (const id of ids) {
-    const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
-    if (!res.ok) {
-      console.error(`Failed ${id}: ${res.status}`);
-      continue;
+  const query = `query {
+    pokemon_v2_pokemon(where: {id: {_lte: ${MAX_DEX}}}, order_by: {id: asc}, limit: 5000) {
+      id
+      name
+      pokemon_v2_pokemontypes { pokemon_v2_type { name } }
+      pokemon_v2_pokemonstats { base_stat pokemon_v2_stat { name } }
+      pokemon_v2_pokemonspecy { is_legendary is_mythical }
     }
-    const data = (await res.json()) as {
-      name: string;
-      types: { type: { name: string } }[];
-      stats: RawStat[];
-    };
-    const get = (n: string) =>
-      data.stats.find((s) => s.stat.name === n)?.base_stat ?? 0;
-    const hp = get('hp');
-    const attack = get('attack');
-    const defense = get('defense');
-    const spa = get('special-attack');
-    const spd2 = get('special-defense');
-    const speed = get('speed');
-    // Collapse phys/special into single atk/def so the engine stays simple
-    // while still honouring special attackers.
+  }`;
+
+  const res = await fetch(ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  });
+  if (!res.ok) throw new Error(`GraphQL ${res.status}`);
+  const json = (await res.json()) as {
+    data: { pokemon_v2_pokemon: GqlPokemon[] };
+  };
+  const rows = json.data.pokemon_v2_pokemon;
+  console.error(`Fetched ${rows.length} Pokémon`);
+
+  const out: string[] = [];
+  let legendary = 0;
+  let mythical = 0;
+  let pseudo = 0;
+
+  for (const p of rows) {
+    const stat = (n: string) =>
+      p.pokemon_v2_pokemonstats.find((s) => s.pokemon_v2_stat.name === n)
+        ?.base_stat ?? 0;
+    const hp = stat('hp');
+    const attack = stat('attack');
+    const defense = stat('defense');
+    const spa = stat('special-attack');
+    const spdef = stat('special-defense');
+    const speed = stat('speed');
+    const rawBst = hp + attack + defense + spa + spdef + speed;
+
+    // Collapse phys/special into a single atk/def for the simple engine.
     const atk = Math.round((attack + spa) / 2);
-    const def = Math.round((defense + spd2) / 2);
-    const types = data.types.map((t) => t.type.name);
-    const name = title(data.name);
+    const def = Math.round((defense + spdef) / 2);
+
+    const isLeg = p.pokemon_v2_pokemonspecy?.is_legendary ?? false;
+    const isMyth = p.pokemon_v2_pokemonspecy?.is_mythical ?? false;
+    let tier: Tier = 'normal';
+    if (isMyth) {
+      tier = 'mythical';
+      mythical++;
+    } else if (isLeg) {
+      tier = 'legendary';
+      legendary++;
+    } else if (rawBst === 600) {
+      // Classic pseudo-legendary: 600 BST, not legendary/mythical.
+      tier = 'pseudo';
+      pseudo++;
+    }
+
+    const types = p.pokemon_v2_pokemontypes.map((t) => t.pokemon_v2_type.name);
     out.push(
-      `  { id: ${id}, name: ${JSON.stringify(name)}, types: ${JSON.stringify(
-        types,
-      )}, stats: { hp: ${hp}, atk: ${atk}, def: ${def}, spd: ${speed} }, role: ${JSON.stringify(
-        role(hp, atk, def, speed),
+      `  { id: ${p.id}, name: ${JSON.stringify(
+        title(p.name),
+      )}, types: ${JSON.stringify(types)}, stats: { hp: ${hp}, atk: ${atk}, def: ${def}, spd: ${speed} }, tier: ${JSON.stringify(
+        tier,
       )} },`,
     );
-    console.error(`ok ${id} ${name} [${types.join('/')}]`);
   }
 
   const header = `// AUTO-GENERATED by scripts/gen-pokedex.ts — do not edit by hand.
+// ${rows.length} Pokémon · ${legendary} legendary · ${mythical} mythical · ${pseudo} pseudo-legendary
 import type { DexEntry } from './types';
 
 export const RAW_DEX: DexEntry[] = [
@@ -93,7 +111,9 @@ ${out.join('\n')}
 `;
   const target = resolve(import.meta.dirname, '../src/game/pokedex.gen.ts');
   writeFileSync(target, header);
-  console.error(`\nWrote ${out.length} entries to ${target}`);
+  console.error(
+    `\nWrote ${out.length} entries (${legendary} legendary, ${mythical} mythical, ${pseudo} pseudo) to ${target}`,
+  );
 }
 
 main();

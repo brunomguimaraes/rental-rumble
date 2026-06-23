@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import type { Creature } from '../game/types';
-import { GAUNTLET } from '../game/opponents';
+import type { Creature, Opponent } from '../game/types';
 import { TYPE_COLORS } from '../game/typechart';
 import { TypeBadges } from './TypeBadge';
+import { MiniSprite } from './MiniSprite';
 
 export function ResultScreen({
+  gauntlet,
   won,
   team,
   seed,
   clearedStages,
   onPlayAgain,
 }: {
+  gauntlet: Opponent[];
   won: boolean;
   team: Creature[];
   seed: string;
@@ -19,13 +21,13 @@ export function ResultScreen({
 }) {
   const [copied, setCopied] = useState(false);
 
-  const fellTo = !won ? GAUNTLET[clearedStages] : null;
+  const fellTo = !won ? gauntlet[clearedStages] : null;
 
   const share = async () => {
     const names = team.map((c) => c.name).join(', ');
     const line = won
       ? `I became Champion in Rental Rumble! 👑 Team: ${names} · seed ${seed}`
-      : `I fell to ${fellTo?.name} (${clearedStages}/${GAUNTLET.length}) in Rental Rumble. Team: ${names} · seed ${seed} — can you do better?`;
+      : `I fell to ${fellTo?.name} (${clearedStages}/${gauntlet.length}) in Rental Rumble. Team: ${names} · seed ${seed} — can you do better?`;
     try {
       await navigator.clipboard.writeText(line);
       setCopied(true);
@@ -36,10 +38,12 @@ export function ResultScreen({
   };
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center px-6 text-center">
-      <div className="text-7xl animate-floaty">{won ? '👑' : '💀'}</div>
+    <div className="mx-auto flex min-h-[100dvh] max-w-xl flex-col items-center justify-center px-4 py-8 text-center sm:px-6">
+      <div className="text-6xl animate-floaty sm:text-7xl">
+        {won ? '👑' : '💀'}
+      </div>
       <h2
-        className={`mt-4 text-4xl font-black ${
+        className={`mt-4 text-3xl font-black sm:text-4xl ${
           won ? 'text-amber-300' : 'text-rose-300'
         }`}
       >
@@ -48,12 +52,12 @@ export function ResultScreen({
       <p className="mt-2 text-white/60">
         {won
           ? 'You ran the gauntlet and took the crown. Flawless drafting.'
-          : `Your team cleared ${clearedStages} of ${GAUNTLET.length} and fell to ${fellTo?.name}, the ${fellTo?.title}.`}
+          : `Your team cleared ${clearedStages} of ${gauntlet.length} and fell to ${fellTo?.name}, the ${fellTo?.title}.`}
       </p>
 
       {/* Progress pips */}
       <div className="mt-5 flex items-center gap-1.5">
-        {GAUNTLET.map((g, i) => (
+        {gauntlet.map((g, i) => (
           <span
             key={g.id}
             className={`h-2.5 w-2.5 rounded-full ${
@@ -82,11 +86,7 @@ export function ResultScreen({
                 className="flex flex-col items-center gap-1 rounded-2xl p-2"
                 style={{ background: `${color}14` }}
               >
-                <img
-                  src={c.sprite}
-                  alt={c.name}
-                  className="h-14 w-14 object-contain"
-                />
+                <MiniSprite creature={c} className="h-14 w-14" />
                 <span className="text-xs font-semibold">{c.name}</span>
                 <TypeBadges types={c.types} />
               </div>
@@ -98,7 +98,7 @@ export function ResultScreen({
         </div>
       </div>
 
-      <div className="mt-6 flex gap-3">
+      <div className="mt-6 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
         <button
           type="button"
           onClick={share}

@@ -8,8 +8,8 @@ import type {
 } from './types';
 import { effectiveness } from './typechart';
 import { RNG } from './rng';
-import { CREATURES } from './pokemon';
-import { ROLE_SPREAD } from './roles';
+import { CREATURES, withRole } from './pokemon';
+import { ROLE_SPREAD, rollRole } from './roles';
 
 const LEVEL = 50;
 
@@ -462,30 +462,70 @@ function bst(c: Creature): number {
   return c.stats.hp + c.stats.atk + c.stats.def + c.stats.spd;
 }
 
+// Gym/Elite trainers draw from non-legendary/mythical Pokémon (pseudo-legendaries
+// like Dragonite are fair game). Legendaries are saved for the Champion.
+const TRAINER_POOL = CREATURES.filter(
+  (c) => c.tier !== 'legendary' && c.tier !== 'mythical',
+);
+
+// Opponents get auto-assigned roles with the same variance as the draft.
+function assignRoles(list: Creature[], rng: RNG): Creature[] {
+  return list.map((c) => withRole(c, rollRole(c.stats, rng)));
+}
+
+/** Gym / Elite team: themed around `type`, topped up with off-type mons. */
 export function buildOpponentTeam(
   type: PokemonType,
   size: number,
-  tier: string,
+  _tier: string,
   seed: string,
 ): Creature[] {
   const rng = new RNG(`team:${seed}`);
-
-  if (tier === 'champion') {
-    // Strongest creature per primary type, shuffled, capped to size.
-    const byType = new Map<PokemonType, Creature>();
-    for (const c of CREATURES) {
-      const key = c.types[0];
-      const cur = byType.get(key);
-      if (!cur || bst(c) > bst(cur)) byType.set(key, c);
-    }
-    return rng.shuffle([...byType.values()]).slice(0, size);
-  }
-
-  const onType = CREATURES.filter((c) => c.types.includes(type));
-  const offType = CREATURES.filter((c) => !c.types.includes(type));
+  const onType = TRAINER_POOL.filter((c) => c.types.includes(type));
+  const offType = TRAINER_POOL.filter((c) => !c.types.includes(type));
   const team = rng.shuffle(onType).slice(0, size);
   if (team.length < size) {
     team.push(...rng.shuffle(offType).slice(0, size - team.length));
   }
-  return rng.shuffle(team);
+  return assignRoles(rng.shuffle(team), rng);
+}
+
+/**
+ * Champion team: a strong, type-diverse squad built from the highest-BST
+ * Pokémon, guaranteed to include at least one "special" (legendary / mythical /
+ * pseudo-legendary). Seeded by the daily champion seed so it's the same team for
+ * everyone that day.
+ */
+export function buildChampionTeam(seed: string, size: number): Creature[] {
+  const rng = new RNG(`champ-team:${seed}`);
+  const byBst = [...CREATURES].sort((a, b) => bst(b) - bst(a));
+  const topSpecials = byBst.filter((c) => c.tier !== 'normal').slice(0, 40);
+  const topNormals = byBst.filter((c) => c.tier === 'normal').slice(0, 80);
+
+  const chosen: Creature[] = [];
+  const usedTypes = new Set<PokemonType>();
+  const add = (c: Creature) => {
+    chosen.push(c);
+    usedTypes.add(c.types[0]);
+  };
+
+  // Two powerful specials (type-diverse when possible) — at least one always.
+  for (const c of rng.shuffle(topSpecials)) {
+    if (chosen.length >= 2) break;
+    if (usedTypes.has(c.types[0]) && chosen.length > 0) continue;
+    add(c);
+  }
+  // Fill the rest with strong, type-diverse heavy hitters.
+  for (const c of rng.shuffle(topNormals)) {
+    if (chosen.length >= size) break;
+    if (usedTypes.has(c.types[0])) continue;
+    add(c);
+  }
+  // Top up ignoring type if collisions left us short.
+  for (const c of rng.shuffle([...topNormals, ...topSpecials])) {
+    if (chosen.length >= size) break;
+    if (!chosen.includes(c)) chosen.push(c);
+  }
+
+  return assignRoles(rng.shuffle(chosen), rng);
 }

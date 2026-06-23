@@ -43,21 +43,28 @@ export interface BaseStats {
 
 export type Role = 'Sweeper' | 'Tank' | 'Support' | 'Bruiser';
 
+/** Rarity tier — legendary/mythical/pseudo are "special" (gold-bordered). */
+export type SpecialTier = 'normal' | 'legendary' | 'mythical' | 'pseudo';
+
 /** Raw generated dex row (see scripts/gen-pokedex.ts). */
 export interface DexEntry {
   id: number;
   name: string;
   types: PokemonType[];
   stats: BaseStats;
-  role: Role;
+  tier: SpecialTier;
 }
 
 export interface Creature {
   id: string; // string form of dex id, used as a stable key
   dexId: number;
   name: string;
-  sprite: string; // sprite image URL
+  sprite: string; // front battle sprite (opponent's active)
+  back: string; // back battle sprite (player's active)
+  portrait: string; // PMD-style square portrait (selector cards)
+  mini: string; // box/icon mini sprite sheet (team miniatures)
   types: PokemonType[]; // 1 or 2 real types
+  tier: SpecialTier;
   role: Role; // currently selected role
   eligibleRoles: Role[]; // roles this Pokémon may take, best-fit first
   stats: BaseStats;
@@ -79,7 +86,8 @@ export interface Opponent {
   id: string;
   name: string;
   title: string;
-  sprite: string; // emoji badge for the trainer
+  sprite: string; // emoji fallback for the trainer
+  badge: string; // Gym/League badge image URL
   type: PokemonType; // thematic specialty
   teamSize: number;
   tier: 'gym' | 'elite' | 'champion';

@@ -1,106 +1,106 @@
-import { CREATURES } from '../src/game/pokemon';
-import { GAUNTLET } from '../src/game/opponents';
-import { buildOpponentTeam, simulateBattle, TIER_STAT_MULT } from '../src/game/battle';
+import { CREATURES, withRole } from '../src/game/pokemon';
+import { buildGauntlet, championSeed } from '../src/game/opponents';
+import {
+  buildChampionTeam,
+  buildOpponentTeam,
+  simulateBattle,
+  TIER_STAT_MULT,
+} from '../src/game/battle';
 import { rollPool } from '../src/game/run';
+import { defaultRole, eligibleRoles, rollRole, ALL_ROLES } from '../src/game/roles';
+import { RNG } from '../src/game/rng';
+import type { Creature, Role } from '../src/game/types';
 
-let PLAYER_MULT = 1.05;
-const N = 300;
+const N = 400;
+const PLAYER_MULT = 1.13;
 
-type Pick = (pool: typeof CREATURES) => typeof CREATURES;
+const bst = (c: Creature) => c.stats.hp + c.stats.atk + c.stats.def + c.stats.spd;
 
-const bruteStat: Pick = (pool) =>
-  [...pool]
-    .sort(
-      (a, b) =>
-        b.stats.hp + b.stats.atk + b.stats.def + b.stats.spd -
-        (a.stats.hp + a.stats.atk + a.stats.def + a.stats.spd),
-    )
-    .slice(0, 6);
+// Brute-stat draft: top-6 by base-stat total.
+const bruteStat = (pool: Creature[]) =>
+  [...pool].sort((a, b) => bst(b) - bst(a)).slice(0, 6);
 
-// Coverage: maximise distinct types, then stats.
-const coverage: Pick = (pool) => {
-  const seen = new Set<string>();
-  const out: typeof CREATURES = [];
-  const sorted = [...pool].sort(
-    (a, b) =>
-      b.stats.atk + b.stats.spd - (a.stats.atk + a.stats.spd),
-  );
-  for (const c of sorted) {
-    if (!seen.has(c.type)) {
-      out.push(c);
-      seen.add(c.type);
-    }
-    if (out.length === 6) break;
-  }
-  for (const c of sorted) {
-    if (out.length === 6) break;
-    if (!out.includes(c)) out.push(c);
-  }
-  return out;
-};
+type RoleMode = 'asRolled' | 'bestFit';
 
-const bstOf = (c: (typeof CREATURES)[number]) =>
-  c.stats.hp + c.stats.atk + c.stats.def + c.stats.spd;
+const applyRoles = (team: Creature[], mode: RoleMode) =>
+  mode === 'bestFit'
+    ? team.map((c) => withRole(c, defaultRole(c.stats)))
+    : team;
 
-function runGauntlets(pick: Pick, recruit: boolean) {
-  let runs = 0;
+function runGauntlets(mode: RoleMode) {
   let wins = 0;
-  let capHits = 0;
+  let runs = 0;
   let totalTurns = 0;
-  let totalEvents = 0;
+  let championReached = 0;
+  let championWins = 0;
   for (let i = 0; i < N; i++) {
     const seed = `test-${i}`;
-    let team = pick(rollPool(seed));
+    const gauntlet = buildGauntlet(seed);
+    let team = applyRoles(bruteStat(rollPool(seed)), mode);
     let alive = true;
-    for (let s = 0; s < GAUNTLET.length && alive; s++) {
-      const opp = GAUNTLET[s];
+    for (let s = 0; s < gauntlet.length && alive; s++) {
+      const opp = gauntlet[s];
       const bseed = `${seed}#${s}`;
-      const foe = buildOpponentTeam(opp.type, opp.teamSize, opp.tier, bseed);
+      const foe =
+        opp.tier === 'champion'
+          ? buildChampionTeam(championSeed(), opp.teamSize)
+          : buildOpponentTeam(opp.type, opp.teamSize, opp.tier, bseed);
+      if (opp.tier === 'champion') championReached++;
       const res = simulateBattle(team, foe, bseed, {
         playerStatMult: PLAYER_MULT,
         foeStatMult: TIER_STAT_MULT[opp.tier] ?? 1,
       });
       runs++;
       totalTurns += res.turns;
-      totalEvents += res.events.length;
-      if (res.turns >= 200) capHits++;
-      if (res.winner === 'foe') {
-        alive = false;
-      } else if (recruit) {
-        // Greedily keep the 6 strongest from (team ∪ defeated foes).
-        team = [...team, ...foe]
-          .sort((a, b) => bstOf(b) - bstOf(a))
-          .slice(0, 6);
-      }
-      if (s === GAUNTLET.length - 1 && alive) wins++;
+      if (res.winner === 'foe') alive = false;
+      if (opp.tier === 'champion' && res.winner === 'player') championWins++;
+      if (s === gauntlet.length - 1 && alive) wins++;
     }
   }
-  return { runs, wins, capHits, totalTurns, totalEvents };
+  return { wins, runs, totalTurns, championReached, championWins };
 }
 
-console.log('Player-edge sweep (brute-stat draft, greedy recruiting):');
-for (const mult of [1.05, 1.1, 1.15, 1.2, 1.25]) {
-  PLAYER_MULT = mult;
-  const r = runGauntlets(bruteStat, true);
+console.log(`Full-gauntlet clears over ${N} runs (8 gyms + elite + daily champion, edge ${PLAYER_MULT}):`);
+for (const mode of ['bestFit', 'asRolled'] as const) {
+  const r = runGauntlets(mode);
+  const champRate = r.championReached
+    ? ((r.championWins / r.championReached) * 100).toFixed(0)
+    : '–';
   console.log(
-    `  edge ${mult.toFixed(2)} → ${((r.wins / N) * 100).toFixed(1)}% full clears, avg ${(r.totalTurns / r.runs).toFixed(1)} turns`,
+    `  roles=${mode.padEnd(8)} → ${((r.wins / N) * 100).toFixed(1)}% full clears, ` +
+      `reached champ ${((r.championReached / N) * 100).toFixed(0)}% (won ${champRate}% of those), ` +
+      `avg ${(r.totalTurns / r.runs).toFixed(1)} turns`,
   );
 }
 
-PLAYER_MULT = 1.18;
-console.log('\nAt chosen edge 1.18:');
-for (const [label, pick, recruit] of [
-  ['brute-stat, recruiting', bruteStat, true],
-  ['coverage, recruiting', coverage, true],
-] as const) {
-  const r = runGauntlets(pick, recruit);
-  console.log(
-    `  [${label}] ${((r.wins / N) * 100).toFixed(1)}% full clears, cap hits ${r.capHits}, avg ${(r.totalTurns / r.runs).toFixed(1)} turns / ${(r.totalEvents / r.runs).toFixed(0)} events`,
-  );
+// How much variance does rollRole actually inject?
+const rng = new RNG('role-dist');
+const dist: Record<Role, number> = { Sweeper: 0, Bruiser: 0, Tank: 0, Support: 0 };
+let offBest = 0;
+let total = 0;
+let multiRole = 0;
+for (const c of CREATURES) {
+  if (eligibleRoles(c.stats).length > 1) multiRole++;
+  for (let k = 0; k < 20; k++) {
+    const r = rollRole(c.stats, rng);
+    dist[r]++;
+    if (r !== defaultRole(c.stats)) offBest++;
+    total++;
+  }
 }
-console.log('\nroster size:', CREATURES.length);
+console.log(`\nrollRole over all ${CREATURES.length} mons × 20 draws:`);
+console.log(
+  `  multi-role-capable: ${((multiRole / CREATURES.length) * 100).toFixed(0)}% of dex`,
+);
+console.log(
+  `  landed off the best-fit role: ${((offBest / total) * 100).toFixed(1)}% of draws`,
+);
+console.log(
+  '  role mix: ' +
+    ALL_ROLES.map((r) => `${r} ${((dist[r] / total) * 100).toFixed(0)}%`).join(', '),
+);
 
-// Determinism check
-const a = simulateBattle(rollPool('x').slice(0, 6), buildOpponentTeam('Ember', 3, 'gym', 'x#0'), 'x#0');
-const b = simulateBattle(rollPool('x').slice(0, 6), buildOpponentTeam('Ember', 3, 'gym', 'x#0'), 'x#0');
-console.log('deterministic:', a.winner === b.winner && a.turns === b.turns && a.events.length === b.events.length);
+// Determinism check.
+const a = simulateBattle(bruteStat(rollPool('x')), buildOpponentTeam('fire', 6, 'gym', 'x#0'), 'x#0');
+const b = simulateBattle(bruteStat(rollPool('x')), buildOpponentTeam('fire', 6, 'gym', 'x#0'), 'x#0');
+console.log('\ndeterministic:', a.winner === b.winner && a.turns === b.turns);

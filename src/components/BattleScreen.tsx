@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { BattleEvent, BattleResult } from '../game/battle';
 import type { Creature, Opponent, PokemonType, Role, Side } from '../game/types';
-import { TYPE_COLORS, effectivenessLabel } from '../game/typechart';
+import { TYPE_COLORS, effectivenessLabel, typeIconUrl } from '../game/typechart';
 import { ROLE_INFO } from '../game/roles';
 import { HpBar } from './HpBar';
 import { TypeBadges } from './TypeBadge';
@@ -29,10 +29,14 @@ const DELAY: Record<BattleEvent['kind'], number> = {
   end: 500,
 };
 
-function initialView(c: Creature): ActiveView {
+function spriteFor(c: Creature, side: Side): string {
+  return side === 'player' ? c.back : c.sprite;
+}
+
+function initialView(c: Creature, side: Side): ActiveView {
   return {
     name: c.name,
-    sprite: c.sprite,
+    sprite: spriteFor(c, side),
     types: c.types,
     role: c.role,
     hp: 0,
@@ -56,15 +60,18 @@ export function BattleScreen({
   const events = result.events;
 
   const [player, setPlayer] = useState<ActiveView>(() =>
-    initialView(playerTeam[0]),
+    initialView(playerTeam[0], 'player'),
   );
-  const [foe, setFoe] = useState<ActiveView>(() => initialView(foeTeam[0]));
+  const [foe, setFoe] = useState<ActiveView>(() =>
+    initialView(foeTeam[0], 'foe'),
+  );
   const [log, setLog] = useState<string[]>([]);
   const [idx, setIdx] = useState(0);
   const [pFaints, setPFaints] = useState(0);
   const [fFaints, setFFaints] = useState(0);
   const [shake, setShake] = useState<Side | null>(null);
   const [banner, setBanner] = useState('');
+  const [bannerType, setBannerType] = useState<PokemonType | null>(null);
   const [hitFx, setHitFx] = useState<{
     side: Side;
     amount: number;
@@ -80,7 +87,10 @@ export function BattleScreen({
       const setter = e.affected === 'player' ? setPlayer : setFoe;
       setter((v) => ({ ...v, hp: e.hp!, maxHp: e.maxHp! }));
     }
-    if (e.kind === 'move') setBanner('');
+    if (e.kind === 'move') {
+      setBanner('');
+      setBannerType(null);
+    }
     switch (e.kind) {
       case 'sendout': {
         const setter = e.affected === 'player' ? setPlayer : setFoe;
@@ -88,7 +98,7 @@ export function BattleScreen({
         const c = team[e.index!];
         setter({
           name: c.name,
-          sprite: c.sprite,
+          sprite: spriteFor(c, e.affected!),
           types: c.types,
           role: c.role,
           hp: e.hp ?? 1,
@@ -109,11 +119,15 @@ export function BattleScreen({
           });
         }
         const label = e.mult ? effectivenessLabel(e.mult) : '';
-        if (label) setBanner(label);
+        if (label) {
+          setBanner(label);
+          setBannerType(e.moveType ?? null);
+        }
         break;
       }
       case 'noeffect':
         setBanner('It had no effect…');
+        setBannerType(e.moveType ?? null);
         break;
       case 'faint':
         if (e.affected === 'player') setPFaints((n) => n + 1);
@@ -165,10 +179,10 @@ export function BattleScreen({
     const isFoe = side === 'foe';
     return (
       <div
-        className={`flex items-center gap-4 ${isFoe ? 'flex-row-reverse text-right' : ''}`}
+        className={`flex items-center gap-3 sm:gap-4 ${isFoe ? 'flex-row-reverse text-right' : ''}`}
       >
         <div
-          className={`relative grid h-28 w-28 shrink-0 place-items-center rounded-3xl ${
+          className={`relative grid h-20 w-20 shrink-0 place-items-center rounded-3xl sm:h-28 sm:w-28 ${
             shake === side ? 'animate-shake' : 'animate-floaty'
           }`}
           style={{ background: `${color}22`, border: `1px solid ${color}44` }}
@@ -176,7 +190,7 @@ export function BattleScreen({
           <img
             src={view.sprite}
             alt={view.name}
-            className="h-24 w-24 object-contain drop-shadow-lg"
+            className="h-16 w-16 object-contain drop-shadow-lg sm:h-24 sm:w-24"
           />
           {hitFx && hitFx.side === side && (
             <span
@@ -189,9 +203,9 @@ export function BattleScreen({
             </span>
           )}
         </div>
-        <div className="min-w-[190px] flex-1">
+        <div className="min-w-0 flex-1">
           <div
-            className={`flex items-center gap-2 ${isFoe ? 'justify-end' : ''}`}
+            className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${isFoe ? 'justify-end' : ''}`}
           >
             <span className="font-bold">{view.name}</span>
             <span
@@ -221,18 +235,24 @@ export function BattleScreen({
   };
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-3xl flex-col px-4 py-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">{opponent.sprite}</span>
-          <div>
-            <div className="text-sm font-bold leading-none">
+    <div className="mx-auto flex min-h-[100dvh] max-w-3xl flex-col px-3 py-4 sm:px-4 sm:py-6">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <img
+            src={opponent.badge}
+            alt={opponent.title}
+            className="h-8 w-8 shrink-0 object-contain"
+          />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-bold leading-none">
               {opponent.name}
             </div>
-            <div className="text-[11px] text-white/45">{opponent.title}</div>
+            <div className="truncate text-[11px] text-white/45">
+              {opponent.title}
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={() => setSpeed((s) => (s === 1 ? 2 : 1))}
@@ -252,12 +272,19 @@ export function BattleScreen({
         </div>
       </div>
 
-      <div className="relative mt-4 flex flex-1 flex-col justify-center gap-8 rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-transparent p-6">
+      <div className="relative mt-4 flex flex-1 flex-col justify-center gap-6 rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-transparent p-4 sm:gap-8 sm:p-6">
         <Field view={foe} side="foe" faints={fFaints} teamSize={foeTeam.length} />
 
         {banner && (
           <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-            <span className="rounded-full bg-black/60 px-4 py-1.5 text-sm font-bold text-amber-300 backdrop-blur">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-black/60 px-4 py-1.5 text-sm font-bold text-amber-300 backdrop-blur">
+              {bannerType && (
+                <img
+                  src={typeIconUrl(bannerType)}
+                  alt=""
+                  className="h-4 w-4 shrink-0 object-contain"
+                />
+              )}
               {banner}
             </span>
           </div>

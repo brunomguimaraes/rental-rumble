@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import type { Creature, Role } from '../game/types';
-import { withRole } from '../game/pokemon';
+import type { Creature } from '../game/types';
 import { CreatureCard } from './CreatureCard';
 
 export function RecruitScreen({
@@ -19,42 +18,34 @@ export function RecruitScreen({
   const [team, setTeam] = useState<Creature[]>(currentTeam);
   const [used, setUsed] = useState<number[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
-  const [defRole, setDefRole] = useState<Record<number, Role>>({});
-
-  const displayDefeated = (i: number) =>
-    defRole[i] ? withRole(defeatedTeam[i], defRole[i]) : defeatedTeam[i];
 
   const reset = () => {
     setTeam(currentTeam);
     setUsed([]);
     setSelected(null);
-    setDefRole({});
   };
 
   const swapInto = (slot: number) => {
     if (selected === null) return;
-    const recruit = displayDefeated(selected);
+    const recruit = defeatedTeam[selected];
     setTeam((t) => t.map((c, i) => (i === slot ? recruit : c)));
     setUsed((u) => [...u, selected]);
     setSelected(null);
   };
 
-  const reRoleTeam = (slot: number, role: Role) =>
-    setTeam((t) => t.map((c, i) => (i === slot ? withRole(c, role) : c)));
-
   const swapsMade = used.length;
   const armed = selected !== null;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <div className="mx-auto max-w-6xl px-3 py-6 sm:px-4 sm:py-8">
       <div className="text-center">
         <div className="text-4xl">🏆</div>
-        <h2 className="mt-2 text-3xl font-black text-emerald-300">
+        <h2 className="mt-2 text-2xl font-black text-emerald-300 sm:text-3xl">
           {opponentName} defeated!
         </h2>
         <p className="mx-auto mt-1 max-w-lg text-sm text-white/55">
           Recruit any of their Pokémon: pick one below, then tap a slot on your
-          team to swap it in. You can also re-pick any Pokémon's role here.
+          team to swap it in.
         </p>
       </div>
 
@@ -65,7 +56,7 @@ export function RecruitScreen({
             Your team
             {armed && (
               <span className="ml-2 text-emerald-300">
-                ← tap a Pokémon to swap in {displayDefeated(selected!).name}
+                ← tap a Pokémon to swap in {defeatedTeam[selected!].name}
               </span>
             )}
           </h3>
@@ -88,7 +79,6 @@ export function RecruitScreen({
               <CreatureCard
                 creature={c}
                 onClick={armed ? () => swapInto(i) : undefined}
-                onSelectRole={(role) => reRoleTeam(i, role)}
               />
             </div>
           ))}
@@ -106,16 +96,11 @@ export function RecruitScreen({
             return (
               <div key={i} className="relative">
                 <CreatureCard
-                  creature={displayDefeated(i)}
+                  creature={defeatedTeam[i]}
                   selected={selected === i}
                   disabled={taken}
                   onClick={() =>
                     taken ? undefined : setSelected(selected === i ? null : i)
-                  }
-                  onSelectRole={
-                    taken
-                      ? undefined
-                      : (role) => setDefRole((p) => ({ ...p, [i]: role }))
                   }
                 />
                 {taken && (

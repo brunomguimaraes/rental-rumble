@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react';
 import type { Creature, Side } from './game/types';
 import { randomSeed } from './game/rng';
-import { GAUNTLET, TIER_LABEL } from './game/opponents';
+import { buildGauntlet, championSeed, TIER_LABEL } from './game/opponents';
 import {
+  buildChampionTeam,
   buildOpponentTeam,
   simulateBattle,
   TIER_STAT_MULT,
   type BattleResult,
 } from './game/battle';
+import type { Difficulty } from './game/run';
 import { TitleScreen } from './components/TitleScreen';
 import { DraftScreen } from './components/DraftScreen';
 import { MapScreen } from './components/MapScreen';
@@ -29,19 +31,26 @@ export default function App() {
   const [stage, setStage] = useState(0);
   const [won, setWon] = useState(false);
   const [defeated, setDefeated] = useState<Creature[]>([]);
+  const [difficulty, setDifficulty] = useState<Difficulty>('normal');
 
-  const opponent = GAUNTLET[stage];
+  const gauntlet = useMemo(() => buildGauntlet(seed), [seed]);
+  const opponent = gauntlet[stage];
 
   const battle = useMemo<{ foeTeam: Creature[]; result: BattleResult } | null>(
     () => {
       if (phase !== 'battle') return null;
       const battleSeed = `${seed}#${stage}`;
-      const foeTeam = buildOpponentTeam(
-        opponent.type,
-        opponent.teamSize,
-        opponent.tier,
-        battleSeed,
-      );
+      // The Champion is the shared daily boss: its team is seeded by the date,
+      // so it's identical for everyone, while the fight RNG stays run-specific.
+      const foeTeam =
+        opponent.tier === 'champion'
+          ? buildChampionTeam(championSeed(), opponent.teamSize)
+          : buildOpponentTeam(
+              opponent.type,
+              opponent.teamSize,
+              opponent.tier,
+              battleSeed,
+            );
       const result = simulateBattle(team, foeTeam, battleSeed, {
         playerStatMult: PLAYER_STAT_MULT,
         foeStatMult: TIER_STAT_MULT[opponent.tier] ?? 1,
@@ -52,7 +61,8 @@ export default function App() {
     [phase, seed, stage],
   );
 
-  const startRun = (customSeed?: string) => {
+  const startRun = (diff: Difficulty, customSeed?: string) => {
+    setDifficulty(diff);
     setSeed(customSeed ?? randomSeed());
     setTeam([]);
     setStage(0);
@@ -66,7 +76,7 @@ export default function App() {
       setPhase('over');
       return;
     }
-    if (stage + 1 >= GAUNTLET.length) {
+    if (stage + 1 >= gauntlet.length) {
       setWon(true);
       setPhase('over');
       return;
@@ -83,7 +93,7 @@ export default function App() {
       return (
         <DraftScreen
           seed={seed}
-          onReroll={(s) => setSeed(s)}
+          difficulty={difficulty}
           onConfirm={(chosen) => {
             setTeam(chosen);
             setStage(0);
@@ -95,6 +105,7 @@ export default function App() {
     case 'map':
       return (
         <MapScreen
+          gauntlet={gauntlet}
           team={team}
           stage={stage}
           seed={seed}
@@ -116,7 +127,7 @@ export default function App() {
       );
 
     case 'recruit': {
-      const next = GAUNTLET[stage + 1];
+      const next = gauntlet[stage + 1];
       return (
         <RecruitScreen
           opponentName={opponent.name}
@@ -135,10 +146,11 @@ export default function App() {
     case 'over':
       return (
         <ResultScreen
+          gauntlet={gauntlet}
           won={won}
           team={team}
           seed={seed}
-          clearedStages={won ? GAUNTLET.length : stage}
+          clearedStages={won ? gauntlet.length : stage}
           onPlayAgain={() => setPhase('title')}
         />
       );

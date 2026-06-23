@@ -118,3 +118,12 @@ export const TYPE_COLORS: Record<PokemonType, string> = {
 export function typeLabel(t: PokemonType): string {
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
+
+/** All 18 types, in chart order. */
+export const ALL_TYPES = Object.keys(TYPE_COLORS) as PokemonType[];
+
+/** Local type icon (Pokémon Masters battle icons; see scripts/crop). */
+const ASSET = import.meta.env?.BASE_URL ?? '/';
+export function typeIconUrl(t: PokemonType): string {
+  return `${ASSET}sprites/types/${t}.png`;
+}
