@@ -1,6 +1,7 @@
 import type { Creature, Opponent } from '../game/types';
 import { TIER_LABEL, isTypeThemed, opponentAccent } from '../game/opponents';
 import { TypeBadge } from './TypeBadge';
+import { TrainerSprite } from './TrainerSprite';
 import { LineupEditor } from './LineupEditor';
 
 export function MapScreen({
@@ -61,18 +62,23 @@ export function MapScreen({
               }`}
               style={current ? { boxShadow: `0 0 0 1px ${color}66` } : undefined}
             >
-              <div
-                className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl sm:h-12 sm:w-12"
-                style={{ background: `${color}1f` }}
-              >
+              <div className="relative shrink-0">
+                <div
+                  className="grid h-12 w-12 place-items-center overflow-hidden rounded-xl sm:h-14 sm:w-14"
+                  style={{ background: `${color}1f` }}
+                >
+                  <TrainerSprite
+                    opponent={opp}
+                    className={`h-12 w-12 sm:h-14 sm:w-14 ${done ? 'opacity-40 grayscale' : ''}`}
+                  />
+                </div>
                 <img
                   src={opp.badge}
-                  alt={opp.title}
-                  className={`h-8 w-8 object-contain sm:h-9 sm:w-9 ${done ? 'opacity-40' : ''}`}
+                  alt=""
+                  className={`absolute -bottom-1 -right-1 z-10 h-5 w-5 object-contain drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] sm:h-6 sm:w-6 ${
+                    done ? 'opacity-40 grayscale' : ''
+                  }`}
                 />
-                {done && (
-                  <span className="absolute -bottom-1 -right-1 text-sm">✅</span>
-                )}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">

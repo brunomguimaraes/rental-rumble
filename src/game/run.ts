@@ -18,14 +18,42 @@ export type Difficulty = 'easy' | 'normal' | 'hard' | 'master';
 
 export const DIFFICULTIES: Difficulty[] = ['easy', 'normal', 'hard', 'master'];
 
+/**
+ * Shape of the gauntlet ladder per difficulty. The Champion is always a single,
+ * fixed daily boss; everything before it scales up with difficulty — more random
+ * trainers to warm up on, more gym leaders, and (on the high end) a second Elite.
+ */
+export interface GauntletShape {
+  trainers: number; // 2–8 random roadside trainers
+  gyms: number; // 2–4 type-themed Gym Leaders
+  elites: number; // 1–2 Elite trainers
+}
+
+export const GAUNTLET_SHAPE: Record<Difficulty, GauntletShape> = {
+  easy: { trainers: 2, gyms: 2, elites: 1 },
+  normal: { trainers: 4, gyms: 3, elites: 1 },
+  hard: { trainers: 6, gyms: 4, elites: 2 },
+  master: { trainers: 8, gyms: 4, elites: 2 },
+};
+
+/** Total number of opponents in a ladder (the +1 is the Champion). */
+export function gauntletLength(diff: Difficulty): number {
+  const s = GAUNTLET_SHAPE[diff];
+  return s.trainers + s.gyms + s.elites + 1;
+}
+
 export const DIFFICULTY_INFO: Record<
   Difficulty,
   { label: string; skips: number; blurb: string }
 > = {
-  easy: { label: 'Easy', skips: 5, blurb: 'Skip up to 5 sets you don’t like.' },
-  normal: { label: 'Normal', skips: 3, blurb: 'Skip up to 3 sets of picks.' },
-  hard: { label: 'Hard', skips: 1, blurb: 'A single skip. Choose wisely.' },
-  master: { label: 'Master', skips: 0, blurb: 'No skips. Take what you’re offered.' },
+  easy: { label: 'Easy', skips: 5, blurb: 'A short ladder and 5 draft skips.' },
+  normal: { label: 'Normal', skips: 3, blurb: 'A balanced ladder and 3 skips.' },
+  hard: { label: 'Hard', skips: 1, blurb: 'A long ladder and a single skip.' },
+  master: {
+    label: 'Master',
+    skips: 0,
+    blurb: 'The full ladder, no skips at all.',
+  },
 };
 
 export function isSpecial(tier: SpecialTier): boolean {
@@ -41,10 +69,10 @@ export const SPECIAL_POOL_CHANCE = 0.18;
  * (legendary / mythical / pseudo-legendary) are rare: most pools have none, and
  * when one is allowed there is never more than one.
  */
-export function rollPool(seed: string): Creature[] {
+export function rollPool(seed: string, dex: Creature[] = CREATURES): Creature[] {
   const rng = new RNG(`pool:${seed}`);
   const allowSpecial = rng.chance(SPECIAL_POOL_CHANCE);
-  const shuffled = rng.shuffle(CREATURES);
+  const shuffled = rng.shuffle(dex);
   const pool: Creature[] = [];
   let usedSpecial = false;
   for (const c of shuffled) {
@@ -74,11 +102,14 @@ const DRAFT_DECK_SIZE = (TEAM_SIZE + 8) * DRAFT_CHOICES;
  * one special may appear, randomly placed, preserving the "specials are rare,
  * at most one per draft" rule.
  */
-export function rollDraftDeck(seed: string): Creature[] {
+export function rollDraftDeck(
+  seed: string,
+  dex: Creature[] = CREATURES,
+): Creature[] {
   const rng = new RNG(`draft:${seed}`);
   const allowSpecial = rng.chance(SPECIAL_POOL_CHANCE);
-  const normals = CREATURES.filter((c) => !isSpecial(c.tier));
-  const specials = CREATURES.filter((c) => isSpecial(c.tier));
+  const normals = dex.filter((c) => !isSpecial(c.tier));
+  const specials = dex.filter((c) => isSpecial(c.tier));
   const candidates =
     allowSpecial && specials.length > 0
       ? [...normals, rng.pick(specials)]

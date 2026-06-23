@@ -60,7 +60,7 @@ function runGauntlets(mode: RoleMode) {
   return { wins, runs, totalTurns, championReached, championWins };
 }
 
-console.log(`Full-gauntlet clears over ${N} runs (8 gyms + elite + daily champion, edge ${PLAYER_MULT}):`);
+console.log(`Full-gauntlet clears over ${N} runs (normal ladder: trainers + gyms + elite + daily champion, edge ${PLAYER_MULT}):`);
 for (const mode of ['bestFit', 'asRolled'] as const) {
   const r = runGauntlets(mode);
   const champRate = r.championReached

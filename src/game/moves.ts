@@ -1,4 +1,4 @@
-import type { Move, PokemonType, Role } from './types';
+import type { AttackAnim, Move, PokemonType, Role } from './types';
 
 const mk = (
   name: string,
@@ -88,6 +88,55 @@ const TYPE_MOVES: Record<PokemonType, [Move, Move]> = {
 const BODY_SLAM = TYPE_MOVES.normal[0];
 const QUICK_ATTACK = mk('Quick Attack', 'normal', 40, 1);
 const RECOVER = mk('Recover', 'normal', 0, 1, { kind: 'heal', amount: 0.3 });
+
+// Contact moves — punches, claws, bites, body checks and dashes — play a melee
+// "Strike" (dart in, hit, dart back).
+const CONTACT_MOVES = new Set([
+  'Body Slam',
+  'Quick Attack',
+  'Close Combat',
+  'Drain Punch',
+  'Poison Jab',
+  'Zen Headbutt',
+  'Leech Life',
+  'Shadow Claw',
+  'Dragon Claw',
+  'Crunch',
+  'Iron Head',
+]);
+
+// Heavy, ground-shaking AoE moves play a big "Swing" slam.
+const HEAVY_MOVES = new Set([
+  'Earthquake',
+  'Stone Edge',
+  'Rock Slide',
+  'Icicle Crash',
+]);
+
+// Aura / sound / mind-burst specials play "SpAttack" (a stationary special cast)
+// rather than a fired projectile.
+const SPECIAL_MOVES = new Set([
+  'Hyper Voice',
+  'Surf',
+  'Giga Drain',
+  'Earth Power',
+  'Psychic',
+  'Bug Buzz',
+  'Dazzling Gleam',
+]);
+
+/**
+ * Pick the PMD attack animation that best fits a move. Pure status/heal moves
+ * (power 0) wind up in place ("Charge"); contact, heavy and special moves use
+ * their dedicated motions; everything else fires a projectile/beam ("Shoot").
+ */
+export function attackAnimFor(move: Move): AttackAnim {
+  if (move.power === 0) return 'charge';
+  if (CONTACT_MOVES.has(move.name)) return 'strike';
+  if (HEAVY_MOVES.has(move.name)) return 'swing';
+  if (SPECIAL_MOVES.has(move.name)) return 'special';
+  return 'shoot';
+}
 
 /** Build a 4-move set from a creature's types and role. */
 export function movesFor(types: PokemonType[], role: Role): Move[] {

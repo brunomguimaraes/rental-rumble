@@ -1,4 +1,5 @@
 import type {
+  AttackAnim,
   Battler,
   Creature,
   Move,
@@ -9,6 +10,7 @@ import type {
 import { effectiveness } from './typechart';
 import { RNG } from './rng';
 import { CREATURES, withRole } from './pokemon';
+import { attackAnimFor } from './moves';
 import { ROLE_SPREAD, rollRole } from './roles';
 
 const LEVEL = 50;
@@ -31,6 +33,7 @@ export interface BattleEvent {
   affected?: Side;
   moveName?: string;
   moveType?: PokemonType;
+  moveAnim?: AttackAnim;
   damage?: number;
   mult?: number;
   crit?: boolean;
@@ -249,6 +252,7 @@ export function simulateBattle(
       actor: side,
       moveName: move.name,
       moveType: move.type,
+      moveAnim: attackAnimFor(move),
       text: `${attacker.creature.name} used ${move.name}!`,
     });
 
@@ -453,6 +457,7 @@ export function simulateBattle(
 // --- Opponent team construction (seeded) --------------------------------
 
 export const TIER_STAT_MULT: Record<string, number> = {
+  trainer: 0.9,
   gym: 1.0,
   elite: 1.05,
   champion: 1.1,
@@ -464,25 +469,28 @@ function bst(c: Creature): number {
 
 // Gym/Elite trainers draw from non-legendary/mythical Pokémon (pseudo-legendaries
 // like Dragonite are fair game). Legendaries are saved for the Champion.
-const TRAINER_POOL = CREATURES.filter(
-  (c) => c.tier !== 'legendary' && c.tier !== 'mythical',
-);
+function trainerPool(dex: Creature[]): Creature[] {
+  return dex.filter((c) => c.tier !== 'legendary' && c.tier !== 'mythical');
+}
 
 // Opponents get auto-assigned roles with the same variance as the draft.
 function assignRoles(list: Creature[], rng: RNG): Creature[] {
   return list.map((c) => withRole(c, rollRole(c.stats, rng)));
 }
 
-/** Gym / Elite team: themed around `type`, topped up with off-type mons. */
+/** Gym / Elite team: themed around `type`, topped up with off-type mons. The
+ *  optional `dex` restricts which species can appear (e.g. selected gens). */
 export function buildOpponentTeam(
   type: PokemonType,
   size: number,
   _tier: string,
   seed: string,
+  dex: Creature[] = CREATURES,
 ): Creature[] {
   const rng = new RNG(`team:${seed}`);
-  const onType = TRAINER_POOL.filter((c) => c.types.includes(type));
-  const offType = TRAINER_POOL.filter((c) => !c.types.includes(type));
+  const pool = trainerPool(dex);
+  const onType = pool.filter((c) => c.types.includes(type));
+  const offType = pool.filter((c) => !c.types.includes(type));
   const team = rng.shuffle(onType).slice(0, size);
   if (team.length < size) {
     team.push(...rng.shuffle(offType).slice(0, size - team.length));

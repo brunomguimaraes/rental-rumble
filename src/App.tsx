@@ -10,6 +10,7 @@ import {
   type BattleResult,
 } from './game/battle';
 import type { Difficulty } from './game/run';
+import { GENERATIONS, creaturesForGens, type Generation } from './game/gens';
 import { TitleScreen } from './components/TitleScreen';
 import { DraftScreen } from './components/DraftScreen';
 import { MapScreen } from './components/MapScreen';
@@ -32,9 +33,18 @@ export default function App() {
   const [won, setWon] = useState(false);
   const [defeated, setDefeated] = useState<Creature[]>([]);
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
+  const [gens, setGens] = useState<Generation[]>(GENERATIONS);
 
-  const gauntlet = useMemo(() => buildGauntlet(seed), [seed]);
+  const gauntlet = useMemo(
+    () => buildGauntlet(seed, difficulty),
+    [seed, difficulty],
+  );
   const opponent = gauntlet[stage];
+
+  // The species pool for this run, restricted to the selected generations.
+  // Drives both the draft and the gym/elite opponents (the Champion stays a
+  // shared, dex-wide daily boss).
+  const dex = useMemo(() => creaturesForGens(gens), [gens]);
 
   const battle = useMemo<{ foeTeam: Creature[]; result: BattleResult } | null>(
     () => {
@@ -51,6 +61,7 @@ export default function App() {
               opponent.teamSize,
               opponent.tier,
               battleSeed,
+              dex,
             );
       const result = simulateBattle(team, foeTeam, battleSeed, {
         playerStatMult: PLAYER_STAT_MULT,
@@ -59,11 +70,16 @@ export default function App() {
       return { foeTeam, result };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [phase, seed, stage],
+    [phase, seed, stage, dex],
   );
 
-  const startRun = (diff: Difficulty, customSeed?: string) => {
+  const startRun = (
+    diff: Difficulty,
+    chosenGens: Generation[],
+    customSeed?: string,
+  ) => {
     setDifficulty(diff);
+    setGens(chosenGens.length > 0 ? chosenGens : GENERATIONS);
     setSeed(customSeed ?? randomSeed());
     setTeam([]);
     setStage(0);
@@ -95,6 +111,7 @@ export default function App() {
         <DraftScreen
           seed={seed}
           difficulty={difficulty}
+          dex={dex}
           onConfirm={(chosen) => {
             setTeam(chosen);
             setStage(0);

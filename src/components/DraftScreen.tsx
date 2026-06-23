@@ -20,13 +20,15 @@ import {
 export function DraftScreen({
   seed,
   difficulty,
+  dex,
   onConfirm,
 }: {
   seed: string;
   difficulty: Difficulty;
+  dex?: Creature[];
   onConfirm: (team: Creature[]) => void;
 }) {
-  const [deck] = useState<Creature[]>(() => rollDraftDeck(seed));
+  const [deck] = useState<Creature[]>(() => rollDraftDeck(seed, dex));
   const [picked, setPicked] = useState<Creature[]>([]);
   const [skipsUsed, setSkipsUsed] = useState(0);
 

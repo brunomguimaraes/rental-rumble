@@ -87,6 +87,37 @@ body {
   }
 }
 
+/* Pokémon walk onto the field from their trainer's side when sent out. */
+@keyframes sendout-player {
+  from {
+    transform: translateX(-44px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes sendout-foe {
+  from {
+    transform: translateX(44px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-sendout-player {
+  animation: sendout-player 0.45s ease-out;
+}
+
+.animate-sendout-foe {
+  animation: sendout-foe 0.45s ease-out;
+}
+
 .animate-shake {
   animation: shake 0.4s ease-in-out;
 }
@@ -101,7 +132,9 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-marquee {
+  .animate-marquee,
+  .animate-sendout-player,
+  .animate-sendout-foe {
     animation: none;
   }
 }

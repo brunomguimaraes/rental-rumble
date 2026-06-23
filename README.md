@@ -8,24 +8,34 @@ in the *build*) and the instant roll → build → simulate loop of
 [7a0](https://7a0.com.br/en).
 
 > Private project for me and my friends — not for commercial use. Pokémon data
-> comes from [PokeAPI](https://pokeapi.co/). Battle sprites (front/back) and
-> team icons come from a local Gen 9 Pokémon Essentials sprite pack, served from
-> `public/sprites`. The selector-card **portraits are the non-commercial,
-> fan-made PMD-style portraits** from the [PMD Sprite Repository](https://sprites.pmdcollab.org/)
-> ([PMDCollab/SpriteCollab](https://github.com/PMDCollab/SpriteCollab)), © their
-> respective artists. Each species ships a *set* of emotion portraits (Normal,
-> Happy, Sad, Angry, Inspired, …); every rolled rental Pokémon is dealt a random
-> emotion for extra flavour. Gym/League **badge icons** are the Paldea (Scarlet/Violet)
-> badges from [Bulbagarden Archives](https://archives.bulbagarden.net/wiki/Category:Badges).
+> comes from [PokeAPI](https://pokeapi.co/). The static fallback battle sprites
+> (front/back) and team icons come from a local Gen 9 Pokémon Essentials sprite
+> pack, served from `public/sprites`. The **animated battle sprites** and the
+> selector-card **portraits are the non-commercial, fan-made PMD-style sprites**
+> from the [PMD Sprite Repository](https://sprites.pmdcollab.org/)
+> ([PMDCollab/SpriteCollab](https://github.com/PMDCollab/SpriteCollab)), licensed
+> [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/), © their
+> respective artists. The battle screen plays each species' PMD idle/walk/attack/
+> hurt/faint animations (with the flat Essentials sprite as a fallback for
+> not-yet-contributed species); every rolled rental Pokémon is also dealt a
+> random emotion portrait for flavour. **Huge thanks to the SpriteCollab artists**
+> — the in-app **Credits & thanks** panel (Title screen) lists every contributor,
+> generated from their `tracker.json` / `credit_names.txt`. Gym/League **badge
+> icons** are the Paldea (Scarlet/Violet) badges from
+> [Bulbagarden Archives](https://archives.bulbagarden.net/wiki/Category:Badges).
 > All Pokémon, badges, and trademarks are © Nintendo/Game Freak.
 >
 > Sprites are imported with helper scripts (run once, output committed under
 > `public/sprites`): `node scripts/import-sprites.mjs "<pack>/Graphics/Pokemon"`
 > copies Front/Back/Icons keyed by Dex id, `node scripts/fetch-portraits.mjs`
 > downloads every emotion portrait into `public/sprites/portrait/<id>/<Emotion>.png`
-> and regenerates the `src/game/portraits.gen.ts` manifest (use `--resume` to skip
-> files already saved, or `--manifest-only` to rebuild just the manifest), and
-> `node scripts/fetch-badges.mjs` downloads the type/League badges.
+> and regenerates `src/game/portraits.gen.ts`, `node scripts/fetch-battle-sprites.mjs`
+> downloads the PMD animation sheets into `public/sprites/pmd/<id>/` and regenerates
+> the `src/game/pmdSprites.gen.ts` (anim geometry/timing) and `src/game/spriteCredits.gen.ts`
+> (artist attribution) manifests, and `node scripts/fetch-badges.mjs` downloads
+> the type/League badges. The fetch scripts accept `--resume` (skip files already
+> saved), `--manifest-only` (rebuild just the manifests from disk), and the battle
+> fetcher also takes `--ids=1,4,6` to grab a subset (handy for testing).
 
 ## How it plays
 

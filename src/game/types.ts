@@ -26,6 +26,16 @@ export type MoveEffect =
   | { kind: 'heal'; amount: number } // fraction of max hp
   | { kind: 'lifesteal'; fraction: number };
 
+/**
+ * Which PMD attack animation a move should play. PMDCollab sprites ship several
+ * distinct attack anims, so the move we pick can drive a fitting motion instead
+ * of one generic lunge: a claw swipe (`strike`), a beam/projectile (`shoot`), an
+ * aura/sound burst (`special`), a heavy ground/rock slam (`swing`), or a
+ * self-targeted wind-up for status & heals (`charge`). Each falls back to the
+ * generic `Attack` sheet for species that don't have the richer one.
+ */
+export type AttackAnim = 'strike' | 'shoot' | 'special' | 'swing' | 'charge';
+
 export interface Move {
   name: string;
   type: PokemonType;
@@ -82,14 +92,18 @@ export interface Battler {
 
 export type Side = 'player' | 'foe';
 
+export type OpponentTier = 'trainer' | 'gym' | 'elite' | 'champion';
+
 export interface Opponent {
   id: string;
   name: string;
   title: string;
   sprite: string; // emoji fallback for the trainer
   badge: string; // Gym/League badge image URL
+  art: string; // overworld trainer icon (front-facing PNG) URL
+  artGif: string; // overworld trainer idle-animation (GIF) URL
   type: PokemonType; // thematic specialty
   teamSize: number;
-  tier: 'gym' | 'elite' | 'champion';
+  tier: OpponentTier;
   quote: string;
 }
