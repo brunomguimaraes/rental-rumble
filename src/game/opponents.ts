@@ -1,0 +1,81 @@
+import type { Opponent } from './types';
+
+// The road to Champion: 4 gym leaders, 2 Elite Four, 1 Champion. All 6v6.
+export const GAUNTLET: Opponent[] = [
+  {
+    id: 'gym-fire',
+    name: 'Blaise',
+    title: 'Fire Gym Leader',
+    sprite: '🔥',
+    type: 'fire',
+    teamSize: 6,
+    tier: 'gym',
+    quote: "Hope you brought a fire extinguisher.",
+  },
+  {
+    id: 'gym-water',
+    name: 'Marina',
+    title: 'Water Gym Leader',
+    sprite: '💧',
+    type: 'water',
+    teamSize: 6,
+    tier: 'gym',
+    quote: 'The tide turns for no challenger.',
+  },
+  {
+    id: 'gym-grass',
+    name: 'Fern',
+    title: 'Grass Gym Leader',
+    sprite: '🌿',
+    type: 'grass',
+    teamSize: 6,
+    tier: 'gym',
+    quote: 'Watch my garden bloom over your team.',
+  },
+  {
+    id: 'gym-electric',
+    name: 'Surge',
+    title: 'Electric Gym Leader',
+    sprite: '⚡',
+    type: 'electric',
+    teamSize: 6,
+    tier: 'gym',
+    quote: 'This is going to be shocking.',
+  },
+  {
+    id: 'elite-psychic',
+    name: 'Sabine',
+    title: 'Elite Four — Psychic',
+    sprite: '🔮',
+    type: 'psychic',
+    teamSize: 6,
+    tier: 'elite',
+    quote: 'I already know how this ends.',
+  },
+  {
+    id: 'elite-dragon',
+    name: 'Lance',
+    title: 'Elite Four — Dragon',
+    sprite: '🐉',
+    type: 'dragon',
+    teamSize: 6,
+    tier: 'elite',
+    quote: 'Few make it this far. Fewer leave.',
+  },
+  {
+    id: 'champion',
+    name: 'Reverie',
+    title: 'Champion',
+    sprite: '👑',
+    type: 'dragon',
+    teamSize: 6,
+    tier: 'champion',
+    quote: 'Show me the team that earned its way here.',
+  },
+];
+
+export const TIER_LABEL: Record<Opponent['tier'], string> = {
+  gym: 'Gym',
+  elite: 'Elite Four',
+  champion: 'Champion',
+};
