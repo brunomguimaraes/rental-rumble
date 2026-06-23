@@ -3,6 +3,7 @@ import { RAW_DEX } from './pokedex.gen';
 import { movesFor } from './moves';
 import { defaultRole, eligibleRoles } from './roles';
 import { PORTRAIT_EMOTIONS } from './portraits.gen';
+import { DEFAULT_BALL } from './balls';
 import { RNG } from './rng';
 
 // All sprites are served locally from public/sprites, keyed by National Dex id.
@@ -69,6 +70,7 @@ export const CREATURES: Creature[] = RAW_DEX.map((e) => {
     eligibleRoles: eligibleRoles(e.stats),
     stats: e.stats,
     moves: movesFor(e.types, role),
+    pokeball: DEFAULT_BALL,
   };
 });
 
@@ -86,4 +88,10 @@ export function getCreature(id: string): Creature {
 export function withRole(creature: Creature, role: Role): Creature {
   if (creature.role === role) return creature;
   return { ...creature, role, moves: movesFor(creature.types, role) };
+}
+
+/** Return a copy of the creature sent out in a different (cosmetic) ball. */
+export function withBall(creature: Creature, pokeball: string): Creature {
+  if (creature.pokeball === pokeball) return creature;
+  return { ...creature, pokeball };
 }

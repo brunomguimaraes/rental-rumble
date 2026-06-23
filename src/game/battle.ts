@@ -12,6 +12,7 @@ import { RNG } from './rng';
 import { CREATURES, withRole } from './pokemon';
 import { attackAnimFor } from './moves';
 import { ROLE_SPREAD, rollRole } from './roles';
+import { rollOpponentBall } from './balls';
 
 const LEVEL = 50;
 
@@ -206,8 +207,9 @@ export function simulateBattle(
     });
   };
 
-  sendOut('player', 0);
+  // The opponent leads off, then you answer — the classic battle-start beat.
   sendOut('foe', 0);
+  sendOut('player', 0);
 
   const handleFaint = (side: Side): boolean => {
     const s = sides[side];
@@ -473,9 +475,13 @@ function trainerPool(dex: Creature[]): Creature[] {
   return dex.filter((c) => c.tier !== 'legendary' && c.tier !== 'mythical');
 }
 
-// Opponents get auto-assigned roles with the same variance as the draft.
+// Opponents get auto-assigned roles with the same variance as the draft, plus a
+// flavourful ball so their send-outs feel as lively as the player's.
 function assignRoles(list: Creature[], rng: RNG): Creature[] {
-  return list.map((c) => withRole(c, rollRole(c.stats, rng)));
+  return list.map((c) => ({
+    ...withRole(c, rollRole(c.stats, rng)),
+    pokeball: rollOpponentBall(rng),
+  }));
 }
 
 /** Gym / Elite team: themed around `type`, topped up with off-type mons. The

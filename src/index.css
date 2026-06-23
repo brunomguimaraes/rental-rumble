@@ -87,35 +87,121 @@ body {
   }
 }
 
-/* Pokémon walk onto the field from their trainer's side when sent out. */
-@keyframes sendout-player {
-  from {
-    transform: translateX(-44px);
+/* Send-out sequence: the trainer tosses a Poké Ball, it arcs to the platform,
+   bursts open in a flash, and the Pokémon materialises out of it. The three
+   layers (ball / burst / Pokémon) share a timeline via animation-delay so they
+   read as one throw. */
+
+/* The ball arcs in from the player's side (lower-left), spins, lands, vanishes. */
+@keyframes ball-toss-player {
+  0% {
+    transform: translate(-58px, 26px) scale(0.45) rotate(-120deg);
     opacity: 0;
   }
-  to {
-    transform: translateX(0);
+  18% {
     opacity: 1;
   }
-}
-
-@keyframes sendout-foe {
-  from {
-    transform: translateX(44px);
+  55% {
+    transform: translate(-18px, -38px) scale(0.8) rotate(180deg);
+    opacity: 1;
+  }
+  85% {
+    transform: translate(0, 0) scale(0.8) rotate(380deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 3px) scale(0.7) rotate(410deg);
     opacity: 0;
   }
-  to {
-    transform: translateX(0);
+}
+
+/* The ball arcs in from the opponent's side (upper-right). */
+@keyframes ball-toss-foe {
+  0% {
+    transform: translate(56px, -32px) scale(0.45) rotate(120deg);
+    opacity: 0;
+  }
+  18% {
     opacity: 1;
+  }
+  55% {
+    transform: translate(20px, -42px) scale(0.8) rotate(-180deg);
+    opacity: 1;
+  }
+  85% {
+    transform: translate(0, 0) scale(0.8) rotate(-380deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 3px) scale(0.7) rotate(-410deg);
+    opacity: 0;
   }
 }
 
-.animate-sendout-player {
-  animation: sendout-player 0.45s ease-out;
+/* White flash of the ball snapping open. */
+@keyframes ball-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(0.75);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
 }
 
-.animate-sendout-foe {
-  animation: sendout-foe 0.45s ease-out;
+/* The Pokémon forms out of the flash: scales up from a white silhouette. */
+@keyframes materialize {
+  0% {
+    opacity: 0;
+    transform: scale(0.35);
+    filter: brightness(4) saturate(0);
+  }
+  55% {
+    opacity: 1;
+    filter: brightness(2.4) saturate(0.3);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: brightness(1) saturate(1);
+  }
+}
+
+/* The status card slides in just as the Pokémon appears. */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-ball-toss-player {
+  animation: ball-toss-player 0.55s cubic-bezier(0.3, 0, 0.4, 1) forwards;
+}
+
+.animate-ball-toss-foe {
+  animation: ball-toss-foe 0.55s cubic-bezier(0.3, 0, 0.4, 1) forwards;
+}
+
+.animate-ball-burst {
+  animation: ball-burst 0.45s ease-out 0.46s both;
+}
+
+.animate-materialize {
+  animation: materialize 0.5s ease-out 0.48s backwards;
+}
+
+.animate-card-in {
+  animation: card-in 0.4s ease-out 0.42s backwards;
 }
 
 .animate-shake {
@@ -133,8 +219,11 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .animate-marquee,
-  .animate-sendout-player,
-  .animate-sendout-foe {
+  .animate-ball-toss-player,
+  .animate-ball-toss-foe,
+  .animate-ball-burst,
+  .animate-materialize,
+  .animate-card-in {
     animation: none;
   }
 }

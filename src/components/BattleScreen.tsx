@@ -82,16 +82,44 @@ interface HitFx {
   key: number;
 }
 
+// The Poké Ball throw + open flash that precedes a Pokémon materialising. The
+// ball arcs in from the trainer's side, spins, lands, and bursts into a white
+// flash; the timing is choreographed in index.css so it lines up with the
+// Pokémon's `materialize` reveal. Remounted (via a `key` on spawn) each send-out.
+function BallFx({ side, ball }: { side: Side; ball: string }) {
+  return (
+    <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
+      <span
+        className="animate-ball-burst absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{
+          background:
+            'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,236,170,0.6) 40%, transparent 70%)',
+        }}
+      />
+      <img
+        src={ballUrl(ball)}
+        alt=""
+        className={`relative h-6 w-6 object-contain drop-shadow [image-rendering:pixelated] ${
+          side === 'player' ? 'animate-ball-toss-player' : 'animate-ball-toss-foe'
+        }`}
+      />
+    </div>
+  );
+}
+
 // The combatant: a Pokémon standing on a ground "platform", positioned in the
 // arena via `posStyle`. Defined at module scope (not inside BattleScreen) so it
 // keeps a stable component identity across the many per-event re-renders —
 // otherwise React would remount it on every state change, replaying the
-// send-out slide-in and resetting the frame animator (the "blinking" bug).
+// send-out animation and resetting the frame animator (the "blinking" bug).
+// Renders nothing until `visible` (the Pokémon has actually been sent out), so
+// the arena starts empty instead of showing a placeholder with an empty HP bar.
 function Combatant({
   view,
   side,
   anim,
   spawn,
+  visible,
   shake,
   hitFx,
   speed,
@@ -102,6 +130,7 @@ function Combatant({
   side: Side;
   anim: AnimState;
   spawn: number;
+  visible: boolean;
   shake: Side | null;
   hitFx: HitFx | null;
   speed: number;
@@ -110,6 +139,7 @@ function Combatant({
 }) {
   const color = TYPE_COLORS[view.types[0]];
   const pmd = hasPmdSprite(view.dexId);
+  if (!visible) return null;
   return (
     // Anchored by its bottom (the platform), so attack frames grow upward into
     // open arena space rather than shoving the ground around.
@@ -128,13 +158,15 @@ function Combatant({
             {hitFx.crit ? '!' : ''}
           </span>
         )}
-        {/* Keyed by spawn so the slide-in entrance replays only on a fresh
+        {/* The ball throw + open flash, replayed on each fresh send-out. */}
+        {!REDUCED_MOTION && (
+          <BallFx key={`ball-${spawn}`} side={side} ball={view.ball} />
+        )}
+        {/* Keyed by spawn so the materialize entrance replays only on a fresh
             send-out, while the PmdSprite below stays mounted between events. */}
         <div
           key={`${view.dexId}-${spawn}`}
-          className={
-            side === 'player' ? 'animate-sendout-player' : 'animate-sendout-foe'
-          }
+          className={REDUCED_MOTION ? '' : 'animate-materialize'}
         >
           <div
             className={`flex items-end justify-center ${
@@ -184,17 +216,20 @@ function InfoCard({
   faints,
   teamSize,
   alignEnd,
+  visible,
   className,
 }: {
   view: ActiveView;
   faints: number;
   teamSize: number;
   alignEnd: boolean;
+  visible: boolean;
   className: string;
 }) {
+  if (!visible) return null;
   return (
     <div
-      className={`absolute z-10 w-40 rounded-2xl border border-white/10 bg-black/55 px-3 py-2 shadow-lg backdrop-blur-sm sm:w-52 ${className}`}
+      className={`animate-card-in absolute z-10 w-40 rounded-2xl border border-white/10 bg-black/55 px-3 py-2 shadow-lg backdrop-blur-sm sm:w-52 ${className}`}
     >
       <div
         className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 ${alignEnd ? 'justify-end' : ''}`}
@@ -262,6 +297,10 @@ export function BattleScreen({
   const [fAnim, setFAnim] = useState<AnimState>(IDLE);
   const [pSpawn, setPSpawn] = useState(0);
   const [fSpawn, setFSpawn] = useState(0);
+  // Neither side is on the field until its `sendout` event plays — the arena
+  // starts empty rather than showing placeholders with empty HP bars.
+  const [pVisible, setPVisible] = useState(false);
+  const [fVisible, setFVisible] = useState(false);
   const fxKey = useRef(0);
   const animTok = useRef(0);
 
@@ -278,7 +317,14 @@ export function BattleScreen({
   };
 
   const processEvent = (e: BattleEvent, animate: boolean) => {
-    if (e.affected && e.hp !== undefined && e.maxHp !== undefined) {
+    // Send-out manages its own HP (it animates the bar filling), so skip the
+    // generic update for it.
+    if (
+      e.kind !== 'sendout' &&
+      e.affected &&
+      e.hp !== undefined &&
+      e.maxHp !== undefined
+    ) {
       const setter = e.affected === 'player' ? setPlayer : setFoe;
       setter((v) => ({ ...v, hp: e.hp!, maxHp: e.maxHp! }));
     }
@@ -291,23 +337,36 @@ export function BattleScreen({
     }
     switch (e.kind) {
       case 'sendout': {
-        const setter = e.affected === 'player' ? setPlayer : setFoe;
-        const team = e.affected === 'player' ? playerTeam : foeTeam;
+        const side = e.affected!;
+        const setter = side === 'player' ? setPlayer : setFoe;
+        const team = side === 'player' ? playerTeam : foeTeam;
         const c = team[e.index!];
+        const full = e.hp ?? 1;
+        const maxHp = e.maxHp ?? 1;
+        // The ball opens with HP at 0, then fills as the Pokémon settles in.
+        const fillBar = animate && !REDUCED_MOTION;
         setter({
           name: c.name,
           dexId: c.dexId,
-          sprite: spriteFor(c, e.affected!),
+          sprite: spriteFor(c, side),
           types: c.types,
           role: c.role,
-          hp: e.hp ?? 1,
-          maxHp: e.maxHp ?? 1,
+          ball: c.pokeball,
+          hp: fillBar ? 0 : full,
+          maxHp,
         });
-        if (animate && e.affected) {
-          (e.affected === 'player' ? setPSpawn : setFSpawn)((n) => n + 1);
-          play(e.affected, 'walk');
-        } else {
-          (e.affected === 'player' ? setPAnim : setFAnim)(IDLE);
+        (side === 'player' ? setPVisible : setFVisible)(true);
+        (side === 'player' ? setPAnim : setFAnim)(IDLE);
+        if (animate) {
+          (side === 'player' ? setPSpawn : setFSpawn)((n) => n + 1);
+        }
+        if (fillBar) {
+          // Matches the ball-open beat in index.css so the bar fills as the
+          // Pokémon materialises.
+          window.setTimeout(
+            () => setter((v) => ({ ...v, hp: full })),
+            620 / speed,
+          );
         }
         break;
       }
@@ -424,6 +483,7 @@ export function BattleScreen({
           side="foe"
           anim={fAnim}
           spawn={fSpawn}
+          visible={fVisible}
           shake={shake}
           hitFx={hitFx}
           speed={speed}
@@ -435,6 +495,7 @@ export function BattleScreen({
           side="player"
           anim={pAnim}
           spawn={pSpawn}
+          visible={pVisible}
           shake={shake}
           hitFx={hitFx}
           speed={speed}
@@ -461,17 +522,21 @@ export function BattleScreen({
             upper-right, player sprite lower-left) so the cards never cover the
             Pokémon — even on narrow phone screens. */}
         <InfoCard
+          key={`fcard-${fSpawn}`}
           view={foe}
           faints={fFaints}
           teamSize={foeTeam.length}
           alignEnd={false}
+          visible={fVisible}
           className="left-2 top-2 sm:left-3 sm:top-3"
         />
         <InfoCard
+          key={`pcard-${pSpawn}`}
           view={player}
           faints={pFaints}
           teamSize={playerTeam.length}
           alignEnd
+          visible={pVisible}
           className="bottom-2 right-2 sm:bottom-3 sm:right-3"
         />
       </div>

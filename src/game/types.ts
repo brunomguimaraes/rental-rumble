@@ -79,6 +79,7 @@ export interface Creature {
   eligibleRoles: Role[]; // roles this Pokémon may take, best-fit first
   stats: BaseStats;
   moves: Move[];
+  pokeball: string; // cosmetic ball id this Pokémon is sent out in (see balls.ts)
 }
 
 /** A creature as it exists during a battle (with live HP & status). */
