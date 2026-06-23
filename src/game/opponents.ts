@@ -3,6 +3,7 @@ import { TYPE_COLORS, typeLabel } from './typechart';
 import { RNG } from './rng';
 import { GAUNTLET_SHAPE, type Difficulty } from './run';
 import { TRAINER_SPRITES, type TrainerCategory } from './trainers.gen';
+import { artGender, artName, genderMatches, type Gender } from './trainers.meta';
 
 export const TIER_LABEL: Record<OpponentTier, string> = {
   trainer: 'Trainer',
@@ -50,9 +51,25 @@ const badgeUrl = (key: PokemonType | 'champion') =>
 const artUrl = (key: string) => `${ASSET}sprites/trainers/${key}.png`;
 const gifUrl = (key: string) => `${ASSET}sprites/trainers/${key}.gif`;
 
-/** Pick a stable overworld sprite key from a category's pool. */
-function pickSprite(rng: RNG, cat: TrainerCategory): string {
-  return rng.pick([...TRAINER_SPRITES[cat]]);
+/** Resolve a possibly-neutral sex to a concrete one so name/class/art agree. */
+function concreteGender(rng: RNG, g: Gender): Gender {
+  return g === 'x' ? (rng.next() < 0.5 ? 'm' : 'f') : g;
+}
+
+/**
+ * Pick a roadside sprite whose sex is acceptable for `want` (neutral art
+ * matches anyone). Falls back to the whole pool if nothing matches, so a
+ * missing metadata entry degrades to the old behaviour instead of crashing.
+ */
+function pickSpriteForGender(
+  rng: RNG,
+  cat: TrainerCategory,
+  want: Gender,
+): string {
+  const pool = TRAINER_SPRITES[cat].filter((k) =>
+    genderMatches(artGender(k), want),
+  );
+  return rng.pick(pool.length ? pool : [...TRAINER_SPRITES[cat]]);
 }
 
 // Real gym leaders from across the series — picked at random for each run.
@@ -84,20 +101,50 @@ const CHAMPIONS = [
   'Diantha', 'Kukui', 'Hau', 'Leon', 'Geeta', 'Nemona', 'Trace', 'Mustard',
 ];
 
-// Roadside "random" trainers: a class (the title) + a given name.
-const TRAINER_CLASSES = [
-  'Youngster', 'Lass', 'Bug Catcher', 'Hiker', 'Beauty', 'Ace Trainer',
-  'Black Belt', 'Psychic', 'Picnicker', 'Camper', 'Fisherman', 'Sailor',
-  'Roughneck', 'Rich Boy', 'Lady', 'Veteran', 'Scientist', 'Ranger',
-  'Swimmer', 'Dancer', 'Artist', 'Guitarist', 'Breeder', 'Schoolkid',
-  'Gentleman', 'Cooltrainer', 'Hex Maniac', 'Bird Keeper', 'Tamer',
+// Roadside "random" trainers: a class (the title) + a given name. Both carry a
+// sex so we can hand them a matching overworld sprite ('x' = unisex). A "Lass"
+// is never drawn over a male body, and "Beth the Beauty" never wears one either.
+interface Person {
+  name: string;
+  g: Gender;
+}
+
+const TRAINER_CLASSES: Person[] = [
+  { name: 'Youngster', g: 'm' }, { name: 'Lass', g: 'f' },
+  { name: 'Bug Catcher', g: 'm' }, { name: 'Hiker', g: 'm' },
+  { name: 'Beauty', g: 'f' }, { name: 'Ace Trainer', g: 'x' },
+  { name: 'Black Belt', g: 'm' }, { name: 'Psychic', g: 'x' },
+  { name: 'Picnicker', g: 'f' }, { name: 'Camper', g: 'm' },
+  { name: 'Fisherman', g: 'm' }, { name: 'Sailor', g: 'm' },
+  { name: 'Roughneck', g: 'm' }, { name: 'Rich Boy', g: 'm' },
+  { name: 'Lady', g: 'f' }, { name: 'Veteran', g: 'x' },
+  { name: 'Scientist', g: 'x' }, { name: 'Ranger', g: 'x' },
+  { name: 'Swimmer', g: 'x' }, { name: 'Dancer', g: 'x' },
+  { name: 'Artist', g: 'x' }, { name: 'Guitarist', g: 'm' },
+  { name: 'Breeder', g: 'x' }, { name: 'Schoolkid', g: 'x' },
+  { name: 'Gentleman', g: 'm' }, { name: 'Cooltrainer', g: 'x' },
+  { name: 'Hex Maniac', g: 'f' }, { name: 'Bird Keeper', g: 'm' },
+  { name: 'Tamer', g: 'm' },
 ];
 
-const TRAINER_NAMES = [
-  'Joey', 'Mikey', 'Calvin', 'Tristan', 'Vincent', 'Liam', 'Haley', 'Janine',
-  'Dahlia', 'Reed', 'Cole', 'Bridget', 'Owen', 'Marcus', 'Beth', 'Nico',
-  'Kira', 'Sam', 'Reli', 'Tara', 'Devon', 'Polly', 'Gus', 'Hana', 'Wade',
-  'Ivy', 'Otto', 'Rena', 'Pike', 'June', 'Theo', 'Mara', 'Felix', 'Lola',
+const TRAINER_NAMES: Person[] = [
+  { name: 'Joey', g: 'm' }, { name: 'Mikey', g: 'm' },
+  { name: 'Calvin', g: 'm' }, { name: 'Tristan', g: 'm' },
+  { name: 'Vincent', g: 'm' }, { name: 'Liam', g: 'm' },
+  { name: 'Haley', g: 'f' }, { name: 'Janine', g: 'f' },
+  { name: 'Dahlia', g: 'f' }, { name: 'Reed', g: 'm' },
+  { name: 'Cole', g: 'm' }, { name: 'Bridget', g: 'f' },
+  { name: 'Owen', g: 'm' }, { name: 'Marcus', g: 'm' },
+  { name: 'Beth', g: 'f' }, { name: 'Nico', g: 'x' },
+  { name: 'Kira', g: 'f' }, { name: 'Sam', g: 'x' },
+  { name: 'Reli', g: 'x' }, { name: 'Tara', g: 'f' },
+  { name: 'Devon', g: 'm' }, { name: 'Polly', g: 'f' },
+  { name: 'Gus', g: 'm' }, { name: 'Hana', g: 'f' },
+  { name: 'Wade', g: 'm' }, { name: 'Ivy', g: 'f' },
+  { name: 'Otto', g: 'm' }, { name: 'Rena', g: 'f' },
+  { name: 'Pike', g: 'x' }, { name: 'June', g: 'f' },
+  { name: 'Theo', g: 'm' }, { name: 'Mara', g: 'f' },
+  { name: 'Felix', g: 'm' }, { name: 'Lola', g: 'f' },
 ];
 
 const TRAINER_QUOTES = [
@@ -146,10 +193,12 @@ export function championSeed(d = new Date()): string {
 export function buildChampion(d = new Date()): Opponent {
   const rng = new RNG(championSeed(d));
   const type = rng.pick(ALL_TYPES);
-  const sprite = pickSprite(rng, 'champion');
+  // The art is a specific person — let it name the Champion (fallback for any
+  // sprite we haven't identified yet).
+  const sprite = rng.pick([...TRAINER_SPRITES.champion]);
   return {
     id: 'champion',
-    name: rng.pick(CHAMPIONS),
+    name: artName(sprite) ?? rng.pick(CHAMPIONS),
     title: 'Champion',
     sprite: '👑',
     badge: badgeUrl('champion'),
@@ -179,20 +228,28 @@ export function buildGauntlet(
 
   // Distinct type themes for the named leaders + elite trainers.
   const themes = rng.shuffle(ALL_TYPES);
+  const names = rng.shuffle(TRAINER_NAMES);
+  // Each famous sprite *is* a specific person, so we hand out distinct sprites
+  // and let the art decide the name. The shuffled name lists are only a
+  // fallback for any sprite we haven't identified in trainers.meta.ts.
   const leaders = rng.shuffle(GYM_LEADERS);
   const elites = rng.shuffle(ELITE_TRAINERS);
-  const names = rng.shuffle(TRAINER_NAMES);
+  const gymSprites = rng.shuffle([...TRAINER_SPRITES.gym]);
+  const eliteSprites = rng.shuffle([...TRAINER_SPRITES.elite]);
   let themeCursor = 0;
 
-  // Random roadside trainers: small, type-themed warm-up fights.
+  // Random roadside trainers: small, type-themed warm-up fights. The name sets
+  // the sex; the class and overworld sprite are then chosen to match it.
   const trainers: Opponent[] = Array.from({ length: shape.trainers }, (_, i) => {
     const type = rng.pick(ALL_TYPES);
-    const cls = rng.pick(TRAINER_CLASSES);
-    const sprite = pickSprite(rng, 'random');
+    const person = names[i % names.length];
+    const g = concreteGender(rng, person.g);
+    const klass = rng.pick(TRAINER_CLASSES.filter((c) => genderMatches(c.g, g)));
+    const sprite = pickSpriteForGender(rng, 'random', g);
     return {
       id: `trainer-${i}`,
-      name: names[i % names.length],
-      title: cls,
+      name: person.name,
+      title: klass.name,
       sprite: TYPE_EMOJI[type],
       badge: badgeUrl(type),
       art: artUrl(sprite),
@@ -204,13 +261,14 @@ export function buildGauntlet(
     };
   });
 
-  // Gym Leaders: full 6-mon, type-themed teams.
+  // Gym Leaders: full 6-mon, type-themed teams. The displayed leader is whoever
+  // the sprite depicts (e.g. the cowboy is always Clay).
   const gyms: Opponent[] = Array.from({ length: shape.gyms }, (_, i) => {
     const type = themes[themeCursor++];
-    const sprite = pickSprite(rng, 'gym');
+    const sprite = gymSprites[i % gymSprites.length];
     return {
       id: `gym-${i}-${type}`,
-      name: leaders[i % leaders.length],
+      name: artName(sprite) ?? leaders[i % leaders.length],
       title: `${typeLabel(type)} Gym Leader`,
       sprite: TYPE_EMOJI[type],
       badge: badgeUrl(type),
@@ -223,13 +281,13 @@ export function buildGauntlet(
     };
   });
 
-  // Elite trainer(s).
+  // Elite trainer(s) — likewise named after the character in the art.
   const elite: Opponent[] = Array.from({ length: shape.elites }, (_, i) => {
     const type = themes[themeCursor++];
-    const sprite = pickSprite(rng, 'elite');
+    const sprite = eliteSprites[i % eliteSprites.length];
     return {
       id: `elite-${i}-${type}`,
-      name: elites[i % elites.length],
+      name: artName(sprite) ?? elites[i % elites.length],
       title: `Elite — ${typeLabel(type)}`,
       sprite: TYPE_EMOJI[type],
       badge: badgeUrl(type),
