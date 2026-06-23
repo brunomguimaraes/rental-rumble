@@ -31,6 +31,14 @@ const FALLBACKS: Record<PmdAnimKind, string[]> = {
   faint: ['Sleep', 'Hurt', 'Idle'],
 };
 
+// Per-species resting overrides. A few Pokémon "walk" by burrowing/diving, so
+// their Walk sheet is mostly empty (the mon vanishes underground) and the
+// default resting loop would render a blank frame. Rest those on Idle instead.
+// Keyed by National Dex id; applies to the resting kinds (idle/walk) only.
+const RESTING_OVERRIDE: Record<number, string[]> = {
+  51: ['Idle', 'Walk'], // Dugtrio — Walk burrows underground, leaving it invisible
+};
+
 // Sheet rows are facing directions in SpriteCollab's standard order (counter-
 // clockwise from Down). The combatants face across the arena: the player (lower
 // left) looks up-right, the foe (upper right) looks down-left. Sheets with fewer
@@ -57,7 +65,10 @@ export function resolvePmdAnim(
 ): ResolvedPmdAnim | null {
   const entry: PmdEntry | undefined = PMD_SPRITES[dexId];
   if (!entry) return null;
-  for (const name of FALLBACKS[kind]) {
+  const override =
+    (kind === 'idle' || kind === 'walk') && RESTING_OVERRIDE[dexId];
+  const chain = override || FALLBACKS[kind];
+  for (const name of chain) {
     const anim = entry[name];
     if (anim) {
       const refHeight = entry.Idle?.fh ?? entry.Walk?.fh ?? anim.fh;
