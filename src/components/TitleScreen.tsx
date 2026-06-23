@@ -5,12 +5,7 @@ import {
   gauntletLength,
   type Difficulty,
 } from '../game/run';
-import {
-  GENERATIONS,
-  GEN_INFO,
-  genCount,
-  type Generation,
-} from '../game/gens';
+import { GENERATIONS, type Generation } from '../game/gens';
 import { buildChampion, championSeed, dailyKey } from '../game/opponents';
 import { buildChampionTeam } from '../game/battle';
 import { TypeMarquee } from './TypeMarquee';
@@ -20,16 +15,17 @@ import { Credits } from './Credits';
 
 export function TitleScreen({
   onStart,
+  onGenMode,
 }: {
   onStart: (
     difficulty: Difficulty,
     gens: Generation[],
     seed?: string,
   ) => void;
+  onGenMode: () => void;
 }) {
   const [seedInput, setSeedInput] = useState('');
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
-  const [gens, setGens] = useState<Generation[]>(GENERATIONS);
   const [showChampion, setShowChampion] = useState(false);
 
   // Today's shared Champion — the same boss (name + team) for everyone, all day.
@@ -38,17 +34,6 @@ export function TitleScreen({
     () => buildChampionTeam(championSeed(), champion.teamSize),
     [champion],
   );
-
-  const allSelected = gens.length === GENERATIONS.length;
-  const speciesCount = gens.reduce((n, g) => n + genCount(g), 0);
-
-  const toggleGen = (g: Generation) =>
-    setGens((prev) =>
-      prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g],
-    );
-
-  const toggleAll = () =>
-    setGens((prev) => (prev.length === GENERATIONS.length ? [] : GENERATIONS));
 
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-3xl flex-col items-center justify-center px-5 py-10 text-center sm:px-6">
@@ -152,63 +137,10 @@ export function TitleScreen({
         </p>
       </div>
 
-      {/* Generation picker */}
-      <div className="mt-8 w-full max-w-md">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-xs font-bold uppercase tracking-widest text-white/40">
-            Generations — the dex you draft & battle from
-          </span>
-          <button
-            type="button"
-            onClick={toggleAll}
-            className="shrink-0 rounded-full border border-white/15 px-2.5 py-0.5 text-[11px] font-semibold text-white/70 transition hover:bg-white/10"
-          >
-            {allSelected ? 'Clear' : 'All'}
-          </button>
-        </div>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-3">
-          {GENERATIONS.map((g) => {
-            const active = gens.includes(g);
-            return (
-              <button
-                key={g}
-                type="button"
-                onClick={() => toggleGen(g)}
-                aria-pressed={active}
-                className={`rounded-2xl border px-2 py-2 text-center transition ${
-                  active
-                    ? 'border-white/70 bg-white/10'
-                    : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
-                }`}
-              >
-                <div className="text-sm font-bold">{GEN_INFO[g].label}</div>
-                <div className="text-[11px] text-white/50">
-                  {GEN_INFO[g].region}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-        <p className="mt-2 text-center text-xs text-white/45">
-          {gens.length === 0 ? (
-            <span className="text-amber-300/80">
-              Pick at least one generation to play.
-            </span>
-          ) : (
-            <>
-              {speciesCount} Pokémon across{' '}
-              {allSelected ? 'every' : gens.length} generation
-              {gens.length === 1 ? '' : 's'}.
-            </>
-          )}
-        </p>
-      </div>
-
       <button
         type="button"
-        onClick={() => onStart(difficulty, gens)}
-        disabled={gens.length === 0}
-        className="mt-7 rounded-full bg-white px-8 py-3 text-lg font-bold text-black transition-transform hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
+        onClick={() => onStart(difficulty, GENERATIONS)}
+        className="mt-8 rounded-full bg-white px-8 py-3 text-lg font-bold text-black transition-transform hover:scale-105 active:scale-95"
       >
         Roll the dice →
       </button>
@@ -223,14 +155,24 @@ export function TitleScreen({
         <button
           type="button"
           onClick={() =>
-            onStart(difficulty, gens, seedInput.trim() || undefined)
+            onStart(difficulty, GENERATIONS, seedInput.trim() || undefined)
           }
-          disabled={!seedInput.trim() || gens.length === 0}
+          disabled={!seedInput.trim()}
           className="shrink-0 rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 disabled:opacity-30"
         >
           Use seed
         </button>
       </div>
+
+      {/* Gen-locked challenge — a separate menu that restricts the whole run
+          (draft and every foe) to a single generation. */}
+      <button
+        type="button"
+        onClick={onGenMode}
+        className="mt-5 rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/75 transition hover:bg-white/10"
+      >
+        🔒 Gen-locked challenge →
+      </button>
 
       <p className="mt-10 max-w-sm text-xs leading-relaxed text-white/35">
         Every run is defined by its seed — share it and a friend gets the exact

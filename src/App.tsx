@@ -12,13 +12,21 @@ import {
 import type { Difficulty } from './game/run';
 import { GENERATIONS, creaturesForGens, type Generation } from './game/gens';
 import { TitleScreen } from './components/TitleScreen';
+import { GenSelectScreen } from './components/GenSelectScreen';
 import { DraftScreen } from './components/DraftScreen';
 import { MapScreen } from './components/MapScreen';
 import { BattleScreen } from './components/BattleScreen';
 import { RecruitScreen } from './components/RecruitScreen';
 import { ResultScreen } from './components/ResultScreen';
 
-type Phase = 'title' | 'draft' | 'map' | 'battle' | 'recruit' | 'over';
+type Phase =
+  | 'title'
+  | 'genSelect'
+  | 'draft'
+  | 'map'
+  | 'battle'
+  | 'recruit'
+  | 'over';
 
 // "Hero" edge so a well-drafted (and well-recruited) team can realistically
 // run the gauntlet — a strong team clears all 7 ~40% of the time. See
@@ -42,20 +50,22 @@ export default function App() {
   const opponent = gauntlet[stage];
 
   // The species pool for this run, restricted to the selected generations.
-  // Drives both the draft and the gym/elite opponents (the Champion stays a
-  // shared, dex-wide daily boss).
+  // Drives the draft and every foe — including the Champion — so a gen-locked
+  // run keeps the whole ladder in-gen. For a standard (all-gens) run this is
+  // the full dex, so the Champion stays the shared daily boss.
   const dex = useMemo(() => creaturesForGens(gens), [gens]);
 
   const battle = useMemo<{ foeTeam: Creature[]; result: BattleResult } | null>(
     () => {
       if (phase !== 'battle') return null;
       const battleSeed = `${seed}#${stage}`;
-      // The Champion is the shared daily boss: its team is seeded by the date,
-      // so it's identical for everyone, while the fight RNG stays run-specific.
-      // The Champion has no type theme; Gyms and the Elite are type-themed.
+      // The Champion's team is seeded by the date (shared daily boss on a
+      // standard run), while the fight RNG stays run-specific. On a gen-locked
+      // run the filtered `dex` keeps the Champion in-gen too. The Champion has
+      // no type theme; Gyms and the Elite are type-themed.
       const foeTeam =
         opponent.tier === 'champion'
-          ? buildChampionTeam(championSeed(), opponent.teamSize)
+          ? buildChampionTeam(championSeed(), opponent.teamSize, dex)
           : buildOpponentTeam(
               opponent.type,
               opponent.teamSize,
@@ -104,7 +114,17 @@ export default function App() {
 
   switch (phase) {
     case 'title':
-      return <TitleScreen onStart={startRun} />;
+      return (
+        <TitleScreen
+          onStart={startRun}
+          onGenMode={() => setPhase('genSelect')}
+        />
+      );
+
+    case 'genSelect':
+      return (
+        <GenSelectScreen onStart={startRun} onBack={() => setPhase('title')} />
+      );
 
     case 'draft':
       return (

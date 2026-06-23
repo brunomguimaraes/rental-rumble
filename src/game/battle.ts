@@ -508,11 +508,16 @@ export function buildOpponentTeam(
  * Champion team: a strong, type-diverse squad built from the highest-BST
  * Pokémon, guaranteed to include at least one "special" (legendary / mythical /
  * pseudo-legendary). Seeded by the daily champion seed so it's the same team for
- * everyone that day.
+ * everyone that day. The optional `dex` restricts which species can appear (e.g.
+ * a gen-locked run), defaulting to the full dex.
  */
-export function buildChampionTeam(seed: string, size: number): Creature[] {
+export function buildChampionTeam(
+  seed: string,
+  size: number,
+  dex: Creature[] = CREATURES,
+): Creature[] {
   const rng = new RNG(`champ-team:${seed}`);
-  const byBst = [...CREATURES].sort((a, b) => bst(b) - bst(a));
+  const byBst = [...dex].sort((a, b) => bst(b) - bst(a));
   const topSpecials = byBst.filter((c) => c.tier !== 'normal').slice(0, 40);
   const topNormals = byBst.filter((c) => c.tier === 'normal').slice(0, 80);
 
