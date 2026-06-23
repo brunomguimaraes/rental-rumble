@@ -2,8 +2,12 @@ import type { Opponent, OpponentTier, PokemonType } from './types';
 import { TYPE_COLORS, typeLabel } from './typechart';
 import { RNG } from './rng';
 import { GAUNTLET_SHAPE, type Difficulty } from './run';
-import { TRAINER_SPRITES, type TrainerCategory } from './trainers.gen';
-import { artGender, artName, genderMatches, type Gender } from './trainers.meta';
+import {
+  TRAINER_SPRITES,
+  type TrainerCategory,
+  type TrainerGender,
+  type TrainerSprite,
+} from './trainers.gen';
 
 export const TIER_LABEL: Record<OpponentTier, string> = {
   trainer: 'Trainer',
@@ -51,25 +55,21 @@ const badgeUrl = (key: PokemonType | 'champion') =>
 const artUrl = (key: string) => `${ASSET}sprites/trainers/${key}.png`;
 const gifUrl = (key: string) => `${ASSET}sprites/trainers/${key}.gif`;
 
-/** Resolve a possibly-neutral sex to a concrete one so name/class/art agree. */
-function concreteGender(rng: RNG, g: Gender): Gender {
-  return g === 'x' ? (rng.next() < 0.5 ? 'm' : 'f') : g;
+/** Whether a sprite of sex `have` is acceptable for a trainer wanting `want`. */
+function genderMatches(have: TrainerGender, want: TrainerGender): boolean {
+  return have === 'x' || want === 'x' || have === want;
 }
 
-/**
- * Pick a roadside sprite whose sex is acceptable for `want` (neutral art
- * matches anyone). Falls back to the whole pool if nothing matches, so a
- * missing metadata entry degrades to the old behaviour instead of crashing.
- */
-function pickSpriteForGender(
-  rng: RNG,
-  cat: TrainerCategory,
-  want: Gender,
-): string {
-  const pool = TRAINER_SPRITES[cat].filter((k) =>
-    genderMatches(artGender(k), want),
-  );
-  return rng.pick(pool.length ? pool : [...TRAINER_SPRITES[cat]]);
+/** A drawer that hands out distinct sprites from a category pool (no repeats
+ *  until the pool is exhausted), optionally constrained to a sex. */
+function spriteDrawer(rng: RNG, cat: TrainerCategory) {
+  const remaining = rng.shuffle([...TRAINER_SPRITES[cat]]);
+  return (want: TrainerGender = 'x'): TrainerSprite => {
+    const idx = remaining.findIndex((s) => genderMatches(s.gender, want));
+    const pick = idx >= 0 ? remaining.splice(idx, 1)[0] : remaining.shift();
+    // Pool exhausted (more opponents than sprites): fall back to a fresh draw.
+    return pick ?? rng.pick(TRAINER_SPRITES[cat]);
+  };
 }
 
 // Real gym leaders from across the series — picked at random for each run.
@@ -101,31 +101,13 @@ const CHAMPIONS = [
   'Diantha', 'Kukui', 'Hau', 'Leon', 'Geeta', 'Nemona', 'Trace', 'Mustard',
 ];
 
-// Roadside "random" trainers: a class (the title) + a given name. Both carry a
-// sex so we can hand them a matching overworld sprite ('x' = unisex). A "Lass"
-// is never drawn over a male body, and "Beth the Beauty" never wears one either.
+// Roadside "random" trainers: the class title comes from the chosen sprite (so
+// it always matches the art), and we pair it with a given name of the same sex
+// ('x' = unisex). A "Lass" is never drawn over a male body, nor "Beth" over one.
 interface Person {
   name: string;
-  g: Gender;
+  g: TrainerGender;
 }
-
-const TRAINER_CLASSES: Person[] = [
-  { name: 'Youngster', g: 'm' }, { name: 'Lass', g: 'f' },
-  { name: 'Bug Catcher', g: 'm' }, { name: 'Hiker', g: 'm' },
-  { name: 'Beauty', g: 'f' }, { name: 'Ace Trainer', g: 'x' },
-  { name: 'Black Belt', g: 'm' }, { name: 'Psychic', g: 'x' },
-  { name: 'Picnicker', g: 'f' }, { name: 'Camper', g: 'm' },
-  { name: 'Fisherman', g: 'm' }, { name: 'Sailor', g: 'm' },
-  { name: 'Roughneck', g: 'm' }, { name: 'Rich Boy', g: 'm' },
-  { name: 'Lady', g: 'f' }, { name: 'Veteran', g: 'x' },
-  { name: 'Scientist', g: 'x' }, { name: 'Ranger', g: 'x' },
-  { name: 'Swimmer', g: 'x' }, { name: 'Dancer', g: 'x' },
-  { name: 'Artist', g: 'x' }, { name: 'Guitarist', g: 'm' },
-  { name: 'Breeder', g: 'x' }, { name: 'Schoolkid', g: 'x' },
-  { name: 'Gentleman', g: 'm' }, { name: 'Cooltrainer', g: 'x' },
-  { name: 'Hex Maniac', g: 'f' }, { name: 'Bird Keeper', g: 'm' },
-  { name: 'Tamer', g: 'm' },
-];
 
 const TRAINER_NAMES: Person[] = [
   { name: 'Joey', g: 'm' }, { name: 'Mikey', g: 'm' },
@@ -195,15 +177,15 @@ export function buildChampion(d = new Date()): Opponent {
   const type = rng.pick(ALL_TYPES);
   // The art is a specific person — let it name the Champion (fallback for any
   // sprite we haven't identified yet).
-  const sprite = rng.pick([...TRAINER_SPRITES.champion]);
+  const sprite = rng.pick(TRAINER_SPRITES.champion);
   return {
     id: 'champion',
-    name: artName(sprite) ?? rng.pick(CHAMPIONS),
+    name: sprite.name ?? rng.pick(CHAMPIONS),
     title: 'Champion',
     sprite: '👑',
     badge: badgeUrl('champion'),
-    art: artUrl(sprite),
-    artGif: gifUrl(sprite),
+    art: artUrl(sprite.key),
+    artGif: gifUrl(sprite.key),
     type,
     teamSize: 6,
     tier: 'champion',
@@ -230,30 +212,39 @@ export function buildGauntlet(
   const themes = rng.shuffle(ALL_TYPES);
   const names = rng.shuffle(TRAINER_NAMES);
   // Each famous sprite *is* a specific person, so we hand out distinct sprites
-  // and let the art decide the name. The shuffled name lists are only a
-  // fallback for any sprite we haven't identified in trainers.meta.ts.
+  // and let the art decide the name. The shuffled name lists are only a fallback
+  // for any sprite we haven't identified.
   const leaders = rng.shuffle(GYM_LEADERS);
   const elites = rng.shuffle(ELITE_TRAINERS);
-  const gymSprites = rng.shuffle([...TRAINER_SPRITES.gym]);
-  const eliteSprites = rng.shuffle([...TRAINER_SPRITES.elite]);
+  const drawRandom = spriteDrawer(rng, 'random');
+  const drawGym = spriteDrawer(rng, 'gym');
+  const drawElite = spriteDrawer(rng, 'elite');
   let themeCursor = 0;
+  let nameCursor = 0;
 
-  // Random roadside trainers: small, type-themed warm-up fights. The name sets
-  // the sex; the class and overworld sprite are then chosen to match it.
+  // Random roadside trainers: small, type-themed warm-up fights. The sprite
+  // fixes the class + sex; we then pair it with a same-sex given name.
   const trainers: Opponent[] = Array.from({ length: shape.trainers }, (_, i) => {
     const type = rng.pick(ALL_TYPES);
-    const person = names[i % names.length];
-    const g = concreteGender(rng, person.g);
-    const klass = rng.pick(TRAINER_CLASSES.filter((c) => genderMatches(c.g, g)));
-    const sprite = pickSpriteForGender(rng, 'random', g);
+    const sprite = drawRandom();
+    // Next shuffled name whose sex is compatible with the sprite.
+    let person = names[nameCursor % names.length];
+    for (let n = 0; n < names.length; n++) {
+      const cand = names[(nameCursor + n) % names.length];
+      if (genderMatches(cand.g, sprite.gender)) {
+        person = cand;
+        nameCursor = nameCursor + n + 1;
+        break;
+      }
+    }
     return {
       id: `trainer-${i}`,
       name: person.name,
-      title: klass.name,
+      title: sprite.cls ?? 'Trainer',
       sprite: TYPE_EMOJI[type],
       badge: badgeUrl(type),
-      art: artUrl(sprite),
-      artGif: gifUrl(sprite),
+      art: artUrl(sprite.key),
+      artGif: gifUrl(sprite.key),
       type,
       teamSize: 3,
       tier: 'trainer' as const,
@@ -265,15 +256,15 @@ export function buildGauntlet(
   // the sprite depicts (e.g. the cowboy is always Clay).
   const gyms: Opponent[] = Array.from({ length: shape.gyms }, (_, i) => {
     const type = themes[themeCursor++];
-    const sprite = gymSprites[i % gymSprites.length];
+    const sprite = drawGym();
     return {
       id: `gym-${i}-${type}`,
-      name: artName(sprite) ?? leaders[i % leaders.length],
+      name: sprite.name ?? leaders[i % leaders.length],
       title: `${typeLabel(type)} Gym Leader`,
       sprite: TYPE_EMOJI[type],
       badge: badgeUrl(type),
-      art: artUrl(sprite),
-      artGif: gifUrl(sprite),
+      art: artUrl(sprite.key),
+      artGif: gifUrl(sprite.key),
       type,
       teamSize: 6,
       tier: 'gym' as const,
@@ -284,15 +275,15 @@ export function buildGauntlet(
   // Elite trainer(s) — likewise named after the character in the art.
   const elite: Opponent[] = Array.from({ length: shape.elites }, (_, i) => {
     const type = themes[themeCursor++];
-    const sprite = eliteSprites[i % eliteSprites.length];
+    const sprite = drawElite();
     return {
       id: `elite-${i}-${type}`,
-      name: artName(sprite) ?? elites[i % elites.length],
+      name: sprite.name ?? elites[i % elites.length],
       title: `Elite — ${typeLabel(type)}`,
       sprite: TYPE_EMOJI[type],
       badge: badgeUrl(type),
-      art: artUrl(sprite),
-      artGif: gifUrl(sprite),
+      art: artUrl(sprite.key),
+      artGif: gifUrl(sprite.key),
       type,
       teamSize: 6,
       tier: 'elite' as const,

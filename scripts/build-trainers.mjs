@@ -4,32 +4,103 @@
 //   public/sprites/trainers/<key>.gif  — a looping idle walk (top-row 4 frames)
 // and emits src/game/trainers.gen.ts mapping each opponent category to its pool.
 //
-// Sources are RPG Maker / Pokémon Essentials community resources (© Nintendo /
-// Game Freak — used here only for a private, non-commercial project):
-//   - "Gen 4 OWs v1.5" (Vanilla Sunshine et al.) — trchar* trainer classes
-//   - "OW PACK" (Gen 5 BW/B2W2 style) — trGymLeader/trElite4/trChampion roles
+// Crucially, every sprite is emitted WITH metadata so the game never has to
+// guess: roadside trainers carry their class + sex (read straight off the
+// gendered source filenames, e.g. trSwimmer_F / trYoungster), and the famous
+// tiers carry the canonical character the rip depicts (verified against the
+// games — Alder, Elesa, Clay, Roxie, …). That keeps the displayed name/sex
+// honest: a "Lass" is never a male body, and Clay's sprite is always "Clay".
+//
+// Source is the Gen-5 "OW PACK" (BW/B2W2 style) — © Nintendo / Game Freak, used
+// here only for a private, non-commercial project.
 //
 // Requires ImageMagick (`magick`). Run: node scripts/build-trainers.mjs
-import {
-  mkdirSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-  existsSync,
-} from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const GEN4 =
-  process.env.GEN4_DIR ||
-  '/Users/milano/Downloads/Gen 4 OWs v1.5 - Vanilla Sunshine (1)';
 const OWPACK = process.env.OWPACK_DIR || '/Users/milano/Downloads/OW PACK';
-
 const outDir = join(root, 'public/sprites/trainers');
 const tmp = join(tmpdir(), 'trainer-frames');
+
+// Canonical identities for the numbered role rips, verified by eye against the
+// source art and cross-checked with Bulbapedia (e.g. Roxie = white ponytail +
+// magenta dress; Lenora = cyan hair, dark skin; Burgh = brown hair, green eyes).
+// 'm'/'f' is each character's sex, used for sprite/name agreement.
+const GYM = [
+  ['trGymLeader01', 'Chili', 'm'],
+  ['trGymLeader02', 'Lenora', 'f'],
+  ['trGymLeader03', 'Burgh', 'm'],
+  ['trGymLeader04', 'Elesa', 'f'],
+  ['trGymLeader05', 'Clay', 'm'],
+  ['trGymLeader06', 'Skyla', 'f'],
+  ['trGymLeader07', 'Brycen', 'm'],
+  ['trGymLeader08', 'Drayden', 'm'],
+  ['trGymLeader09', 'Cheren', 'm'],
+  ['trGymLeader10', 'Roxie', 'f'],
+  ['trGymLeader11', 'Marlon', 'm'],
+];
+const ELITE = [
+  ['trElite4_1', 'Shauntal', 'f'],
+  ['trElite4_2', 'Grimsley', 'm'],
+  ['trElite4_3', 'Caitlin', 'f'],
+  ['trElite4_4', 'Marshal', 'm'],
+];
+const CHAMPION = [
+  ['trChampion01', 'Alder', 'm'],
+  ['trChampion02', 'Iris', 'f'],
+  ['trBenga', 'Benga', 'm'], // Alder's grandson, the Black Tower/Treehollow boss
+];
+
+// Roadside trainer classes: [sourceBase, displayTitle, sex]. 'both' expands to
+// the _F and _M variants the pack ships; 'm'/'f' use the bare tr<Name>.png file.
+const CLASSES = [
+  ['AceTrainer', 'Ace Trainer', 'both'],
+  ['Artist', 'Artist', 'm'],
+  ['Backpacker', 'Backpacker', 'both'],
+  ['Baker', 'Baker', 'f'],
+  ['BattleGirl', 'Battle Girl', 'f'],
+  ['Beauty', 'Beauty', 'f'],
+  ['BlackBelt', 'Black Belt', 'm'],
+  ['Breeder', 'Pokémon Breeder', 'both'],
+  ['Cyclist', 'Cyclist', 'both'],
+  ['Dancer', 'Dancer', 'm'],
+  ['DepotAgent', 'Depot Agent', 'm'],
+  ['Doctor', 'Doctor', 'm'],
+  ['Fisher', 'Fisherman', 'm'],
+  ['Gentleman', 'Gentleman', 'm'],
+  ['Guitarist', 'Guitarist', 'm'],
+  ['Harlequin', 'Harlequin', 'm'],
+  ['Hiker', 'Hiker', 'm'],
+  ['Janitor', 'Janitor', 'm'],
+  ['Lady', 'Lady', 'f'],
+  ['Lass', 'Lass', 'f'],
+  ['Maid', 'Maid', 'f'],
+  ['Musician', 'Musician', 'm'],
+  ['Nurse', 'Nurse', 'f'],
+  ['NurseryAide', 'Nursery Aide', 'f'],
+  ['ParasolLady', 'Parasol Lady', 'f'],
+  ['Pilot', 'Pilot', 'm'],
+  ['PokeFan', 'PokéFan', 'both'],
+  ['Policeman', 'Police Officer', 'm'],
+  ['Preschooler', 'Preschooler', 'both'],
+  ['Psychic', 'Psychic', 'both'],
+  ['Ranger', 'Pokémon Ranger', 'both'],
+  ['RichBoy', 'Rich Boy', 'm'],
+  ['Roughneck', 'Roughneck', 'm'],
+  ['SchoolKid', 'Schoolkid', 'both'],
+  ['Scientist', 'Scientist', 'both'],
+  ['Socialite', 'Socialite', 'f'],
+  ['Swimmer', 'Swimmer', 'both'],
+  ['Veteran', 'Veteran', 'both'],
+  ['Waiter', 'Waiter', 'm'],
+  ['Waitress', 'Waitress', 'f'],
+  ['Worker', 'Worker', 'm'],
+  ['Youngster', 'Youngster', 'm'],
+];
 
 function magick(args) {
   execFileSync('magick', args, { stdio: ['ignore', 'ignore', 'inherit'] });
@@ -52,29 +123,15 @@ function build(srcFile, key) {
 
   // Explode into individual frames; row-major so 00..03 are the front row.
   magick([
-    srcFile,
-    '-crop',
-    `${cw}x${ch}`,
-    '+repage',
-    '-background',
-    'none',
-    join(tmp, 'f_%02d.png'),
+    srcFile, '-crop', `${cw}x${ch}`, '+repage',
+    '-background', 'none', join(tmp, 'f_%02d.png'),
   ]);
 
-  const front = join(tmp, 'f_00.png');
   // Static icon: trim transparent padding, then re-center on a square canvas so
   // every trainer lines up regardless of how tall their sprite sits in-cell.
   magick([
-    front,
-    '-trim',
-    '+repage',
-    '-background',
-    'none',
-    '-gravity',
-    'south',
-    '-extent',
-    `${cw}x${ch}`,
-    join(outDir, `${key}.png`),
+    join(tmp, 'f_00.png'), '-trim', '+repage', '-background', 'none',
+    '-gravity', 'south', '-extent', `${cw}x${ch}`, join(outDir, `${key}.png`),
   ]);
 
   // Idle gif: the four front-facing frames, looping. GIF has no alpha channel,
@@ -87,40 +144,19 @@ function build(srcFile, key) {
   const keyed = ['f_00', 'f_01', 'f_02', 'f_03'].map((f) => {
     const dst = join(tmp, `k_${f}.png`);
     magick([
-      join(tmp, `${f}.png`),
-      '-background',
-      KEY,
-      '-alpha',
-      'remove',
-      '-alpha',
-      'off',
-      dst,
+      join(tmp, `${f}.png`), '-background', KEY,
+      '-alpha', 'remove', '-alpha', 'off', dst,
     ]);
     return dst;
   });
   magick([
-    '-dispose',
-    'background',
-    '-delay',
-    '18',
-    '-loop',
-    '0',
-    ...keyed,
-    '-transparent',
-    KEY,
-    join(outDir, `${key}.gif`),
+    '-dispose', 'background', '-delay', '18', '-loop', '0',
+    ...keyed, '-transparent', KEY, join(outDir, `${key}.gif`),
   ]);
 }
 
-// Pick up to `cap` entries spread evenly across a sorted list (for variety).
-function spread(list, cap) {
-  if (list.length <= cap) return list;
-  const step = list.length / cap;
-  return Array.from({ length: cap }, (_, i) => list[Math.floor(i * step)]);
-}
-
-if (!existsSync(GEN4) || !existsSync(OWPACK)) {
-  console.error('Source sprite folders not found. Set GEN4_DIR / OWPACK_DIR.');
+if (!existsSync(OWPACK)) {
+  console.error('OW PACK folder not found. Set OWPACK_DIR.');
   process.exit(1);
 }
 
@@ -128,47 +164,70 @@ rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
 
 const manifest = { random: [], gym: [], elite: [], champion: [] };
+const slug = (s) => s.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
 
-// --- Random trainers: Gen 4 trainer-class charsets (trchar000..178). --------
-const trchars = readdirSync(GEN4)
-  .filter((f) => /^trchar\d+\.png$/i.test(f))
-  .sort();
-for (const [i, f] of spread(trchars, 40).entries()) {
-  const key = `random-${String(i).padStart(2, '0')}`;
-  build(join(GEN4, f), key);
-  manifest.random.push(key);
-}
-
-// --- Role sprites: Gen 5 OW PACK (gym leaders / elite four / champions). -----
-const roleSets = [
-  { cat: 'gym', re: /^trGymLeader(\d+)\.png$/ },
-  { cat: 'elite', re: /^trElite4_(\d+)\.png$/ },
-  { cat: 'champion', re: /^trChampion(\d+)\.png$/ },
-];
-const owFiles = readdirSync(OWPACK);
-for (const { cat, re } of roleSets) {
-  const matches = owFiles
-    .map((f) => ({ f, m: f.match(re) }))
-    .filter((x) => x.m)
-    .sort((a, b) => Number(a.m[1]) - Number(b.m[1]));
-  for (const [i, { f }] of matches.entries()) {
-    const key = `${cat}-${String(i + 1).padStart(2, '0')}`;
-    build(join(OWPACK, f), key);
-    manifest[cat].push(key);
+// --- Roadside "random" trainers: gendered class sprites. ---------------------
+for (const [base, title, sex] of CLASSES) {
+  const variants =
+    sex === 'both'
+      ? [['_F', 'f'], ['_M', 'm']]
+      : [['', sex]];
+  for (const [suffix, g] of variants) {
+    const src = join(OWPACK, `tr${base}${suffix}.png`);
+    if (!existsSync(src)) {
+      console.warn(`skip missing ${src}`);
+      continue;
+    }
+    const key = `random-${slug(base)}${suffix ? `-${g}` : ''}`;
+    build(src, key);
+    manifest.random.push({ key, gender: g, cls: title });
   }
 }
 
-// --- Emit the TypeScript manifest. -------------------------------------------
-const ts = `// AUTO-GENERATED by scripts/build-trainers.mjs — do not edit by hand.
-// Overworld trainer sprites, grouped by opponent category. Files live at
-// public/sprites/trainers/<key>.png (front-facing icon) and .gif (idle loop).
-export type TrainerCategory = 'random' | 'gym' | 'elite' | 'champion';
+// --- Famous tiers: numbered role rips bound to their canonical character. -----
+const roles = [
+  ['gym', GYM, (i) => `gym-${String(i + 1).padStart(2, '0')}`],
+  ['elite', ELITE, (i) => `elite-${String(i + 1).padStart(2, '0')}`],
+  ['champion', CHAMPION, (i) => `champion-${String(i + 1).padStart(2, '0')}`],
+];
+for (const [cat, list, keyFor] of roles) {
+  list.forEach(([base, name, g], i) => {
+    const src = join(OWPACK, `${base}.png`);
+    if (!existsSync(src)) {
+      console.warn(`skip missing ${src}`);
+      return;
+    }
+    const key = keyFor(i);
+    build(src, key);
+    manifest[cat].push({ key, gender: g, name });
+  });
+}
 
-export const TRAINER_SPRITES: Record<TrainerCategory, readonly string[]> = {
-  random: ${JSON.stringify(manifest.random)},
-  gym: ${JSON.stringify(manifest.gym)},
-  elite: ${JSON.stringify(manifest.elite)},
-  champion: ${JSON.stringify(manifest.champion)},
+// --- Emit the TypeScript manifest. -------------------------------------------
+const fmt = (arr) =>
+  '[\n' + arr.map((e) => `    ${JSON.stringify(e)},`).join('\n') + '\n  ]';
+const ts = `// AUTO-GENERATED by scripts/build-trainers.mjs — do not edit by hand.
+// Overworld trainer sprites + metadata, grouped by opponent category. Files live
+// at public/sprites/trainers/<key>.png (front-facing icon) and .gif (idle loop).
+// \`gender\` is the sprite's sex ('x' = unisex/ambiguous); roadside sprites carry
+// their trainer \`cls\`, and the famous tiers carry the canonical character \`name\`.
+export type TrainerCategory = 'random' | 'gym' | 'elite' | 'champion';
+export type TrainerGender = 'm' | 'f' | 'x';
+
+export interface TrainerSprite {
+  key: string;
+  gender: TrainerGender;
+  /** Canonical character depicted (gym / elite / champion). */
+  name?: string;
+  /** Trainer-class title (roadside "random" trainers). */
+  cls?: string;
+}
+
+export const TRAINER_SPRITES: Record<TrainerCategory, readonly TrainerSprite[]> = {
+  random: ${fmt(manifest.random)},
+  gym: ${fmt(manifest.gym)},
+  elite: ${fmt(manifest.elite)},
+  champion: ${fmt(manifest.champion)},
 };
 `;
 writeFileSync(join(root, 'src/game/trainers.gen.ts'), ts);
