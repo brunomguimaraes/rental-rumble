@@ -4,10 +4,15 @@ import type { Creature, Opponent, PokemonType, Role, Side } from '../game/types'
 import { TYPE_COLORS, effectivenessLabel, typeIconUrl } from '../game/typechart';
 import { ROLE_INFO } from '../game/roles';
 import { hasPmdSprite, type PmdAnimKind } from '../game/pmd';
+import { ballUrl } from '../game/balls';
 import { HpBar } from './HpBar';
 import { TypeBadges } from './TypeBadge';
 import { TrainerSprite } from './TrainerSprite';
 import { PmdSprite } from './PmdSprite';
+
+const REDUCED_MOTION =
+  typeof window !== 'undefined' &&
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 interface ActiveView {
   name: string;
@@ -15,6 +20,7 @@ interface ActiveView {
   sprite: string;
   types: PokemonType[];
   role: Role;
+  ball: string;
   hp: number;
   maxHp: number;
 }
@@ -37,7 +43,7 @@ const BATTLE_BG = `${import.meta.env.BASE_URL}sprites/backgrounds/forest.png`;
 // is DELAY.hit — kept long enough to actually watch the attack land. Tuned slower
 // than a snappy log so the animations read; the 2× toggle speeds it back up.
 const DELAY: Record<BattleEvent['kind'], number> = {
-  sendout: 850,
+  sendout: 450,
   move: 900,
   miss: 850,
   hit: 820,
@@ -61,6 +67,7 @@ function initialView(c: Creature, side: Side): ActiveView {
     sprite: spriteFor(c, side),
     types: c.types,
     role: c.role,
+    ball: c.pokeball,
     hp: 0,
     maxHp: 1,
   };
@@ -174,18 +181,17 @@ function Combatant({
 // a corner of the arena (foe top-right, player bottom-left).
 function InfoCard({
   view,
-  side,
   faints,
   teamSize,
+  alignEnd,
   className,
 }: {
   view: ActiveView;
-  side: Side;
   faints: number;
   teamSize: number;
+  alignEnd: boolean;
   className: string;
 }) {
-  const alignEnd = side === 'foe';
   return (
     <div
       className={`absolute z-10 w-40 rounded-2xl border border-white/10 bg-black/55 px-3 py-2 shadow-lg backdrop-blur-sm sm:w-52 ${className}`}
@@ -451,20 +457,22 @@ export function BattleScreen({
           </div>
         )}
 
-        {/* Status cards in opposite corners. */}
+        {/* Each HP card sits in the corner opposite its sprite (foe sprite is
+            upper-right, player sprite lower-left) so the cards never cover the
+            Pokémon — even on narrow phone screens. */}
         <InfoCard
           view={foe}
-          side="foe"
           faints={fFaints}
           teamSize={foeTeam.length}
-          className="right-2 top-2 sm:right-3 sm:top-3"
+          alignEnd={false}
+          className="left-2 top-2 sm:left-3 sm:top-3"
         />
         <InfoCard
           view={player}
-          side="player"
           faints={pFaints}
           teamSize={playerTeam.length}
-          className="bottom-2 left-2 sm:bottom-3 sm:left-3"
+          alignEnd
+          className="bottom-2 right-2 sm:bottom-3 sm:right-3"
         />
       </div>
 

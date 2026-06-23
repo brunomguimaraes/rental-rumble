@@ -23,17 +23,17 @@ function StatBar({
 }) {
   const pct = Math.min(100, (value / max) * 100);
   return (
-    <div className="flex items-center gap-2">
-      <span className="w-7 text-[10px] uppercase tracking-wider text-white/45">
+    <div className="flex items-center gap-1.5">
+      <span className="w-6 shrink-0 text-[10px] uppercase tracking-wider text-white/45 sm:w-7">
         {label}
       </span>
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+      <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/10">
         <div
           className="h-full rounded-full bg-white/55"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="w-7 text-right text-[10px] tabular-nums text-white/60">
+      <span className="w-6 shrink-0 text-right text-[10px] tabular-nums text-white/60 sm:w-7">
         {value}
       </span>
     </div>

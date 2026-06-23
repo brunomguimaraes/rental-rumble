@@ -7,7 +7,10 @@ import {
   rollDraftDeck,
   type Difficulty,
 } from '../game/run';
+import { withBall } from '../game/pokemon';
+import { ballUrl } from '../game/balls';
 import { CreatureCard } from './CreatureCard';
+import { BallBadge, BallPicker } from './BallPicker';
 import { MiniSprite } from './MiniSprite';
 import {
   ALL_TYPES,
@@ -31,6 +34,13 @@ export function DraftScreen({
   const [deck] = useState<Creature[]>(() => rollDraftDeck(seed, dex));
   const [picked, setPicked] = useState<Creature[]>([]);
   const [skipsUsed, setSkipsUsed] = useState(0);
+  const [ballEditor, setBallEditor] = useState<number | null>(null);
+
+  const setBall = (index: number, ball: string) => {
+    setPicked((prev) =>
+      prev.map((c, i) => (i === index ? withBall(c, ball) : c)),
+    );
+  };
 
   const skipBudget = DIFFICULTY_INFO[difficulty].skips;
   const skipsLeft = skipBudget - skipsUsed;
@@ -163,11 +173,20 @@ export function DraftScreen({
           <div className="text-4xl">✅</div>
           <h3 className="mt-2 text-xl font-black sm:text-2xl">Your team is set</h3>
           <p className="mt-1 text-sm text-white/55">
-            Six drafted — review them below and enter the gauntlet.
+            Six drafted — tap a Pokémon's{' '}
+            <span className="text-white/80">ball</span> to choose how it's sent
+            into battle, then enter the gauntlet.
           </p>
           <div className="mx-auto mt-6 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-3">
             {picked.map((c, i) => (
-              <CreatureCard key={`${c.id}-${i}`} creature={c} />
+              <div key={`${c.id}-${i}`} className="relative">
+                <CreatureCard creature={c} />
+                <BallBadge
+                  ball={c.pokeball}
+                  onClick={() => setBallEditor(i)}
+                  className="absolute right-2 top-2 z-10 h-8 w-8"
+                />
+              </div>
             ))}
           </div>
         </div>
@@ -203,14 +222,14 @@ export function DraftScreen({
 
       {/* Sticky team tray */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#0c0c14]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-3 py-2.5 sm:gap-4 sm:px-4 sm:py-3">
-          <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto sm:gap-2">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:flex-nowrap sm:gap-x-4 sm:px-4 sm:py-3">
+          <div className="order-1 flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto sm:flex-none sm:gap-2">
             {Array.from({ length: TEAM_SIZE }).map((_, i) => {
               const c = picked[i];
               return (
                 <div
                   key={i}
-                  className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border sm:h-12 sm:w-12 ${
+                  className={`relative grid h-10 w-10 shrink-0 place-items-center rounded-xl border sm:h-12 sm:w-12 ${
                     c
                       ? 'border-white/30 bg-white/10'
                       : 'border-dashed border-white/15 bg-white/[0.02] text-white/20'
@@ -218,7 +237,14 @@ export function DraftScreen({
                   title={c?.name}
                 >
                   {c ? (
-                    <MiniSprite creature={c} className="h-9 w-9 sm:h-10 sm:w-10" />
+                    <>
+                      <MiniSprite creature={c} className="h-9 w-9 sm:h-10 sm:w-10" />
+                      <img
+                        src={ballUrl(c.pokeball)}
+                        alt=""
+                        className="absolute -bottom-1 -right-1 h-4 w-4 object-contain drop-shadow [image-rendering:pixelated]"
+                      />
+                    </>
                   ) : (
                     <span className="text-sm">{i + 1}</span>
                   )}
@@ -227,8 +253,11 @@ export function DraftScreen({
             })}
           </div>
 
-          {/* Team typing — each type once, with a count on its left */}
-          <div className="flex min-w-0 flex-1 flex-wrap content-center items-center gap-1.5">
+          {/* Team typing — each type once, with a count on its left. Single
+              scrollable row so a wide spread of types never wraps and pushes the
+              fixed tray up over the content (drops to its own line on phones). */}
+          {teamTypeCounts.length > 0 && (
+          <div className="order-3 flex w-full min-w-0 items-center gap-1.5 overflow-x-auto sm:order-2 sm:w-auto sm:flex-1">
             {teamTypeCounts.map(({ type, count }) => (
               <span
                 key={type}
@@ -253,8 +282,9 @@ export function DraftScreen({
               </span>
             ))}
           </div>
+          )}
 
-          <div className="shrink-0 text-right">
+          <div className="order-2 ml-auto shrink-0 text-right sm:order-3 sm:ml-0">
             <div className="text-[11px] text-white/50 sm:text-xs">
               {picked.length}/{TEAM_SIZE} picked
             </div>
@@ -271,6 +301,15 @@ export function DraftScreen({
           </div>
         </div>
       </div>
+
+      {ballEditor !== null && picked[ballEditor] && (
+        <BallPicker
+          creatureName={picked[ballEditor].name}
+          current={picked[ballEditor].pokeball}
+          onSelect={(id) => setBall(ballEditor, id)}
+          onClose={() => setBallEditor(null)}
+        />
+      )}
     </div>
   );
 }
