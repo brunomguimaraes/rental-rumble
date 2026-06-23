@@ -72,18 +72,18 @@ export function TitleScreen({
         Roll the dice →
       </button>
 
-      <div className="mt-6 flex items-center gap-2">
+      <div className="mt-6 flex w-full max-w-md flex-wrap items-center justify-center gap-2">
         <input
           value={seedInput}
           onChange={(e) => setSeedInput(e.target.value)}
           placeholder="custom seed (optional)"
-          className="w-48 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/80 placeholder:text-white/30 focus:border-white/40 focus:outline-none"
+          className="min-w-0 flex-1 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/80 placeholder:text-white/30 focus:border-white/40 focus:outline-none"
         />
         <button
           type="button"
           onClick={() => onStart(difficulty, seedInput.trim() || undefined)}
           disabled={!seedInput.trim()}
-          className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 disabled:opacity-30"
+          className="shrink-0 rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 disabled:opacity-30"
         >
           Use seed
         </button>

@@ -8,6 +8,23 @@
   color-scheme: dark;
 }
 
+/* Tailwind v4 resets buttons to the default cursor; restore the pointer for
+   anything interactive (skipping disabled controls). */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  label[for],
+  summary,
+  a[href] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role='button'][aria-disabled='true'] {
+    cursor: not-allowed;
+  }
+}
+
 html,
 body,
 #root {

@@ -1,8 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Creature, Opponent } from '../game/types';
-import { TYPE_COLORS } from '../game/typechart';
-import { TypeBadges } from './TypeBadge';
-import { MiniSprite } from './MiniSprite';
+import { renderShareBlob } from '../game/shareCard';
 
 export function ResultScreen({
   gauntlet,
@@ -19,31 +17,100 @@ export function ResultScreen({
   clearedStages: number;
   onPlayAgain: () => void;
 }) {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [building, setBuilding] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [shareNote, setShareNote] = useState<string | null>(null);
+  const blobRef = useRef<Blob | null>(null);
 
   const fellTo = !won ? gauntlet[clearedStages] : null;
+  const fileName = `rental-rumble-${won ? 'champion' : `${clearedStages}of${gauntlet.length}`}-${seed}.png`;
+
+  const shareText = won
+    ? `I became Champion in Rental Rumble! 👑 seed ${seed} — same gauntlet, can you take the crown?`
+    : `I cleared ${clearedStages}/${gauntlet.length} in Rental Rumble${
+        fellTo ? `, fell to ${fellTo.name}` : ''
+      }. seed ${seed} — can you do better?`;
+
+  // Render the shareable card once the team is known.
+  useEffect(() => {
+    let url: string | null = null;
+    let alive = true;
+    setBuilding(true);
+    renderShareBlob({ team, won, clearedStages, gauntlet, seed })
+      .then((blob) => {
+        if (!alive) return;
+        blobRef.current = blob;
+        url = URL.createObjectURL(blob);
+        setImageUrl(url);
+      })
+      .catch(() => setImageUrl(null))
+      .finally(() => alive && setBuilding(false));
+    return () => {
+      alive = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const download = () => {
+    if (!imageUrl) return;
+    const a = document.createElement('a');
+    a.href = imageUrl;
+    a.download = fileName;
+    a.click();
+  };
 
   const share = async () => {
-    const names = team.map((c) => c.name).join(', ');
-    const line = won
-      ? `I became Champion in Rental Rumble! 👑 Team: ${names} · seed ${seed}`
-      : `I fell to ${fellTo?.name} (${clearedStages}/${gauntlet.length}) in Rental Rumble. Team: ${names} · seed ${seed} — can you do better?`;
+    const blob = blobRef.current;
+    const file = blob ? new File([blob], fileName, { type: 'image/png' }) : null;
+
+    // Best case: native share sheet with the image attached.
+    if (
+      file &&
+      typeof navigator.canShare === 'function' &&
+      navigator.canShare({ files: [file] })
+    ) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: 'Rental Rumble',
+          text: shareText,
+        });
+        return;
+      } catch {
+        // user cancelled or share failed — fall through to clipboard
+      }
+    }
+
+    // Fallback: copy the brag text, and make sure they still get the image.
     try {
-      await navigator.clipboard.writeText(line);
+      await navigator.clipboard.writeText(shareText);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
-      setCopied(false);
+      /* ignore */
     }
+    download();
+    setShareNote('Image downloaded · caption copied');
+    window.setTimeout(() => setShareNote(null), 2600);
   };
 
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-xl flex-col items-center justify-center px-4 py-8 text-center sm:px-6">
-      <div className="text-6xl animate-floaty sm:text-7xl">
-        {won ? '👑' : '💀'}
+      <div className="animate-floaty">
+        {won ? (
+          <span className="text-6xl sm:text-7xl">👑</span>
+        ) : (
+          <img
+            src={`${import.meta.env.BASE_URL}sprites/ui/cubone-skull.png`}
+            alt="Defeated"
+            className="mx-auto h-28 w-auto object-contain drop-shadow-[0_4px_20px_rgba(255,255,255,0.15)] sm:h-36"
+          />
+        )}
       </div>
       <h2
-        className={`mt-4 text-3xl font-black sm:text-4xl ${
+        className={`mt-3 text-3xl font-black sm:text-4xl ${
           won ? 'text-amber-300' : 'text-rose-300'
         }`}
       >
@@ -55,65 +122,52 @@ export function ResultScreen({
           : `Your team cleared ${clearedStages} of ${gauntlet.length} and fell to ${fellTo?.name}, the ${fellTo?.title}.`}
       </p>
 
-      {/* Progress pips */}
-      <div className="mt-5 flex items-center gap-1.5">
-        {gauntlet.map((g, i) => (
-          <span
-            key={g.id}
-            className={`h-2.5 w-2.5 rounded-full ${
-              i < clearedStages
-                ? 'bg-emerald-400'
-                : i === clearedStages && !won
-                  ? 'bg-rose-400'
-                  : 'bg-white/15'
-            }`}
-            title={g.name}
-          />
-        ))}
+      {/* Shareable team card preview */}
+      <div className="mt-6 w-full max-w-sm">
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt="Your Rental Rumble team"
+              className="block w-full"
+            />
+          ) : (
+            <div className="grid aspect-[4/5] w-full place-items-center text-sm text-white/40">
+              {building ? 'Painting your team card…' : 'Could not build image'}
+            </div>
+          )}
+        </div>
+        <p className="mt-2 text-[11px] text-white/35">
+          Your six picks, rendered to a shareable card — portraits and all.
+        </p>
       </div>
 
-      {/* Team card */}
-      <div className="mt-6 w-full rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-        <div className="mb-3 text-xs uppercase tracking-widest text-white/40">
-          Your team
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {team.map((c) => {
-            const color = TYPE_COLORS[c.types[0]];
-            return (
-              <div
-                key={c.id}
-                className="flex flex-col items-center gap-1 rounded-2xl p-2"
-                style={{ background: `${color}14` }}
-              >
-                <MiniSprite creature={c} className="h-14 w-14" />
-                <span className="text-xs font-semibold">{c.name}</span>
-                <TypeBadges types={c.types} />
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-3 text-xs text-white/40">
-          seed <span className="font-mono text-white/70">{seed}</span>
-        </div>
-      </div>
-
-      <div className="mt-6 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+      <div className="mt-5 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
         <button
           type="button"
           onClick={share}
-          className="rounded-full border border-white/20 px-6 py-3 font-bold transition hover:bg-white/10"
+          disabled={building}
+          className="rounded-full bg-white px-6 py-3 font-bold text-black transition-transform hover:scale-105 active:scale-95 disabled:opacity-40"
         >
-          {copied ? '✓ Copied!' : 'Share result'}
+          {copied ? '✓ Caption copied!' : 'Share team 📣'}
+        </button>
+        <button
+          type="button"
+          onClick={download}
+          disabled={building || !imageUrl}
+          className="rounded-full border border-white/20 px-6 py-3 font-bold transition hover:bg-white/10 disabled:opacity-40"
+        >
+          Download PNG
         </button>
         <button
           type="button"
           onClick={onPlayAgain}
-          className="rounded-full bg-white px-6 py-3 font-bold text-black transition-transform hover:scale-105 active:scale-95"
+          className="rounded-full border border-white/20 px-6 py-3 font-bold transition hover:bg-white/10"
         >
           New run →
         </button>
       </div>
+      <div className="mt-2 h-4 text-xs text-white/45">{shareNote}</div>
     </div>
   );
 }

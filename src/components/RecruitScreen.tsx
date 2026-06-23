@@ -37,7 +37,7 @@ export function RecruitScreen({
   const armed = selected !== null;
 
   return (
-    <div className="mx-auto max-w-6xl px-3 py-6 sm:px-4 sm:py-8">
+    <div className="mx-auto max-w-6xl px-3 py-6 pb-28 sm:px-4 sm:py-8 sm:pb-28">
       <div className="text-center">
         <div className="text-4xl">🏆</div>
         <h2 className="mt-2 text-2xl font-black text-emerald-300 sm:text-3xl">
@@ -116,14 +116,17 @@ export function RecruitScreen({
         </div>
       </div>
 
-      <div className="mt-8 flex items-center justify-center gap-3">
-        <button
-          type="button"
-          onClick={() => onConfirm(team)}
-          className="rounded-full bg-white px-8 py-3 text-lg font-bold text-black transition-transform hover:scale-105 active:scale-95"
-        >
-          {nextLabel} →
-        </button>
+      {/* Anchored action bar */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#0c0c14]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-center gap-3 px-3 py-3 sm:px-4">
+          <button
+            type="button"
+            onClick={() => onConfirm(team)}
+            className="w-full rounded-full bg-white px-8 py-3 text-base font-bold text-black transition-transform hover:scale-105 active:scale-95 sm:w-auto sm:text-lg"
+          >
+            {nextLabel} →
+          </button>
+        </div>
       </div>
     </div>
   );

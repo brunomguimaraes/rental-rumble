@@ -42,6 +42,7 @@ export default function App() {
       const battleSeed = `${seed}#${stage}`;
       // The Champion is the shared daily boss: its team is seeded by the date,
       // so it's identical for everyone, while the fight RNG stays run-specific.
+      // The Champion has no type theme; Gyms and the Elite are type-themed.
       const foeTeam =
         opponent.tier === 'champion'
           ? buildChampionTeam(championSeed(), opponent.teamSize)
@@ -111,6 +112,7 @@ export default function App() {
           seed={seed}
           onFight={() => setPhase('battle')}
           onQuit={() => setPhase('title')}
+          onReorder={setTeam}
         />
       );
 

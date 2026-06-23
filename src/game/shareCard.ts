@@ -1,0 +1,369 @@
+import type { Creature, Opponent } from './types';
+import { TYPE_COLORS, typeIconUrl, typeLabel } from './typechart';
+import { ROLE_INFO } from './roles';
+
+// All assets are served from the same origin (public/sprites), so the canvas
+// never gets tainted and we can export the result as a PNG / share a File.
+const ASSET = import.meta.env?.BASE_URL ?? '/';
+
+export interface ShareCardData {
+  team: Creature[];
+  won: boolean;
+  clearedStages: number;
+  gauntlet: Opponent[];
+  seed: string;
+}
+
+// 4:5 portrait — the friendliest aspect ratio for Instagram, X, Discord, etc.
+const W = 1080;
+const H = 1350;
+
+const FONT = '"Outfit", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+
+const COLORS = {
+  bg: '#0a0a0f',
+  ink: '#e6e6ee',
+  faint: 'rgba(255,255,255,0.45)',
+  gold: '#f5c542',
+  rose: '#fb7185',
+  emerald: '#34d399',
+};
+
+function loadImage(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+}
+
+/** Draw an image "cover"-style into a rounded box (center-cropped). */
+function drawCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  ctx.save();
+  roundRect(ctx, x, y, w, h, r);
+  ctx.clip();
+  const scale = Math.max(w / img.width, h / img.height);
+  const dw = img.width * scale;
+  const dh = img.height * scale;
+  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+  ctx.restore();
+}
+
+/** Mix a hex color toward black/white by alpha; returns rgba string. */
+function withAlpha(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const rr = (n >> 16) & 255;
+  const gg = (n >> 8) & 255;
+  const bb = n & 255;
+  return `rgba(${rr},${gg},${bb},${alpha})`;
+}
+
+async function drawTypeChip(
+  ctx: CanvasRenderingContext2D,
+  type: Creature['types'][number],
+  icon: HTMLImageElement | null,
+  x: number,
+  y: number,
+  h: number,
+): Promise<number> {
+  const color = TYPE_COLORS[type];
+  const label = typeLabel(type).toUpperCase();
+  ctx.font = `700 ${Math.round(h * 0.46)}px ${FONT}`;
+  const iconSize = h * 0.62;
+  const padL = icon ? h * 0.22 : h * 0.42;
+  const gap = icon ? h * 0.18 : 0;
+  const textW = ctx.measureText(label).width;
+  const w = padL + (icon ? iconSize + gap : 0) + textW + h * 0.42;
+
+  roundRect(ctx, x, y, w, h, h / 2);
+  ctx.fillStyle = withAlpha(color, 0.16);
+  ctx.fill();
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = withAlpha(color, 0.5);
+  ctx.stroke();
+
+  let cx = x + padL;
+  if (icon) {
+    ctx.drawImage(icon, cx, y + (h - iconSize) / 2, iconSize, iconSize);
+    cx += iconSize + gap;
+  }
+  ctx.fillStyle = color;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, cx, y + h / 2 + 1);
+  return w;
+}
+
+/**
+ * Render the shareable team card to a canvas. Loads every sprite up front so
+ * the export is fully painted (no blank images). All assets are same-origin,
+ * so the returned canvas is exportable to a PNG Blob / shareable File.
+ */
+export async function renderShareCard(
+  data: ShareCardData,
+): Promise<HTMLCanvasElement> {
+  const { team, won, clearedStages, gauntlet, seed } = data;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
+  // Preload sprites in parallel: portraits, type icons, pokeball.
+  const typeSet = new Set<Creature['types'][number]>();
+  team.forEach((c) => c.types.forEach((t) => typeSet.add(t)));
+  const typeList = [...typeSet];
+
+  const [portraits, typeIcons, pokeball] = await Promise.all([
+    Promise.all(
+      team.map(async (c) => (await loadImage(c.portrait)) ?? loadImage(c.sprite)),
+    ),
+    Promise.all(typeList.map((t) => loadImage(typeIconUrl(t)))),
+    loadImage(`${ASSET}sprites/ui/pokeball.png`),
+  ]);
+  const iconByType = new Map(typeList.map((t, i) => [t, typeIcons[i]]));
+
+  // ---- Background ---------------------------------------------------------
+  ctx.fillStyle = COLORS.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const glow = (
+    cx: number,
+    cy: number,
+    radius: number,
+    color: string,
+  ) => {
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    g.addColorStop(0, color);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  };
+  glow(W * 0.85, -40, 720, 'rgba(99,102,241,0.30)');
+  glow(W * 0.05, H * 1.02, 760, 'rgba(236,72,153,0.26)');
+  glow(W * 0.5, H * 0.42, 560, won ? 'rgba(245,197,66,0.10)' : 'rgba(99,102,241,0.06)');
+
+  // Inner frame
+  roundRect(ctx, 24, 24, W - 48, H - 48, 40);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.stroke();
+
+  const cx = W / 2;
+
+  // ---- Header -------------------------------------------------------------
+  if (pokeball) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(pokeball, cx - 30, 64, 60, 60);
+    ctx.imageSmoothingEnabled = true;
+  }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = COLORS.ink;
+  ctx.font = `800 66px ${FONT}`;
+  ctx.fillText('RENTAL RUMBLE', cx, 196);
+  ctx.fillStyle = COLORS.faint;
+  ctx.font = `600 22px ${FONT}`;
+  ctx.fillText('DRAFT · BATTLE · BECOME CHAMPION', cx, 230);
+
+  // ---- Result banner ------------------------------------------------------
+  const fellTo = !won ? gauntlet[clearedStages] : null;
+  const total = gauntlet.length;
+
+  ctx.font = `800 54px ${FONT}`;
+  if (won) {
+    ctx.fillStyle = COLORS.gold;
+    ctx.fillText('👑  CHAMPION!  👑', cx, 312);
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = `600 26px ${FONT}`;
+    ctx.fillText(`Ran the full gauntlet — ${total}/${total} cleared`, cx, 352);
+  } else {
+    ctx.fillStyle = COLORS.rose;
+    ctx.fillText('💀  RUN OVER', cx, 312);
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = `600 26px ${FONT}`;
+    const foe = fellTo ? `fell to ${fellTo.name}` : 'fell short';
+    ctx.fillText(`Cleared ${clearedStages}/${total} — ${foe}`, cx, 352);
+  }
+
+  // Progress pips
+  const pipR = 7;
+  const pipGap = 26;
+  const pipsW = total * pipGap - (pipGap - pipR * 2);
+  let px = cx - pipsW / 2 + pipR;
+  for (let i = 0; i < total; i++) {
+    ctx.beginPath();
+    ctx.arc(px, 386, pipR, 0, Math.PI * 2);
+    if (i < clearedStages) ctx.fillStyle = COLORS.emerald;
+    else if (i === clearedStages && !won) ctx.fillStyle = COLORS.rose;
+    else ctx.fillStyle = 'rgba(255,255,255,0.16)';
+    ctx.fill();
+    px += pipGap;
+  }
+
+  // ---- Team grid ----------------------------------------------------------
+  const cols = 3;
+  const rows = Math.ceil(team.length / cols);
+  const gridTop = 432;
+  const gridBottom = H - 132;
+  const gap = 22;
+  const sideP = 48;
+  const tileW = (W - sideP * 2 - gap * (cols - 1)) / cols;
+  const tileH = (gridBottom - gridTop - gap * (rows - 1)) / rows;
+
+  for (let i = 0; i < team.length; i++) {
+    const c = team[i];
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const x = sideP + col * (tileW + gap);
+    const y = gridTop + row * (tileH + gap);
+    const color = TYPE_COLORS[c.types[0]];
+    const special = c.tier !== 'normal';
+    const accent = special ? COLORS.gold : color;
+
+    // Tile card
+    roundRect(ctx, x, y, tileW, tileH, 26);
+    ctx.fillStyle = withAlpha(color, 0.1);
+    ctx.fill();
+    ctx.lineWidth = special ? 2.5 : 1.5;
+    ctx.strokeStyle = special ? withAlpha(COLORS.gold, 0.85) : withAlpha(color, 0.35);
+    ctx.stroke();
+
+    // Portrait
+    const portrait = portraits[i];
+    const pSize = Math.min(tileW - 56, 168);
+    const pX = x + (tileW - pSize) / 2;
+    const pY = y + 22;
+    // accent backing
+    roundRect(ctx, pX - 6, pY - 6, pSize + 12, pSize + 12, 26);
+    ctx.fillStyle = withAlpha(accent, 0.18);
+    ctx.fill();
+    if (portrait) {
+      drawCover(ctx, portrait, pX, pY, pSize, pSize, 22);
+    } else {
+      roundRect(ctx, pX, pY, pSize, pSize, 22);
+      ctx.fillStyle = withAlpha(accent, 0.25);
+      ctx.fill();
+    }
+    roundRect(ctx, pX, pY, pSize, pSize, 22);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = withAlpha(accent, 0.7);
+    ctx.stroke();
+
+    // Special tier crown chip
+    if (special) {
+      ctx.font = `700 22px ${FONT}`;
+      ctx.textAlign = 'center';
+      ctx.fillText('⭐', pX + pSize - 6, pY + 24);
+    }
+
+    // Name
+    ctx.fillStyle = COLORS.ink;
+    ctx.font = `800 30px ${FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    let name = c.name;
+    while (ctx.measureText(name).width > tileW - 28 && name.length > 4) {
+      name = name.slice(0, -1);
+    }
+    if (name !== c.name) name = name.slice(0, -1) + '…';
+    const nameY = pY + pSize + 44;
+    ctx.fillText(name, x + tileW / 2, nameY);
+
+    // Type chips (centered row)
+    const chipH = 30;
+    ctx.font = `700 ${Math.round(chipH * 0.46)}px ${FONT}`;
+    const chipWidths = c.types.map((t) => {
+      const icon = iconByType.get(t) ?? null;
+      const iconSize = chipH * 0.62;
+      const padL = icon ? chipH * 0.22 : chipH * 0.42;
+      const gp = icon ? chipH * 0.18 : 0;
+      const textW = ctx.measureText(typeLabel(t).toUpperCase()).width;
+      return padL + (icon ? iconSize + gp : 0) + textW + chipH * 0.42;
+    });
+    const chipsTotal = chipWidths.reduce((a, b) => a + b, 0) + (c.types.length - 1) * 8;
+    let chipX = x + (tileW - chipsTotal) / 2;
+    const chipY = nameY + 16;
+    for (let t = 0; t < c.types.length; t++) {
+      // eslint-disable-next-line no-await-in-loop
+      await drawTypeChip(ctx, c.types[t], iconByType.get(c.types[t]) ?? null, chipX, chipY, chipH);
+      chipX += chipWidths[t] + 8;
+    }
+
+    // Role line
+    ctx.fillStyle = COLORS.faint;
+    ctx.font = `600 20px ${FONT}`;
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      `${ROLE_INFO[c.role].glyph} ${c.role}`,
+      x + tileW / 2,
+      chipY + chipH + 28,
+    );
+  }
+
+  // ---- Footer -------------------------------------------------------------
+  // Center the "SEED <value>" pair as one group.
+  const seedLabel = 'SEED';
+  const labelFont = `600 22px ${FONT}`;
+  const valueFont = `700 24px "SF Mono", ui-monospace, Menlo, monospace`;
+  ctx.textBaseline = 'alphabetic';
+  ctx.font = labelFont;
+  const labelW = ctx.measureText(seedLabel).width;
+  ctx.font = valueFont;
+  const valueW = ctx.measureText(seed).width;
+  const seedGap = 14;
+  const groupStart = cx - (labelW + seedGap + valueW) / 2;
+  ctx.textAlign = 'left';
+  ctx.font = labelFont;
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.fillText(seedLabel, groupStart, H - 80);
+  ctx.font = valueFont;
+  ctx.fillStyle = 'rgba(255,255,255,0.82)';
+  ctx.fillText(seed, groupStart + labelW + seedGap, H - 80);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = won ? withAlpha(COLORS.gold, 0.9) : 'rgba(255,255,255,0.6)';
+  ctx.font = `700 24px ${FONT}`;
+  ctx.fillText(
+    won ? 'Same seed, same gauntlet — can you take the crown too?' : 'Same seed, same draft pool — can you do better?',
+    cx,
+    H - 44,
+  );
+
+  return canvas;
+}
+
+/** Convenience: render and export to a PNG Blob. */
+export async function renderShareBlob(data: ShareCardData): Promise<Blob> {
+  const canvas = await renderShareCard(data);
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error('toBlob failed'))),
+      'image/png',
+    );
+  });
+}

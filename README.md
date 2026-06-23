@@ -35,11 +35,15 @@ in the *build*) and the instant roll → build → simulate loop of
    and the next, totally fresh set of three appears, until you've drafted six.
 3. **Skip** — don't like a set? Skip it for a brand-new trio (within your
    budget). Roles are auto-assigned to each card (tuning stats and moves).
-4. **Gauntlet** — auto-battle (always **6v6**) through 4 gym leaders, 2 Elite
-   Four, and the Champion. Lose one battle and the run is over.
-5. **Recruit** — after each win, swap any of your Pokémon for the ones you just
-   defeated. Your team snowballs as you climb.
-6. **Share** — the draft pool is reproducible from its seed.
+4. **Arrange** — on the map before each battle, set your lead and reorder your
+   lineup (slot 1 leads; the rest send out in order as Pokémon faint).
+5. **Gauntlet** — auto-battle (always **6v6**) through 8 type-specialist gym
+   leaders and a type-specialist Elite, then the Champion — who specializes in
+   no type and fields a randomized, all-rounder powerhouse team. Lose one battle
+   and the run is over.
+6. **Recruit** — after each win, swap any of your Pokémon for the ones you just
+   defeated, then re-arrange your lineup. Your team snowballs as you climb.
+7. **Share** — the draft pool is reproducible from its seed.
 
 ## Core systems
 

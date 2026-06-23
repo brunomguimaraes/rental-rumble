@@ -1,5 +1,5 @@
 import type { Opponent, PokemonType } from './types';
-import { typeLabel } from './typechart';
+import { TYPE_COLORS, typeLabel } from './typechart';
 import { RNG } from './rng';
 
 // The road to Champion: 8 gym leaders → 1 Elite → 1 Champion. All 6v6.
@@ -10,6 +10,22 @@ export const TIER_LABEL: Record<Opponent['tier'], string> = {
   elite: 'Elite',
   champion: 'Champion',
 };
+
+// Gym Leaders and the Elite specialize in a type. The Champion does not — it
+// fields a randomized, all-rounder team, so it gets a neutral rank accent.
+const TIER_ACCENT: Partial<Record<Opponent['tier'], string>> = {
+  champion: '#f5c542',
+};
+
+/** Whether this opponent is built around a single type (everyone but Champion). */
+export function isTypeThemed(opp: Opponent): boolean {
+  return opp.tier !== 'champion';
+}
+
+/** Accent color for an opponent: its type color, or a neutral rank color. */
+export function opponentAccent(opp: Opponent): string {
+  return TIER_ACCENT[opp.tier] ?? TYPE_COLORS[opp.type];
+}
 
 const ALL_TYPES: PokemonType[] = [
   'normal', 'fire', 'water', 'electric', 'grass', 'ice', 'fighting',
@@ -110,9 +126,9 @@ export function buildChampion(d = new Date()): Opponent {
 }
 
 /**
- * Build a full gauntlet from a run seed: 8 gym leaders (random names + random,
- * distinct type themes) and 1 Elite trainer (random name + theme). The final
- * Champion is the shared daily boss and ignores the run seed.
+ * Build a full gauntlet from a run seed: 8 gym leaders + 1 Elite trainer (random
+ * names + random, distinct type themes). The final Champion is the shared daily
+ * boss — it specializes in no type and ignores the run seed.
  */
 export function buildGauntlet(seed: string, d = new Date()): Opponent[] {
   const rng = new RNG(`gauntlet:${seed}`);

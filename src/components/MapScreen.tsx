@@ -1,9 +1,7 @@
 import type { Creature, Opponent } from '../game/types';
-import { TIER_LABEL } from '../game/opponents';
-import { TYPE_COLORS } from '../game/typechart';
-import { ROLE_INFO } from '../game/roles';
+import { TIER_LABEL, isTypeThemed, opponentAccent } from '../game/opponents';
 import { TypeBadge } from './TypeBadge';
-import { MiniSprite } from './MiniSprite';
+import { LineupEditor } from './LineupEditor';
 
 export function MapScreen({
   gauntlet,
@@ -12,6 +10,7 @@ export function MapScreen({
   seed,
   onFight,
   onQuit,
+  onReorder,
 }: {
   gauntlet: Opponent[];
   team: Creature[];
@@ -19,9 +18,10 @@ export function MapScreen({
   seed: string;
   onFight: () => void;
   onQuit: () => void;
+  onReorder: (team: Creature[]) => void;
 }) {
   return (
-    <div className="mx-auto max-w-5xl px-3 py-6 sm:px-4 sm:py-8">
+    <div className="mx-auto max-w-5xl px-3 py-6 pb-28 sm:px-4 sm:py-8 sm:pb-28">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-2xl font-black sm:text-3xl">The Gauntlet</h2>
@@ -38,24 +38,9 @@ export function MapScreen({
         </button>
       </div>
 
-      {/* Your team */}
-      <div className="mt-6 flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-        <span className="mr-1 text-xs uppercase tracking-wider text-white/40">
-          Your team
-        </span>
-        {team.map((c) => (
-          <div
-            key={c.id}
-            className="flex items-center gap-1.5 rounded-full bg-white/5 py-1 pl-1 pr-2.5"
-            title={`${c.name} · ${c.types.join('/')} · ${c.role}`}
-          >
-            <MiniSprite creature={c} className="h-7 w-7" />
-            <span className="text-xs font-semibold">{c.name}</span>
-            <span className="text-[11px]" title={c.role}>
-              {ROLE_INFO[c.role].glyph}
-            </span>
-          </div>
-        ))}
+      {/* Your team — arrange the lineup (slot 1 leads) */}
+      <div className="mt-6">
+        <LineupEditor team={team} onChange={onReorder} />
       </div>
 
       {/* Gauntlet ladder */}
@@ -63,7 +48,7 @@ export function MapScreen({
         {gauntlet.map((opp, i) => {
           const done = i < stage;
           const current = i === stage;
-          const color = TYPE_COLORS[opp.type];
+          const color = opponentAccent(opp);
           return (
             <li
               key={opp.id}
@@ -94,7 +79,20 @@ export function MapScreen({
                   <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">
                     {TIER_LABEL[opp.tier]}
                   </span>
-                  <TypeBadge type={opp.type} size="sm" />
+                  {isTypeThemed(opp) ? (
+                    <TypeBadge type={opp.type} size="sm" />
+                  ) : (
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                      style={{
+                        background: `${color}26`,
+                        color,
+                        border: `1px solid ${color}66`,
+                      }}
+                    >
+                      All-rounder
+                    </span>
+                  )}
                 </div>
                 <div className="truncate font-bold">
                   {opp.name}{' '}
@@ -116,18 +114,21 @@ export function MapScreen({
         })}
       </ol>
 
-      <div className="mt-6 flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="self-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs sm:self-auto">
-          <span className="text-white/40">seed</span>{' '}
-          <span className="font-mono text-white/80">{seed}</span>
+      {/* Anchored action bar */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#0c0c14]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-5xl flex-col-reverse items-stretch gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+          <div className="self-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs sm:self-auto">
+            <span className="text-white/40">seed</span>{' '}
+            <span className="font-mono text-white/80">{seed}</span>
+          </div>
+          <button
+            type="button"
+            onClick={onFight}
+            className="w-full rounded-full bg-white px-8 py-3 text-base font-bold text-black transition-transform hover:scale-105 active:scale-95 sm:w-auto sm:text-lg"
+          >
+            Battle {gauntlet[stage].name} →
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onFight}
-          className="w-full rounded-full bg-white px-8 py-3 text-base font-bold text-black transition-transform hover:scale-105 active:scale-95 sm:w-auto sm:text-lg"
-        >
-          Battle {gauntlet[stage].name} →
-        </button>
       </div>
     </div>
   );
