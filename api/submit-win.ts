@@ -169,6 +169,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         id: c.id,
         sign: c.sign,
         ...(c.shiny ? { shiny: true } : {}),
+        ...(c.ability ? { ability: c.ability } : {}),
       })),
       at: now,
     };

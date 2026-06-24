@@ -4,7 +4,7 @@ import { inBracket } from './gens.js';
 import { RAW_DEX } from './pokedex.gen.js';
 import { EVOLUTIONS } from './evolutions.gen.js';
 import { movesFor } from './moves.js';
-import { abilityForDex } from './abilities.js';
+import { defaultAbilityForDex, isAbilityOption } from './abilities.js';
 import { defaultSign, signsByFit } from './zodiac.js';
 import { PORTRAIT_EMOTIONS } from './portraits.gen.js';
 import { SHINY_PORTRAITS, SHINY_SPRITE_IDS } from './shiny.gen.js';
@@ -182,7 +182,7 @@ export const CREATURES: Creature[] = RAW_DEX.map((e) => {
     eligibleSigns: signsByFit(e.stats),
     stats: e.stats,
     moves: movesFor(e.types, e.stats, sign),
-    ability: abilityForDex(e.id),
+    ability: defaultAbilityForDex(e.id),
     pokeball: DEFAULT_BALL,
     shiny: false,
     altColor: false,
@@ -213,6 +213,19 @@ export function withSign(creature: Creature, sign: Sign): Creature {
 export function withBall(creature: Creature, pokeball: string): Creature {
   if (creature.pokeball === pokeball) return creature;
   return { ...creature, pokeball };
+}
+
+/**
+ * Return a copy of the creature born with a specific ability (or none). Used to
+ * stamp the rolled ability onto a freshly-drafted/opponent mon, and to rebuild a
+ * submitted team's claimed ability on the server. Doesn't touch moves or stats.
+ */
+export function withAbility(
+  creature: Creature,
+  ability: Creature['ability'],
+): Creature {
+  if (creature.ability === ability) return creature;
+  return { ...creature, ability };
 }
 
 /**
@@ -301,7 +314,14 @@ export function sameFamily(a: number, b: number): boolean {
  */
 export function evolveCreature(creature: Creature, targetDexId: number): Creature {
   const base = getCreature(String(targetDexId));
-  const evolved = withBall(withSign(base, creature.sign), creature.pokeball);
+  let evolved = withBall(withSign(base, creature.sign), creature.pokeball);
+  // Carry the current ability across only when the evolved species can also be
+  // born with it (preserving a rolled choice within a same-ability line);
+  // otherwise it takes its own species' default, since a line's abilities can
+  // genuinely differ (e.g. Slakoth's Truant → Vigoroth's Vital Spirit).
+  if (creature.ability && isAbilityOption(targetDexId, creature.ability)) {
+    evolved = withAbility(evolved, creature.ability);
+  }
   // A special colouring carries over through evolution (shiny stays shiny, an
   // alt colour stays an alt colour) — falling back to the base palette if the
   // evolved species has no matching recolour.

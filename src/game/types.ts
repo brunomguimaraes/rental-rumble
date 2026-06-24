@@ -114,11 +114,23 @@ export type SpecialTier = 'normal' | 'legendary' | 'mythical';
  * species carry one for now — this is the scaffolding we grow over time, so the
  * union starts small (see abilities.ts for the registry + species mapping).
  *
- * - `truant`      — loafs around every other turn (Slaking line). The drawback
- *                   that keeps a brute with monstrous stats honest.
- * - `vital-spirit`— too wired to doze off; can never be put to sleep.
+ * - `truant`       — loafs around every other turn (Slaking line). The drawback
+ *                    that keeps a brute with monstrous stats honest.
+ * - `vital-spirit` — too wired to doze off; can never be put to sleep.
+ * - `moxie`        — basks in each KO, raising its own Attack a stage. Snowball
+ *                    fuel that lets a fragile sweeper tear through a wall core.
+ * - `speed-boost`  — its Speed climbs a stage at the end of every turn.
+ * - `guts`         — shrugs off the downside of a status to hit 1.5× harder
+ *                    while afflicted; turns burn/poison/paralysis into a boon.
+ * - `adaptability` — its same-type bonus is doubled (STAB 2× instead of 1.5×).
  */
-export type AbilityId = 'truant' | 'vital-spirit';
+export type AbilityId =
+  | 'truant'
+  | 'vital-spirit'
+  | 'moxie'
+  | 'speed-boost'
+  | 'guts'
+  | 'adaptability';
 
 /** Raw generated dex row (see scripts/gen-pokedex.ts). */
 export interface DexEntry {

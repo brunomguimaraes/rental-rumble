@@ -9,9 +9,11 @@ import type {
   StageStat,
   StatusKind,
 } from './types.js';
+import type { Difficulty } from './run.js';
 import { effectiveness } from './typechart.js';
 import { RNG } from './rng.js';
-import { CREATURES, withSign, SHINY_STAT_MULT } from './pokemon.js';
+import { CREATURES, withSign, withAbility, SHINY_STAT_MULT } from './pokemon.js';
+import { rollAbility } from './abilities.js';
 import { attackAnimFor, HEAL_DECAY, TAUNT_TURNS } from './moves.js';
 import { SIGN_SPREAD, rollSign, bestRareSign } from './zodiac.js';
 import { rollOpponentBall } from './balls.js';
@@ -123,8 +125,11 @@ function stageMult(stage: number): number {
 function effectiveAtk(b: Battler, statMult: number): number {
   const spread = SIGN_SPREAD[b.creature.sign];
   const mult = statMult * shinyMult(b.creature);
+  // Guts: a status condition that would normally hamper it instead fires it up,
+  // boosting Attack by half while burned / poisoned / paralyzed / asleep.
+  const guts = b.status !== null && b.creature.ability === 'guts' ? 1.5 : 1;
   return Math.floor(
-    otherStat(b.creature.stats.atk) * spread.atk * mult * stageMult(b.stages.atk),
+    otherStat(b.creature.stats.atk) * spread.atk * mult * stageMult(b.stages.atk) * guts,
   );
 }
 function effectiveDef(b: Battler, statMult: number): number {
@@ -144,6 +149,12 @@ function effectiveSpd(b: Battler, statMult: number): number {
 
 function hasStab(b: Battler, move: Move): boolean {
   return b.creature.types.includes(move.type);
+}
+
+// Same-type attack bonus. Normally 1.5×; Adaptability doubles it to 2×, turning
+// a STAB attacker into a genuine wall-breaker.
+function stabMult(b: Battler): number {
+  return b.creature.ability === 'adaptability' ? 2 : 1.5;
 }
 
 interface SideState {
@@ -176,7 +187,7 @@ function estimateDamage(
   const def = effectiveDef(defender, defStatMult);
   const base = (2 * LEVEL) / 5 + 2;
   const raw = (base * move.power * (atk / def)) / 50 + 2;
-  const stab = hasStab(attacker, move) ? 1.5 : 1;
+  const stab = hasStab(attacker, move) ? stabMult(attacker) : 1;
   return raw * stab * mult * 0.925 * move.accuracy;
 }
 
@@ -209,6 +220,71 @@ function planAttack(
   return { move: best ?? attacker.creature.moves[0], dmg: Math.max(0, bestDmg) };
 }
 
+// How sharply the AI favors its hardest-hitting move. The chance of picking a
+// given damaging move is proportional to (estimated damage ^ focus):
+//   - Infinity -> perfect play (always the single best move)
+//   - higher   -> more optimal play (almost always the best move)
+//   - lower    -> more variety (it'll more often throw a weaker option)
+//   - 0        -> uniform random among all damaging moves
+// Guaranteed KOs are handled separately in chooseMove and ignore this entirely.
+const AI_FOCUS_DEFAULT = 4; // normal/hard foes, and the player's own team
+const AI_FOCUS_SLOPPY = 1; // easy foes: barely weights toward stronger moves
+const AI_FOCUS_PERFECT = Infinity; // master foes: never misjudge a move
+
+/**
+ * The move-pick focus the *foe* plays with for a given run difficulty. The
+ * player's team always uses AI_FOCUS_DEFAULT; only the opponent gets sharper on
+ * Master and sloppier on Easy. Normal/Hard (and an unspecified difficulty) are
+ * left at the default, so nothing else changes.
+ */
+function foeMoveFocus(difficulty: Difficulty | undefined): number {
+  if (difficulty === 'master') return AI_FOCUS_PERFECT;
+  if (difficulty === 'easy') return AI_FOCUS_SLOPPY;
+  return AI_FOCUS_DEFAULT;
+}
+
+/**
+ * Pick a damaging move, optionally with a bit of randomness instead of always
+ * locking onto the single best one. Each damaging move is weighted by its
+ * estimated damage raised to `focus`, so strong moves stay heavily favored while
+ * weaker ones still get thrown now and then. A non-finite `focus` means perfect
+ * play: it returns the precomputed best move (`fallback`) outright. Status/setup/
+ * heal decisions and guaranteed-KO handling live in chooseMove; this only varies
+ * the honest hit.
+ */
+function pickDamagingMove(
+  attacker: Battler,
+  defender: Battler,
+  atkStatMult: number,
+  defStatMult: number,
+  focus: number,
+  fallback: Move,
+  rng: RNG,
+): Move {
+  // Perfect play: the best damaging move is already in `fallback` (plan.move).
+  if (!Number.isFinite(focus)) return fallback;
+
+  const options: { move: Move; weight: number }[] = [];
+  let total = 0;
+  for (const mv of attacker.creature.moves) {
+    if (mv.power <= 0) continue;
+    const d = estimateDamage(attacker, defender, mv, atkStatMult, defStatMult);
+    if (d <= 0) continue;
+    const weight = focus <= 0 ? 1 : d ** focus;
+    options.push({ move: mv, weight });
+    total += weight;
+  }
+  if (options.length === 0) return fallback;
+  if (options.length === 1) return options[0].move;
+
+  let roll = rng.range(0, total);
+  for (const opt of options) {
+    roll -= opt.weight;
+    if (roll <= 0) return opt.move;
+  }
+  return options[options.length - 1].move;
+}
+
 const STATUS_RIDER_KINDS = ['burn', 'stun', 'poison', 'sleep', 'confuse'] as const;
 
 function chooseMove(
@@ -216,6 +292,7 @@ function chooseMove(
   defender: Battler,
   atkStatMult: number,
   defStatMult: number,
+  focus: number,
   rng: RNG,
 ): Move {
   const moves = attacker.creature.moves;
@@ -316,7 +393,17 @@ function chooseMove(
     }
   }
 
-  return plan.move;
+  // No special play this turn — throw a damaging move. Variety depends on
+  // `focus`: perfect foes always take plan.move, sloppier ones sometimes don't.
+  return pickDamagingMove(
+    attacker,
+    defender,
+    atkStatMult,
+    defStatMult,
+    focus,
+    plan.move,
+    rng,
+  );
 }
 
 function damageRoll(
@@ -334,7 +421,7 @@ function damageRoll(
   const def = effectiveDef(defender, defStatMult);
   const base = (2 * LEVEL) / 5 + 2;
   const raw = (base * move.power * (atk / def)) / 50 + 2;
-  const stab = hasStab(attacker, move) ? 1.5 : 1;
+  const stab = hasStab(attacker, move) ? stabMult(attacker) : 1;
   const crit = rng.chance(0.0625);
   const critMult = crit ? 1.5 : 1;
   const variance = rng.range(0.85, 1);
@@ -362,11 +449,21 @@ export function simulateBattle(
   playerTeam: Creature[],
   foeTeam: Creature[],
   seed: string,
-  opts: { playerStatMult?: number; foeStatMult?: number } = {},
+  opts: {
+    playerStatMult?: number;
+    foeStatMult?: number;
+    difficulty?: Difficulty;
+  } = {},
 ): BattleResult {
   const rng = new RNG(seed);
   const playerStatMult = opts.playerStatMult ?? 1;
   const foeStatMult = opts.foeStatMult ?? 1;
+  // The player's team always plays at the default focus; only the foe's move
+  // picking sharpens (Master) or loosens (Easy) with the run difficulty.
+  const moveFocus: Record<Side, number> = {
+    player: AI_FOCUS_DEFAULT,
+    foe: foeMoveFocus(opts.difficulty),
+  };
 
   const sides: Record<Side, SideState> = {
     player: {
@@ -642,7 +739,14 @@ export function simulateBattle(
     // costs it the follow-up loaf.
     if (attacker.creature.ability === 'truant') attacker.loafing = true;
 
-    const move = chooseMove(attacker, defender, me.statMult, foe.statMult, rng);
+    const move = chooseMove(
+      attacker,
+      defender,
+      me.statMult,
+      foe.statMult,
+      moveFocus[side],
+      rng,
+    );
     // Spend a use of any PP-capped move (consumed on use, even if it later
     // misses — matching how the games charge PP).
     if (move.pp !== undefined) {
@@ -817,6 +921,12 @@ export function simulateBattle(
 
     if (defender.hp <= 0) {
       const survives = handleFaint(otherSide(side));
+      // Moxie: emboldened by the knockout, the attacker's Attack rises a stage —
+      // letting a sweeper build momentum as it cuts through the foe's team. (No
+      // point once the battle's already won, so only while the fight continues.)
+      if (survives && attacker.hp > 0 && attacker.creature.ability === 'moxie') {
+        applyStage(side, 'atk', 1);
+      }
       if (!survives) return side;
       return 'continue';
     }
@@ -862,6 +972,12 @@ export function simulateBattle(
           text: `${b.creature.name} shook off the taunt.`,
         });
       }
+    }
+
+    // Speed Boost: its Speed ratchets up a stage every turn, so a fast, frail
+    // attacker only pulls further ahead the longer it stays in.
+    if (b.creature.ability === 'speed-boost' && b.stages.spd < 6) {
+      applyStage(side, 'spd', 1);
     }
 
     if (b.status === 'burn') {
@@ -1026,7 +1142,7 @@ function assignSigns(
 ): Creature[] {
   const scale = opts.oddsScale ?? 1;
   const team = list.map((c) => ({
-    ...withSign(c, rollSign(c.stats, rng, scale)),
+    ...withAbility(withSign(c, rollSign(c.stats, rng, scale)), rollAbility(c.dexId, rng)),
     pokeball: rollOpponentBall(rng),
   }));
   // Special trainers occasionally pack a guaranteed rare-sign mon on top of the

@@ -2,12 +2,14 @@ import type { Creature, SpecialTier } from './types.js';
 import {
   CREATURES,
   withSign,
+  withAbility,
   withRandomPortrait,
   asShiny,
   canBeShiny,
   asAltColor,
   canBeAltColor,
 } from './pokemon.js';
+import { rollAbility } from './abilities.js';
 import { rollSign, forcedRareSign } from './zodiac.js';
 import { allRareEnabled, allShinyEnabled } from './dev.js';
 import { RNG } from './rng.js';
@@ -39,6 +41,9 @@ function rollCreature(creature: Creature, rng: RNG): Creature {
   const shinyRoll = rng.chance(SHINY_CHANCE);
   const altRoll = rng.chance(ALT_COLOR_CHANCE);
   let c = withSign(creature, sign);
+  // Roll which ability this mon is born with. Single-ability species keep their
+  // one ability (no RNG drawn); the few with two slots pick one at random.
+  c = withAbility(c, rollAbility(c.dexId, rng));
   if ((allShinyEnabled() || shinyRoll) && canBeShiny(c.dexId)) {
     c = asShiny(c);
   } else if (altRoll && canBeAltColor(c.dexId)) {

@@ -280,6 +280,18 @@ function InfoCard({
         className={`flex items-center gap-1.5 ${alignEnd ? 'flex-row-reverse' : ''}`}
       >
         <span className="truncate text-sm font-bold">{view.name}</span>
+        {view.shiny && (
+          <span
+            title="Shiny — a rare colour variant"
+            className="shiny-twinkle pointer-events-none grid h-4 w-4 shrink-0 place-items-center rounded-full text-[10px] drop-shadow"
+            style={{
+              background: 'radial-gradient(circle, #fff6d6 0%, #ffd76b 55%, #f5a623 100%)',
+              color: '#7a4b00',
+            }}
+          >
+            ✦
+          </span>
+        )}
         <img
           src={signIconUrl(view.sign)}
           alt={signLabel(view.sign)}
