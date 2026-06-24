@@ -57,7 +57,7 @@ export function ResultScreen({
     let url: string | null = null;
     let alive = true;
     setBuilding(true);
-    renderShareBlob({ team, won, clearedStages, gauntlet, bracket, fellToTeam: lostToTeam })
+    renderShareBlob({ team, won, clearedStages, gauntlet, bracket, difficulty, fellToTeam: lostToTeam })
       .then((blob) => {
         if (!alive) return;
         blobRef.current = blob;

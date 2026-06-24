@@ -2,6 +2,7 @@ import type { Creature, Opponent } from './types.js';
 import { TYPE_COLORS, typeIconUrl, typeLabel } from './typechart.js';
 import { signIconUrl } from './zodiac.js';
 import { bracketCup, type BracketId } from './gens.js';
+import { DIFFICULTY_INFO, type Difficulty } from './run.js';
 
 // All assets are served from the same origin (public/sprites), so the canvas
 // never gets tainted and we can export the result as a PNG / share a File.
@@ -15,6 +16,8 @@ export interface ShareCardData {
   /** The generation bracket the run was played on — its Ribbon Cup becomes the
    *  champion card's header emblem. */
   bracket?: BracketId;
+  /** The difficulty the run was played on — drawn as a badge under the title. */
+  difficulty?: Difficulty;
   /** Roster of the trainer who ended the run; drawn on the loss card. */
   fellToTeam?: Creature[];
 }
@@ -32,6 +35,15 @@ const COLORS = {
   gold: '#f5c542',
   rose: '#fb7185',
   emerald: '#34d399',
+};
+
+// Accent colour per difficulty, climbing from a calm green to a regal purple so
+// the badge reads its stakes at a glance.
+const DIFFICULTY_COLORS: Record<Difficulty, string> = {
+  easy: '#34d399',
+  normal: '#60a5fa',
+  hard: '#f59e0b',
+  master: '#c084fc',
 };
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
@@ -148,7 +160,7 @@ async function drawTypeChip(
 export async function renderShareCard(
   data: ShareCardData,
 ): Promise<HTMLCanvasElement> {
-  const { team, won, clearedStages, gauntlet, bracket = 'all', fellToTeam = [] } = data;
+  const { team, won, clearedStages, gauntlet, bracket = 'all', difficulty, fellToTeam = [] } = data;
 
   // The header emblem is the era's Ribbon Cup — the "trophy" for the mode you
   // played. It's full-colour on a win and greyed-out on a loss.
@@ -239,23 +251,60 @@ export async function renderShareCard(
   ctx.font = `600 22px ${FONT}`;
   ctx.fillText('DRAFT · BATTLE · BECOME CHAMPION', cx, 230);
 
+  // ---- Difficulty badge ---------------------------------------------------
+  // A small pill under the title so the share card always says how hard the run
+  // was — its colour climbs with the stakes.
+  if (difficulty) {
+    const diffColor = DIFFICULTY_COLORS[difficulty];
+    const diffLabel = `${DIFFICULTY_INFO[difficulty].label.toUpperCase()} DIFFICULTY`;
+    const badgeH = 40;
+    const dotR = 5;
+    const padX = 22;
+    const dotGap = 12;
+    ctx.font = `800 22px ${FONT}`;
+    const labelW = ctx.measureText(diffLabel).width;
+    const badgeW = padX * 2 + dotR * 2 + dotGap + labelW;
+    const badgeX = cx - badgeW / 2;
+    const badgeY = 244;
+
+    roundRect(ctx, badgeX, badgeY, badgeW, badgeH, badgeH / 2);
+    ctx.fillStyle = withAlpha(diffColor, won ? 0.16 : 0.12);
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = withAlpha(diffColor, 0.55);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(badgeX + padX + dotR, badgeY + badgeH / 2, dotR, 0, Math.PI * 2);
+    ctx.fillStyle = diffColor;
+    ctx.fill();
+
+    ctx.fillStyle = diffColor;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(diffLabel, badgeX + padX + dotR * 2 + dotGap, badgeY + badgeH / 2 + 1);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+  }
+
   // ---- Result banner ------------------------------------------------------
   const total = gauntlet.length;
 
   ctx.font = `800 54px ${FONT}`;
   if (won) {
     ctx.fillStyle = COLORS.gold;
-    ctx.fillText('CHAMPION!', cx, 312);
+    ctx.fillText('CHAMPION!', cx, 322);
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.font = `600 26px ${FONT}`;
-    ctx.fillText(`Ran the full gauntlet — ${total}/${total} cleared`, cx, 352);
+    ctx.fillText(`Ran the full gauntlet — ${total}/${total} cleared`, cx, 360);
   } else {
     ctx.fillStyle = COLORS.rose;
-    ctx.fillText('RUN OVER', cx, 312);
+    ctx.fillText('RUN OVER', cx, 322);
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.font = `600 26px ${FONT}`;
     const foe = fellTo ? `fell to ${fellTo.name}` : 'fell short';
-    ctx.fillText(`Cleared ${clearedStages}/${total} — ${foe}`, cx, 352);
+    ctx.fillText(`Cleared ${clearedStages}/${total} — ${foe}`, cx, 360);
   }
 
   // Progress pips

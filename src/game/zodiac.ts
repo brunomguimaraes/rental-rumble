@@ -161,12 +161,12 @@ export const SIGN_INFO: Record<Sign, SignMeta> = {
   aquarius: { glyph: '♒', tier: 'common', element: 'air', modality: 'fixed', tagline: 'Unconventional — fast and slippery.' },
   pisces: { glyph: '♓', tier: 'common', element: 'water', modality: 'mutable', tagline: 'Dreamy all-rounder with gentle bulk.' },
   // Rare celestial wanderers.
-  orion: { glyph: '🏹', tier: 'rare', tagline: 'The Hunter — overwhelming Attack and Speed.' },
-  cetus: { glyph: '🐋', tier: 'rare', tagline: 'The Sea Monster — colossal HP and Defense.' },
-  aquila: { glyph: '🦅', tier: 'rare', tagline: 'The Eagle — blinding Speed and a sharp strike.' },
-  serpens: { glyph: '🐍', tier: 'rare', tagline: 'The Serpent — strong, balanced power across the board.' },
+  orion: { glyph: '🏹', tier: 'rare', tagline: 'The Hunter' },
+  cetus: { glyph: '🐋', tier: 'rare', tagline: 'The Sea Monster' },
+  aquila: { glyph: '🦅', tier: 'rare', tagline: 'The Eagle' },
+  serpens: { glyph: '🐍', tier: 'rare', tagline: 'The Serpent' },
   // Mythic.
-  abhijit: { glyph: '✴', tier: 'mythic', tagline: 'The Victorious — every stat raised by half.' },
+  abhijit: { glyph: '✴', tier: 'mythic', tagline: 'The Victorious' },
 };
 
 /**

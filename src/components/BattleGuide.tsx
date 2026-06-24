@@ -437,18 +437,18 @@ export function BattleGuide({ onClose }: { onClose: () => void }) {
             {STATUSES.map((s) => (
               <div
                 key={s.name}
-                className="flex gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] p-2.5"
+                className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2.5"
               >
                 <img
                   src={statusIconUrl(s.icon)}
                   alt=""
                   className="h-5 w-5 shrink-0 object-contain"
                 />
-                <div>
-                  <span className="text-xs font-bold">{s.name}</span>
-                  <span className="ml-1.5 text-[11px] leading-snug text-white/55">
+                <div className="min-w-0">
+                  <div className="text-xs font-bold">{s.name}</div>
+                  <div className="mt-0.5 text-[11px] leading-snug text-white/55">
                     {s.desc}
-                  </span>
+                  </div>
                 </div>
               </div>
             ))}
