@@ -1,5 +1,50 @@
-import type { AttackAnim, BaseStats, Move, PokemonType, Sign } from './types.js';
+import type {
+  AttackAnim,
+  BaseStats,
+  Move,
+  MoveEffect,
+  PokemonType,
+  Sign,
+  StageStat,
+} from './types.js';
 import { SIGN_INFO, type Element } from './zodiac.js';
+
+const STAT_LABEL: Record<StageStat, string> = {
+  atk: 'ATK',
+  def: 'DEF',
+  spd: 'SPD',
+};
+
+/**
+ * A short, human-readable summary of a move's secondary effect — used by the
+ * moveset UI (see MovesModal). Pure-status moves (chance 1) read as a verb
+ * ("Burns"), on-hit riders carry their odds ("30% burn").
+ */
+export function moveEffectLabel(effect: MoveEffect): string {
+  const pct = (c: number) => `${Math.round(c * 100)}%`;
+  switch (effect.kind) {
+    case 'burn':
+      return effect.chance >= 1 ? 'Burns the foe' : `${pct(effect.chance)} burn`;
+    case 'stun':
+      return effect.chance >= 1 ? 'Paralyzes the foe' : `${pct(effect.chance)} paralyze`;
+    case 'poison':
+      return effect.chance >= 1 ? 'Badly poisons the foe' : `${pct(effect.chance)} poison`;
+    case 'sleep':
+      return effect.chance >= 1 ? 'Puts the foe to sleep' : `${pct(effect.chance)} sleep`;
+    case 'confuse':
+      return effect.chance >= 1 ? 'Confuses the foe' : `${pct(effect.chance)} confuse`;
+    case 'heal':
+      return `Heals ${Math.round(effect.amount * 100)}% HP`;
+    case 'lifesteal':
+      return `Drains ${Math.round(effect.fraction * 100)}% of damage`;
+    case 'stage': {
+      const sign = effect.delta > 0 ? '+' : '';
+      const who = effect.target === 'self' ? 'own' : "foe's";
+      const change = `${sign}${effect.delta} ${who} ${STAT_LABEL[effect.stat]}`;
+      return effect.chance >= 1 ? change : `${pct(effect.chance)} ${change}`;
+    }
+  }
+}
 
 const mk = (
   name: string,
