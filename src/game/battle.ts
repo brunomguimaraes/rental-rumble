@@ -15,7 +15,7 @@ import { CREATURES, withRole } from './pokemon';
 import { attackAnimFor } from './moves';
 import { ROLE_SPREAD, rollRole } from './roles';
 import { rollOpponentBall } from './balls';
-import { specialTeamCreatures } from './specials';
+import { famousTeamCreatures } from './specials';
 
 const LEVEL = 50;
 
@@ -871,21 +871,22 @@ export function buildChampionTeam(
 }
 
 /**
- * Special trainer team: the character's hand-picked, canonical roster (see
+ * Famous trainer team: the character's hand-picked, canonical roster (see
  * specials.ts), kept in its authored send-out order so the signature ace leads.
- * Roles/balls are rolled from the seed, like any other foe. On a gen-locked run
- * that filters out the whole roster, we fall back to a type-themed squad so the
- * fight still happens.
+ * Used for any famous opponent — Gym Leaders (Brock), Elite Four (Lorelei) and
+ * the "special" villain/gag cameos (James, Team Rocket). Roles/balls are rolled
+ * from the seed, like any other foe. On a gen-locked run that filters out the
+ * whole roster, we fall back to a type-themed squad so the fight still happens.
  */
-export function buildSpecialTeam(
-  specialId: string,
+export function buildFamousTeam(
+  famousId: string,
   fallbackType: PokemonType,
   size: number,
   seed: string,
   dex: Creature[] = CREATURES,
 ): Creature[] {
-  const rng = new RNG(`special-team:${specialId}:${seed}`);
-  const roster = specialTeamCreatures(specialId, dex);
+  const rng = new RNG(`famous-team:${famousId}:${seed}`);
+  const roster = famousTeamCreatures(famousId, dex);
   if (roster.length === 0) {
     return buildOpponentTeam(fallbackType, Math.max(1, size), 'special', seed, dex);
   }

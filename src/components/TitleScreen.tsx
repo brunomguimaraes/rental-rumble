@@ -80,7 +80,7 @@ export function TitleScreen({
           foe, Champion included) to an era's dex, with its own daily board. */}
       <div className="mt-8 w-full max-w-md">
         <div className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
-          Era — locks the dex & its own leaderboard
+          Choose your era
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {GEN_BRACKETS.map((b) => {

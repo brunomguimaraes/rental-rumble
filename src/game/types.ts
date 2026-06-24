@@ -121,9 +121,10 @@ export interface Opponent {
   tier: OpponentTier;
   quote: string;
   /**
-   * For `special` trainers only: the id into SPECIAL_TRAINERS (see specials.ts)
-   * whose hand-picked, canonical anime/manga team this opponent fields instead
-   * of a randomly generated one.
+   * For famous trainers (any rung): the id into FAMOUS_TRAINERS (see specials.ts)
+   * whose hand-picked, canonical anime/manga team this opponent fields instead of
+   * a randomly generated one. Present on gym/elite/special cameos like Brock,
+   * Lorelei or James.
    */
-  specialId?: string;
+  famousId?: string;
 }

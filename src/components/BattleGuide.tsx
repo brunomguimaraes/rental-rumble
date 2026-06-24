@@ -16,25 +16,33 @@ const STAT_BLURB: { key: string; label: string; desc: string }[] = [
   { key: 'SPD', label: 'Speed', desc: 'Decides who moves first each turn.' },
 ];
 
-const STATUSES: { name: string; glyph: string; desc: string }[] = [
+// FireRed/LeafGreen in-game status markers (see scripts/build-status-icons.py).
+const STATUS_ASSET = import.meta.env?.BASE_URL ?? '/';
+function statusIconUrl(kind: string): string {
+  return `${STATUS_ASSET}sprites/status/${kind}.png`;
+}
+
+// `icon` points at the FRLG marker; `glyph` is the emoji fallback for statuses
+// the games never show a marker for (confusion is a volatile status).
+const STATUSES: { name: string; icon?: string; glyph?: string; desc: string }[] = [
   {
     name: 'Burn',
-    glyph: '🔥',
+    icon: statusIconUrl('burn'),
     desc: 'Chips away ~1/12 of max HP at the end of each turn for a few turns.',
   },
   {
     name: 'Poison',
-    glyph: '☠️',
+    icon: statusIconUrl('poison'),
     desc: 'Escalating damage that grows every turn and does not wear off — a clock on bulky walls.',
   },
   {
     name: 'Paralysis',
-    glyph: '⚡',
+    icon: statusIconUrl('stun'),
     desc: 'Speed drops to 60% and there is a 30% chance to lose the turn outright.',
   },
   {
     name: 'Sleep',
-    glyph: '😴',
+    icon: statusIconUrl('sleep'),
     desc: "Can't act for 1–3 turns, then wakes up.",
   },
   {
@@ -282,9 +290,17 @@ export function BattleGuide({ onClose }: { onClose: () => void }) {
             {STATUSES.map((s) => (
               <div
                 key={s.name}
-                className="flex gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] p-2.5"
+                className="flex items-start gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] p-2.5"
               >
-                <span className="text-lg leading-none">{s.glyph}</span>
+                {s.icon ? (
+                  <img
+                    src={s.icon}
+                    alt={s.name}
+                    className="mt-0.5 h-4 w-auto shrink-0 [image-rendering:pixelated]"
+                  />
+                ) : (
+                  <span className="text-lg leading-none">{s.glyph}</span>
+                )}
                 <div>
                   <span className="text-xs font-bold">{s.name}</span>
                   <span className="ml-1.5 text-[11px] leading-snug text-white/55">

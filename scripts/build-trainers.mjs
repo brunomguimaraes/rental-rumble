@@ -38,6 +38,7 @@ const MEGAPACK =
   '/Users/milano/Downloads/FRLG Accurate NPC Megapack (Relic Castle Edition)';
 const animeDir = join(MEGAPACK, 'Anime NPCs', 'Characters');
 const frlgDir = join(MEGAPACK, 'FRLG NPCs', 'Characters');
+const playableDir = join(MEGAPACK, 'Playable Characters', 'Characters');
 const outDir = join(root, 'public/sprites/trainers');
 const tmp = join(tmpdir(), 'trainer-frames');
 
@@ -157,6 +158,19 @@ const SPECIAL = [
   ['Anime Samurai', 'samurai', 'Samurai', 'm'],
   ['Anime Tracy', 'tracey', 'Tracey', 'm'],
   ['Anime Samuel Oak', 'oak', 'Prof. Oak', 'm'],
+  ['Anime Delia Ketchum', 'delia', 'Delia', 'f'],
+];
+
+// Playable protagonists (Megapack "Playable Characters") → Champion faces. These
+// are the heroes who, canonically, grow up to take the title — so they join the
+// rotation of possible Champions (cosmetic faces; the daily boss team stays the
+// procedural one). [sourceFile (sans .png), key, name, sex]; files live under
+// `Playable Characters/Characters/`.
+const PLAYABLE = [
+  ['trainer_TRAINER_Brendan', 'brendan', 'Brendan', 'm'],
+  ['trainer_TRAINER_ORAS_May', 'may', 'May', 'f'],
+  ['trainer_TRAINER_Ethan', 'ethan', 'Ethan', 'm'],
+  ['trainer_TRAINER_Lyra', 'lyra', 'Lyra', 'f'],
 ];
 
 function magick(args) {
@@ -271,6 +285,22 @@ if (existsSync(animeDir)) {
   }
 } else {
   console.warn(`Megapack Anime NPCs not found at ${animeDir} — skipping.`);
+}
+
+// --- Playable protagonists (Megapack): extra Champion faces. ------------------
+if (existsSync(playableDir)) {
+  for (const [file, key, name, g] of PLAYABLE) {
+    const src = join(playableDir, `${file}.png`);
+    if (!existsSync(src)) {
+      console.warn(`skip missing ${src}`);
+      continue;
+    }
+    const outKey = `special-${key}`;
+    build(src, outKey);
+    manifest.special.push({ key: outKey, gender: g, name });
+  }
+} else {
+  console.warn(`Megapack Playable Characters not found at ${playableDir} — skipping.`);
 }
 
 // --- Famous tiers: numbered role rips bound to their canonical character. -----

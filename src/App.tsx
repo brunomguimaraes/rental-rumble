@@ -11,7 +11,7 @@ import { teamFromMons, type LeaderboardEntry } from './game/leaderboard';
 import {
   buildChampionTeam,
   buildOpponentTeam,
-  buildSpecialTeam,
+  buildFamousTeam,
   simulateBattle,
   TIER_STAT_MULT,
   PLAYER_STAT_MULT,
@@ -75,26 +75,26 @@ export default function App() {
       // standard run), while the fight RNG stays run-specific. On a gen-locked
       // run the filtered `dex` keeps the Champion in-gen too. The Champion has
       // no type theme; Gyms and the Elite are type-themed.
-      // Special cameo trainers field their fixed, canonical roster; the Champion
-      // is the date-seeded daily boss; everyone else gets a type-themed squad.
-      const foeTeam =
-        opponent.tier === 'champion'
+      // Famous trainers (Brock, Lorelei, Team Rocket…) field their fixed,
+      // canonical roster; the Champion is the date-seeded daily boss; everyone
+      // else gets a type-themed procedural squad.
+      const foeTeam = opponent.famousId
+        ? buildFamousTeam(
+            opponent.famousId,
+            opponent.type,
+            opponent.teamSize,
+            battleSeed,
+            dex,
+          )
+        : opponent.tier === 'champion'
           ? buildChampionTeam(championSeed(new Date(), bracket), opponent.teamSize, dex)
-          : opponent.tier === 'special' && opponent.specialId
-            ? buildSpecialTeam(
-                opponent.specialId,
-                opponent.type,
-                opponent.teamSize,
-                battleSeed,
-                dex,
-              )
-            : buildOpponentTeam(
-                opponent.type,
-                opponent.teamSize,
-                opponent.tier,
-                battleSeed,
-                dex,
-              );
+          : buildOpponentTeam(
+              opponent.type,
+              opponent.teamSize,
+              opponent.tier,
+              battleSeed,
+              dex,
+            );
       const result = simulateBattle(team, foeTeam, battleSeed, {
         playerStatMult: PLAYER_STAT_MULT,
         foeStatMult: TIER_STAT_MULT[opponent.tier] ?? 1,

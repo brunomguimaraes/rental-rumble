@@ -9,7 +9,12 @@ import {
   type TrainerGender,
   type TrainerSprite,
 } from './trainers.gen';
-import { SPECIAL_TRAINERS, specialSpriteKey, type SpecialTrainer } from './specials';
+import {
+  famousForSlot,
+  famousSpriteKey,
+  rollSpecialPool,
+  type FamousTrainer,
+} from './specials';
 
 export const TIER_LABEL: Record<OpponentTier, string> = {
   trainer: 'Trainer',
@@ -203,17 +208,26 @@ export function championSeed(d = new Date(), bracket: BracketId = 'all'): string
 export function buildChampion(d = new Date(), bracket: BracketId = 'all'): Opponent {
   const rng = new RNG(championSeed(d, bracket));
   const type = rng.pick(ALL_TYPES);
-  // The art is a specific person — let it name the Champion (fallback for any
-  // sprite we haven't identified yet).
-  const sprite = rng.pick(TRAINER_SPRITES.champion);
+  // The face is a specific person — let it name the Champion. The pool is the
+  // numbered Champion rips plus the rival (Gary), who can take the crown as a
+  // cosmetic face. The Champion's *team* stays the procedural daily boss either
+  // way, so the shared daily race and leaderboard are unaffected.
+  const faces: { key: string; name?: string }[] = [
+    ...TRAINER_SPRITES.champion.map((s) => ({ key: s.key, name: s.name })),
+    ...famousForSlot('champion').map((f) => ({
+      key: famousSpriteKey(f.id),
+      name: f.name,
+    })),
+  ];
+  const face = rng.pick(faces);
   return {
     id: 'champion',
-    name: sprite.name ?? rng.pick(CHAMPIONS),
+    name: face.name ?? rng.pick(CHAMPIONS),
     title: 'Champion',
     sprite: '👑',
     badge: badgeUrl('champion'),
-    art: artUrl(sprite.key),
-    artGif: gifUrl(sprite.key),
+    art: artUrl(face.key),
+    artGif: gifUrl(face.key),
     type,
     teamSize: 6,
     tier: 'champion',
@@ -246,11 +260,38 @@ export function challengeOpponent(name: string, seed: string): Opponent {
 }
 
 /**
+ * Build an Opponent for a famous, fixed-team character (Brock, Lorelei, James…)
+ * on a given rung. The art, name, theme type and team are all bound to the
+ * character; App fields their hand-picked roster via `famousId`.
+ */
+function famousOpponent(
+  spec: FamousTrainer,
+  id: string,
+  tier: OpponentTier,
+): Opponent {
+  return {
+    id,
+    name: spec.name,
+    title: spec.title,
+    sprite: TYPE_EMOJI[spec.type],
+    badge: badgeUrl(spec.type),
+    art: artUrl(famousSpriteKey(spec.id)),
+    artGif: gifUrl(famousSpriteKey(spec.id)),
+    type: spec.type,
+    teamSize: spec.team?.length ?? 6,
+    tier,
+    quote: spec.quote,
+    famousId: spec.id,
+  };
+}
+
+/**
  * Build a full gauntlet from a run seed and difficulty. The ladder ramps:
- * a handful of random roadside trainers, then type-themed Gym Leaders, then
- * one or two Elite trainers, capped by the shared daily Champion. Counts come
- * from GAUNTLET_SHAPE; the Champion specializes in no type and ignores the run
- * seed (it's the same daily boss for everyone).
+ * a handful of random roadside trainers, a "special" villain/gag cameo or two,
+ * then Gym Leaders, then one or two Elite trainers, capped by the shared daily
+ * Champion. Anime Gym Leaders (Brock, Misty…) and Elite Four (Lorelei, Bruno)
+ * blend into their own rungs with their real type + team; Team Rocket and friends
+ * are the "special" mini-bosses. Counts come from GAUNTLET_SHAPE.
  */
 export function buildGauntlet(
   seed: string,
@@ -272,10 +313,25 @@ export function buildGauntlet(
   const drawRandom = spriteDrawer(rng, 'random');
   const drawGym = spriteDrawer(rng, 'gym');
   const drawElite = spriteDrawer(rng, 'elite');
-  // Distinct famous cameos for this run's "special" mini-bosses.
-  const specialsPool = rng.shuffle([...SPECIAL_TRAINERS]);
+  // Famous fixed-team cameos for this run, by rung: anime Gym Leaders & Elite
+  // Four blend into their own rungs; villains/gags fill the "special" slots.
+  const famousGymPool = rng.shuffle(famousForSlot('gym'));
+  const famousElitePool = rng.shuffle(famousForSlot('elite'));
+  const specialsPool = rollSpecialPool(rng);
+  const usedThemes = new Set<PokemonType>();
   let themeCursor = 0;
   let nameCursor = 0;
+
+  // Hand out the next distinct, not-yet-used type theme for a procedural leader.
+  const nextTheme = (): PokemonType => {
+    while (themeCursor < themes.length && usedThemes.has(themes[themeCursor])) {
+      themeCursor++;
+    }
+    const t = themes[themeCursor] ?? rng.pick(ALL_TYPES);
+    themeCursor++;
+    usedThemes.add(t);
+    return t;
+  };
 
   // Random roadside trainers: small, type-themed warm-up fights. The sprite
   // fixes the class + sex; we then pair it with a same-sex given name.
@@ -307,10 +363,17 @@ export function buildGauntlet(
     };
   });
 
-  // Gym Leaders: full 6-mon, type-themed teams. The displayed leader is whoever
-  // the sprite depicts (e.g. the cowboy is always Clay).
+  // Gym Leaders: famous anime leaders (Brock, Misty, Sabrina, Blaine) blend in
+  // with their real type + hand-picked team; the rest are procedural, type-themed
+  // leaders whose displayed name follows the sprite (e.g. the cowboy is Clay).
   const gyms: Opponent[] = Array.from({ length: shape.gyms }, (_, i) => {
-    const type = themes[themeCursor++];
+    const famous =
+      famousGymPool.length > 0 && rng.chance(0.6) ? famousGymPool.shift()! : null;
+    if (famous) {
+      usedThemes.add(famous.type);
+      return famousOpponent(famous, `gym-${i}-${famous.id}`, 'gym');
+    }
+    const type = nextTheme();
     const sprite = drawGym();
     return {
       id: `gym-${i}-${type}`,
@@ -327,35 +390,29 @@ export function buildGauntlet(
     };
   });
 
-  // Special cameo trainers: famous faces from the anime/manga who field a fixed,
-  // hand-picked team (see specials.ts) instead of a generated one. They drop in
-  // as mid-ladder mini-bosses after the roadside warm-ups. The art, name, theme
-  // type and team are all bound to the chosen character.
+  // Special cameo trainers: villains & gag faces from the anime (Team Rocket,
+  // Ash's mom, a rare Prof. Oak) who field a fixed, hand-picked team. They drop in
+  // as mid-ladder mini-bosses after the roadside warm-ups — the "for fun" rung.
   const specials: Opponent[] = Array.from(
     { length: shape.specials ?? 0 },
     (_, i): Opponent => {
-      const spec: SpecialTrainer =
-        specialsPool[i % specialsPool.length] ?? rng.pick(SPECIAL_TRAINERS);
-      return {
-        id: `special-${i}-${spec.id}`,
-        name: spec.name,
-        title: spec.title,
-        sprite: TYPE_EMOJI[spec.type],
-        badge: badgeUrl(spec.type),
-        art: artUrl(specialSpriteKey(spec.id)),
-        artGif: gifUrl(specialSpriteKey(spec.id)),
-        type: spec.type,
-        teamSize: spec.team.length,
-        tier: 'special' as const,
-        quote: spec.quote,
-        specialId: spec.id,
-      };
+      const spec =
+        specialsPool[i % Math.max(1, specialsPool.length)] ??
+        rng.pick(famousForSlot('special'));
+      return famousOpponent(spec, `special-${i}-${spec.id}`, 'special');
     },
   );
 
-  // Elite trainer(s) — likewise named after the character in the art.
+  // Elite Four: famous anime members (Lorelei, Bruno) blend in with their real
+  // type + team; the rest are procedural, named after the sprite's character.
   const elite: Opponent[] = Array.from({ length: shape.elites }, (_, i) => {
-    const type = themes[themeCursor++];
+    const famous =
+      famousElitePool.length > 0 && rng.chance(0.7) ? famousElitePool.shift()! : null;
+    if (famous) {
+      usedThemes.add(famous.type);
+      return famousOpponent(famous, `elite-${i}-${famous.id}`, 'elite');
+    }
+    const type = nextTheme();
     const sprite = drawElite();
     return {
       id: `elite-${i}-${type}`,
