@@ -32,7 +32,7 @@ export function RecruitScreen({
   const [evolveSlot, setEvolveSlot] = useState<number | null>(null);
   const [evolveTarget, setEvolveTarget] = useState<number | null>(null);
 
-  const anyEvolvable = currentTeam.some(canEvolve);
+  const anyEvolvable = currentTeam.some((c) => canEvolve(c, bracket));
 
   const recruitDone = foeIdx !== null && recruitSlot !== null;
   const evolveDone = evolveSlot !== null && evolveTarget !== null;
@@ -53,7 +53,7 @@ export function RecruitScreen({
   };
 
   const pickTeamForEvolve = (i: number) => {
-    const targets = evolutionTargets(currentTeam[i].dexId);
+    const targets = evolutionTargets(currentTeam[i].dexId, bracket);
     if (targets.length === 0) return;
     setEvolveSlot(i);
     setEvolveTarget(targets.length === 1 ? targets[0] : null);
@@ -101,7 +101,7 @@ export function RecruitScreen({
             }
             preview={
               anyEvolvable ? (
-                <PreviewRow creatures={currentTeam.filter(canEvolve)} />
+                <PreviewRow creatures={currentTeam.filter((c) => canEvolve(c, bracket))} />
               ) : undefined
             }
             disabled={!anyEvolvable}
@@ -177,7 +177,7 @@ export function RecruitScreen({
             </h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               {currentTeam.map((c, i) => {
-                const evolvable = canEvolve(c);
+                const evolvable = canEvolve(c, bracket);
                 const isPicked = evolveSlot === i;
                 const shown = evolveDone && isPicked ? evolveCreature(c, evolveTarget) : c;
                 return (
@@ -199,13 +199,13 @@ export function RecruitScreen({
           </div>
 
           {/* Branched lines: let the player choose which evolution to take. */}
-          {evolveSlot !== null && evolutionTargets(currentTeam[evolveSlot].dexId).length > 1 && (
+          {evolveSlot !== null && evolutionTargets(currentTeam[evolveSlot].dexId, bracket).length > 1 && (
             <div className="mt-7">
               <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
                 Choose an evolution for {currentTeam[evolveSlot].name}
               </h3>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                {evolutionTargets(currentTeam[evolveSlot].dexId).map((dexId) => {
+                {evolutionTargets(currentTeam[evolveSlot].dexId, bracket).map((dexId) => {
                   const preview = evolveCreature(currentTeam[evolveSlot], dexId);
                   return (
                     <CreatureCard

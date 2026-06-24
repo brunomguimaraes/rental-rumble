@@ -1,4 +1,6 @@
 import type { Creature, Sign } from './types.js';
+import type { BracketId } from './gens.js';
+import { inBracket } from './gens.js';
 import { RAW_DEX } from './pokedex.gen.js';
 import { EVOLUTIONS } from './evolutions.gen.js';
 import { movesFor } from './moves.js';
@@ -105,14 +107,21 @@ export function withBall(creature: Creature, pokeball: string): Creature {
  * Dex ids this species can evolve INTO (already restricted to species we ship).
  * Most return a single id; branched lines (Eevee, Tyrogue, …) return several.
  * Empty when the species is already fully evolved / has no next stage.
+ *
+ * When a `bracket` is given, targets are also restricted to that era's dex — a
+ * gen-locked run must stay in-era, so e.g. a Kanto Chansey (#113) can't ticket
+ * up into Blissey (#242, Gen II) and smuggle an out-of-bracket mon into the run.
  */
-export function evolutionTargets(dexId: number): number[] {
-  return (EVOLUTIONS[dexId] ?? []).filter((id) => Boolean(CREATURES_BY_ID[String(id)]));
+export function evolutionTargets(dexId: number, bracket?: BracketId): number[] {
+  return (EVOLUTIONS[dexId] ?? []).filter(
+    (id) =>
+      Boolean(CREATURES_BY_ID[String(id)]) && (bracket === undefined || inBracket(id, bracket)),
+  );
 }
 
-/** Whether a creature has at least one evolution available. */
-export function canEvolve(creature: Creature): boolean {
-  return evolutionTargets(creature.dexId).length > 0;
+/** Whether a creature has at least one evolution available (within `bracket`). */
+export function canEvolve(creature: Creature, bracket?: BracketId): boolean {
+  return evolutionTargets(creature.dexId, bracket).length > 0;
 }
 
 /**
