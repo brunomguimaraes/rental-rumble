@@ -84,6 +84,7 @@ const DELAY: Record<BattleEvent['kind'], number> = {
   heal: 850,
   statusTick: 800,
   stunned: 800,
+  ability: 900,
   transform: 950,
   faint: 1150,
   end: 650,
