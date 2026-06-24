@@ -24,6 +24,18 @@ const REDUCED_MOTION =
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 const ASSET = import.meta.env?.BASE_URL ?? '/';
+
+// Battle speed is a player preference that should stick across battles and
+// reloads, so it lives in localStorage rather than resetting to 1× each time.
+const SPEED_KEY = 'battle-speed';
+const SPEED_CYCLE = [1, 2, 4] as const;
+const readStoredSpeed = (): number => {
+  if (typeof window === 'undefined') return 1;
+  const stored = Number(window.localStorage.getItem(SPEED_KEY));
+  return SPEED_CYCLE.includes(stored as (typeof SPEED_CYCLE)[number])
+    ? stored
+    : 1;
+};
 const statusIconUrl = (s: Exclude<StatusKind, null>) =>
   `${ASSET}sprites/status/${s}.png`;
 const STATUS_LABEL: Record<Exclude<StatusKind, null>, string> = {
@@ -338,7 +350,7 @@ export function BattleScreen({
   const [banner, setBanner] = useState('');
   const [bannerType, setBannerType] = useState<PokemonType | null>(null);
   const [hitFx, setHitFx] = useState<HitFx | null>(null);
-  const [speed, setSpeed] = useState(1);
+  const [speed, setSpeed] = useState(readStoredSpeed);
   const [showGuide, setShowGuide] = useState(false);
   const [finished, setFinished] = useState(false);
   const [pAnim, setPAnim] = useState<AnimState>(IDLE);
@@ -548,7 +560,15 @@ export function BattleScreen({
           </button>
           <button
             type="button"
-            onClick={() => setSpeed((s) => (s === 1 ? 2 : s === 2 ? 4 : 1))}
+            onClick={() =>
+              setSpeed((s) => {
+                const next =
+                  SPEED_CYCLE[(SPEED_CYCLE.indexOf(s as 1 | 2 | 4) + 1) % SPEED_CYCLE.length];
+                if (typeof window !== 'undefined')
+                  window.localStorage.setItem(SPEED_KEY, String(next));
+                return next;
+              })
+            }
             className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold transition hover:bg-white/10"
           >
             {speed}× speed
