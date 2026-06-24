@@ -213,6 +213,19 @@ const EXTRA_FAMOUS = [
   [animeDir, 'Anime Officer Jenny', 'jenny', 'Officer Jenny', 'f'],
   [animeDir, 'Anime Prof Ivy', 'ivy', 'Prof. Ivy', 'f'],
   [animeDir, 'Anime Brockfather', 'flint', 'Flint', 'm'],
+  [otherDir, 'trainer_HILBERT', 'hilbert', 'Hilbert', 'm'],
+  [otherDir, 'trainer_HILDA', 'hilda', 'Hilda', 'f'],
+  [otherDir, 'trainer_SAGE', 'sage', 'Plasma Sage', 'm'],
+  [otherDir, 'NPC Prof Elm', 'elm', 'Prof. Elm', 'm'],
+  [animeDir, 'Anime Salesman', 'salesman', 'Salesman', 'm'],
+  // Battle Frontier Brains (RSE).
+  [rseDir, 'trainer_ARENATYCOON_Greta', 'greta', 'Greta', 'f'],
+  [rseDir, 'trainer_DOMEACE_Tucker', 'tucker', 'Tucker', 'm'],
+  [rseDir, 'trainer_FACTORYHEAD_Noland', 'noland', 'Noland', 'm'],
+  [rseDir, 'trainer_PALACEMAVEN_Spencer', 'spencer', 'Spencer', 'm'],
+  [rseDir, 'trainer_PIKEQUEEN_Lucy', 'lucy', 'Lucy', 'f'],
+  [rseDir, 'trainer_PYRAMIDKING_Brandon', 'brandon', 'Brandon', 'm'],
+  [rseDir, 'trainer_SALONMAIDEN_Anabel', 'anabel', 'Anabel', 'f'],
 ];
 
 function magick(args) {
