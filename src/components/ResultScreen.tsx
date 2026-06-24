@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Creature, Opponent } from '../game/types';
 import { renderShareBlob } from '../game/shareCard';
 import { dailyKey } from '../game/opponents';
-import type { LeaderboardEntry } from '../game/leaderboard';
+import type { LeaderboardEntry, ThroneGrant } from '../game/leaderboard';
 import type { BracketId } from '../game/gens';
 import type { Difficulty } from '../game/run';
 import { Leaderboard } from './Leaderboard';
@@ -20,6 +20,7 @@ export function ResultScreen({
   lostToTeam = [],
   onPlayAgain,
   onChallenge,
+  onChallengeThrone,
 }: {
   gauntlet: Opponent[];
   won: boolean;
@@ -36,6 +37,8 @@ export function ResultScreen({
   lostToTeam?: Creature[];
   onPlayAgain: () => void;
   onChallenge?: (entry: LeaderboardEntry) => void;
+  /** Stake a Master win's one shot at the reigning Master #1 (the throne). */
+  onChallengeThrone?: (grant: ThroneGrant, king: LeaderboardEntry) => void;
 }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [building, setBuilding] = useState(true);
@@ -206,6 +209,7 @@ export function ResultScreen({
           token: runToken,
         }}
         onChallenge={onChallenge}
+        onChallengeThrone={onChallengeThrone}
       />
 
       <div className="mt-8">

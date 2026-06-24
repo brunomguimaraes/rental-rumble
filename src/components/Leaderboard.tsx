@@ -10,7 +10,14 @@ import {
   submitWin,
   type LeaderboardEntry,
   type LeaderboardResponse,
+  type ThroneGrant,
 } from '../game/leaderboard';
+
+/** Case/space-insensitive name match (mirrors how the server cleans names). */
+function sameName(a: string, b: string): boolean {
+  const norm = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase();
+  return norm(a) === norm(b);
+}
 
 function timeLabel(at: number): string {
   return new Date(at).toLocaleTimeString([], {
@@ -86,6 +93,7 @@ export function Leaderboard({
   canSubmit,
   run,
   onChallenge,
+  onChallengeThrone,
 }: {
   date: string;
   /** The bracket the just-finished run was locked to — submissions go here. */
@@ -103,6 +111,8 @@ export function Leaderboard({
   };
   /** Start a just-for-fun exhibition match against a saved team. */
   onChallenge?: (entry: LeaderboardEntry) => void;
+  /** Stake a Master win's one shot at the reigning Master #1 (the throne). */
+  onChallengeThrone?: (grant: ThroneGrant, king: LeaderboardEntry) => void;
 }) {
   // Which era's board is being viewed. Defaults to the one you just played, but
   // every era's board is browsable via the tabs.
@@ -123,6 +133,10 @@ export function Leaderboard({
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const submittedRef = useRef(status === 'done');
+  // The pass to chase the throne, handed back when a Master win is verified.
+  const [throne, setThrone] = useState<ThroneGrant | null>(null);
+  // The name this player just posted under, for "is the king me?" checks.
+  const [submittedName, setSubmittedName] = useState<string | null>(null);
 
   const refresh = () => {
     setLoading(true);
@@ -153,6 +167,8 @@ export function Leaderboard({
     submittedRef.current = true;
     localStorage.setItem(doneKey, '1');
     setPlacement({ rank: result.rank ?? null, total: result.total });
+    setSubmittedName(trimmed || 'Anonymous');
+    if (result.throne) setThrone(result.throne);
     setStatus('done');
     // Jump to the board the win was just posted to.
     if (activeBracket === runBracket) refresh();
@@ -165,6 +181,24 @@ export function Leaderboard({
     activeBracket === runBracket &&
     !submittedRef.current &&
     status !== 'done';
+
+  // The reigning Master #1 — the de-facto top of the board (Master is the top
+  // rank tier) and the only target for a Throne Challenge.
+  const king = board?.entries.find((e) => e.difficulty === 'master') ?? null;
+  const isKingMe = !!(
+    king &&
+    submittedName &&
+    sameName(king.name, submittedName)
+  );
+  // A verified Master champion gets one shot at whoever currently holds the
+  // crown — unless that's already them.
+  const canChallengeThrone =
+    !!throne &&
+    !!onChallengeThrone &&
+    activeBracket === runBracket &&
+    !!king &&
+    king.team.length > 0 &&
+    !isKingMe;
 
   return (
     <div className="mt-8 w-full max-w-lg text-left">
@@ -240,6 +274,11 @@ export function Leaderboard({
             first verified clear sticks — you can’t resubmit to move up.
           </li>
           <li>
+            <span className="text-white/70">Take the throne.</span> Beat the
+            boss on Master and you get one shot at the reigning Master #1 — win
+            the title fight and you seize the top slot (marked “defeated&nbsp;X”).
+          </li>
+          <li>
             <span className="text-white/70">Fresh boss daily.</span> Everyone
             faces the same six all day; the board resets at 00:00 UTC.
           </li>
@@ -280,6 +319,33 @@ export function Leaderboard({
         </p>
       )}
 
+      {canChallengeThrone && king && throne && (
+        <div className="mt-3 rounded-2xl border border-amber-300/40 bg-gradient-to-br from-amber-300/[0.12] to-fuchsia-300/[0.06] p-4">
+          <p className="text-sm font-black text-amber-200">
+            👑 The throne is in reach
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-white/60">
+            <span className="font-semibold text-white">{king.name}</span> holds
+            the Master crown. Beat their team in a one-shot title fight to seize
+            the #1 spot — win or lose, you get a single try.
+          </p>
+          <button
+            type="button"
+            onClick={() => onChallengeThrone?.(throne, king)}
+            className="mt-3 w-full rounded-full bg-amber-300 px-4 py-2.5 text-sm font-black text-black transition-transform hover:scale-[1.02] active:scale-95"
+          >
+            Challenge {king.name} for the throne ⚔️
+          </button>
+        </div>
+      )}
+
+      {isKingMe && throne && (
+        <p className="mt-3 rounded-2xl border border-amber-300/30 bg-amber-300/[0.06] px-4 py-3 text-sm font-semibold text-amber-200">
+          👑 You hold the Master throne. Defend it — others will come for the
+          crown.
+        </p>
+      )}
+
       <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
         {loading ? (
           <p className="px-4 py-6 text-center text-sm text-white/40">
@@ -297,12 +363,22 @@ export function Leaderboard({
                 className="flex items-center gap-2 px-3 py-2"
               >
                 <RankNum rank={e.rank} />
-                <span
-                  title={e.name}
-                  className="min-w-[4rem] max-w-[10rem] flex-1 truncate text-sm font-semibold text-white"
-                >
-                  {e.name}
-                </span>
+                <div className="min-w-[4rem] max-w-[10rem] flex-1">
+                  <span
+                    title={e.name}
+                    className="block truncate text-sm font-semibold text-white"
+                  >
+                    {e.name}
+                  </span>
+                  {e.defeated && (
+                    <span
+                      title={`Took the throne from ${e.defeated}`}
+                      className="block truncate text-[10px] font-semibold text-amber-300/80"
+                    >
+                      ⚔ defeated {e.defeated}
+                    </span>
+                  )}
+                </div>
                 <DifficultyBadge difficulty={e.difficulty} />
                 <div className="hidden shrink-0 items-center gap-1 sm:flex">
                   {e.team.slice(0, 6).map((mon, i) => (

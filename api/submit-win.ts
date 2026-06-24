@@ -17,10 +17,14 @@ import { rateLimit, clientIp } from './_ratelimit.js';
 import {
   getTokenSecret,
   verifyRunToken,
+  signThroneToken,
+  newSeed,
+  newNonce,
   RUN_TOKEN_TTL_MS,
   MIN_RUN_MS,
   NONCE_TTL_SECONDS,
 } from './_token.js';
+import type { ThroneGrant } from '../src/game/leaderboard.js';
 
 /** UTC daily keys for [yesterday, today, tomorrow] — tolerates client tz drift. */
 function allowedDates(): Set<string> {
@@ -169,10 +173,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       redis.zcard(key),
     ]);
 
+    // A Master clear earns one shot at the throne: a server-chosen battle seed
+    // (so the deterministic PvP fight can't be brute-forced offline) plus a
+    // single-use signed token. The client decides whether there's anyone to
+    // challenge (you can't dethrone yourself); this just hands out the pass.
+    let throne: ThroneGrant | null = null;
+    if (verdict.difficulty === 'master') {
+      const throneSeed = newSeed();
+      throne = {
+        seed: throneSeed,
+        token: secret
+          ? signThroneToken(
+              {
+                name,
+                date,
+                bracket,
+                difficulty: 'master',
+                seed: throneSeed,
+                n: newNonce(),
+                iat: now,
+              },
+              secret,
+            )
+          : null,
+      };
+    }
+
     return res.status(200).json({
       ok: true,
       rank: typeof rank0 === 'number' ? rank0 + 1 : null,
       total,
+      throne,
     });
   } catch (err) {
     console.error('[submit-win] Redis write failed:', err);

@@ -55,4 +55,7 @@ export interface BoardEntryData {
   clearedStages: number;
   team: SubmissionMon[]; // species + sign, so the team can be re-fought
   at: number;
+  // Set when this slot was taken by dethroning the Master #1 in a Throne
+  // Challenge — the name of the champion that was beaten for the crown.
+  defeated?: string;
 }

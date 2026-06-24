@@ -5,12 +5,17 @@ import {
   buildGauntlet,
   challengeOpponent,
   championSeed,
+  dailyKey,
   TIER_LABEL,
 } from './game/opponents';
 import {
   requestRunToken,
   teamFromMons,
+  challengeKing,
+  throneBattleSeed,
   type LeaderboardEntry,
+  type ThroneGrant,
+  type ChallengeKingResult,
 } from './game/leaderboard';
 import {
   buildChampionTeam,
@@ -30,6 +35,7 @@ import { BattleScreen } from './components/BattleScreen';
 import { RecruitScreen } from './components/RecruitScreen';
 import { ResultScreen } from './components/ResultScreen';
 import { ChallengeResultScreen } from './components/ChallengeResultScreen';
+import { ThroneResultScreen } from './components/ThroneResultScreen';
 import { LadderScreen } from './components/LadderScreen';
 
 type Phase =
@@ -41,7 +47,9 @@ type Phase =
   | 'recruit'
   | 'over'
   | 'challengeBattle'
-  | 'challengeOver';
+  | 'challengeOver'
+  | 'throneBattle'
+  | 'throneOver';
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>('title');
@@ -66,6 +74,22 @@ export default function App() {
   } | null>(null);
   const [challengeSeed, setChallengeSeed] = useState<string>('');
   const [challengeWon, setChallengeWon] = useState(false);
+
+  // The king-of-the-hill endgame: a Master champion's one shot at the reigning
+  // Master #1. Unlike an exhibition, a win here is server-verified and takes the
+  // top slot on the board.
+  const [throne, setThrone] = useState<{
+    foeTeam: Creature[];
+    opponent: Opponent;
+  } | null>(null);
+  const [throneKing, setThroneKing] = useState<LeaderboardEntry | null>(null);
+  const [throneSeed, setThroneSeed] = useState<string>('');
+  const [throneToken, setThroneToken] = useState<string | null>(null);
+  const [throneWon, setThroneWon] = useState(false);
+  const [throneSubmitting, setThroneSubmitting] = useState(false);
+  const [throneResult, setThroneResult] = useState<ChallengeKingResult | null>(
+    null,
+  );
 
   const gauntlet = useMemo(
     () => buildGauntlet(seed, difficulty, undefined, bracket),
@@ -134,6 +158,47 @@ export default function App() {
     setChallengeSeed(cseed);
     setChallenge({ foeTeam, opponent: challengeOpponent(entry.name, cseed) });
     setPhase('challengeBattle');
+  };
+
+  // A throne fight is a fair mirror, replayed from the server-issued seed so the
+  // browser and the server agree on the outcome before the board changes hands.
+  const throneBattle = useMemo<BattleResult | null>(() => {
+    if (phase !== 'throneBattle' || !throne) return null;
+    return simulateBattle(team, throne.foeTeam, throneBattleSeed(throneSeed), {
+      playerStatMult: PLAYER_STAT_MULT,
+      foeStatMult: PLAYER_STAT_MULT,
+    });
+  }, [phase, throne, throneSeed, team]);
+
+  const startThrone = (grant: ThroneGrant, king: LeaderboardEntry) => {
+    const foeTeam = teamFromMons(king.team);
+    if (foeTeam.length === 0) return;
+    setThroneToken(grant.token);
+    setThroneSeed(grant.seed);
+    setThroneKing(king);
+    setThroneResult(null);
+    setThroneWon(false);
+    setThrone({ foeTeam, opponent: challengeOpponent(king.name, grant.seed) });
+    setPhase('throneBattle');
+  };
+
+  const finishThrone = async (winner: Side) => {
+    const won = winner === 'player';
+    setThroneWon(won);
+    setPhase('throneOver');
+    if (!won || !throneKing) return;
+    // Confirm the takeover with the server (it re-simulates the fight and the
+    // one-shot token before promoting the challenger to the top of the board).
+    setThroneSubmitting(true);
+    const result = await challengeKing({
+      token: throneToken,
+      name: localStorage.getItem('lb-name') ?? '',
+      date: dailyKey(),
+      bracket,
+      seed: throneSeed,
+    });
+    setThroneResult(result);
+    setThroneSubmitting(false);
   };
 
   const startRun = async (
@@ -272,6 +337,7 @@ export default function App() {
           lostToTeam={lostToTeam}
           onPlayAgain={() => setPhase('title')}
           onChallenge={startChallenge}
+          onChallengeThrone={startThrone}
         />
       );
 
@@ -301,6 +367,31 @@ export default function App() {
             setChallengeSeed(randomSeed());
             setPhase('challengeBattle');
           }}
+          onHome={() => setPhase('title')}
+        />
+      );
+
+    case 'throneBattle':
+      if (!throneBattle || !throne) return null;
+      return (
+        <BattleScreen
+          opponent={throne.opponent}
+          playerTeam={team}
+          foeTeam={throne.foeTeam}
+          result={throneBattle}
+          onComplete={finishThrone}
+        />
+      );
+
+    case 'throneOver':
+      if (!throne || !throneKing) return null;
+      return (
+        <ThroneResultScreen
+          won={throneWon}
+          kingName={throneKing.name}
+          kingTeam={throne.foeTeam}
+          submitting={throneSubmitting}
+          result={throneResult}
           onHome={() => setPhase('title')}
         />
       );

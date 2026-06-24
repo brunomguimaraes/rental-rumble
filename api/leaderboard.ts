@@ -109,6 +109,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           at: Number(data.at) || 0,
           clearedStages: data.clearedStages ?? 0,
           team: Array.isArray(data.team) ? data.team : [],
+          defeated:
+            typeof data.defeated === 'string' ? data.defeated : undefined,
         } satisfies LeaderboardEntry;
       });
     } catch (err) {
@@ -173,6 +175,7 @@ async function bracketLeader(
       at: Number(data.at) || 0,
       clearedStages: data.clearedStages ?? 0,
       team: Array.isArray(data.team) ? data.team : [],
+      defeated: typeof data.defeated === 'string' ? data.defeated : undefined,
     },
   };
 }

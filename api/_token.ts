@@ -95,6 +95,83 @@ export function verifyRunToken(token: unknown, secret: string): TokenResult {
   return { ok: true, claims };
 }
 
+// --- Throne tokens ----------------------------------------------------------
+//
+// A throne token is the run token's cousin for the king-of-the-hill endgame.
+// When a Master win is verified, `submit-win` mints one: it pins the
+// challenger's name to a single, server-chosen battle seed so the (otherwise
+// deterministic) title fight can't be brute-forced offline for a winning RNG,
+// and its single-use nonce guarantees exactly one title shot per championship.
+
+// A title shot should be taken right after winning; keep it short so a token
+// can't be stockpiled and cashed in against a much later board.
+export const THRONE_TOKEN_TTL_MS = 1000 * 60 * 30;
+
+export interface ThroneTokenClaims {
+  name: string; // the challenger's board name (server-cleaned)
+  date: string;
+  bracket: BracketId;
+  difficulty: Difficulty; // always 'master' for now
+  seed: string; // server-chosen throne battle seed
+  n: string; // single-use nonce
+  iat: number; // issued-at, epoch ms
+}
+
+export function signThroneToken(
+  claims: ThroneTokenClaims,
+  secret: string,
+): string {
+  const body = Buffer.from(JSON.stringify(claims)).toString('base64url');
+  return `${body}.${sign(body, secret)}`;
+}
+
+export type ThroneTokenResult =
+  | { ok: true; claims: ThroneTokenClaims }
+  | { ok: false; reason: string };
+
+export function verifyThroneToken(
+  token: unknown,
+  secret: string,
+): ThroneTokenResult {
+  if (typeof token !== 'string' || token.length === 0 || token.length > 1024) {
+    return { ok: false, reason: 'missing throne token' };
+  }
+  const dot = token.indexOf('.');
+  if (dot <= 0 || dot >= token.length - 1) {
+    return { ok: false, reason: 'malformed throne token' };
+  }
+  const body = token.slice(0, dot);
+  const sig = token.slice(dot + 1);
+
+  const given = Buffer.from(sig);
+  const expected = Buffer.from(sign(body, secret));
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
+    return { ok: false, reason: 'bad throne token signature' };
+  }
+
+  let claims: ThroneTokenClaims;
+  try {
+    claims = JSON.parse(
+      Buffer.from(body, 'base64url').toString('utf8'),
+    ) as ThroneTokenClaims;
+  } catch {
+    return { ok: false, reason: 'unreadable throne token' };
+  }
+  if (
+    !claims ||
+    typeof claims.name !== 'string' ||
+    typeof claims.date !== 'string' ||
+    typeof claims.seed !== 'string' ||
+    typeof claims.n !== 'string' ||
+    typeof claims.iat !== 'number' ||
+    !isBracketId(claims.bracket) ||
+    !isDifficulty(claims.difficulty)
+  ) {
+    return { ok: false, reason: 'invalid throne token claims' };
+  }
+  return { ok: true, claims };
+}
+
 /** Server-side run seed — opaque and unguessable, unlike the old client seed. */
 export function newSeed(): string {
   return randomBytes(12).toString('base64url');

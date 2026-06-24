@@ -76,6 +76,9 @@ export interface LeaderboardEntry {
   at: number; // epoch ms of the verified win
   clearedStages: number;
   team: SubmissionMon[]; // species + sign, enough to re-fight the team
+  // Set when this slot was claimed by dethroning the reigning Master #1 in a
+  // Throne Challenge — the name of the champion they beat to take the crown.
+  defeated?: string;
 }
 
 /**
@@ -223,6 +226,48 @@ export function teamFromMons(mons: SubmissionMon[]): Creature[] {
   return team;
 }
 
+// --- Throne Challenge (king-of-the-hill PvP endgame) ------------------------
+
+/**
+ * The battle seed for a Throne Challenge. The raw seed is server-issued (baked
+ * into a signed throne token), so the deterministic fight can't be brute-forced
+ * for a favourable RNG offline. Both client and server derive the battle seed
+ * the same way so their simulations agree exactly.
+ */
+export function throneBattleSeed(seed: string): string {
+  return `throne#${seed}`;
+}
+
+/**
+ * Re-run a Throne Challenge and confirm the challenger won. A throne fight is a
+ * fair mirror: two saved teams, both with the same "hero" edge, so nothing but
+ * the teams and the (server-issued) seed decides it. Pure and deterministic, so
+ * it runs identically in the browser and on the serverless function. Teams are
+ * rebuilt from canonical (id + sign) form, so neither side's stats can be forged.
+ */
+export function verifyThroneWin(args: {
+  challengerTeam: SubmissionMon[];
+  kingTeam: SubmissionMon[];
+  seed: string;
+}): { ok: boolean; reason?: string } {
+  const challenger = teamFromMons(args.challengerTeam);
+  const king = teamFromMons(args.kingTeam);
+  if (challenger.length === 0) {
+    return { ok: false, reason: 'challenger has no team' };
+  }
+  if (king.length === 0) {
+    return { ok: false, reason: 'champion has no team' };
+  }
+  const result = simulateBattle(challenger, king, throneBattleSeed(args.seed), {
+    playerStatMult: PLAYER_STAT_MULT,
+    foeStatMult: PLAYER_STAT_MULT,
+  });
+  if (result.winner !== 'player') {
+    return { ok: false, reason: 'challenger did not win' };
+  }
+  return { ok: true };
+}
+
 /** Build the POST payload from a finished, victorious run. */
 export function buildSubmission(args: {
   name: string;
@@ -250,10 +295,31 @@ export function buildSubmission(args: {
 
 // --- client fetch helpers ---------------------------------------------------
 
+/**
+ * A one-shot pass to challenge the reigning Master #1 for the throne, handed
+ * out when a Master win is verified. `seed` is the (server-chosen) battle seed
+ * to play; `token` is the signed proof that authorises exactly one title shot
+ * (null when the server has no secret configured / enforcement is off).
+ */
+export interface ThroneGrant {
+  token: string | null;
+  seed: string;
+}
+
 export interface SubmitResult {
   ok: boolean;
   rank?: number; // 1-based placement for the day
   total?: number;
+  error?: string;
+  // Present on a verified Master win: the pass to chase the throne (if any).
+  throne?: ThroneGrant | null;
+}
+
+export interface ChallengeKingResult {
+  ok: boolean;
+  rank?: number; // the challenger's new 1-based placement (1 when they took the throne)
+  total?: number;
+  defeated?: string; // the champion who was dethroned
   error?: string;
 }
 
@@ -301,6 +367,32 @@ export async function submitWin(
       body: JSON.stringify(payload),
     });
     const data = (await res.json()) as SubmitResult;
+    if (!res.ok) return { ok: false, error: data.error ?? `HTTP ${res.status}` };
+    return data;
+  } catch {
+    return { ok: false, error: 'network error' };
+  }
+}
+
+/**
+ * Stake your title shot: fight the reigning Master #1's saved team for the
+ * crown. The server re-simulates the fight (and verifies the one-shot token)
+ * before promoting the challenger above the champion they beat.
+ */
+export async function challengeKing(payload: {
+  token?: string | null;
+  name: string;
+  date: string;
+  bracket: BracketId;
+  seed: string;
+}): Promise<ChallengeKingResult> {
+  try {
+    const res = await fetch('/api/challenge-king', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = (await res.json()) as ChallengeKingResult;
     if (!res.ok) return { ok: false, error: data.error ?? `HTTP ${res.status}` };
     return data;
   } catch {
