@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://rental-rumble.vercel.app/sitemap.xml
+Sitemap: https://www.pokerental.com/sitemap.xml
