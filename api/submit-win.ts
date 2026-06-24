@@ -13,6 +13,14 @@ import {
   BOARD_TTL_SECONDS,
   type BoardEntryData,
 } from './_redis.js';
+import { rateLimit, clientIp } from './_ratelimit.js';
+import {
+  getTokenSecret,
+  verifyRunToken,
+  RUN_TOKEN_TTL_MS,
+  MIN_RUN_MS,
+  NONCE_TTL_SECONDS,
+} from './_token.js';
 
 /** UTC daily keys for [yesterday, today, tomorrow] — tolerates client tz drift. */
 function allowedDates(): Set<string> {
@@ -49,12 +57,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .json({ ok: false, error: 'submissions are only open for today’s boss' });
   }
 
-  // The honest part: re-simulate the Champion fight server-side (per bracket).
-  const verdict = verifyChampionWin({ ...body, name, bracket });
-  if (!verdict.ok) {
-    return res.status(400).json({ ok: false, error: `unverified: ${verdict.reason}` });
-  }
-
   const redis = getRedis();
   if (!redis) {
     // Misconfigured environment (no Upstash credentials). Return a clean,
@@ -63,6 +65,63 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ok: false,
       error: 'leaderboard is temporarily unavailable',
     });
+  }
+
+  // Throttle per caller so the verify step (a full battle re-sim) can't be
+  // hammered, and a single IP can't carpet the board.
+  const ip = clientIp(req);
+  const [okDay, okMin] = await Promise.all([
+    rateLimit(redis, `rl:submit:d:${ip}:${date}`, 100, 60 * 60 * 24),
+    rateLimit(redis, `rl:submit:m:${ip}`, 15, 60),
+  ]);
+  if (!okDay || !okMin) {
+    return res.status(429).json({ ok: false, error: 'too many submissions, slow down' });
+  }
+
+  // Run-token gate: the seed must come from a token *we* issued for this exact
+  // date/bracket/difficulty, so a win can't be forged offline against a
+  // hand-picked seed or POSTed without ever launching the game. Enforced only
+  // when a secret is configured, so the board keeps working on a deploy that
+  // hasn't had LEADERBOARD_SECRET set yet (set it to arm the protection).
+  const secret = getTokenSecret();
+  const nonceKey = (() => {
+    if (!secret) {
+      console.warn(
+        '[submit-win] LEADERBOARD_SECRET is not set — run tokens are NOT being ' +
+          'enforced. Set it in the Vercel project to guarantee legit submits.',
+      );
+      return null;
+    }
+    const verdict = verifyRunToken(body.token, secret);
+    if (!verdict.ok) {
+      return { error: `unverified: ${verdict.reason}` } as const;
+    }
+    const c = verdict.claims;
+    const age = Date.now() - c.iat;
+    if (
+      c.seed !== body.seed ||
+      c.date !== date ||
+      c.bracket !== bracket ||
+      c.difficulty !== body.difficulty
+    ) {
+      return { error: 'unverified: run token does not match submission' } as const;
+    }
+    if (age < 0 || age > RUN_TOKEN_TTL_MS) {
+      return { error: 'unverified: run token expired' } as const;
+    }
+    if (age < MIN_RUN_MS) {
+      return { error: 'unverified: run finished implausibly fast' } as const;
+    }
+    return `used:${c.n}`;
+  })();
+  if (nonceKey && typeof nonceKey === 'object') {
+    return res.status(400).json({ ok: false, error: nonceKey.error });
+  }
+
+  // The honest part: re-simulate the Champion fight server-side (per bracket).
+  const verdict = verifyChampionWin({ ...body, name, bracket });
+  if (!verdict.ok) {
+    return res.status(400).json({ ok: false, error: `unverified: ${verdict.reason}` });
   }
 
   const now = Date.now();
@@ -74,6 +133,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const score = boardScore(verdict.difficulty, now);
 
   try {
+    // Burn the token's nonce so one authorised run can't be replayed into the
+    // board under several names. NX returns null if it was already spent.
+    if (typeof nonceKey === 'string') {
+      const claimed = await redis.set(nonceKey, '1', {
+        nx: true,
+        ex: NONCE_TTL_SECONDS,
+      });
+      if (claimed === null) {
+        return res
+          .status(409)
+          .json({ ok: false, error: 'this run was already submitted' });
+      }
+    }
+
     // First verified win per name sticks (NX = don't overwrite an earlier one).
     await redis.zadd(key, { nx: true }, { score, member: name });
 

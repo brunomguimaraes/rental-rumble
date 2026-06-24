@@ -21,6 +21,7 @@ import { Credits } from './Credits';
 import { PrivacyPolicy } from './PrivacyPolicy';
 import { SupportLinks } from './SupportLinks';
 import { BattleGuide } from './BattleGuide';
+import { ChampionSpotlight } from './ChampionSpotlight';
 
 export function TitleScreen({
   onStart,
@@ -30,7 +31,7 @@ export function TitleScreen({
     difficulty: Difficulty,
     bracket: BracketId,
     seed?: string,
-  ) => void;
+  ) => void | Promise<void>;
   /** Open the standalone "today's ladder" page. */
   onViewLadder: () => void;
 }) {
@@ -43,6 +44,19 @@ export function TitleScreen({
   const [bracket, setBracket] = useState<BracketId>(DEFAULT_BRACKET);
   const [showChampion, setShowChampion] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  // Starting a run asks the server for a signed seed first; keep the button
+  // honest (and unclickable twice) while that round-trip is in flight.
+  const [starting, setStarting] = useState(false);
+
+  const begin = async () => {
+    if (starting) return;
+    setStarting(true);
+    try {
+      await onStart(difficulty, bracket);
+    } finally {
+      setStarting(false);
+    }
+  };
 
   const isAll = bracket === 'all';
 
@@ -80,6 +94,11 @@ export function TitleScreen({
       <div className="mt-6 w-full">
         <TypeMarquee />
       </div>
+
+      {/* Live "today's champions" teaser — the first players to topple each
+          era's daily boss, auto-rotating. Falls back to boss hype when no board
+          has been cleared yet. Tapping it opens the full ladder. */}
+      <ChampionSpotlight onViewLadder={onViewLadder} />
 
       {/* Generation bracket picker — locks the whole run (draft pool and every
           foe, Champion included) to an era's dex, with its own daily board. */}
@@ -211,10 +230,11 @@ export function TitleScreen({
 
       <button
         type="button"
-        onClick={() => onStart(difficulty, bracket)}
-        className="mt-8 rounded-full bg-white px-8 py-3 text-lg font-bold text-black transition-transform hover:scale-105 active:scale-95"
+        onClick={begin}
+        disabled={starting}
+        className="mt-8 rounded-full bg-white px-8 py-3 text-lg font-bold text-black transition-transform hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        Start Adventure →
+        {starting ? 'Starting…' : 'Start Adventure →'}
       </button>
 
       {/* Custom seed entry disabled: the manual seed box added complexity

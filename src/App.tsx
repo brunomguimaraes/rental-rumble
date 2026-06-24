@@ -7,7 +7,11 @@ import {
   championSeed,
   TIER_LABEL,
 } from './game/opponents';
-import { teamFromMons, type LeaderboardEntry } from './game/leaderboard';
+import {
+  requestRunToken,
+  teamFromMons,
+  type LeaderboardEntry,
+} from './game/leaderboard';
 import {
   buildChampionTeam,
   buildOpponentTeam,
@@ -42,6 +46,9 @@ type Phase =
 export default function App() {
   const [phase, setPhase] = useState<Phase>('title');
   const [seed, setSeed] = useState<string>(() => randomSeed());
+  // Signed proof the server authorised this run's seed. Required to rank on the
+  // leaderboard; null on offline/custom-seed runs (still fully playable).
+  const [runToken, setRunToken] = useState<string | null>(null);
   const [team, setTeam] = useState<Creature[]>([]);
   const [stage, setStage] = useState(0);
   const [won, setWon] = useState(false);
@@ -129,17 +136,34 @@ export default function App() {
     setPhase('challengeBattle');
   };
 
-  const startRun = (
+  const startRun = async (
     diff: Difficulty,
     chosenBracket: BracketId,
     customSeed?: string,
   ) => {
     setDifficulty(diff);
     setBracket(chosenBracket);
-    setSeed(customSeed ?? randomSeed());
     setTeam([]);
     setStage(0);
     setWon(false);
+
+    // The server picks the seed and signs a token for it — that's what keeps the
+    // leaderboard honest. A custom/shared seed (or an offline failure) is local
+    // only: the run plays, but with no token it can't rank.
+    let nextSeed = customSeed ?? randomSeed();
+    let token: string | null = null;
+    if (!customSeed) {
+      const start = await requestRunToken({
+        bracket: chosenBracket,
+        difficulty: diff,
+      });
+      if (start) {
+        nextSeed = start.seed;
+        token = start.token;
+      }
+    }
+    setSeed(nextSeed);
+    setRunToken(token);
     setPhase('draft');
   };
 
@@ -241,6 +265,7 @@ export default function App() {
           won={won}
           team={team}
           seed={seed}
+          runToken={runToken}
           bracket={bracket}
           difficulty={difficulty}
           clearedStages={won ? gauntlet.length : stage}

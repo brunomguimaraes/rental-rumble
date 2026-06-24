@@ -98,6 +98,8 @@ export function Leaderboard({
     stage: number;
     clearedStages: number;
     team: Creature[];
+    /** Signed run token proving the server authorised this run. */
+    token?: string | null;
   };
   /** Start a just-for-fun exhibition match against a saved team. */
   onChallenge?: (entry: LeaderboardEntry) => void;

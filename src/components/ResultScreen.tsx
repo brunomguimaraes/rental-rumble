@@ -13,6 +13,7 @@ export function ResultScreen({
   won,
   team,
   seed,
+  runToken = null,
   clearedStages,
   bracket,
   difficulty,
@@ -24,6 +25,8 @@ export function ResultScreen({
   won: boolean;
   team: Creature[];
   seed: string;
+  /** Signed run token from the server — proves the run was authorised. */
+  runToken?: string | null;
   clearedStages: number;
   /** The generation bracket this run was locked to (drives which board it ranks on). */
   bracket: BracketId;
@@ -200,6 +203,7 @@ export function ResultScreen({
           stage: gauntlet.length - 1,
           clearedStages,
           team,
+          token: runToken,
         }}
         onChallenge={onChallenge}
       />

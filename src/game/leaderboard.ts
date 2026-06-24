@@ -57,10 +57,14 @@ export interface SubmissionPayload {
   date: string; // dailyKey, e.g. "2026-06-23"
   bracket: BracketId; // which generation bracket this run was locked to
   difficulty: Difficulty; // ladder length the run was played on (drives rank)
-  seed: string; // run seed
+  seed: string; // run seed (server-issued via /api/start-run)
   stage: number; // the Champion's index in the gauntlet
   clearedStages: number;
   team: SubmissionMon[];
+  // Signed proof that the server authorised this run (binds the seed). Null on
+  // runs the server never issued a token for (offline/legacy) — those can't be
+  // verified once enforcement is on.
+  token?: string | null;
 }
 
 /** One row on the public board. */
@@ -205,6 +209,7 @@ export function buildSubmission(args: {
   stage: number;
   clearedStages: number;
   team: Creature[];
+  token?: string | null;
 }): SubmissionPayload {
   return {
     name: args.name.trim().slice(0, 24),
@@ -215,6 +220,7 @@ export function buildSubmission(args: {
     stage: args.stage,
     clearedStages: args.clearedStages,
     team: args.team.map((c) => ({ id: c.id, sign: c.sign })),
+    token: args.token ?? null,
   };
 }
 
@@ -225,6 +231,40 @@ export interface SubmitResult {
   rank?: number; // 1-based placement for the day
   total?: number;
   error?: string;
+}
+
+/** A server-authorised run: the seed to play, plus a signed token to submit. */
+export interface RunStart {
+  seed: string;
+  token: string | null;
+}
+
+/**
+ * Ask the server to start a run. It returns the seed to play and a signed token
+ * that proves the run was authorised, which `submitWin` echoes back. Returns
+ * null on failure (offline / API down) — the caller should fall back to a local
+ * seed so the game stays playable, just not leaderboard-eligible.
+ */
+export async function requestRunToken(args: {
+  bracket: BracketId;
+  difficulty: Difficulty;
+}): Promise<RunStart | null> {
+  try {
+    const res = await fetch('/api/start-run', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(args),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { seed?: unknown; token?: unknown };
+    if (typeof data.seed !== 'string' || data.seed.length === 0) return null;
+    return {
+      seed: data.seed,
+      token: typeof data.token === 'string' ? data.token : null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function submitWin(
