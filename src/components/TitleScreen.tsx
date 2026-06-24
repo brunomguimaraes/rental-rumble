@@ -20,6 +20,7 @@ import { TrainerSprite } from './TrainerSprite';
 import { Credits } from './Credits';
 import { PrivacyPolicy } from './PrivacyPolicy';
 import { SupportLinks } from './SupportLinks';
+import { DiscordLink } from './DiscordLink';
 import { BattleGuide } from './BattleGuide';
 import { ChampionSpotlight } from './ChampionSpotlight';
 
@@ -288,6 +289,7 @@ export function TitleScreen({
       <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
         <Credits />
         <PrivacyPolicy />
+        <DiscordLink />
         <SupportLinks />
       </div>
 
