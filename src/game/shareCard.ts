@@ -151,9 +151,9 @@ export async function renderShareCard(
 ): Promise<HTMLCanvasElement> {
   const { team, won, clearedStages, gauntlet, seed, bracket = 'all', fellToTeam = [] } = data;
 
-  // On a win, the header emblem is the era's Ribbon Cup (the "trophy" for the
-  // mode you played); otherwise we fall back to the Poké Ball.
-  const cupSrc = won ? `${ASSET}sprites/ui/cup-${bracketCup(bracket)}.png` : null;
+  // The header emblem is the era's Ribbon Cup — the "trophy" for the mode you
+  // played. It's full-colour on a win and greyed-out on a loss.
+  const cupSrc = `${ASSET}sprites/ui/cup-${bracketCup(bracket)}.png`;
 
   // Trainer who ended the run (only meaningful on a loss).
   const fellTo = !won ? gauntlet[clearedStages] : null;
@@ -177,7 +177,7 @@ export async function renderShareCard(
     ),
     Promise.all(typeList.map((t) => loadImage(typeIconUrl(t)))),
     loadImage(`${ASSET}sprites/ui/pokeball.png`),
-    cupSrc ? loadImage(cupSrc) : Promise.resolve(null),
+    loadImage(cupSrc),
     fellTo ? loadImage(fellTo.art) : Promise.resolve(null),
     Promise.all(fellToTeam.map((c) => loadImage(c.mini))),
   ]);
@@ -212,17 +212,20 @@ export async function renderShareCard(
   const cx = W / 2;
 
   // ---- Header -------------------------------------------------------------
-  // On a win, crown the card with the era's Ribbon Cup (a small pixel-art
-  // sprite, so scale it up cleanly and keep its aspect). Otherwise: Poké Ball.
+  // Crown the card with the era's Ribbon Cup (a small pixel-art sprite, so
+  // scale it up cleanly and keep its aspect). It's full-colour on a win and
+  // greyed-out on a loss. Falls back to the Poké Ball if the cup is missing.
   const emblem = cup ?? pokeball;
   if (emblem) {
     const box = 72;
     const s = Math.min(box / emblem.width, box / emblem.height);
     const ew = emblem.width * s;
     const eh = emblem.height * s;
+    ctx.save();
     ctx.imageSmoothingEnabled = false;
+    if (!won) ctx.filter = 'grayscale(1) brightness(0.85)';
     ctx.drawImage(emblem, cx - ew / 2, 64 + (box - eh) / 2, ew, eh);
-    ctx.imageSmoothingEnabled = true;
+    ctx.restore();
   }
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
