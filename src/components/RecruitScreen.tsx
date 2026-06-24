@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Creature, Sign } from '../game/types';
 import type { BracketId } from '../game/gens';
 import {
@@ -11,7 +12,19 @@ import {
   withRandomPortrait,
   sameFamily,
 } from '../game/pokemon';
-import { rerollSign, forcedRareSign } from '../game/zodiac';
+import {
+  rerollSign,
+  rerollRareSign,
+  forcedRareSign,
+  signTier,
+  signIconUrl,
+  signLabel,
+  signSummary,
+  SIGN_INFO,
+  ALL_SIGNS,
+  type SignTier,
+} from '../game/zodiac';
+import { abilityInfo } from '../game/abilities';
 import { allRareEnabled, allShinyEnabled } from '../game/dev';
 import { SHINY_CHANCE } from '../game/run';
 import { RNG } from '../game/rng';
@@ -27,6 +40,7 @@ export function RecruitScreen({
   currentTeam,
   defeatedTeam,
   allowSignReroll = false,
+  rerollStrong = false,
   rerollSeed,
   onConfirm,
 }: {
@@ -39,10 +53,23 @@ export function RecruitScreen({
   // special trainer). `rerollSeed` pins the outcome deterministically so the
   // gamble can't be re-rolled by leaving and re-entering the screen.
   allowSignReroll?: boolean;
+  // Hidden reward tier (from the special trainer's `strong` flag): a "strong"
+  // special's win guarantees a rare sign; a "weak" one grants the ordinary
+  // random reroll. Never surfaced to the player — both look identical up front.
+  rerollStrong?: boolean;
   rerollSeed?: string;
   onConfirm: (team: Creature[]) => void;
 }) {
   const [mode, setMode] = useState<Mode>('choose');
+
+  // The final commit is intentionally one-way: once the player continues they
+  // advance to the next stage and can never return to re-pick this reward. A
+  // confirmation gate makes that finality explicit before locking it in.
+  const [confirming, setConfirming] = useState(false);
+
+  // A claimed sign reroll plays a slot-machine reveal before we advance, so the
+  // gamble lands with a beat of suspense instead of silently swapping the card.
+  const [rolling, setRolling] = useState(false);
 
   // Reward 1 — recruit: take exactly one foe Pokémon into one of your slots.
   const [foeIdx, setFoeIdx] = useState<number | null>(null);
@@ -62,8 +89,11 @@ export function RecruitScreen({
   // so re-selecting only swaps which Pokémon benefits — never the luck. The
   // outcome is kept hidden from the player until they confirm, so this is only
   // ever used to build the final team — never to preview the result on screen.
+  // A "strong" special guarantees a rare sign; a "weak" one is the ordinary
+  // random reroll. Both share the same signature, so the only difference the
+  // player ever sees is what the reveal animation finally lands on.
   const rerolledSignFor = (i: number): Sign =>
-    rerollSign(
+    (rerollStrong ? rerollRareSign : rerollSign)(
       currentTeam[i].stats,
       new RNG(rerollSeed ?? 'reroll'),
       currentTeam[i].sign,
@@ -142,6 +172,43 @@ export function RecruitScreen({
   const rewardChosen = recruitDone || evolveDone || rerollDone;
   const continueLabel = rewardChosen ? nextLabel : 'Skip reward';
 
+  // A plain-language recap of exactly what confirming will do, shown in the
+  // final commit gate so the player knows precisely what they're locking in.
+  const selectionSummary = (): { title: string; detail: string } => {
+    if (mode === 'recruit' && recruitDone && foeIdx !== null && recruitSlot !== null) {
+      const foe = defeatedView[foeIdx];
+      const replaced = currentTeam[recruitSlot];
+      return {
+        title: `Recruit ${foe.name}`,
+        detail: `${foe.name} joins your team in ${replaced.name}'s slot, and ${replaced.name} is released for good.`,
+      };
+    }
+    if (mode === 'evolve' && evolveDone && evolveSlot !== null && evolveTarget !== null) {
+      const base = currentTeam[evolveSlot];
+      const evolved = evolveCreature(base, evolveTarget);
+      return {
+        title: `Evolve ${base.name}`,
+        detail: `${base.name} evolves into ${evolved.name}.`,
+      };
+    }
+    if (mode === 'reroll' && rerollDone && rerollSlot !== null) {
+      const base = currentTeam[rerollSlot];
+      return {
+        title: `Reroll ${base.name}'s sign`,
+        detail: `${base.name}'s zodiac sign is gambled for a new one. The result stays hidden until it's done — and there are no second tries.`,
+      };
+    }
+    return {
+      title: 'Skip your reward',
+      // The sign reroll is a once-per-run treat that's easy to miss tucked beside
+      // the usual recruit/evolve picks — so when it's on the table, call it out by
+      // name before the player walks away from it for good.
+      detail: allowSignReroll
+        ? 'You move on with your current team and claim nothing — including the sign reroll on offer, which won\'t come around again.'
+        : 'You move on with your current team and claim no reward for this win.',
+    };
+  };
+
   return (
     <div className="mx-auto max-w-6xl px-3 py-6 pb-28 sm:px-4 sm:py-8 sm:pb-28">
       <div className="text-center">
@@ -169,7 +236,7 @@ export function RecruitScreen({
             emoji="🔄"
             title="Recruit a Pokémon"
             desc={`Swap one of ${opponentName}'s Pokémon into your team — keeps its sign & ball.`}
-            preview={<PreviewRow creatures={defeatedView} />}
+            preview={<RecruitPreview creatures={defeatedView} />}
             onClick={() => setMode('recruit')}
           />
           <RewardOption
@@ -376,14 +443,86 @@ export function RecruitScreen({
         <div className="mx-auto flex max-w-6xl items-center justify-center gap-3 px-3 py-3 sm:px-4">
           <button
             type="button"
-            onClick={() => onConfirm(resultTeam)}
+            onClick={() => setConfirming(true)}
             className="w-full rounded-full bg-white px-8 py-3 text-base font-bold text-black transition-transform hover:scale-105 active:scale-95 sm:w-auto sm:text-lg"
           >
             {continueLabel} →
           </button>
         </div>
       </div>
+
+      {confirming && (
+        <ConfirmModal
+          summary={selectionSummary()}
+          confirmLabel={continueLabel}
+          rewardChosen={rewardChosen}
+          onCancel={() => setConfirming(false)}
+          onConfirm={() => onConfirm(resultTeam)}
+        />
+      )}
     </div>
+  );
+}
+
+// Final commit gate. After-battle rewards are one-and-done: once confirmed the
+// player advances and can never come back to this screen, so we spell out the
+// exact outcome and that it's permanent before letting them through.
+function ConfirmModal({
+  summary,
+  confirmLabel,
+  rewardChosen,
+  onCancel,
+  onConfirm,
+}: {
+  summary: { title: string; detail: string };
+  confirmLabel: string;
+  rewardChosen: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-md rounded-3xl border border-white/10 bg-[#0c0c14] p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-center">
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full border border-amber-300/30 bg-amber-300/10 text-2xl">
+            {rewardChosen ? '🔒' : '⏭️'}
+          </div>
+          <h3 className="mt-3 text-xl font-black text-white">{summary.title}</h3>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-white/65">{summary.detail}</p>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-amber-300/25 bg-amber-300/[0.06] px-4 py-3 text-center">
+          <p className="text-xs font-semibold text-amber-200/90">
+            This choice is permanent. Once you continue you can't return to this
+            screen or change it.
+          </p>
+        </div>
+
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-full border border-white/15 px-5 py-2.5 text-sm font-bold text-white/80 transition hover:bg-white/10"
+          >
+            Go back
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded-full bg-white px-6 py-2.5 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
+          >
+            {confirmLabel} →
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -440,6 +579,93 @@ function PreviewRow({ creatures }: { creatures: Creature[] }) {
           className="h-10 w-10 rounded-lg border border-white/10 bg-white/5 object-cover"
         />
       ))}
+    </div>
+  );
+}
+
+// Per-tier colouring for a sign chip: rare wanderers glow violet, the mythic
+// Abhijit glows gold, and the common twelve stay neutral — so a recruit's rare
+// luck reads at a glance before you even open the full card.
+const SIGN_TIER_CHIP: Record<SignTier, string> = {
+  common: 'border-white/10 bg-white/10 text-white/70',
+  rare: 'border-fuchsia-300/45 bg-fuchsia-300/10 text-fuchsia-200',
+  mythic: 'border-amber-300/50 bg-amber-300/10 text-amber-200',
+};
+
+function SignChip({ sign }: { sign: Sign }) {
+  const tier = signTier(sign);
+  return (
+    <span
+      title={signSummary(sign)}
+      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${SIGN_TIER_CHIP[tier]}`}
+    >
+      <img src={signIconUrl(sign)} alt="" className="h-3 w-3 shrink-0 object-contain" />
+      <span className="truncate">{signLabel(sign)}</span>
+      {tier !== 'common' && (
+        <span className="text-[8px] font-black uppercase tracking-wide opacity-80">{tier}</span>
+      )}
+    </span>
+  );
+}
+
+/**
+ * Detailed recruit preview: each defeated foe shown as it would join you, with
+ * its portrait, sign (colour-coded by rarity), ability and shiny lustre — so the
+ * player can weigh the actual recruits before committing to the reward.
+ */
+function RecruitPreview({ creatures }: { creatures: Creature[] }) {
+  if (creatures.length === 0) return null;
+  return (
+    <div className="mt-4 w-full space-y-1.5">
+      {creatures.map((c, i) => {
+        const ability = c.ability ? abilityInfo(c.ability) : null;
+        return (
+          <div
+            key={`${c.id}-${i}`}
+            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-2 py-1.5 text-left"
+          >
+            <img
+              src={c.portrait}
+              alt={c.name}
+              loading="lazy"
+              onError={(e) => {
+                const img = e.currentTarget;
+                if (img.src !== c.sprite) img.src = c.sprite;
+              }}
+              className="h-9 w-9 shrink-0 rounded-lg border border-white/10 bg-white/5 object-cover"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="truncate text-xs font-bold text-white">{c.name}</span>
+                {c.shiny && (
+                  <span
+                    title={`Shiny — a rare colour variant with a flat stat boost`}
+                    className="inline-flex shrink-0 items-center gap-0.5 rounded-md px-1 py-0.5 text-[9px] font-black"
+                    style={{
+                      background: 'linear-gradient(90deg, #ffe9a8, #ffd76b, #bfefff)',
+                      color: '#5c3b00',
+                    }}
+                  >
+                    ✦ Shiny
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-1">
+                <SignChip sign={c.sign} />
+                {ability && (
+                  <span
+                    title={ability.description}
+                    className="inline-flex min-w-0 items-center gap-1 rounded-md border border-amber-300/25 bg-amber-300/[0.07] px-1.5 py-0.5 text-[10px] font-semibold text-amber-200/90"
+                  >
+                    <span className="shrink-0 text-[9px] text-amber-300">✦</span>
+                    <span className="truncate">{ability.name}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
