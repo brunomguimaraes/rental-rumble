@@ -87,8 +87,8 @@ export const ALL_SIGNS: Sign[] = [...ZODIAC_SIGNS, ...RARE_SIGNS, ...MYTHIC_SIGN
 // Odds a single drafted Pokémon is born under a celestial sign, for a regular
 // player. Opponents roll at half these odds (see rollSign's `oddsScale`), and
 // special trainers additionally get a flat team-level chance (see battle.ts).
-export const RARE_ODDS = 1 / 999;
-export const MYTHIC_ODDS = 1 / 999_999;
+export const RARE_ODDS = 1 / 120;
+export const MYTHIC_ODDS = 1 / 4000;
 
 export const ELEMENT_ORDER: Element[] = ['fire', 'earth', 'air', 'water'];
 
