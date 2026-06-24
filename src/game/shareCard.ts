@@ -12,7 +12,6 @@ export interface ShareCardData {
   won: boolean;
   clearedStages: number;
   gauntlet: Opponent[];
-  seed: string;
   /** The generation bracket the run was played on — its Ribbon Cup becomes the
    *  champion card's header emblem. */
   bracket?: BracketId;
@@ -149,7 +148,7 @@ async function drawTypeChip(
 export async function renderShareCard(
   data: ShareCardData,
 ): Promise<HTMLCanvasElement> {
-  const { team, won, clearedStages, gauntlet, seed, bracket = 'all', fellToTeam = [] } = data;
+  const { team, won, clearedStages, gauntlet, bracket = 'all', fellToTeam = [] } = data;
 
   // The header emblem is the era's Ribbon Cup — the "trophy" for the mode you
   // played. It's full-colour on a win and greyed-out on a loss.
@@ -448,28 +447,6 @@ export async function renderShareCard(
   }
 
   // ---- Footer -------------------------------------------------------------
-  // The champion card keeps its seed secret — only the loss card reveals the
-  // "SEED <value>" pair so others can rematch the same draft.
-  if (!won) {
-    const seedLabel = 'SEED';
-    const labelFont = `600 22px ${FONT}`;
-    const valueFont = `700 24px "SF Mono", ui-monospace, Menlo, monospace`;
-    ctx.textBaseline = 'alphabetic';
-    ctx.font = labelFont;
-    const labelW = ctx.measureText(seedLabel).width;
-    ctx.font = valueFont;
-    const valueW = ctx.measureText(seed).width;
-    const seedGap = 14;
-    const groupStart = cx - (labelW + seedGap + valueW) / 2;
-    ctx.textAlign = 'left';
-    ctx.font = labelFont;
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.fillText(seedLabel, groupStart, H - 80);
-    ctx.font = valueFont;
-    ctx.fillStyle = 'rgba(255,255,255,0.82)';
-    ctx.fillText(seed, groupStart + labelW + seedGap, H - 80);
-  }
-
   ctx.textAlign = 'center';
   ctx.fillStyle = won ? withAlpha(COLORS.gold, 0.9) : 'rgba(255,255,255,0.6)';
   ctx.font = `700 24px ${FONT}`;

@@ -44,7 +44,7 @@ export function ResultScreen({
   const blobRef = useRef<Blob | null>(null);
 
   const fellTo = !won ? gauntlet[clearedStages] : null;
-  const fileName = `rental-rumble-${won ? 'champion' : `${clearedStages}of${gauntlet.length}`}-${seed}.png`;
+  const fileName = `rental-rumble-${won ? 'champion' : `${clearedStages}of${gauntlet.length}`}.png`;
 
   const shareText = won
     ? `I became Champion in Rental Rumble! Same gauntlet, can you take the crown?`
@@ -57,7 +57,7 @@ export function ResultScreen({
     let url: string | null = null;
     let alive = true;
     setBuilding(true);
-    renderShareBlob({ team, won, clearedStages, gauntlet, seed, bracket, fellToTeam: lostToTeam })
+    renderShareBlob({ team, won, clearedStages, gauntlet, bracket, fellToTeam: lostToTeam })
       .then((blob) => {
         if (!alive) return;
         blobRef.current = blob;
