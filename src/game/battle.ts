@@ -81,6 +81,10 @@ function otherStat(base: number): number {
 export function makeBattler(creature: Creature, statMult = 1): Battler {
   const spread = SIGN_SPREAD[creature.sign];
   const maxHp = Math.floor(hpStat(creature.stats.hp) * spread.hp * statMult);
+  const pp: Record<string, number> = {};
+  for (const mv of creature.moves) {
+    if (mv.pp !== undefined) pp[mv.name] = mv.pp;
+  }
   return {
     creature,
     maxHp,
@@ -90,7 +94,13 @@ export function makeBattler(creature: Creature, statMult = 1): Battler {
     toxicCounter: 0,
     confusion: 0,
     stages: { atk: 0, def: 0, spd: 0 },
+    pp,
   };
+}
+
+/** True if `attacker` may still use `move` this battle (respects PP caps). */
+function hasPP(attacker: Battler, move: Move): boolean {
+  return move.pp === undefined || (attacker.pp[move.name] ?? 0) > 0;
 }
 
 // Classic Pokémon stat-stage curve: +1 = 1.5×, +2 = 2×, … and the inverse on
@@ -201,8 +211,12 @@ function chooseMove(
   // Always take a guaranteed KO over anything else.
   if (plan.dmg > 0 && plan.dmg >= defender.hp) return plan.move;
 
-  // Heal when badly hurt.
-  const healMove = moves.find((mv) => mv.effect?.kind === 'heal');
+  // Heal when badly hurt — but only while the move still has PP left. Once a
+  // wall burns through its limited heals it has to start trading damage, which
+  // is what breaks the Chansey-style "we both heal forever" stalemate.
+  const healMove = moves.find(
+    (mv) => mv.effect?.kind === 'heal' && hasPP(attacker, mv),
+  );
   if (healMove && attacker.hp / attacker.maxHp < 0.35 && rng.chance(0.6)) {
     return healMove;
   }
@@ -453,6 +467,12 @@ export function simulateBattle(
         },
       });
       attacker.creature = copy;
+      // Re-seed PP for the freshly copied moveset (Transform adopts the foe's
+      // moves, so the old PP map no longer applies).
+      attacker.pp = {};
+      for (const mv of copy.moves) {
+        if (mv.pp !== undefined) attacker.pp[mv.name] = mv.pp;
+      }
     }
 
     // Sleep: snooze for a few turns, then wake.
@@ -524,6 +544,11 @@ export function simulateBattle(
     }
 
     const move = chooseMove(attacker, defender, me.statMult, foe.statMult, rng);
+    // Spend a use of any PP-capped move (consumed on use, even if it later
+    // misses — matching how the games charge PP).
+    if (move.pp !== undefined) {
+      attacker.pp[move.name] = (attacker.pp[move.name] ?? move.pp) - 1;
+    }
     push({
       kind: 'move',
       actor: side,

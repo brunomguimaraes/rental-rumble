@@ -51,6 +51,10 @@ export interface Move {
   power: number; // 0 for pure-status / heal / setup moves
   accuracy: number; // 0..1
   priority?: number; // >0 moves before slower foes regardless of Speed (default 0)
+  // Power Points: how many times this move may be used in a battle. `undefined`
+  // means unlimited. Used to cap sustain moves (Recover) so two bulky walls can't
+  // heal each other forever — see chooseMove/takeTurn in battle.ts.
+  pp?: number;
   effect?: MoveEffect;
 }
 
@@ -133,6 +137,9 @@ export interface Battler {
   toxicCounter: number; // escalation step for poison (0 when not poisoned)
   confusion: number; // remaining confused turns (0 = not confused); a volatile
   stages: { atk: number; def: number; spd: number }; // -6..+6 battle buffs/debuffs
+  // Remaining uses for any move that carries a `pp` cap (keyed by move name).
+  // Moves without a cap are absent here and may be used freely.
+  pp: Record<string, number>;
 }
 
 export type Side = 'player' | 'foe';

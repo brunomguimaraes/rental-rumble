@@ -110,8 +110,14 @@ const QUICK_ATTACK: Move = {
   priority: 1,
 };
 // Sustain. No longer granted by a role/sign — it's a regular move any
-// sufficiently bulky Pokémon can pack (see movesFor).
-const RECOVER = mk('Recover', 'normal', 0, 1, { kind: 'heal', amount: 0.3 });
+// sufficiently bulky Pokémon can pack (see movesFor). Capped at HEAL_PP uses so
+// two bulky walls (e.g. Chansey) can't out-heal each other into an endless
+// stalemate — once the heals dry up, the fight is decided on damage.
+export const HEAL_PP = 5;
+const RECOVER: Move = {
+  ...mk('Recover', 'normal', 0, 1, { kind: 'heal', amount: 0.3 }),
+  pp: HEAL_PP,
+};
 
 // Pure setup moves (power 0): sharply raise one of the user's own stat stages.
 const SWORDS_DANCE = mk('Swords Dance', 'normal', 0, 1, {
