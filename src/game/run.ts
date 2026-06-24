@@ -18,14 +18,14 @@ import { RNG } from './rng.js';
  * per gauntlet), so finding one feels lucky rather than impossible. A shiny is a
  * gentle, flat stat upgrade (see SHINY_STAT_MULT) — never a build-warper.
  */
-export const SHINY_CHANCE = 1 / 60;
+export const SHINY_CHANCE = 1 / 120;
 
 /**
  * Odds a freshly-drafted Pokémon shows up in a fan-made alternate colour — a
  * far more common (but purely cosmetic) treat than a shiny. It only applies when
  * the mon didn't already roll shiny, so the two colourings never overlap.
  */
-export const ALT_COLOR_CHANCE = 1 / 10;
+export const ALT_COLOR_CHANCE = 1 / 20;
 
 /** Roll a fresh pool/reroll entry: a random zodiac sign + emotion + colour luck. */
 function rollCreature(creature: Creature, rng: RNG): Creature {

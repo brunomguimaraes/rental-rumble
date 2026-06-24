@@ -151,7 +151,11 @@ export function LineupEditor({
           const isLead = i === 0;
           return (
             <div
-              key={c.id}
+              // Slot position is the key: two of the same species share `c.id`,
+              // and duplicate React keys mis-reconcile the cards (and their
+              // position-indexed refs) so reordering breaks. These cards are
+              // stateless and derived purely from props, so an index key is safe.
+              key={i}
               ref={(el) => {
                 slotRefs.current[i] = el;
               }}
