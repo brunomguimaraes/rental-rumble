@@ -2,16 +2,16 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
   verifyChampionWin,
   type SubmissionPayload,
-} from '../src/game/leaderboard';
-import { dailyKey } from '../src/game/opponents';
-import { isBracketId, DEFAULT_BRACKET, type BracketId } from '../src/game/gens';
+} from '../src/game/leaderboard.js';
+import { dailyKey } from '../src/game/opponents.js';
+import { isBracketId, DEFAULT_BRACKET, type BracketId } from '../src/game/gens.js';
 import {
   getRedis,
   boardKey,
   boardDataKey,
   BOARD_TTL_SECONDS,
   type BoardEntryData,
-} from './_redis';
+} from './_redis.js';
 
 /** UTC daily keys for [yesterday, today, tomorrow] — tolerates client tz drift. */
 function allowedDates(): Set<string> {

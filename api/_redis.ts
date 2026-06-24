@@ -1,6 +1,6 @@
 import { Redis } from '@upstash/redis';
-import type { SubmissionMon } from '../src/game/leaderboard';
-import type { BracketId } from '../src/game/gens';
+import type { SubmissionMon } from '../src/game/leaderboard.js';
+import type { BracketId } from '../src/game/gens.js';
 
 // Reads UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN from the environment
 // (set them in the Vercel project, or .env.local for `vercel dev`).

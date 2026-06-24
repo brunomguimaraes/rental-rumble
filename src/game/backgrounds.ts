@@ -1,4 +1,4 @@
-import type { Opponent, PokemonType } from './types';
+import type { Opponent, PokemonType } from './types.js';
 
 // Picks the battle backdrop for an opponent. Two ideas drive the choice:
 //

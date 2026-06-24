@@ -1,21 +1,21 @@
-import type { Opponent, OpponentTier, PokemonType } from './types';
-import { TYPE_COLORS, typeLabel } from './typechart';
-import { RNG } from './rng';
-import { GAUNTLET_SHAPE, type Difficulty } from './run';
-import type { BracketId } from './gens';
+import type { Opponent, OpponentTier, PokemonType } from './types.js';
+import { TYPE_COLORS, typeLabel } from './typechart.js';
+import { RNG } from './rng.js';
+import { GAUNTLET_SHAPE, type Difficulty } from './run.js';
+import type { BracketId } from './gens.js';
 import {
   TRAINER_SPRITES,
   type TrainerCategory,
   type TrainerGender,
   type TrainerSprite,
-} from './trainers.gen';
+} from './trainers.gen.js';
 import {
   famousForSlot,
   famousSpriteKey,
   rollBonusChallenge,
   rollSpecialPool,
   type FamousTrainer,
-} from './specials';
+} from './specials.js';
 
 export const TIER_LABEL: Record<OpponentTier, string> = {
   trainer: 'Trainer',

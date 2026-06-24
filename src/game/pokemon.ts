@@ -1,11 +1,11 @@
-import type { Creature, Sign } from './types';
-import { RAW_DEX } from './pokedex.gen';
-import { EVOLUTIONS } from './evolutions.gen';
-import { movesFor } from './moves';
-import { defaultSign, signsByFit } from './zodiac';
-import { PORTRAIT_EMOTIONS } from './portraits.gen';
-import { DEFAULT_BALL } from './balls';
-import { RNG } from './rng';
+import type { Creature, Sign } from './types.js';
+import { RAW_DEX } from './pokedex.gen.js';
+import { EVOLUTIONS } from './evolutions.gen.js';
+import { movesFor } from './moves.js';
+import { defaultSign, signsByFit } from './zodiac.js';
+import { PORTRAIT_EMOTIONS } from './portraits.gen.js';
+import { DEFAULT_BALL } from './balls.js';
+import { RNG } from './rng.js';
 
 // All sprites are served locally from public/sprites, keyed by National Dex id.
 // (Front/Back/Icons come from a local Gen 9 Essentials pack; portraits are the

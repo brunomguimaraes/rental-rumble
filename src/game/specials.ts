@@ -1,6 +1,6 @@
-import type { Creature, PokemonType } from './types';
-import { CREATURES_BY_ID } from './pokemon';
-import { RNG } from './rng';
+import type { Creature, PokemonType } from './types.js';
+import { CREATURES_BY_ID } from './pokemon.js';
+import { RNG } from './rng.js';
 
 /**
  * "Famous" trainers: recognizable faces lifted straight out of the anime/manga

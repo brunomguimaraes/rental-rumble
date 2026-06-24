@@ -1,7 +1,7 @@
-import type { Creature, Opponent } from './types';
-import { TYPE_COLORS, typeIconUrl, typeLabel } from './typechart';
-import { SIGN_INFO } from './zodiac';
-import { bracketCup, type BracketId } from './gens';
+import type { Creature, Opponent } from './types.js';
+import { TYPE_COLORS, typeIconUrl, typeLabel } from './typechart.js';
+import { SIGN_INFO } from './zodiac.js';
+import { bracketCup, type BracketId } from './gens.js';
 
 // All assets are served from the same origin (public/sprites), so the canvas
 // never gets tainted and we can export the result as a PNG / share a File.

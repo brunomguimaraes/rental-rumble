@@ -1,7 +1,7 @@
-import type { Creature, SpecialTier } from './types';
-import { CREATURES, withSign, withRandomPortrait } from './pokemon';
-import { rollSign } from './zodiac';
-import { RNG } from './rng';
+import type { Creature, SpecialTier } from './types.js';
+import { CREATURES, withSign, withRandomPortrait } from './pokemon.js';
+import { rollSign } from './zodiac.js';
+import { RNG } from './rng.js';
 
 /** Roll a fresh pool/reroll entry: a random zodiac sign + random emotion. */
 function rollCreature(creature: Creature, rng: RNG): Creature {

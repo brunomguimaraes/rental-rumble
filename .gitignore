@@ -25,3 +25,4 @@ trainer-audit.html
 *.njsproj
 *.sln
 *.sw?
+.vercel

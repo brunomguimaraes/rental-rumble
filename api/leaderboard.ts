@@ -3,15 +3,15 @@ import {
   LEADERBOARD_TOP,
   type LeaderboardEntry,
   type LeaderboardResponse,
-} from '../src/game/leaderboard';
-import { buildChampion, dailyKey } from '../src/game/opponents';
-import { isBracketId, DEFAULT_BRACKET, type BracketId } from '../src/game/gens';
+} from '../src/game/leaderboard.js';
+import { buildChampion, dailyKey } from '../src/game/opponents.js';
+import { isBracketId, DEFAULT_BRACKET, type BracketId } from '../src/game/gens.js';
 import {
   getRedis,
   boardKey,
   boardDataKey,
   type BoardEntryData,
-} from './_redis';
+} from './_redis.js';
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 

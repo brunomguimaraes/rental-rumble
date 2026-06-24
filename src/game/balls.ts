@@ -1,4 +1,4 @@
-import type { RNG } from './rng';
+import type { RNG } from './rng.js';
 
 // Ball icons are served locally from public/sprites/balls (copied from the Gen 9
 // Essentials item set, keyed by our short ball id). BASE_URL keeps paths valid

@@ -1,4 +1,4 @@
-import type { PokemonType } from './types';
+import type { PokemonType } from './types.js';
 
 // Canonical Gen 6+ type chart. For each attacking type we list only the
 // defending types where the multiplier is not 1×.

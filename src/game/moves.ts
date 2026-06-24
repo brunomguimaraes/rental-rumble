@@ -1,5 +1,5 @@
-import type { AttackAnim, BaseStats, Move, PokemonType, Sign } from './types';
-import { SIGN_INFO, type Element } from './zodiac';
+import type { AttackAnim, BaseStats, Move, PokemonType, Sign } from './types.js';
+import { SIGN_INFO, type Element } from './zodiac.js';
 
 const mk = (
   name: string,

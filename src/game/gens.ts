@@ -1,5 +1,5 @@
-import type { Creature } from './types';
-import { CREATURES } from './pokemon';
+import type { Creature } from './types.js';
+import { CREATURES } from './pokemon.js';
 
 /** A National Dex generation (1 = Kanto … 9 = Paldea). */
 export type Generation = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
@@ -93,7 +93,7 @@ export const GEN_BRACKETS: GenBracket[] = [
 
 /** Path to a cup sprite for use in `<img src>` (respects Vite's base URL). */
 export function cupSrc(cup: CupId): string {
-  return `${import.meta.env.BASE_URL}sprites/ui/cup-${cup}.png`;
+  return `${import.meta.env?.BASE_URL ?? '/'}sprites/ui/cup-${cup}.png`;
 }
 
 /** The cup emblem for a bracket id (falls back to the full-dex Cool Cup). */

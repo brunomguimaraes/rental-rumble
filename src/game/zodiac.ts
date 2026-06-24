@@ -1,5 +1,5 @@
-import type { BaseStats, Sign } from './types';
-import type { RNG } from './rng';
+import type { BaseStats, Sign } from './types.js';
+import type { RNG } from './rng.js';
 
 // Sprites are served locally from public/sprites/zodiac (see scripts/build-zodiac.py).
 const ASSET = import.meta.env?.BASE_URL ?? '/';

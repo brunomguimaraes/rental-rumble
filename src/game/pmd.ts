@@ -1,5 +1,5 @@
-import type { AttackAnim, Side } from './types';
-import { PMD_SPRITES, type PmdAnim, type PmdEntry } from './pmdSprites.gen';
+import type { AttackAnim, Side } from './types.js';
+import { PMD_SPRITES, type PmdAnim, type PmdEntry } from './pmdSprites.gen.js';
 
 // Runtime access to the bundled PMD-style animated battle sprites (from
 // PMDCollab's SpriteCollab; downloaded locally by scripts/fetch-battle-sprites.mjs

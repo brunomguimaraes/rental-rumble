@@ -8,14 +8,14 @@ import type {
   Side,
   StageStat,
   StatusKind,
-} from './types';
-import { effectiveness } from './typechart';
-import { RNG } from './rng';
-import { CREATURES, withSign } from './pokemon';
-import { attackAnimFor } from './moves';
-import { SIGN_SPREAD, rollSign, bestRareSign } from './zodiac';
-import { rollOpponentBall } from './balls';
-import { famousTeamCreatures } from './specials';
+} from './types.js';
+import { effectiveness } from './typechart.js';
+import { RNG } from './rng.js';
+import { CREATURES, withSign } from './pokemon.js';
+import { attackAnimFor } from './moves.js';
+import { SIGN_SPREAD, rollSign, bestRareSign } from './zodiac.js';
+import { rollOpponentBall } from './balls.js';
+import { famousTeamCreatures } from './specials.js';
 
 const LEVEL = 50;
 

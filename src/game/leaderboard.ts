@@ -1,19 +1,19 @@
-import type { Creature, Sign } from './types';
-import { CREATURES_BY_ID, withSign } from './pokemon';
-import { ALL_SIGNS } from './zodiac';
+import type { Creature, Sign } from './types.js';
+import { CREATURES_BY_ID, withSign } from './pokemon.js';
+import { ALL_SIGNS } from './zodiac.js';
 import {
   buildChampionTeam,
   simulateBattle,
   TIER_STAT_MULT,
   PLAYER_STAT_MULT,
-} from './battle';
+} from './battle.js';
 import {
   bracketDex,
   inBracket,
   isBracketId,
   DEFAULT_BRACKET,
   type BracketId,
-} from './gens';
+} from './gens.js';
 
 /**
  * Champion seed for a date string + bracket. Mirrors `championSeed()` in
