@@ -113,6 +113,127 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
       322, 324, 219, 218, 157, 392, 485, 555, 609, 607, 514,
     ],
   },
+  // Hoenn Gym Leaders (RSE sprites) — same pool-draw behaviour as the anime four.
+  {
+    id: 'roxanne',
+    name: 'Roxanne',
+    title: 'Rustboro Gym Leader',
+    slot: 'gym',
+    type: 'rock',
+    quote: 'I have just begun to learn the ways of Pokémon.',
+    pool: [
+      74, 75, 76, 95, 111, 112, 464, 138, 139, 140, 141, 142, 213, 246, 247,
+      248, 299, 476, 304, 305, 306, 345, 346, 347, 348, 369, 408, 410,
+    ],
+  },
+  {
+    id: 'brawly',
+    name: 'Brawly',
+    title: 'Dewford Gym Leader',
+    slot: 'gym',
+    type: 'fighting',
+    quote: 'My Pokémon and I roll with the punches!',
+    pool: [
+      66, 67, 68, 56, 57, 106, 107, 237, 236, 296, 297, 307, 308, 447, 448,
+      453, 454, 532, 533, 534, 538, 539, 560, 619, 620, 285, 286,
+    ],
+  },
+  {
+    id: 'wattson',
+    name: 'Wattson',
+    title: 'Mauville Gym Leader',
+    slot: 'gym',
+    type: 'electric',
+    quote: 'Wahahaha! Now, that was a shocking experience!',
+    pool: [
+      25, 26, 100, 101, 125, 135, 170, 171, 179, 180, 181, 309, 310, 311,
+      312, 403, 404, 405, 417, 462, 479, 522, 523, 587, 595, 596, 604,
+    ],
+  },
+  {
+    id: 'flannery',
+    name: 'Flannery',
+    title: 'Lavaridge Gym Leader',
+    slot: 'gym',
+    type: 'fire',
+    quote: "I'll show you what I'm made of — full intensity!",
+    pool: [
+      4, 5, 6, 37, 38, 58, 59, 77, 78, 126, 136, 155, 156, 157, 218, 219,
+      228, 229, 240, 322, 323, 324, 392, 467, 555, 607, 608, 609,
+    ],
+  },
+  {
+    id: 'norman',
+    name: 'Norman',
+    title: 'Petalburg Gym Leader',
+    slot: 'gym',
+    type: 'normal',
+    quote: "I'm not going easy just because you're my rival.",
+    pool: [
+      16, 17, 18, 19, 20, 21, 22, 39, 40, 52, 53, 83, 108, 113, 115, 128,
+      132, 133, 143, 161, 162, 164, 206, 234, 241, 287, 288, 289, 327, 335,
+    ],
+  },
+  {
+    id: 'winona',
+    name: 'Winona',
+    title: 'Fortree Gym Leader',
+    slot: 'gym',
+    type: 'flying',
+    quote: 'I have become one with bird Pokémon.',
+    pool: [
+      21, 22, 41, 42, 84, 85, 142, 177, 178, 198, 227, 276, 277, 278, 279,
+      333, 334, 357, 396, 397, 398, 425, 426, 527, 528, 580, 581,
+    ],
+  },
+  {
+    id: 'tate',
+    name: 'Tate',
+    title: 'Mossdeep Gym Leader',
+    slot: 'gym',
+    type: 'psychic',
+    quote: "My twin and I see your every move…",
+    pool: [
+      63, 64, 65, 96, 97, 102, 103, 122, 124, 177, 178, 196, 199, 202, 203,
+      280, 281, 282, 337, 338, 343, 344, 374, 375, 376, 475, 518, 561,
+    ],
+  },
+  {
+    id: 'liza',
+    name: 'Liza',
+    title: 'Mossdeep Gym Leader',
+    slot: 'gym',
+    type: 'psychic',
+    quote: "…and together our power is doubled!",
+    pool: [
+      63, 64, 65, 96, 97, 102, 103, 122, 124, 177, 178, 196, 199, 202, 203,
+      280, 281, 282, 337, 338, 343, 344, 374, 375, 376, 475, 518, 561,
+    ],
+  },
+  {
+    id: 'wallace',
+    name: 'Wallace',
+    title: 'Sootopolis Gym Leader',
+    slot: 'gym',
+    type: 'water',
+    quote: 'A battle is an art — let me show you a masterpiece.',
+    pool: [
+      54, 55, 60, 61, 62, 72, 73, 86, 87, 90, 91, 98, 99, 116, 117, 118,
+      119, 120, 121, 130, 131, 134, 183, 184, 320, 321, 340, 341, 342, 350,
+    ],
+  },
+  {
+    id: 'juan',
+    name: 'Juan',
+    title: 'Sootopolis Gym Leader',
+    slot: 'gym',
+    type: 'water',
+    quote: 'Witness the grand illusion of my water ballet!',
+    pool: [
+      54, 55, 60, 61, 62, 72, 73, 86, 87, 90, 91, 98, 99, 116, 117, 118,
+      119, 120, 121, 130, 131, 134, 183, 184, 230, 320, 321, 340, 350, 370,
+    ],
+  },
 
   // --- Elite Four -----------------------------------------------------------
   {
@@ -139,6 +260,55 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
       296, 308, 307, 448, 447, 475, 454, 453, 534, 532, 538, 539, 560, 620,
     ],
   },
+  // Hoenn Elite Four (RSE sprites).
+  {
+    id: 'sidney',
+    name: 'Sidney',
+    title: 'Elite Four',
+    slot: 'elite',
+    type: 'dark',
+    quote: "I like that look you're giving me. Let's go!",
+    pool: [
+      197, 198, 215, 228, 229, 248, 261, 262, 275, 302, 318, 319, 332, 342,
+      359, 430, 434, 435, 461, 510, 560, 571, 625,
+    ],
+  },
+  {
+    id: 'phoebe',
+    name: 'Phoebe',
+    title: 'Elite Four',
+    slot: 'elite',
+    type: 'ghost',
+    quote: 'My ghosts will slip right past your guard.',
+    pool: [
+      92, 93, 94, 200, 302, 353, 354, 355, 356, 425, 426, 429, 442, 477, 478,
+      562, 563, 592, 593, 607, 608, 609,
+    ],
+  },
+  {
+    id: 'glacia',
+    name: 'Glacia',
+    title: 'Elite Four',
+    slot: 'elite',
+    type: 'ice',
+    quote: 'Show me you can melt my icy composure.',
+    pool: [
+      87, 91, 124, 131, 144, 215, 220, 221, 225, 238, 361, 362, 363, 364,
+      365, 378, 459, 460, 461, 471, 473, 478, 582, 583, 584, 613, 614, 615,
+    ],
+  },
+  {
+    id: 'drake',
+    name: 'Drake',
+    title: 'Elite Four',
+    slot: 'elite',
+    type: 'dragon',
+    quote: 'Do you have the courage to face a true dragon?',
+    pool: [
+      147, 148, 149, 230, 328, 329, 330, 334, 371, 372, 373, 443, 444, 445,
+      610, 611, 612, 621, 633, 634, 635,
+    ],
+  },
 
   // --- Champion faces (cosmetic) --------------------------------------------
   // The Champion rung rotates among these recognizable faces — the rival (Gary)
@@ -150,6 +320,8 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
   { id: 'may', name: 'May', title: 'Champion', slot: 'champion', type: 'normal', quote: 'I trained hard for this crown!' },
   { id: 'ethan', name: 'Ethan', title: 'Champion', slot: 'champion', type: 'normal', quote: "I won't lose the title that easily." },
   { id: 'lyra', name: 'Lyra', title: 'Champion', slot: 'champion', type: 'normal', quote: 'Ready? This is for the championship!' },
+  { id: 'steven', name: 'Steven', title: 'Champion', slot: 'champion', type: 'normal', quote: 'Show me the power you and your Pokémon share.' },
+  { id: 'cynthia', name: 'Cynthia', title: 'Champion', slot: 'champion', type: 'normal', quote: 'There is no shortcut to the Champion title.' },
 
   // --- Specials: villains & gag cameos (the "for fun" rung) -----------------
   {
@@ -196,6 +368,80 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
     type: 'fighting',
     quote: "The name's Butch! Not Botch!",
     team: [57, 237], // Primeape, Hitmontop
+  },
+  // --- Villain team bosses (pool-drawn, like a Gym Leader) ------------------
+  {
+    id: 'archie',
+    name: 'Archie',
+    title: 'Team Aqua Leader',
+    slot: 'special',
+    type: 'water',
+    quote: 'The sea shall swallow everything!',
+    draw: 5,
+    pool: [
+      318, 319, 169, 262, 261, 320, 321, 73, 130, 365, 279, 89, 42, 130,
+    ],
+  },
+  {
+    id: 'maxie',
+    name: 'Maxie',
+    title: 'Team Magma Leader',
+    slot: 'special',
+    type: 'fire',
+    quote: 'The land must expand — by my hand!',
+    draw: 5,
+    pool: [
+      323, 322, 169, 262, 261, 229, 228, 219, 218, 324, 76, 112, 110, 89,
+    ],
+  },
+  // --- Rivals --------------------------------------------------------------
+  {
+    id: 'wally',
+    name: 'Wally',
+    title: 'Rival',
+    slot: 'special',
+    type: 'psychic',
+    quote: "I've gotten this far — I'm not backing down!",
+    draw: 5,
+    pool: [334, 82, 315, 282, 301, 475, 281, 280, 333],
+  },
+  {
+    id: 'silver',
+    name: 'Silver',
+    title: 'Rival',
+    slot: 'special',
+    type: 'dark',
+    quote: "You're in my way. Get lost.",
+    draw: 5,
+    pool: [160, 159, 215, 461, 169, 42, 94, 93, 198, 130, 82, 65],
+  },
+  // --- Anime cameos --------------------------------------------------------
+  {
+    id: 'jenny',
+    name: 'Officer Jenny',
+    title: 'Police',
+    slot: 'special',
+    type: 'fire',
+    quote: 'Stop right there! This is a Pokémon inspection!',
+    team: [59, 58, 310], // Arcanine, Growlithe, Manectric
+  },
+  {
+    id: 'ivy',
+    name: 'Prof. Ivy',
+    title: 'Valencia Island',
+    slot: 'special',
+    type: 'grass',
+    quote: "Let's see how my research stacks up against you!",
+    team: [45, 71, 114], // Vileplume, Victreebel, Tangela
+  },
+  {
+    id: 'flint',
+    name: 'Flint',
+    title: "Brock's Father",
+    slot: 'special',
+    type: 'rock',
+    quote: 'A father has to test his son\'s rival, right?',
+    team: [95, 74, 111], // Onix, Geodude, Rhyhorn
   },
   {
     id: 'delia',

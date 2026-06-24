@@ -1,6 +1,13 @@
 import type { Creature, SpecialTier } from '../game/types';
 import { TYPE_COLORS } from '../game/typechart';
-import { SIGN_INFO, SIGN_SPREAD, signIconUrl, signLabel, signSummary } from '../game/zodiac';
+import {
+  SIGN_INFO,
+  SIGN_SPREAD,
+  signIconUrl,
+  signLabel,
+  signSummary,
+  signTier,
+} from '../game/zodiac';
 import { TypeBadges } from './TypeBadge';
 
 const GOLD = '#f5c542';
@@ -84,19 +91,34 @@ export function CreatureCard({
   const clickable = Boolean(onClick) && (!disabled || selected);
   const tierBadge = TIER_BADGE[creature.tier];
 
-  const borderClass = special
-    ? 'border-transparent'
-    : selected
-      ? 'border-white/70'
-      : 'border-white/10 hover:border-white/30';
+  // A rare/mythic celestial sign overrides the normal/legendary border with an
+  // animated rainbow (rare) or shimmering "super different" frame (mythic).
+  const tier = signTier(creature.sign);
+  const celestial = tier === 'rare' || tier === 'mythic';
+  const celestialClass = tier === 'rare' ? 'sign-rare' : tier === 'mythic' ? 'sign-mythic' : '';
 
-  const boxShadow = special
-    ? selected
-      ? `0 0 0 2px ${GOLD}, 0 8px 34px ${GOLD}55`
-      : `0 0 0 1.5px ${GOLD}aa, 0 4px 20px ${GOLD}33`
-    : selected
-      ? `0 0 0 1px ${color}, 0 8px 30px ${color}44`
-      : undefined;
+  const borderClass =
+    celestial || special
+      ? 'border-transparent'
+      : selected
+        ? 'border-white/70'
+        : 'border-white/10 hover:border-white/30';
+
+  const boxShadow = celestial
+    ? tier === 'mythic'
+      ? selected
+        ? '0 0 0 1px #fff, 0 10px 42px rgba(255,205,80,0.55)'
+        : '0 6px 34px rgba(255,205,80,0.4)'
+      : selected
+        ? '0 8px 32px rgba(255,255,255,0.28)'
+        : '0 6px 28px rgba(150,110,255,0.26)'
+    : special
+      ? selected
+        ? `0 0 0 2px ${GOLD}, 0 8px 34px ${GOLD}55`
+        : `0 0 0 1.5px ${GOLD}aa, 0 4px 20px ${GOLD}33`
+      : selected
+        ? `0 0 0 1px ${color}, 0 8px 30px ${color}44`
+        : undefined;
 
   return (
     <div
@@ -113,7 +135,7 @@ export function CreatureCard({
             }
           : undefined
       }
-      className={`group relative w-full overflow-hidden rounded-2xl border p-3 text-left transition-all ${borderClass} ${
+      className={`group relative w-full overflow-hidden rounded-2xl border p-3 text-left transition-all ${celestialClass} ${borderClass} ${
         selected ? 'scale-[1.01] bg-white/10 shadow-lg' : 'bg-white/[0.03] hover:bg-white/[0.06]'
       } ${disabled && !selected ? 'opacity-40' : ''} ${
         clickable ? 'cursor-pointer' : 'cursor-default'

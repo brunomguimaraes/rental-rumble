@@ -14,6 +14,7 @@ export function ResultScreen({
   seed,
   clearedStages,
   bracket,
+  lostToTeam = [],
   onPlayAgain,
   onChallenge,
 }: {
@@ -24,6 +25,8 @@ export function ResultScreen({
   clearedStages: number;
   /** The generation bracket this run was locked to (drives which board it ranks on). */
   bracket: BracketId;
+  /** Team of the trainer who ended the run — drawn on the loss share card. */
+  lostToTeam?: Creature[];
   onPlayAgain: () => void;
   onChallenge?: (entry: LeaderboardEntry) => void;
 }) {
@@ -47,7 +50,7 @@ export function ResultScreen({
     let url: string | null = null;
     let alive = true;
     setBuilding(true);
-    renderShareBlob({ team, won, clearedStages, gauntlet, seed })
+    renderShareBlob({ team, won, clearedStages, gauntlet, seed, fellToTeam: lostToTeam })
       .then((blob) => {
         if (!alive) return;
         blobRef.current = blob;

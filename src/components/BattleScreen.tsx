@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { BattleEvent, BattleResult } from '../game/battle';
 import type { Creature, Opponent, PokemonType, Sign, Side } from '../game/types';
 import { TYPE_COLORS, effectivenessLabel, typeIconUrl } from '../game/typechart';
-import { signIconUrl, signLabel, signSummary } from '../game/zodiac';
+import { signIconUrl, signLabel, signSummary, signTier } from '../game/zodiac';
 import { hasPmdSprite, type PmdAnimKind } from '../game/pmd';
 import { ballUrl } from '../game/balls';
 import { backdropFor } from '../game/backgrounds';
@@ -230,9 +230,12 @@ function InfoCard({
   className: string;
 }) {
   if (!visible) return null;
+  const tier = signTier(view.sign);
+  const celestialClass =
+    tier === 'rare' ? 'sign-rare border-transparent' : tier === 'mythic' ? 'sign-mythic border-transparent' : 'border-white/10';
   return (
     <div
-      className={`animate-card-in absolute z-10 w-40 rounded-2xl border border-white/10 bg-black/55 px-3 py-2 shadow-lg backdrop-blur-sm sm:w-52 ${className}`}
+      className={`animate-card-in absolute z-10 w-40 rounded-2xl border bg-black/55 px-3 py-2 shadow-lg backdrop-blur-sm sm:w-52 ${celestialClass} ${className}`}
     >
       <div
         className={`flex items-center gap-1.5 ${alignEnd ? 'flex-row-reverse' : ''}`}

@@ -12,6 +12,8 @@ export interface ShareCardData {
   clearedStages: number;
   gauntlet: Opponent[];
   seed: string;
+  /** Roster of the trainer who ended the run; drawn on the loss card. */
+  fellToTeam?: Creature[];
 }
 
 // 4:5 portrait — the friendliest aspect ratio for Instagram, X, Discord, etc.
@@ -71,6 +73,25 @@ function drawCover(
   ctx.restore();
 }
 
+/**
+ * Draw a Pokémon mini icon. These are 2-frame horizontal sprite sheets, so we
+ * only blit the left frame (matching how `MiniSprite` shows them in the UI).
+ */
+function drawMini(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  size: number,
+) {
+  const sw = img.width / 2;
+  const sh = img.height;
+  const prev = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, 0, 0, sw, sh, x, y, size, size);
+  ctx.imageSmoothingEnabled = prev;
+}
+
 /** Mix a hex color toward black/white by alpha; returns rgba string. */
 function withAlpha(hex: string, alpha: number): string {
   const n = parseInt(hex.slice(1), 16);
@@ -124,7 +145,10 @@ async function drawTypeChip(
 export async function renderShareCard(
   data: ShareCardData,
 ): Promise<HTMLCanvasElement> {
-  const { team, won, clearedStages, gauntlet, seed } = data;
+  const { team, won, clearedStages, gauntlet, seed, fellToTeam = [] } = data;
+
+  // Trainer who ended the run (only meaningful on a loss).
+  const fellTo = !won ? gauntlet[clearedStages] : null;
 
   const canvas = document.createElement('canvas');
   canvas.width = W;
@@ -133,17 +157,20 @@ export async function renderShareCard(
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  // Preload sprites in parallel: portraits, type icons, pokeball.
+  // Preload sprites in parallel: portraits, type icons, pokeball, and — on a
+  // loss — the defeating trainer's art plus their team's mini icons.
   const typeSet = new Set<Creature['types'][number]>();
   team.forEach((c) => c.types.forEach((t) => typeSet.add(t)));
   const typeList = [...typeSet];
 
-  const [portraits, typeIcons, pokeball] = await Promise.all([
+  const [portraits, typeIcons, pokeball, foeArt, foeMinis] = await Promise.all([
     Promise.all(
       team.map(async (c) => (await loadImage(c.portrait)) ?? loadImage(c.sprite)),
     ),
     Promise.all(typeList.map((t) => loadImage(typeIconUrl(t)))),
     loadImage(`${ASSET}sprites/ui/pokeball.png`),
+    fellTo ? loadImage(fellTo.art) : Promise.resolve(null),
+    Promise.all(fellToTeam.map((c) => loadImage(c.mini))),
   ]);
   const iconByType = new Map(typeList.map((t, i) => [t, typeIcons[i]]));
 
@@ -191,7 +218,6 @@ export async function renderShareCard(
   ctx.fillText('DRAFT · BATTLE · BECOME CHAMPION', cx, 230);
 
   // ---- Result banner ------------------------------------------------------
-  const fellTo = !won ? gauntlet[clearedStages] : null;
   const total = gauntlet.length;
 
   ctx.font = `800 54px ${FONT}`;
@@ -225,10 +251,88 @@ export async function renderShareCard(
     px += pipGap;
   }
 
+  // ---- "Defeated by" strip (loss only) ------------------------------------
+  // Shows the trainer who ended the run alongside a row of their team's mini
+  // icons, so the share card tells the whole story of how the run died.
+  let gridTop = 432;
+  if (fellTo) {
+    const sideP = 48;
+    const panelX = sideP;
+    const panelY = 408;
+    const panelW = W - sideP * 2;
+    const panelH = 120;
+    const accent = TYPE_COLORS[fellTo.type];
+
+    roundRect(ctx, panelX, panelY, panelW, panelH, 28);
+    ctx.fillStyle = withAlpha(COLORS.rose, 0.08);
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = withAlpha(COLORS.rose, 0.4);
+    ctx.stroke();
+
+    // Trainer art (front-facing PNG), boxed on the left.
+    const artSize = 84;
+    const artX = panelX + 20;
+    const artY = panelY + (panelH - artSize) / 2;
+    roundRect(ctx, artX, artY, artSize, artSize, 18);
+    ctx.fillStyle = withAlpha(accent, 0.18);
+    ctx.fill();
+    if (foeArt) {
+      ctx.save();
+      roundRect(ctx, artX, artY, artSize, artSize, 18);
+      ctx.clip();
+      ctx.imageSmoothingEnabled = false;
+      const s = Math.min(artSize / foeArt.width, artSize / foeArt.height);
+      const dw = foeArt.width * s;
+      const dh = foeArt.height * s;
+      ctx.drawImage(foeArt, artX + (artSize - dw) / 2, artY + (artSize - dh) / 2, dw, dh);
+      ctx.imageSmoothingEnabled = true;
+      ctx.restore();
+    }
+    roundRect(ctx, artX, artY, artSize, artSize, 18);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = withAlpha(accent, 0.7);
+    ctx.stroke();
+
+    // Their team's mini icons, right-aligned within the panel.
+    const drawn = foeMinis.filter((m): m is HTMLImageElement => m !== null);
+    const miniSize = 46;
+    const miniGap = 8;
+    const minisW = drawn.length
+      ? drawn.length * miniSize + (drawn.length - 1) * miniGap
+      : 0;
+    if (drawn.length > 0) {
+      let mx = panelX + panelW - 20 - minisW;
+      const my = panelY + (panelH - miniSize) / 2;
+      for (const m of drawn) {
+        drawMini(ctx, m, mx, my, miniSize);
+        mx += miniSize + miniGap;
+      }
+    }
+
+    // Label + trainer name (clamped so it never collides with the mini row).
+    const textX = artX + artSize + 22;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = COLORS.rose;
+    ctx.font = `700 20px ${FONT}`;
+    ctx.fillText('DEFEATED BY', textX, panelY + 44);
+    ctx.fillStyle = COLORS.ink;
+    ctx.font = `800 38px ${FONT}`;
+    let foeName = fellTo.name;
+    const nameMaxW = panelW - (textX - panelX) - 20 - (minisW ? minisW + 24 : 24);
+    while (ctx.measureText(foeName).width > nameMaxW && foeName.length > 4) {
+      foeName = foeName.slice(0, -1);
+    }
+    if (foeName !== fellTo.name) foeName = foeName.slice(0, -1) + '…';
+    ctx.fillText(foeName, textX, panelY + 82);
+
+    gridTop = panelY + panelH + 20;
+  }
+
   // ---- Team grid ----------------------------------------------------------
   const cols = 3;
   const rows = Math.ceil(team.length / cols);
-  const gridTop = 432;
   const gridBottom = H - 132;
   const gap = 22;
   const sideP = 48;

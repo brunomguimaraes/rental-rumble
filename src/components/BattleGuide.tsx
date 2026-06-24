@@ -10,6 +10,10 @@ import {
 import {
   ELEMENT_INFO,
   ELEMENT_ORDER,
+  MYTHIC_ODDS,
+  MYTHIC_SIGNS,
+  RARE_ODDS,
+  RARE_SIGNS,
   SIGN_INFO,
   SIGN_SPREAD,
   ZODIAC_SIGNS,
@@ -244,6 +248,49 @@ function ZodiacTable() {
   );
 }
 
+const oneIn = (odds: number) => `1 in ${Math.round(1 / odds).toLocaleString()}`;
+
+/** The rare/mythic celestial signs: big mixed boosts at long odds. */
+function CelestialTable() {
+  const rows: { sign: (typeof RARE_SIGNS)[number]; odds: string; accent: string }[] = [
+    ...RARE_SIGNS.map((sign) => ({ sign, odds: oneIn(RARE_ODDS), accent: '#a78bfa' })),
+    ...MYTHIC_SIGNS.map((sign) => ({ sign, odds: oneIn(MYTHIC_ODDS), accent: '#ffcf50' })),
+  ];
+  return (
+    <div className="overflow-hidden rounded-2xl border border-white/10">
+      <table className="w-full border-collapse text-left text-[11px]">
+        <tbody>
+          {rows.map(({ sign, odds, accent }) => {
+            const sp = SIGN_SPREAD[sign];
+            return (
+              <tr key={sign} className="border-t border-white/10 first:border-t-0">
+                <td className="px-2 py-1.5">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <img src={signIconUrl(sign)} alt="" className="h-4 w-4 object-contain" />
+                    {signLabel(sign)}
+                    <span
+                      className="text-[9px] font-black uppercase tracking-wide"
+                      style={{ color: accent }}
+                    >
+                      {SIGN_INFO[sign].tier}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-white/45">{SIGN_INFO[sign].tagline}</div>
+                  <div className="text-[9px] uppercase tracking-wide text-white/30">{odds} draft</div>
+                </td>
+                <td className={`w-9 px-1 py-1.5 text-center tabular-nums ${pctClass(sp.hp)}`}>{pct(sp.hp)}</td>
+                <td className={`w-9 px-1 py-1.5 text-center tabular-nums ${pctClass(sp.atk)}`}>{pct(sp.atk)}</td>
+                <td className={`w-9 px-1 py-1.5 text-center tabular-nums ${pctClass(sp.def)}`}>{pct(sp.def)}</td>
+                <td className={`w-9 px-1 py-1.5 text-center tabular-nums ${pctClass(sp.spd)}`}>{pct(sp.spd)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /** The exact damage math, for the curious. All fights run at Level 50. */
 function DamageMath() {
   return (
@@ -336,6 +383,20 @@ export function BattleGuide({ onClose }: { onClose: () => void }) {
             but the draft favours the ones that suit its stats.
           </p>
           <ZodiacTable />
+        </Section>
+
+        <Section title="Celestial signs (rare)">
+          <p className="mb-2 text-[11px] leading-snug text-white/50">
+            Beyond the twelve, a Pokémon can rarely be born under a{' '}
+            <span className="text-white/75">celestial sign</span> — an
+            off-the-ecliptic constellation with a big, mixed stat boost and an
+            animated rainbow card frame. Four <span className="text-white/75">rare</span>{' '}
+            wanderers exist, plus the mythic <span className="text-white/75">Abhijit</span>,
+            which lifts every stat by half and wears a shimmering golden border.
+            Opponents roll these at half a player's odds; beat a special trainer
+            who fielded one and you can recruit it.
+          </p>
+          <CelestialTable />
         </Section>
 
         <Section title="Move pools">

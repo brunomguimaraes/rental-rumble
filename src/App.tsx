@@ -46,6 +46,9 @@ export default function App() {
   const [stage, setStage] = useState(0);
   const [won, setWon] = useState(false);
   const [defeated, setDefeated] = useState<Creature[]>([]);
+  // The roster of the trainer who ended the run — kept so the result/share card
+  // can show who you fell to (the battle's foe team is otherwise discarded).
+  const [lostToTeam, setLostToTeam] = useState<Creature[]>([]);
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [bracket, setBracket] = useState<BracketId>(DEFAULT_BRACKET);
 
@@ -143,6 +146,7 @@ export default function App() {
   const onBattleComplete = (winner: Side) => {
     if (winner === 'foe') {
       setWon(false);
+      setLostToTeam(battle?.foeTeam ?? []);
       setPhase('over');
       return;
     }
@@ -239,6 +243,7 @@ export default function App() {
           seed={seed}
           bracket={bracket}
           clearedStages={won ? gauntlet.length : stage}
+          lostToTeam={lostToTeam}
           onPlayAgain={() => setPhase('title')}
           onChallenge={startChallenge}
         />

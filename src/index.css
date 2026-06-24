@@ -269,6 +269,71 @@ body {
   }
 }
 
+/* Celestial-sign card frames. A masked gradient ::before paints only the rounded
+   border ring (inset 0 → follows the card's radius, clipped by overflow-hidden),
+   so it works on top of the card's own background without a wrapper element. */
+@keyframes sign-rainbow-spin {
+  to {
+    background-position: 300% 0;
+  }
+}
+
+.sign-rare::before,
+.sign-mythic::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 6;
+  background-size: 300% 100%;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: sign-rainbow-spin 6s linear infinite;
+}
+
+/* Rare wanderers — a 2px animated rainbow ring. */
+.sign-rare::before {
+  padding: 2px;
+  background-image: linear-gradient(
+    90deg,
+    #ff4d4d,
+    #ffb84d,
+    #fff24d,
+    #4dff88,
+    #4dd2ff,
+    #8c4dff,
+    #ff4dd2,
+    #ff4d4d
+  );
+}
+
+/* Mythic Abhijit — a thicker, shimmering gold→white→violet "super different"
+   frame that spins a touch faster. */
+.sign-mythic::before {
+  padding: 3px;
+  background-image: linear-gradient(
+    90deg,
+    #fff6d6,
+    #ffd24d,
+    #ffffff,
+    #c79bff,
+    #ffd24d,
+    #fff6d6
+  );
+  animation-duration: 3.5s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sign-rare::before,
+  .sign-mythic::before {
+    animation: none;
+  }
+}
+
 /* Keep scrollbars unobtrusive: the thumb stays transparent at rest (so it never
    reads as a stray pill floating over fixed UI like the bottom team tray) and
    only fades in while hovering the scrollable area. */

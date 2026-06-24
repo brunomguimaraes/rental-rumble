@@ -39,6 +39,9 @@ const MEGAPACK =
 const animeDir = join(MEGAPACK, 'Anime NPCs', 'Characters');
 const frlgDir = join(MEGAPACK, 'FRLG NPCs', 'Characters');
 const playableDir = join(MEGAPACK, 'Playable Characters', 'Characters');
+const rseDir = join(MEGAPACK, 'RSE NPCs', 'Characters');
+const hgssDir = join(MEGAPACK, 'HGSS NPCs', 'Characters');
+const otherDir = join(MEGAPACK, 'Other or Custom NPCs');
 const outDir = join(root, 'public/sprites/trainers');
 const tmp = join(tmpdir(), 'trainer-frames');
 
@@ -173,6 +176,45 @@ const PLAYABLE = [
   ['trainer_TRAINER_Lyra', 'lyra', 'Lyra', 'f'],
 ];
 
+// Hoenn Gym Leaders & Elite Four (Megapack "RSE NPCs") → famous fixed-pool
+// trainers. Unlike the numbered Gen-5 Gym rips (which are cosmetic faces over
+// procedural teams), these carry a canonical identity and slot straight into the
+// famous roster in src/game/specials.ts (keyed `special-<key>`), where each
+// fields a random draw from an on-theme species pool. [sourceFile (sans .png),
+// key, name, sex]; files live under `RSE NPCs/Characters/`.
+const HOENN = [
+  ['trainer_LEADER_Roxanne', 'roxanne', 'Roxanne', 'f'],
+  ['trainer_LEADER_Brawly', 'brawly', 'Brawly', 'm'],
+  ['trainer_LEADER_Wattson', 'wattson', 'Wattson', 'm'],
+  ['trainer_LEADER_Flannery', 'flannery', 'Flannery', 'f'],
+  ['trainer_LEADER_Norman', 'norman', 'Norman', 'm'],
+  ['trainer_LEADER_Winona', 'winona', 'Winona', 'f'],
+  ['trainer_LEADER_Tate', 'tate', 'Tate', 'm'],
+  ['trainer_LEADER_Liza', 'liza', 'Liza', 'f'],
+  ['trainer_LEADER_Wallace', 'wallace', 'Wallace', 'm'],
+  ['trainer_LEADER_Juan', 'juan', 'Juan', 'm'],
+  ['trainer_ELITEFOUR_Sidney', 'sidney', 'Sidney', 'm'],
+  ['trainer_ELITEFOUR_Phoebe', 'phoebe', 'Phoebe', 'f'],
+  ['trainer_ELITEFOUR_Glacia', 'glacia', 'Glacia', 'f'],
+  ['trainer_ELITEFOUR_Drake', 'drake', 'Drake', 'm'],
+];
+
+// Misc famous faces pulled from across the Megapack's region/anime sets, each
+// bound to a canonical character in src/game/specials.ts (Champions, villain team
+// bosses, rivals, anime cameos). Mixed source folders, so each entry names its
+// own directory. [sourceDir, sourceFile (sans .png), key, name, sex].
+const EXTRA_FAMOUS = [
+  [rseDir, 'trainer_STEVEN', 'steven', 'Steven', 'm'],
+  [otherDir, 'trainer_CYNTHIA', 'cynthia', 'Cynthia', 'f'],
+  [rseDir, 'trainer_ARCHIE', 'archie', 'Archie', 'm'],
+  [rseDir, 'trainer_MAXIE', 'maxie', 'Maxie', 'm'],
+  [rseDir, 'trainer_WALLY', 'wally', 'Wally', 'm'],
+  [hgssDir, 'trainer_SILVER', 'silver', 'Silver', 'm'],
+  [animeDir, 'Anime Officer Jenny', 'jenny', 'Officer Jenny', 'f'],
+  [animeDir, 'Anime Prof Ivy', 'ivy', 'Prof. Ivy', 'f'],
+  [animeDir, 'Anime Brockfather', 'flint', 'Flint', 'm'],
+];
+
 function magick(args) {
   execFileSync('magick', args, { stdio: ['ignore', 'ignore', 'inherit'] });
 }
@@ -301,6 +343,34 @@ if (existsSync(playableDir)) {
   }
 } else {
   console.warn(`Megapack Playable Characters not found at ${playableDir} — skipping.`);
+}
+
+// --- Hoenn Gym Leaders & Elite Four (Megapack RSE NPCs): famous fixed-pool. ----
+if (existsSync(rseDir)) {
+  for (const [file, key, name, g] of HOENN) {
+    const src = join(rseDir, `${file}.png`);
+    if (!existsSync(src)) {
+      console.warn(`skip missing ${src}`);
+      continue;
+    }
+    const outKey = `special-${key}`;
+    build(src, outKey);
+    manifest.special.push({ key: outKey, gender: g, name });
+  }
+} else {
+  console.warn(`Megapack RSE NPCs not found at ${rseDir} — skipping.`);
+}
+
+// --- Misc famous faces (Champions, team bosses, rivals, anime cameos). --------
+for (const [dir, file, key, name, g] of EXTRA_FAMOUS) {
+  const src = join(dir, `${file}.png`);
+  if (!existsSync(src)) {
+    console.warn(`skip missing ${src}`);
+    continue;
+  }
+  const outKey = `special-${key}`;
+  build(src, outKey);
+  manifest.special.push({ key: outKey, gender: g, name });
 }
 
 // --- Famous tiers: numbered role rips bound to their canonical character. -----

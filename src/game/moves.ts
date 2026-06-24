@@ -147,6 +147,10 @@ const ELEMENT_COVERAGE: Record<Element, PokemonType[]> = {
   water: ['ice', 'poison'],
 };
 
+// Celestial signs are element-less, so they reach for broad, premium coverage
+// to match their outsized stats.
+const CELESTIAL_COVERAGE: PokemonType[] = ['fighting', 'ice', 'rock', 'ground'];
+
 /** Bulky enough to justify a sustain/defensive button (Recover, Iron Defense). */
 function isBulky(s: BaseStats): boolean {
   return s.hp + s.def >= 170;
@@ -238,8 +242,11 @@ export function movesFor(
     add(TYPE_MOVES[t][1]);
   }
 
-  // 2) Element-themed coverage for off-type reach.
-  for (const t of ELEMENT_COVERAGE[SIGN_INFO[sign].element]) {
+  // 2) Element-themed coverage for off-type reach. Celestial signs have no
+  //    element, so they draw from a broad premium-coverage set instead.
+  const element = SIGN_INFO[sign].element;
+  const coverage = element ? ELEMENT_COVERAGE[element] : CELESTIAL_COVERAGE;
+  for (const t of coverage) {
     if (!types.includes(t)) add(TYPE_MOVES[t][0]);
   }
 

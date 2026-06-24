@@ -827,7 +827,7 @@ function assignSigns(
   // per-mon rolls — a beat-them-and-recruit-it reward.
   if (opts.rareTeamChance && team.length > 0 && rng.chance(opts.rareTeamChance)) {
     const i = rng.int(0, team.length - 1);
-    team[i] = withSign(team[i], bestRareSign(team[i].stats));
+    team[i] = { ...withSign(team[i], bestRareSign(team[i].stats)), pokeball: team[i].pokeball };
   }
   return team;
 }

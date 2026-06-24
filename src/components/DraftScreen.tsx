@@ -20,6 +20,8 @@ import {
   typeMultiplier,
 } from '../game/typechart';
 
+type DraftMove = { kind: 'pick' } | { kind: 'skip' };
+
 export function DraftScreen({
   seed,
   difficulty,
@@ -35,6 +37,10 @@ export function DraftScreen({
   const [picked, setPicked] = useState<Creature[]>([]);
   const [skipsUsed, setSkipsUsed] = useState(0);
   const [ballEditor, setBallEditor] = useState<number | null>(null);
+  // Ordered log of decisions so "undo" can take back whichever came last —
+  // a pick or a skip — and let you choose that set again.
+  const [history, setHistory] = useState<DraftMove[]>([]);
+  const [confirmingSkip, setConfirmingSkip] = useState(false);
 
   const setBall = (index: number, ball: string) => {
     setPicked((prev) =>
@@ -92,11 +98,29 @@ export function DraftScreen({
   const pick = (c: Creature) => {
     if (done) return;
     setPicked((prev) => (prev.length >= TEAM_SIZE ? prev : [...prev, c]));
+    setHistory((prev) => [...prev, { kind: 'pick' }]);
+    setConfirmingSkip(false);
   };
 
   const skip = () => {
     if (done || skipsLeft <= 0) return;
     setSkipsUsed((u) => u + 1);
+    setHistory((prev) => [...prev, { kind: 'skip' }]);
+    setConfirmingSkip(false);
+  };
+
+  const lastMove = history[history.length - 1];
+  const canUndo = history.length > 0;
+
+  // Take back the most recent decision (pick or skip) so you can choose that
+  // same set again. The deck is deterministic, so reverting the cursor brings
+  // back the exact trio you were looking at.
+  const undo = () => {
+    if (!canUndo) return;
+    if (lastMove.kind === 'pick') setPicked((p) => p.slice(0, -1));
+    else setSkipsUsed((u) => Math.max(0, u - 1));
+    setHistory((prev) => prev.slice(0, -1));
+    setConfirmingSkip(false);
   };
 
   return (
@@ -195,23 +219,69 @@ export function DraftScreen({
               </div>
             ))}
           </div>
+          {canUndo && (
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={undo}
+                className="rounded-full border border-white/15 px-4 py-1.5 text-xs font-semibold text-white/70 transition hover:bg-white/10"
+                title="Take back your last pick and choose that set again"
+              >
+                ↩ Undo last pick
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <>
-          <div className="mt-6 flex items-center justify-between">
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-bold uppercase tracking-widest text-white/40">
               Pick {picked.length + 1}
               <span className="text-white/25"> / {TEAM_SIZE}</span>
             </h3>
-            <button
-              type="button"
-              onClick={skip}
-              disabled={skipsLeft <= 0}
-              className="rounded-full border border-white/15 px-4 py-1.5 text-xs font-semibold text-white/70 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
-              title="Discard these and draw a fresh set"
-            >
-              ⏭ Skip this set{skipsLeft > 0 ? ` (${skipsLeft})` : ''}
-            </button>
+            <div className="flex items-center gap-2">
+              {canUndo && (
+                <button
+                  type="button"
+                  onClick={undo}
+                  className="rounded-full border border-white/15 px-4 py-1.5 text-xs font-semibold text-white/70 transition hover:bg-white/10"
+                  title="Take back your last decision and choose that set again"
+                >
+                  ↩ Undo {lastMove.kind === 'skip' ? 'skip' : 'last pick'}
+                </button>
+              )}
+              {confirmingSkip ? (
+                <div className="flex items-center gap-2">
+                  <span className="hidden text-xs text-white/60 sm:inline">
+                    Skip this set?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={skip}
+                    className="rounded-full border border-amber-300/40 bg-amber-300/15 px-3 py-1.5 text-xs font-bold text-amber-200 transition hover:bg-amber-300/25"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingSkip(false)}
+                    className="rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/10"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingSkip(true)}
+                  disabled={skipsLeft <= 0}
+                  className="rounded-full border border-white/15 px-4 py-1.5 text-xs font-semibold text-white/70 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+                  title="Discard these and draw a fresh set"
+                >
+                  ⏭ Skip this set{skipsLeft > 0 ? ` (${skipsLeft})` : ''}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">

@@ -196,9 +196,36 @@ export function defaultSign(s: BaseStats): Sign {
   return signsByFit(s)[0];
 }
 
-/** The rare celestial sign whose big boost best suits this stat line. */
+/**
+ * The rare celestial sign whose boost best matches this stat line's *shape*.
+ * Plain signFit would almost always pick Serpens (its multipliers are high on
+ * every stat), so instead we correlate each rare's tilt with how the mon's
+ * stats deviate from its own mean: a lopsided line leans into the matching
+ * lopsided wanderer (offense → Orion, speed → Aquila, bulk → Cetus), while a
+ * flat, well-rounded line gets the all-around Serpens.
+ */
 export function bestRareSign(s: BaseStats): Sign {
-  return [...RARE_SIGNS].sort((a, b) => signFit(b, s) - signFit(a, s))[0];
+  const mean = (s.hp + s.atk + s.def + s.spd) / 4;
+  const dev = { hp: s.hp - mean, atk: s.atk - mean, def: s.def - mean, spd: s.spd - mean };
+  const spread = Math.max(Math.abs(dev.hp), Math.abs(dev.atk), Math.abs(dev.def), Math.abs(dev.spd));
+  if (spread < 12) return 'serpens';
+
+  const shaped: Sign[] = ['orion', 'aquila', 'cetus'];
+  let best: Sign = shaped[0];
+  let bestScore = -Infinity;
+  for (const sign of shaped) {
+    const sp = SIGN_SPREAD[sign];
+    const score =
+      dev.hp * (sp.hp - 1) +
+      dev.atk * (sp.atk - 1) +
+      dev.def * (sp.def - 1) +
+      dev.spd * (sp.spd - 1);
+    if (score > bestScore) {
+      bestScore = score;
+      best = sign;
+    }
+  }
+  return best;
 }
 
 /**
