@@ -108,7 +108,10 @@ export function verifyRunToken(token: unknown, secret: string): TokenResult {
 export const THRONE_TOKEN_TTL_MS = 1000 * 60 * 30;
 
 export interface ThroneTokenClaims {
-  name: string; // the challenger's board name (server-cleaned)
+  name: string; // the challenger's board name (server-cleaned, for display)
+  // The challenger's exact board row id, so the right row is promoted when names
+  // can repeat. Optional for backward-compat with tokens issued before ids.
+  eid?: string;
   date: string;
   bracket: BracketId;
   difficulty: Difficulty; // always 'master' for now
@@ -179,4 +182,13 @@ export function newSeed(): string {
 
 export function newNonce(): string {
   return randomBytes(12).toString('base64url');
+}
+
+/**
+ * A unique id for a single board row. Used as the sorted-set member so the same
+ * display name can hold many rows (arcade high-score style). Prefixed so it's
+ * easy to tell apart from legacy rows whose member is the raw player name.
+ */
+export function newEntryId(): string {
+  return `e_${randomBytes(12).toString('base64url')}`;
 }

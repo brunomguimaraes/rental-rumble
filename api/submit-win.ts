@@ -11,6 +11,7 @@ import {
   boardKey,
   boardDataKey,
   BOARD_TTL_SECONDS,
+  archiveDailyChampion,
   type BoardEntryData,
 } from './_redis.js';
 import { rateLimit, clientIp } from './_ratelimit.js';
@@ -20,6 +21,7 @@ import {
   signThroneToken,
   newSeed,
   newNonce,
+  newEntryId,
   RUN_TOKEN_TTL_MS,
   MIN_RUN_MS,
   NONCE_TTL_SECONDS,
@@ -151,10 +153,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // First verified win per name sticks (NX = don't overwrite an earlier one).
-    await redis.zadd(key, { nx: true }, { score, member: name });
+    // No account system yet, so the board is an arcade-style high-score table:
+    // every verified win earns its own row, and the same name may appear many
+    // times. The member is therefore a unique per-win id (not the name), and the
+    // display name is stored in the row's data. The run-token nonce burned above
+    // still stops a *single* run from being submitted more than once.
+    const eid = newEntryId();
+    await redis.zadd(key, { score, member: eid });
 
     const entry: BoardEntryData = {
+      name,
       difficulty: verdict.difficulty,
       clearedStages: Number(body.clearedStages) || 0,
       team: verdict.team.map((c) => ({
@@ -165,7 +173,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       at: now,
     };
     // Upstash serializes objects to JSON automatically (and parses on read).
-    await redis.hsetnx(dataKey, name, entry);
+    await redis.hset(dataKey, { [eid]: entry });
 
     await Promise.all([
       redis.expire(key, BOARD_TTL_SECONDS),
@@ -173,9 +181,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ]);
 
     const [rank0, total] = await Promise.all([
-      redis.zrank(key, name),
+      redis.zrank(key, eid),
       redis.zcard(key),
     ]);
+
+    // Mirror the day's current #1 into the permanent hall of champions so it
+    // outlives the board's ~40-day TTL. Best-effort; never blocks the response.
+    await archiveDailyChampion(redis, date, bracket);
 
     // A Master clear earns one shot at the throne: a server-chosen battle seed
     // (so the deterministic PvP fight can't be brute-forced offline) plus a
@@ -190,6 +202,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ? signThroneToken(
               {
                 name,
+                eid,
                 date,
                 bracket,
                 difficulty: 'master',

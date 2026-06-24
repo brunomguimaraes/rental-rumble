@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Creature } from '../game/types';
 import { portraitUrl, spriteUrl } from '../game/pokemon';
+import { dailyKey } from '../game/opponents';
 import { GEN_BRACKETS, bracketById, type BracketId } from '../game/gens';
 import { DIFFICULTY_INFO, type Difficulty } from '../game/run';
 import { CupIcon } from './CupIcon';
@@ -94,6 +95,7 @@ export function Leaderboard({
   run,
   onChallenge,
   onChallengeThrone,
+  freshOnMount = false,
 }: {
   date: string;
   /** The bracket the just-finished run was locked to — submissions go here. */
@@ -113,7 +115,16 @@ export function Leaderboard({
   onChallenge?: (entry: LeaderboardEntry) => void;
   /** Stake a Master win's one shot at the reigning Master #1 (the throne). */
   onChallengeThrone?: (grant: ThroneGrant, king: LeaderboardEntry) => void;
+  /**
+   * Skip the edge cache on the first load. Used when arriving somewhere a recent
+   * write (e.g. a throne takeover) must already be visible — like the standalone
+   * ladder opened right after dethroning the #1.
+   */
+  freshOnMount?: boolean;
 }) {
+  // When viewing a past day, the live "first clears today" framing no longer
+  // applies — the board is a frozen record, so the copy shifts to past tense.
+  const isToday = date === dailyKey();
   // Which era's board is being viewed. Defaults to the one you just played, but
   // every era's board is browsable via the tabs.
   const [activeBracket, setActiveBracket] = useState<BracketId>(runBracket);
@@ -123,10 +134,16 @@ export function Leaderboard({
     () => localStorage.getItem('lb-name') ?? '',
   );
   // The submit form lives on the run's own bracket; track that board's status.
-  const doneKey = `lb-done-${date}-${runBracket}`;
+  // Keyed by the run's seed (not just the day) because the board is now an
+  // arcade-style high-score table — every separate clear earns its own row, so
+  // finishing a *new* run should let you post again under the same name.
+  const doneKey = `lb-done-${date}-${runBracket}-${run.seed}`;
+  // Win flow as explicit steps: 'name' (lock in who you are) → 'submitting'
+  // (post the verified win) → 'done'. Splitting the name out means every later
+  // "is the #1 me?" check always has a real name to compare against.
   const [status, setStatus] = useState<
-    'idle' | 'submitting' | 'done' | 'error'
-  >(() => (localStorage.getItem(doneKey) ? 'done' : 'idle'));
+    'name' | 'submitting' | 'done' | 'error'
+  >(() => (localStorage.getItem(doneKey) ? 'done' : 'name'));
   const [placement, setPlacement] = useState<{
     rank: number | null;
     total?: number;
@@ -135,25 +152,30 @@ export function Leaderboard({
   const submittedRef = useRef(status === 'done');
   // The pass to chase the throne, handed back when a Master win is verified.
   const [throne, setThrone] = useState<ThroneGrant | null>(null);
-  // The name this player just posted under, for "is the king me?" checks.
-  const [submittedName, setSubmittedName] = useState<string | null>(null);
+  // The name this player locked in for the board, captured before the win is
+  // posted. Drives the "is the king me?" check so it never compares against a
+  // blank from a not-yet-submitted run.
+  const [playerName, setPlayerName] = useState<string | null>(null);
 
-  const refresh = () => {
+  const refresh = (fresh = false) => {
     setLoading(true);
-    fetchLeaderboard(date, activeBracket)
+    fetchLeaderboard(date, activeBracket, { fresh })
       .then(setBoard)
       .finally(() => setLoading(false));
   };
 
-  useEffect(refresh, [date, activeBracket]);
+  useEffect(() => {
+    refresh(freshOnMount);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, activeBracket]);
 
-  const handleSubmit = async () => {
+  // Step 2: post the verified win under the locked-in name, then surface the
+  // placement (and, on a Master clear, the throne pass).
+  const submitUnder = async (finalName: string) => {
     setStatus('submitting');
     setError(null);
-    const trimmed = name.trim();
-    localStorage.setItem('lb-name', trimmed);
     const payload = buildSubmission({
-      name: trimmed || 'Anonymous',
+      name: finalName,
       date,
       bracket: runBracket,
       ...run,
@@ -167,34 +189,43 @@ export function Leaderboard({
     submittedRef.current = true;
     localStorage.setItem(doneKey, '1');
     setPlacement({ rank: result.rank ?? null, total: result.total });
-    setSubmittedName(trimmed || 'Anonymous');
     if (result.throne) setThrone(result.throne);
     setStatus('done');
-    // Jump to the board the win was just posted to.
-    if (activeBracket === runBracket) refresh();
+    // Skip the edge cache so the board reflects this win immediately.
+    if (activeBracket === runBracket) refresh(true);
     else setActiveBracket(runBracket);
   };
 
-  // The submit form only belongs on the run's own era board.
-  const showForm =
+  // Step 1: lock in the player's name (persisted for next time), then submit.
+  const confirmName = () => {
+    const trimmed = name.trim();
+    const finalName = trimmed || 'Anonymous';
+    localStorage.setItem('lb-name', trimmed);
+    setPlayerName(finalName);
+    void submitUnder(finalName);
+  };
+
+  // The name-entry step only belongs on a fresh, not-yet-submitted win.
+  const showNameStep =
     canSubmit &&
     activeBracket === runBracket &&
     !submittedRef.current &&
-    status !== 'done';
+    status === 'name';
 
   // The reigning Master #1 — the de-facto top of the board (Master is the top
   // rank tier) and the only target for a Throne Challenge.
   const king = board?.entries.find((e) => e.difficulty === 'master') ?? null;
-  const isKingMe = !!(
-    king &&
-    submittedName &&
-    sameName(king.name, submittedName)
-  );
+  // "Is the #1 me?" — only meaningful once a name is locked in. Comparing against
+  // the confirmed name (never a blank) keeps a player from being offered a fight
+  // against their own freshly-posted entry.
+  const isKingMe = !!(king && playerName && sameName(king.name, playerName));
   // A verified Master champion gets one shot at whoever currently holds the
-  // crown — unless that's already them.
+  // crown — unless that's already them. Gated on a locked-in name so the check
+  // can never run before we know who the challenger is.
   const canChallengeThrone =
     !!throne &&
     !!onChallengeThrone &&
+    !!playerName &&
     activeBracket === runBracket &&
     !!king &&
     king.team.length > 0 &&
@@ -203,7 +234,9 @@ export function Leaderboard({
   return (
     <div className="mt-8 w-full max-w-lg text-left">
       <div className="flex items-baseline justify-between">
-        <h3 className="text-lg font-black text-white">Today’s first clears</h3>
+        <h3 className="text-lg font-black text-white">
+          {isToday ? 'Today’s first clears' : 'First clears'}
+        </h3>
         {board?.champion && (
           <span className="text-xs text-white/45">
             vs {board.champion.name}
@@ -270,8 +303,9 @@ export function Leaderboard({
             adding you, so the board stays honest.
           </li>
           <li>
-            <span className="text-white/70">One name, one slot.</span> Your
-            first verified clear sticks — you can’t resubmit to move up.
+            <span className="text-white/70">Many slots per name.</span> Like an
+            old arcade high-score table, every verified clear earns its own row —
+            so the same name can appear more than once.
           </li>
           <li>
             <span className="text-white/70">Take the throne.</span> Beat the
@@ -285,7 +319,7 @@ export function Leaderboard({
         </ul>
       </details>
 
-      {showForm && (
+      {showNameStep && (
         <div className="mt-3 rounded-2xl border border-amber-300/30 bg-amber-300/[0.06] p-3">
           <p className="text-sm font-semibold text-amber-200">
             You beat today’s boss! Put your name on the board.
@@ -294,20 +328,42 @@ export function Leaderboard({
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') confirmName();
+              }}
               maxLength={24}
               placeholder="Your name"
               className="min-w-0 flex-1 rounded-full border border-white/15 bg-black/30 px-4 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-amber-300/60"
             />
             <button
               type="button"
-              onClick={handleSubmit}
-              disabled={status === 'submitting'}
-              className="rounded-full bg-amber-300 px-4 py-2 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
+              onClick={confirmName}
+              className="rounded-full bg-amber-300 px-4 py-2 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
             >
-              {status === 'submitting' ? 'Submitting…' : 'Submit'}
+              Claim spot
             </button>
           </div>
-          {error && <p className="mt-2 text-xs text-rose-300">{error}</p>}
+        </div>
+      )}
+
+      {status === 'submitting' && (
+        <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white/70">
+          Posting your win to the board…
+        </p>
+      )}
+
+      {status === 'error' && (
+        <div className="mt-3 rounded-2xl border border-rose-300/30 bg-rose-300/[0.06] p-3">
+          <p className="text-sm font-semibold text-rose-200">
+            {error ?? 'Could not submit your win.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => playerName && submitUnder(playerName)}
+            className="mt-2 rounded-full bg-amber-300 px-4 py-2 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
+          >
+            Try again
+          </button>
         </div>
       )}
 
@@ -353,7 +409,9 @@ export function Leaderboard({
           </p>
         ) : !board || board.entries.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-white/40">
-            No one has beaten today’s boss yet. Be the first!
+            {isToday
+              ? 'No one has beaten today’s boss yet. Be the first!'
+              : 'No clears recorded for this day.'}
           </p>
         ) : (
           <ul className="divide-y divide-white/5">
@@ -405,7 +463,8 @@ export function Leaderboard({
       </div>
       {board && board.total > board.entries.length && (
         <p className="mt-2 text-center text-[11px] text-white/35">
-          and {board.total - board.entries.length} more today
+          and {board.total - board.entries.length} more
+          {isToday ? ' today' : ''}
         </p>
       )}
     </div>

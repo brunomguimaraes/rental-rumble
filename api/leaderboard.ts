@@ -2,7 +2,10 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { Redis } from '@upstash/redis';
 import {
   LEADERBOARD_TOP,
+  type ChampionRecord,
+  type HistoryDay,
   type LeaderboardEntry,
+  type LeaderboardHistory,
   type LeaderboardResponse,
   type LeaderboardSummary,
 } from '../src/game/leaderboard.js';
@@ -17,10 +20,23 @@ import {
   getRedis,
   boardKey,
   boardDataKey,
+  CHAMPIONS_KEY,
+  championField,
+  archiveDailyChampion,
+  readBoardLeader,
+  displayName,
+  type ArchivedChampion,
   type BoardEntryData,
 } from './_redis.js';
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+// How many past days the hall of champions shows by default, and the hard cap.
+const HISTORY_DEFAULT_DAYS = 30;
+const HISTORY_MAX_DAYS = 60;
+// Live boards self-expire after ~40 days; only those can be back-filled.
+const ARCHIVABLE_DAYS = 39;
+const ONE_DAY_MS = 86_400_000;
 
 function championInfo(
   date: string,
@@ -66,6 +82,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ date, brackets } satisfies LeaderboardSummary);
   }
 
+  // History mode: the permanent "hall of champions" — each past day's #1 per
+  // era, oldest boards included even after they've expired from Redis.
+  if (req.query.history !== undefined) {
+    const days = clampDays(req.query.days);
+    const body = await readHistory(days);
+    // Past days never change, so this can cache hard; only the trailing edge
+    // (yesterday, still being back-filled) benefits from a short revalidate.
+    res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=600');
+    return res.status(200).json(body);
+  }
+
   const bracket: BracketId = isBracketId(req.query.bracket)
     ? req.query.bracket
     : DEFAULT_BRACKET;
@@ -83,27 +110,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // better) and clear time (earlier breaks ties), so plain ascending order
       // already gives the ranking we want. The raw win time lives in the data
       // hash, since the score is no longer a bare timestamp.
-      const [names, count] = await Promise.all([
+      const [members, count] = await Promise.all([
         redis.zrange<string[]>(key, 0, LEADERBOARD_TOP - 1),
         redis.zcard(key),
       ]);
       total = count ?? 0;
 
       const meta =
-        names.length > 0
+        members.length > 0
           ? await redis.hmget<Record<string, BoardEntryData | string>>(
               dataKey,
-              ...names,
+              ...members,
             )
           : {};
 
-      entries = names.map((name, i) => {
-        const rawMeta = meta?.[name];
+      entries = members.map((member, i) => {
+        const rawMeta = meta?.[member];
         const data: Partial<BoardEntryData> =
           typeof rawMeta === 'string' ? safeParse(rawMeta) : rawMeta ?? {};
         return {
           rank: i + 1,
-          name,
+          name: displayName(member, data),
           // Legacy entries (pre-difficulty) default to the normal mode.
           difficulty: data.difficulty ?? 'normal',
           at: Number(data.at) || 0,
@@ -143,6 +170,114 @@ function safeParse(s: string): Partial<BoardEntryData> {
   }
 }
 
+function clampDays(raw: unknown): number {
+  const n = Number(Array.isArray(raw) ? raw[0] : raw);
+  if (!Number.isFinite(n)) return HISTORY_DEFAULT_DAYS;
+  return Math.max(1, Math.min(HISTORY_MAX_DAYS, Math.round(n)));
+}
+
+/** The last `days` daily keys, ending yesterday (today is the live ladder). */
+function pastDates(days: number): string[] {
+  const now = Date.now();
+  return Array.from({ length: days }, (_, i) =>
+    dailyKey(new Date(now - (i + 1) * ONE_DAY_MS)),
+  );
+}
+
+function toRecord(c: ArchivedChampion): ChampionRecord {
+  return {
+    bracket: c.bracket,
+    name: c.name,
+    difficulty: c.difficulty,
+    at: c.at,
+    clearedStages: c.clearedStages,
+    team: Array.isArray(c.team) ? c.team : [],
+    champion: championInfo(c.date, c.bracket),
+    ...(c.defeated ? { defeated: c.defeated } : {}),
+  };
+}
+
+/**
+ * Build the hall of champions for the last `days` days. Reads the permanent
+ * archive first, then back-fills any gap from a still-live board (writing the
+ * snapshot through so it survives the board's TTL). Degrades to an empty list
+ * if Redis is unavailable.
+ */
+async function readHistory(days: number): Promise<LeaderboardHistory> {
+  const dates = pastDates(days);
+  const redis = getRedis();
+  if (!redis) return { days: dates.map((date) => ({ date, champions: [] })) };
+
+  // One round trip: pull every (date × era) snapshot we already have.
+  const fields = dates.flatMap((date) =>
+    GEN_BRACKETS.map((b) => championField(date, b.id)),
+  );
+  const found = new Map<string, ArchivedChampion>();
+  try {
+    const archived = await redis.hmget<Record<string, ArchivedChampion | string>>(
+      CHAMPIONS_KEY,
+      ...fields,
+    );
+    if (archived) {
+      for (const [field, val] of Object.entries(archived)) {
+        if (val == null) continue;
+        const champ = typeof val === 'string' ? safeParseChampion(val) : val;
+        if (champ) found.set(field, champ);
+      }
+    }
+  } catch (err) {
+    console.error('[leaderboard] history archive read failed:', err);
+  }
+
+  // Back-fill gaps from boards that are still alive in Redis. Older entries
+  // (pre-archive deploys) get captured permanently the first time history is
+  // viewed, just before their board would have expired.
+  const now = Date.now();
+  const gaps: { date: string; bracket: BracketId; field: string }[] = [];
+  for (const date of dates) {
+    const ageDays = Math.round((now - Date.parse(`${date}T00:00:00Z`)) / ONE_DAY_MS);
+    if (ageDays > ARCHIVABLE_DAYS) continue;
+    for (const b of GEN_BRACKETS) {
+      const field = championField(date, b.id);
+      if (!found.has(field)) gaps.push({ date, bracket: b.id, field });
+    }
+  }
+  if (gaps.length > 0) {
+    await Promise.all(
+      gaps.map(async ({ date, bracket, field }) => {
+        try {
+          const champ = await readBoardLeader(redis, date, bracket);
+          if (champ) found.set(field, champ);
+        } catch {
+          /* a single missing board shouldn't sink the page */
+        }
+      }),
+    );
+    // Persist what we recovered so future loads are a single archive read.
+    void Promise.all(
+      gaps
+        .filter((g) => found.has(g.field))
+        .map((g) => archiveDailyChampion(redis, g.date, g.bracket)),
+    ).catch(() => {});
+  }
+
+  const out: HistoryDay[] = dates.map((date) => {
+    const champions = GEN_BRACKETS.map((b) => found.get(championField(date, b.id)))
+      .filter((c): c is ArchivedChampion => !!c)
+      .map(toRecord);
+    return { date, champions };
+  });
+  return { days: out };
+}
+
+function safeParseChampion(s: string): ArchivedChampion | null {
+  try {
+    return JSON.parse(s) as ArchivedChampion;
+  } catch {
+    return null;
+  }
+}
+
 /** Top finisher (rank #1) and total clears for one era's daily board. */
 async function bracketLeader(
   redis: Redis,
@@ -150,19 +285,19 @@ async function bracketLeader(
   bracket: BracketId,
 ): Promise<{ total: number; leader: LeaderboardEntry | null }> {
   const key = boardKey(date, bracket);
-  const [names, count] = await Promise.all([
+  const [members, count] = await Promise.all([
     redis.zrange<string[]>(key, 0, 0),
     redis.zcard(key),
   ]);
   const total = count ?? 0;
-  if (names.length === 0) return { total, leader: null };
+  if (members.length === 0) return { total, leader: null };
 
-  const name = names[0];
+  const member = members[0];
   const meta = await redis.hmget<Record<string, BoardEntryData | string>>(
     boardDataKey(date, bracket),
-    name,
+    member,
   );
-  const rawMeta = meta?.[name];
+  const rawMeta = meta?.[member];
   const data: Partial<BoardEntryData> =
     typeof rawMeta === 'string' ? safeParse(rawMeta) : rawMeta ?? {};
 
@@ -170,7 +305,7 @@ async function bracketLeader(
     total,
     leader: {
       rank: 1,
-      name,
+      name: displayName(member, data),
       difficulty: data.difficulty ?? 'normal',
       at: Number(data.at) || 0,
       clearedStages: data.clearedStages ?? 0,

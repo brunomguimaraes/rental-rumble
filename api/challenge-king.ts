@@ -11,6 +11,8 @@ import {
   boardKey,
   boardDataKey,
   BOARD_TTL_SECONDS,
+  archiveDailyChampion,
+  displayName,
   type BoardEntryData,
 } from './_redis.js';
 import { rateLimit, clientIp } from './_ratelimit.js';
@@ -58,6 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const body: {
     token?: unknown;
     name?: unknown;
+    eid?: unknown;
     date?: unknown;
     bracket?: unknown;
     seed?: unknown;
@@ -100,6 +103,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const secret = getTokenSecret();
   let name: string;
   let seed: string;
+  // The challenger's exact board row to promote. Names can repeat (no accounts),
+  // so the row is addressed by its unique id, not by name. May be empty for an
+  // old client / legacy token, in which case we fall back to a name match.
+  let challengerEid = '';
   let nonceKey: string | null = null;
 
   if (secret) {
@@ -123,9 +130,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     name = c.name;
     seed = c.seed;
+    challengerEid = typeof c.eid === 'string' ? c.eid : '';
     nonceKey = `usedthrone:${c.n}`;
   } else {
     name = cleanName(body.name);
+    challengerEid = typeof body.eid === 'string' ? body.eid : '';
     seed = typeof body.seed === 'string' ? body.seed : '';
     if (seed.length === 0 || seed.length > 120) {
       return res.status(400).json({ ok: false, error: 'bad seed' });
@@ -138,46 +147,66 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // Find the reigning Master champion: the first Master entry from the top of
     // the board (Master sits in the top rank tier, so this is the de-facto #1).
-    const topNames = await redis.zrange<string[]>(key, 0, SCAN_DEPTH - 1);
-    if (topNames.length === 0) {
+    const topMembers = await redis.zrange<string[]>(key, 0, SCAN_DEPTH - 1);
+    if (topMembers.length === 0) {
       return res
         .status(400)
         .json({ ok: false, error: 'no one has cleared the board yet' });
     }
     const topMeta = await redis.hmget<Record<string, BoardEntryData | string>>(
       dataKey,
-      ...topNames,
+      ...topMembers,
     );
 
-    let kingName: string | null = null;
+    let kingMember: string | null = null;
     let kingData: Partial<BoardEntryData> | null = null;
-    for (const n of topNames) {
-      const d = parseEntry(topMeta?.[n]);
+    for (const m of topMembers) {
+      const d = parseEntry(topMeta?.[m]);
       if (d.difficulty === 'master') {
-        kingName = n;
+        kingMember = m;
         kingData = d;
         break;
       }
     }
-    if (!kingName || !kingData) {
+    if (!kingMember || !kingData) {
       return res.status(400).json({
         ok: false,
         error: 'no reigning Master champion to challenge yet',
       });
     }
-    if (kingName === name) {
+    const kingName = displayName(kingMember, kingData);
+    // The challenger can't dethrone their own row.
+    if (kingMember === challengerEid) {
       return res
         .status(409)
         .json({ ok: false, error: 'you already hold the throne' });
     }
 
-    // The challenger must already be on the board (they submit their Master win
+    // Resolve the challenger's exact board row. Addressed by id when available
+    // (names can repeat); otherwise fall back to a name match for old clients /
+    // legacy tokens. They must already be on the board (Master win submitted
     // first). Fight with the team that publicly represents them.
-    const challengerMeta = await redis.hmget<
-      Record<string, BoardEntryData | string>
-    >(dataKey, name);
-    const challengerData = parseEntry(challengerMeta?.[name]);
-    if (!Array.isArray(challengerData.team) || challengerData.team.length === 0) {
+    let challengerMember = challengerEid;
+    let challengerData: Partial<BoardEntryData>;
+    if (challengerMember) {
+      const m = await redis.hmget<Record<string, BoardEntryData | string>>(
+        dataKey,
+        challengerMember,
+      );
+      challengerData = parseEntry(m?.[challengerMember]);
+    } else {
+      // Legacy fallback: pick the best (highest-ranked) row whose name matches.
+      const found = topMembers.find(
+        (m) => displayName(m, parseEntry(topMeta?.[m])) === name,
+      );
+      challengerMember = found ?? '';
+      challengerData = found ? parseEntry(topMeta?.[found]) : {};
+    }
+    if (
+      !challengerMember ||
+      !Array.isArray(challengerData.team) ||
+      challengerData.team.length === 0
+    ) {
       return res
         .status(400)
         .json({ ok: false, error: 'submit your Master win before challenging' });
@@ -217,16 +246,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const newAt = kingAt - 1;
     const score = boardScore('master', newAt);
 
-    await redis.zadd(key, { score, member: name });
+    await redis.zadd(key, { score, member: challengerMember });
 
     const updated: BoardEntryData = {
+      name,
       difficulty: 'master',
       clearedStages: Number(challengerData.clearedStages) || 0,
       team: challengerData.team as SubmissionMon[],
       at: newAt,
       defeated: kingName,
     };
-    await redis.hset(dataKey, { [name]: updated });
+    await redis.hset(dataKey, { [challengerMember]: updated });
 
     await Promise.all([
       redis.expire(key, BOARD_TTL_SECONDS),
@@ -234,9 +264,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ]);
 
     const [rank0, total] = await Promise.all([
-      redis.zrank(key, name),
+      redis.zrank(key, challengerMember),
       redis.zcard(key),
     ]);
+
+    // The throne just changed hands — refresh the permanent archive's #1.
+    await archiveDailyChampion(redis, date, bracket);
 
     return res.status(200).json({
       ok: true,
