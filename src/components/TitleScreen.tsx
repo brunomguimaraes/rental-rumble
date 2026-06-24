@@ -6,7 +6,9 @@ import {
   type Difficulty,
 } from '../game/run';
 import {
+  fetchLeaderboardHistory,
   fetchLeaderboardSummary,
+  type ChampionRecord,
   type LeaderboardSummary,
 } from '../game/leaderboard';
 import {
@@ -26,11 +28,16 @@ import { PrivacyPolicy } from './PrivacyPolicy';
 import { SupportLinks } from './SupportLinks';
 import { DiscordLink } from './DiscordLink';
 import { BattleGuide } from './BattleGuide';
-import { ChampionSpotlight, BracketRankCard } from './ChampionSpotlight';
+import {
+  ChampionSpotlight,
+  BracketRankCard,
+  YesterdayChampionCard,
+} from './ChampionSpotlight';
 
 export function TitleScreen({
   onStart,
   onViewLadder,
+  onViewHistory,
 }: {
   onStart: (
     difficulty: Difficulty,
@@ -39,6 +46,8 @@ export function TitleScreen({
   ) => void | Promise<void>;
   /** Open the standalone "today's ladder" page. */
   onViewLadder: () => void;
+  /** Open the past-days "hall of champions" page. */
+  onViewHistory: () => void;
 }) {
   // Custom seed feature disabled: letting players paste a seed added UI/UX
   // complexity (extra input, validation, share copy) for little payoff. Runs
@@ -83,6 +92,23 @@ export function TitleScreen({
     () =>
       summary?.brackets.find((b) => b.bracket === bracket)?.leader ?? null,
     [summary, bracket],
+  );
+
+  // Yesterday's champions (one fetch), so the selected era can show who held
+  // the crown the day before — a small nod to the daily cadence.
+  const [yesterday, setYesterday] = useState<ChampionRecord[]>([]);
+  useEffect(() => {
+    let alive = true;
+    fetchLeaderboardHistory(1).then((h) => {
+      if (alive) setYesterday(h?.days[0]?.champions ?? []);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const yesterdayLeader = useMemo(
+    () => yesterday.find((c) => c.bracket === bracket) ?? null,
+    [yesterday, bracket],
   );
 
   // Today's Champion for the chosen era. Every bracket has its own daily boss
@@ -225,6 +251,12 @@ export function TitleScreen({
           leader={bracketLeader}
           onViewLadder={onViewLadder}
         />
+
+        {/* Who held this era's crown yesterday — opens the full hall. */}
+        <YesterdayChampionCard
+          record={yesterdayLeader}
+          onViewHistory={onViewHistory}
+        />
       </div>
 
       {/* Difficulty picker */}
@@ -300,6 +332,13 @@ export function TitleScreen({
           className="inline-flex items-center gap-1.5 rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/75 transition hover:bg-white/10"
         >
           <CupIcon cup="cool" className="h-4 w-4" /> Today’s ladder
+        </button>
+        <button
+          type="button"
+          onClick={onViewHistory}
+          className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/75 transition hover:bg-white/10"
+        >
+          🏆 Hall of Champions
         </button>
         <button
           type="button"

@@ -29,6 +29,7 @@ export function LadderScreen({ onBack }: { onBack: () => void }) {
         runBracket={DEFAULT_BRACKET}
         canSubmit={false}
         run={{ difficulty: 'normal', seed: '', stage: 0, clearedStages: 0, team: [] }}
+        freshOnMount
       />
 
       <button

@@ -37,6 +37,10 @@ export function moveEffectLabel(effect: MoveEffect): string {
       return `Heals up to ${Math.round(effect.amount * 100)}% HP (less each repeat)`;
     case 'lifesteal':
       return `Drains ${Math.round(effect.fraction * 100)}% of damage`;
+    case 'fracdamage':
+      return `Cuts ${Math.round(effect.fraction * 100)}% of current HP (ignores DEF)`;
+    case 'taunt':
+      return 'Seals setup & heals for a few turns';
     case 'stage': {
       const sign = effect.delta > 0 ? '+' : '';
       const who = effect.target === 'self' ? 'own' : "foe's";
@@ -158,17 +162,35 @@ const QUICK_ATTACK: Move = {
 // sufficiently bulky Pokémon can pack (see movesFor). Capped at HEAL_PP uses so
 // two bulky walls (e.g. Chansey) can't out-heal each other into an endless
 // stalemate — once the heals dry up, the fight is decided on damage.
-export const HEAL_PP = 5;
+export const HEAL_PP = 3;
 // Diminishing returns on repeated self-heals within a single battle: every
 // Recover after the first restores HEAL_DECAY as much as the previous one
 // (heal #n = amount * HEAL_DECAY^(n-1)). The first heal still bites for the
 // full amount, but a healer-vs-healer war decays fast instead of stalling —
 // applied in battle.ts where the heal is resolved (see Battler.healsUsed).
-export const HEAL_DECAY = 0.65;
+export const HEAL_DECAY = 0.5;
 const RECOVER: Move = {
   ...mk('Recover', 'normal', 0, 1, { kind: 'heal', amount: 0.3 }),
   pp: HEAL_PP,
 };
+
+// Anti-wall counterplay (granted to offensive mons in movesFor, never to walls
+// themselves — these are the answer TO bulk).
+//
+// Super Fang: lops off half the foe's CURRENT HP regardless of Defense, so a
+// fortified or naturally bulky wall can't soak it. It can't KO on its own
+// (always leaves the foe at >=1 HP from this move), so it sets up a finisher
+// rather than replacing one. Normal-typed, so Ghosts are immune.
+const SUPER_FANG = mk('Super Fang', 'normal', 0, 0.9, {
+  kind: 'fracdamage',
+  fraction: 0.5,
+});
+// Taunt: locks the foe out of setup, heals and pure-status moves for a few
+// turns, forcing a wall to trade damage instead of stalling. Deals nothing
+// itself — pure disruption.
+const TAUNT = mk('Taunt', 'dark', 0, 1, { kind: 'taunt', chance: 1 });
+// How many turns a Taunt keeps the foe locked into attacking.
+export const TAUNT_TURNS = 3;
 
 // Pure setup moves (power 0): sharply raise one of the user's own stat stages.
 const SWORDS_DANCE = mk('Swords Dance', 'normal', 0, 1, {
@@ -255,6 +277,9 @@ const SPECIAL_MOVES = new Set([
  * their dedicated motions; everything else fires a projectile/beam ("Shoot").
  */
 export function attackAnimFor(move: Move): AttackAnim {
+  // Super Fang is a power-0 move mechanically but lands as a bite — play the
+  // melee strike rather than a self-targeted wind-up.
+  if (move.effect?.kind === 'fracdamage') return 'strike';
   if (move.power === 0) return 'charge';
   if (CONTACT_MOVES.has(move.name)) return 'strike';
   if (HEAVY_MOVES.has(move.name)) return 'swing';
@@ -275,10 +300,16 @@ export const MOVE_SLOTS = 8;
  *   1. STAB core — both moves of each of the mon's own types.
  *   2. Coverage  — element-themed off-type attacks (driven by the sign, so it
  *      shifts run to run).
- *   3. Priority  — Quick Attack for genuinely fast attackers.
- *   4. Setup     — one self-buff matched to the mon's strongest stat.
- *   5. Sustain   — Recover for bulky mons (sign-independent now).
+ *   3. Counter  — anti-wall tools (Super Fang / Taunt) for offensive mons.
+ *   4. Priority  — Quick Attack for genuinely fast attackers.
+ *   5. Defense   — exactly ONE defensive/utility button per mon (see below).
  *   6. Filler    — Body Slam as a dependable Normal-type fallback.
+ *
+ * Defensive button rule (anti-stall): a mon never carries both Iron Defense and
+ * Recover. Offensive mons set up to hit harder/faster; a pure wall picks a
+ * single tool matched to its build — defence-dominant walls fortify (Iron
+ * Defense), HP-dominant walls heal (Recover) — so no wall can stack +DEF *and*
+ * out-heal in the same battle.
  */
 export function movesFor(
   types: PokemonType[],
@@ -307,16 +338,28 @@ export function movesFor(
     if (!types.includes(t)) add(TYPE_MOVES[t][0]);
   }
 
-  // 3) Priority for fast, hard-hitting attackers.
+  // 3) Anti-wall counterplay for offensive mons — the answer TO bulk, so walls
+  //    themselves never get it. Hard hitters carry Super Fang (DEF-ignoring
+  //    chip); fast mons carry Taunt (stall-breaker).
+  if (!isBulky(stats) && stats.atk >= 85) add(SUPER_FANG);
+  if (!isBulky(stats) && stats.spd >= 90) add(TAUNT);
+
+  // 4) Priority for fast, hard-hitting attackers.
   if (stats.spd >= 95 && stats.atk >= 80) add(QUICK_ATTACK);
 
-  // 4) A single setup move that plays to the mon's best stat.
-  if (stats.atk >= 100) add(SWORDS_DANCE);
-  else if (stats.spd >= 100) add(AGILITY);
-  else if (isBulky(stats)) add(IRON_DEFENSE);
-
-  // 5) Sustain for bulky mons.
-  if (isBulky(stats)) add(RECOVER);
+  // 5) Exactly one defensive/utility button (never Iron Defense + Recover
+  //    together — see the doc comment above).
+  if (stats.atk >= 100) {
+    add(SWORDS_DANCE);
+    if (isBulky(stats)) add(RECOVER); // bulky attacker may still pack sustain
+  } else if (stats.spd >= 100) {
+    add(AGILITY);
+    if (isBulky(stats)) add(RECOVER);
+  } else if (isBulky(stats)) {
+    // Pure wall: fortify if defence-dominant, otherwise heal. One or the other.
+    if (stats.def >= stats.hp) add(IRON_DEFENSE);
+    else add(RECOVER);
+  }
 
   // 6) Dependable filler.
   add(BODY_SLAM);

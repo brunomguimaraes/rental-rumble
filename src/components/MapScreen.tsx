@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Creature, Opponent } from '../game/types';
+import type { Difficulty } from '../game/run';
 import { TIER_LABEL, isTypeThemed, opponentAccent } from '../game/opponents';
 import { TypeBadge } from './TypeBadge';
 import { TrainerSprite } from './TrainerSprite';
@@ -11,6 +12,7 @@ export function MapScreen({
   team,
   stage,
   seed,
+  difficulty,
   onFight,
   onSkip,
   onQuit,
@@ -20,6 +22,7 @@ export function MapScreen({
   team: Creature[];
   stage: number;
   seed: string;
+  difficulty: Difficulty;
   onFight: () => void;
   onSkip: () => void;
   onQuit: () => void;
@@ -30,6 +33,9 @@ export function MapScreen({
   // Skippable foes (the rare bonus challenge) don't count toward the mandatory
   // tally — you can wave them off and still be crowned Champion.
   const required = gauntlet.filter((o) => !o.skippable).length;
+  // Master hides the type of foes you haven't beaten yet: no scouting ahead to
+  // pre-arrange your lineup, so every battle is a blind read.
+  const concealTypes = difficulty === 'master';
   return (
     <div className="mx-auto max-w-5xl px-3 py-6 pb-28 sm:px-4 sm:py-8 sm:pb-28">
       <div className="flex items-start justify-between gap-3">
@@ -108,7 +114,11 @@ export function MapScreen({
                       Optional
                     </span>
                   )}
-                  {isTypeThemed(opp) ? (
+                  {concealTypes && !done ? (
+                    <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/50">
+                      ??? Type
+                    </span>
+                  ) : isTypeThemed(opp) ? (
                     <TypeBadge type={opp.type} size="sm" />
                   ) : (
                     <span

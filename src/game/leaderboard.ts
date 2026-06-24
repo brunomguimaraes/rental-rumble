@@ -132,6 +132,31 @@ export interface LeaderboardSummary {
   brackets: BracketLeader[];
 }
 
+/** A past day's #1 for one era, kept permanently in the hall of champions. */
+export interface ChampionRecord {
+  bracket: BracketId;
+  name: string;
+  difficulty: Difficulty;
+  at: number;
+  clearedStages: number;
+  team: SubmissionMon[];
+  // The boss they toppled (deterministic from the date), if it can be rebuilt.
+  champion: { name: string; type: string } | null;
+  // Set when the crown was taken in a Throne Challenge.
+  defeated?: string;
+}
+
+/** One past day, with the champion of every era that had a clear. */
+export interface HistoryDay {
+  date: string;
+  champions: ChampionRecord[];
+}
+
+/** The permanent hall of champions — recent past days, newest first. */
+export interface LeaderboardHistory {
+  days: HistoryDay[];
+}
+
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
 export type VerifyResult =
@@ -410,11 +435,16 @@ export async function challengeKing(payload: {
 export async function fetchLeaderboard(
   date: string,
   bracket: BracketId = DEFAULT_BRACKET,
+  opts: { fresh?: boolean } = {},
 ): Promise<LeaderboardResponse | null> {
   try {
-    const res = await fetch(
-      `/api/leaderboard?date=${encodeURIComponent(date)}&bracket=${encodeURIComponent(bracket)}`,
-    );
+    let url = `/api/leaderboard?date=${encodeURIComponent(date)}&bracket=${encodeURIComponent(bracket)}`;
+    // Right after a write (a win submit or a throne takeover) the CDN's short
+    // edge cache can still hold the pre-write board, making a fresh #1 / "defeated"
+    // look like it never landed. A cache-busting param + no-store sidesteps that
+    // so the player immediately sees their new placement.
+    if (opts.fresh) url += `&_=${Date.now()}`;
+    const res = await fetch(url, opts.fresh ? { cache: 'no-store' } : undefined);
     if (!res.ok) return null;
     return (await res.json()) as LeaderboardResponse;
   } catch {
@@ -432,6 +462,19 @@ export async function fetchLeaderboardSummary(
     );
     if (!res.ok) return null;
     return (await res.json()) as LeaderboardSummary;
+  } catch {
+    return null;
+  }
+}
+
+/** Fetch the permanent hall of champions for the last `days` past days. */
+export async function fetchLeaderboardHistory(
+  days = 30,
+): Promise<LeaderboardHistory | null> {
+  try {
+    const res = await fetch(`/api/leaderboard?history=1&days=${days}`);
+    if (!res.ok) return null;
+    return (await res.json()) as LeaderboardHistory;
   } catch {
     return null;
   }

@@ -12,7 +12,7 @@ import type {
 import { effectiveness } from './typechart.js';
 import { RNG } from './rng.js';
 import { CREATURES, withSign, SHINY_STAT_MULT } from './pokemon.js';
-import { attackAnimFor, HEAL_DECAY } from './moves.js';
+import { attackAnimFor, HEAL_DECAY, TAUNT_TURNS } from './moves.js';
 import { SIGN_SPREAD, rollSign, bestRareSign } from './zodiac.js';
 import { rollOpponentBall } from './balls.js';
 import { famousTeamCreatures } from './specials.js';
@@ -99,6 +99,7 @@ export function makeBattler(creature: Creature, statMult = 1): Battler {
     statusTurns: 0,
     toxicCounter: 0,
     confusion: 0,
+    taunted: 0,
     stages: { atk: 0, def: 0, spd: 0 },
     pp,
     healsUsed: 0,
@@ -221,44 +222,96 @@ function chooseMove(
   // Always take a guaranteed KO over anything else.
   if (plan.dmg > 0 && plan.dmg >= defender.hp) return plan.move;
 
-  // Heal when badly hurt — but only while the move still has PP left. Once a
-  // wall burns through its limited heals it has to start trading damage, which
-  // is what breaks the Chansey-style "we both heal forever" stalemate.
-  const healMove = moves.find(
-    (mv) => mv.effect?.kind === 'heal' && hasPP(attacker, mv),
+  // While taunted a battler is locked into attacking — no setup, no heals, no
+  // pure-status moves. It may still throw Super Fang (it deals damage), so the
+  // chip logic below stays live; everything else here is skipped.
+  const taunted = attacker.taunted > 0;
+
+  // Taunt a staller: if the foe packs a heal or self-setup button and isn't
+  // already shut down, lock it out so it has to trade damage instead of
+  // fortifying/out-healing. Worth a coin flip while it can still matter.
+  if (!taunted) {
+    const taunt = moves.find((mv) => mv.effect?.kind === 'taunt');
+    const foeStalls = defender.creature.moves.some(
+      (mv) =>
+        mv.effect?.kind === 'heal' ||
+        (mv.power === 0 &&
+          mv.effect?.kind === 'stage' &&
+          mv.effect.target === 'self'),
+    );
+    if (
+      taunt &&
+      foeStalls &&
+      defender.taunted === 0 &&
+      defender.status !== 'sleep' &&
+      rng.chance(0.5)
+    ) {
+      return taunt;
+    }
+  }
+
+  // Heal when badly hurt — but only while the move still has PP left and we're
+  // not taunted. Once a wall burns through its limited heals it has to start
+  // trading damage, which breaks the Chansey-style "we both heal forever"
+  // stalemate.
+  if (!taunted) {
+    const healMove = moves.find(
+      (mv) => mv.effect?.kind === 'heal' && hasPP(attacker, mv),
+    );
+    if (healMove && attacker.hp / attacker.maxHp < 0.35 && rng.chance(0.6)) {
+      return healMove;
+    }
+  }
+
+  // Super Fang a healthy wall: when our best honest hit barely dents the foe
+  // and it's still above half, halve its HP (ignores Defense) to crack it open
+  // instead of chipping. Skipped if the foe is Normal-immune (filtered out).
+  const fang = moves.find(
+    (mv) =>
+      mv.effect?.kind === 'fracdamage' &&
+      effectiveness(mv.type, defender.creature.types) !== 0,
   );
-  if (healMove && attacker.hp / attacker.maxHp < 0.35 && rng.chance(0.6)) {
-    return healMove;
+  if (
+    fang &&
+    defender.hp > defender.maxHp * 0.5 &&
+    plan.dmg < defender.hp * 0.33 &&
+    rng.chance(0.7)
+  ) {
+    return fang;
   }
 
   // Set up when healthy and not already stacked on that stat.
-  const setup = moves.find(
-    (mv) =>
-      mv.power === 0 &&
-      mv.effect?.kind === 'stage' &&
-      mv.effect.target === 'self',
-  );
-  if (setup && setup.effect?.kind === 'stage') {
-    const cur = attacker.stages[setup.effect.stat];
-    if (attacker.hp / attacker.maxHp > 0.6 && cur < 4 && rng.chance(0.4)) {
-      return setup;
+  if (!taunted) {
+    const setup = moves.find(
+      (mv) =>
+        mv.power === 0 &&
+        mv.effect?.kind === 'stage' &&
+        mv.effect.target === 'self',
+    );
+    if (setup && setup.effect?.kind === 'stage') {
+      const cur = attacker.stages[setup.effect.stat];
+      if (attacker.hp / attacker.maxHp > 0.6 && cur < 4 && rng.chance(0.4)) {
+        return setup;
+      }
     }
   }
 
   // Spread a status onto an as-yet-unafflicted foe.
-  const statusMove = moves.find(
-    (mv) =>
-      mv.power === 0 &&
-      mv.effect !== undefined &&
-      (STATUS_RIDER_KINDS as readonly string[]).includes(mv.effect.kind),
-  );
-  if (
-    statusMove &&
-    defender.status === null &&
-    defender.confusion === 0 &&
-    rng.chance(0.35)
-  ) {
-    return statusMove;
+  if (!taunted) {
+    const statusMove = moves.find(
+      (mv) =>
+        mv.power === 0 &&
+        mv.effect !== undefined &&
+        (STATUS_RIDER_KINDS as readonly string[]).includes(mv.effect.kind),
+    );
+    if (
+      statusMove &&
+      defender.status === null &&
+      defender.confusion === 0 &&
+      rng.chance(0.35)
+    ) {
+      return statusMove;
+    }
   }
 
   return plan.move;
@@ -601,6 +654,60 @@ export function simulateBattle(
       return 'continue';
     }
 
+    // Super Fang: lop off a fixed share of the foe's CURRENT HP, ignoring
+    // Defense and bulk entirely. Never KOs on its own (leaves >=1 HP from this
+    // move). Normal-typed, so Ghosts are immune.
+    if (move.effect?.kind === 'fracdamage') {
+      if (effectiveness(move.type, defender.creature.types) === 0) {
+        push({
+          kind: 'noeffect',
+          actor: side,
+          text: `It doesn't affect ${defender.creature.name}…`,
+        });
+        return 'continue';
+      }
+      const dmg = Math.max(1, Math.floor(defender.hp * move.effect.fraction));
+      defender.hp -= dmg;
+      push({
+        kind: 'hit',
+        actor: side,
+        affected: otherSide(side),
+        moveName: move.name,
+        moveType: move.type,
+        damage: dmg,
+        mult: 1,
+        crit: false,
+        text: '',
+        ...snapshot(otherSide(side)),
+      });
+      if (defender.hp <= 0) {
+        const survives = handleFaint(otherSide(side));
+        if (!survives) return side;
+      }
+      return 'continue';
+    }
+
+    // Taunt: seal the foe's setup/heal/status buttons for a few turns.
+    if (move.effect?.kind === 'taunt') {
+      const immune = effectiveness(move.type, defender.creature.types) === 0;
+      if (immune) {
+        push({
+          kind: 'noeffect',
+          actor: side,
+          text: `It doesn't affect ${defender.creature.name}…`,
+        });
+      } else {
+        defender.taunted = TAUNT_TURNS;
+        push({
+          kind: 'status',
+          actor: side,
+          affected: otherSide(side),
+          text: `${defender.creature.name} fell for the taunt!`,
+        });
+      }
+      return 'continue';
+    }
+
     // Pure setup move: shift the user's (or, rarely, the foe's) stat stages.
     if (move.power === 0 && move.effect?.kind === 'stage') {
       const owner = move.effect.target === 'self' ? side : otherSide(side);
@@ -717,6 +824,19 @@ export function simulateBattle(
     const s = sides[side];
     const b = s.team[s.active];
     if (b.hp <= 0) return 'continue';
+
+    // Taunt wears off after a few rounds, freeing setup/heal again.
+    if (b.taunted > 0) {
+      b.taunted -= 1;
+      if (b.taunted === 0) {
+        push({
+          kind: 'status',
+          actor: side,
+          affected: side,
+          text: `${b.creature.name} shook off the taunt.`,
+        });
+      }
+    }
 
     if (b.status === 'burn') {
       const dmg = Math.max(1, Math.floor(b.maxHp / 12));

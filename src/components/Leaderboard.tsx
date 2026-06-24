@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Creature } from '../game/types';
-import { portraitUrl, spriteUrl } from '../game/pokemon';
+import { portraitUrl, shinyPortraitUrl, spriteUrl } from '../game/pokemon';
 import { dailyKey } from '../game/opponents';
 import { GEN_BRACKETS, bracketById, type BracketId } from '../game/gens';
 import { DIFFICULTY_INFO, type Difficulty } from '../game/run';
@@ -66,25 +66,44 @@ function DifficultyBadge({ difficulty }: { difficulty: Difficulty }) {
 
 /**
  * A single team member shown as its PMD-style portrait — more characterful than
- * the box icon. Species without a contributed portrait fall back to the front
- * battle sprite (kept crisp).
+ * the box icon. A shiny draws from its recoloured portrait so the board shows
+ * the exact form that run fielded; species without a contributed portrait fall
+ * back to the front battle sprite (kept crisp). A twinkle marks a shiny in case
+ * its only available art is the non-shiny fallback.
  */
-function TeamPortrait({ dexId }: { dexId: number }) {
-  return (
+function TeamPortrait({ dexId, shiny }: { dexId: number; shiny?: boolean }) {
+  const img = (
     <img
-      src={portraitUrl(dexId)}
+      src={shiny ? shinyPortraitUrl(dexId) : portraitUrl(dexId)}
       alt=""
       loading="lazy"
       onError={(e) => {
-        const img = e.currentTarget;
+        const el = e.currentTarget;
+        // Shiny: prefer the plain portrait before dropping to the front sprite.
+        const plain = portraitUrl(dexId);
         const fallback = spriteUrl(dexId);
-        if (img.src !== fallback) {
-          img.src = fallback;
-          img.classList.add('[image-rendering:pixelated]');
+        if (shiny && !el.src.endsWith(plain) && !el.src.endsWith(fallback)) {
+          el.src = plain;
+        } else if (!el.src.endsWith(fallback)) {
+          el.src = fallback;
+          el.classList.add('[image-rendering:pixelated]');
         }
       }}
       className="h-7 w-7 rounded-md border border-white/10 bg-white/5 object-cover"
     />
+  );
+  if (!shiny) return img;
+  return (
+    <div className="relative inline-grid place-items-center">
+      {img}
+      <span
+        aria-hidden
+        className="shiny-twinkle pointer-events-none absolute -right-0.5 -top-0.5 text-[9px] leading-none drop-shadow"
+        style={{ color: '#ffd76b' }}
+      >
+        ✦
+      </span>
+    </div>
   );
 }
 
@@ -93,7 +112,6 @@ export function Leaderboard({
   runBracket,
   canSubmit,
   run,
-  onChallenge,
   onChallengeThrone,
   freshOnMount = false,
 }: {
@@ -111,8 +129,6 @@ export function Leaderboard({
     /** Signed run token proving the server authorised this run. */
     token?: string | null;
   };
-  /** Start a just-for-fun exhibition match against a saved team. */
-  onChallenge?: (entry: LeaderboardEntry) => void;
   /** Stake a Master win's one shot at the reigning Master #1 (the throne). */
   onChallengeThrone?: (grant: ThroneGrant, king: LeaderboardEntry) => void;
   /**
@@ -205,12 +221,38 @@ export function Leaderboard({
     void submitUnder(finalName);
   };
 
-  // The name-entry step only belongs on a fresh, not-yet-submitted win.
+  // The name the player already locked in on an earlier win (this run or any
+  // run before). If we have one, there's no reason to ask again — we know who
+  // they are — so the win is posted automatically under it below.
+  const savedName = (localStorage.getItem('lb-name') ?? '').trim();
+
+  // The name-entry step only belongs on a *first* win — once a name exists we
+  // auto-post under it instead of prompting again.
   const showNameStep =
     canSubmit &&
     activeBracket === runBracket &&
     !submittedRef.current &&
-    status === 'name';
+    status === 'name' &&
+    !savedName;
+
+  // A returning winner who already has a name: post this clear automatically
+  // under that name rather than making them re-enter it every run.
+  const autoPostedRef = useRef(false);
+  useEffect(() => {
+    if (
+      canSubmit &&
+      activeBracket === runBracket &&
+      !submittedRef.current &&
+      status === 'name' &&
+      savedName &&
+      !autoPostedRef.current
+    ) {
+      autoPostedRef.current = true;
+      setPlayerName(savedName);
+      void submitUnder(savedName);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSubmit, activeBracket, runBracket, status, savedName]);
 
   // The reigning Master #1 — the de-facto top of the board (Master is the top
   // rank tier) and the only target for a Throne Challenge.
@@ -440,22 +482,12 @@ export function Leaderboard({
                 <DifficultyBadge difficulty={e.difficulty} />
                 <div className="hidden shrink-0 items-center gap-1 sm:flex">
                   {e.team.slice(0, 6).map((mon, i) => (
-                    <TeamPortrait key={i} dexId={Number(mon.id)} />
+                    <TeamPortrait key={i} dexId={Number(mon.id)} shiny={mon.shiny} />
                   ))}
                 </div>
                 <span className="hidden shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-white/40 sm:block">
                   {timeLabel(e.at)}
                 </span>
-                {onChallenge && e.team.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => onChallenge(e)}
-                    title={`Challenge ${e.name}'s team`}
-                    className="shrink-0 rounded-full border border-white/15 px-2.5 py-1 text-xs font-semibold text-white/80 transition hover:border-amber-300/60 hover:text-amber-200"
-                  >
-                    ⚔️
-                  </button>
-                )}
               </li>
             ))}
           </ul>

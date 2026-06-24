@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   fetchLeaderboardSummary,
   type BracketLeader,
+  type ChampionRecord,
   type LeaderboardEntry,
   type LeaderboardSummary,
 } from '../game/leaderboard';
@@ -287,6 +288,66 @@ export function BracketRankCard({
       >
         {DIFFICULTY_INFO[leader.difficulty].label}
       </span>
+    </button>
+  );
+}
+
+/**
+ * Yesterday's winner for the selected era — a small nod to the previous day's
+ * board pinned beneath today's #1, so the daily rhythm is visible at a glance.
+ * Tapping it opens the Hall of Champions. Renders nothing until yesterday's
+ * champion for this era is known.
+ */
+export function YesterdayChampionCard({
+  record,
+  onViewHistory,
+}: {
+  record: ChampionRecord | null;
+  onViewHistory: () => void;
+}) {
+  if (!record) return null;
+  const accent = CUP_ACCENT[bracketCup(record.bracket)] ?? '#f5c542';
+
+  return (
+    <button
+      type="button"
+      onClick={onViewHistory}
+      aria-label="Open the Hall of Champions"
+      className="group mt-2 flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-2.5 text-left transition hover:bg-white/[0.05]"
+    >
+      <div
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-xl"
+        style={{ background: `${accent}1f` }}
+      >
+        <span className="text-lg leading-none">🏆</span>
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+          Yesterday’s Champion · {bracketById(record.bracket).tab}
+        </div>
+        <div className="truncate font-black leading-tight text-white">
+          {record.name}
+        </div>
+        {record.team.length > 0 && (
+          <div className="mt-1 flex gap-0.5">
+            {record.team.slice(0, 6).map((m, i) => (
+              <MiniIcon key={i} dexId={Number(m.id)} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <span
+          className={`rounded-full border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${DIFFICULTY_PILL[record.difficulty]}`}
+        >
+          {DIFFICULTY_INFO[record.difficulty].label}
+        </span>
+        <span className="text-[10px] font-semibold text-white/40 transition group-hover:text-white/80">
+          Hall →
+        </span>
+      </div>
     </button>
   );
 }

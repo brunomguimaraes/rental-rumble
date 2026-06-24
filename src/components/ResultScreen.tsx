@@ -19,7 +19,6 @@ export function ResultScreen({
   difficulty,
   lostToTeam = [],
   onPlayAgain,
-  onChallenge,
   onChallengeThrone,
 }: {
   gauntlet: Opponent[];
@@ -36,7 +35,6 @@ export function ResultScreen({
   /** Team of the trainer who ended the run — drawn on the loss share card. */
   lostToTeam?: Creature[];
   onPlayAgain: () => void;
-  onChallenge?: (entry: LeaderboardEntry) => void;
   /** Stake a Master win's one shot at the reigning Master #1 (the throne). */
   onChallengeThrone?: (grant: ThroneGrant, king: LeaderboardEntry) => void;
 }) {
@@ -208,7 +206,6 @@ export function ResultScreen({
           team,
           token: runToken,
         }}
-        onChallenge={onChallenge}
         onChallengeThrone={onChallengeThrone}
       />
 

@@ -31,6 +31,13 @@ export type MoveEffect =
   | { kind: 'confuse'; chance: number } // may hurt itself instead of acting
   | { kind: 'heal'; amount: number } // fraction of max hp
   | { kind: 'lifesteal'; fraction: number }
+  // Lops off a fixed share of the foe's CURRENT hp, ignoring Defense entirely
+  // (Super Fang). The meta's answer to Iron Defense walls and raw bulk — bulk
+  // can't blunt it, though it can never KO on its own.
+  | { kind: 'fracdamage'; fraction: number }
+  // Seals the foe's setup/heal buttons for a few turns (Taunt): a forced trade
+  // that stops a wall from fortifying or out-healing. Deals no damage itself.
+  | { kind: 'taunt'; chance: number }
   // Buff/debuff: shifts a stat stage on self or the foe. `chance` is 1 for pure
   // setup moves, <1 for on-hit riders.
   | { kind: 'stage'; stat: StageStat; delta: number; chance: number; target: 'self' | 'foe' };
@@ -152,6 +159,10 @@ export interface Battler {
   statusTurns: number; // remaining turns for burn / stun / sleep
   toxicCounter: number; // escalation step for poison (0 when not poisoned)
   confusion: number; // remaining confused turns (0 = not confused); a volatile
+  // Remaining turns the battler is taunted: while >0 it cannot set up, heal or
+  // throw a pure-status move — it must attack. A volatile that ticks down each
+  // round (see endOfTurnStatus) and breaks the fortify-and-heal wall loop.
+  taunted: number;
   stages: { atk: number; def: number; spd: number }; // -6..+6 battle buffs/debuffs
   // Remaining uses for any move that carries a `pp` cap (keyed by move name).
   // Moves without a cap are absent here and may be used freely.

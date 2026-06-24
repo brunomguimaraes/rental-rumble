@@ -34,21 +34,20 @@ import { MapScreen } from './components/MapScreen';
 import { BattleScreen } from './components/BattleScreen';
 import { RecruitScreen } from './components/RecruitScreen';
 import { ResultScreen } from './components/ResultScreen';
-import { ChallengeResultScreen } from './components/ChallengeResultScreen';
 import { ThroneResultScreen } from './components/ThroneResultScreen';
 import { LadderScreen } from './components/LadderScreen';
+import { HistoryScreen } from './components/HistoryScreen';
 import { DevPanel } from './components/DevPanel';
 
 type Phase =
   | 'title'
   | 'ladder'
+  | 'history'
   | 'draft'
   | 'map'
   | 'battle'
   | 'recruit'
   | 'over'
-  | 'challengeBattle'
-  | 'challengeOver'
   | 'throneBattle'
   | 'throneOver';
 
@@ -67,14 +66,6 @@ export default function App() {
   const [lostToTeam, setLostToTeam] = useState<Creature[]>([]);
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [bracket, setBracket] = useState<BracketId>(DEFAULT_BRACKET);
-
-  // Just-for-fun exhibition match against another player's saved team.
-  const [challenge, setChallenge] = useState<{
-    foeTeam: Creature[];
-    opponent: Opponent;
-  } | null>(null);
-  const [challengeSeed, setChallengeSeed] = useState<string>('');
-  const [challengeWon, setChallengeWon] = useState(false);
 
   // The king-of-the-hill endgame: a Master champion's one shot at the reigning
   // Master #1. Unlike an exhibition, a win here is server-verified and takes the
@@ -142,24 +133,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [phase, seed, stage, dex, bracket],
   );
-
-  // Both teams get the same "hero" edge so a challenge is a fair mirror.
-  const challengeBattle = useMemo<BattleResult | null>(() => {
-    if (phase !== 'challengeBattle' || !challenge) return null;
-    return simulateBattle(team, challenge.foeTeam, `challenge#${challengeSeed}`, {
-      playerStatMult: PLAYER_STAT_MULT,
-      foeStatMult: PLAYER_STAT_MULT,
-    });
-  }, [phase, challenge, challengeSeed, team]);
-
-  const startChallenge = (entry: LeaderboardEntry) => {
-    const foeTeam = teamFromMons(entry.team);
-    if (foeTeam.length === 0) return;
-    const cseed = randomSeed();
-    setChallengeSeed(cseed);
-    setChallenge({ foeTeam, opponent: challengeOpponent(entry.name, cseed) });
-    setPhase('challengeBattle');
-  };
 
   // A throne fight is a fair mirror, replayed from the server-issued seed so the
   // browser and the server agree on the outcome before the board changes hands.
@@ -256,11 +229,15 @@ export default function App() {
         <TitleScreen
           onStart={startRun}
           onViewLadder={() => setPhase('ladder')}
+          onViewHistory={() => setPhase('history')}
         />
       );
 
     case 'ladder':
       return <LadderScreen onBack={() => setPhase('title')} />;
+
+    case 'history':
+      return <HistoryScreen onBack={() => setPhase('title')} />;
 
     case 'draft':
       return (
@@ -283,6 +260,7 @@ export default function App() {
           team={team}
           stage={stage}
           seed={seed}
+          difficulty={difficulty}
           onFight={() => setPhase('battle')}
           onSkip={() => {
             setStage((s) => s + 1);
@@ -340,38 +318,7 @@ export default function App() {
           clearedStages={won ? gauntlet.length : stage}
           lostToTeam={lostToTeam}
           onPlayAgain={() => setPhase('title')}
-          onChallenge={startChallenge}
           onChallengeThrone={startThrone}
-        />
-      );
-
-    case 'challengeBattle':
-      if (!challengeBattle || !challenge) return null;
-      return (
-        <BattleScreen
-          opponent={challenge.opponent}
-          playerTeam={team}
-          foeTeam={challenge.foeTeam}
-          result={challengeBattle}
-          onComplete={(winner) => {
-            setChallengeWon(winner === 'player');
-            setPhase('challengeOver');
-          }}
-        />
-      );
-
-    case 'challengeOver':
-      if (!challenge) return null;
-      return (
-        <ChallengeResultScreen
-          won={challengeWon}
-          foeName={challenge.opponent.name}
-          foeTeam={challenge.foeTeam}
-          onRematch={() => {
-            setChallengeSeed(randomSeed());
-            setPhase('challengeBattle');
-          }}
-          onHome={() => setPhase('title')}
         />
       );
 
