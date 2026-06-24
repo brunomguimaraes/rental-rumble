@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Creature } from '../game/types';
-import { portraitUrl, shinyPortraitUrl, spriteUrl } from '../game/pokemon';
+import { TeamPortrait } from './TeamPortrait';
 import { dailyKey } from '../game/opponents';
 import { GEN_BRACKETS, bracketById, type BracketId } from '../game/gens';
 import { DIFFICULTY_INFO, type Difficulty } from '../game/run';
@@ -61,49 +61,6 @@ function DifficultyBadge({ difficulty }: { difficulty: Difficulty }) {
     >
       {DIFFICULTY_INFO[difficulty].label}
     </span>
-  );
-}
-
-/**
- * A single team member shown as its PMD-style portrait — more characterful than
- * the box icon. A shiny draws from its recoloured portrait so the board shows
- * the exact form that run fielded; species without a contributed portrait fall
- * back to the front battle sprite (kept crisp). A twinkle marks a shiny in case
- * its only available art is the non-shiny fallback.
- */
-function TeamPortrait({ dexId, shiny }: { dexId: number; shiny?: boolean }) {
-  const img = (
-    <img
-      src={shiny ? shinyPortraitUrl(dexId) : portraitUrl(dexId)}
-      alt=""
-      loading="lazy"
-      onError={(e) => {
-        const el = e.currentTarget;
-        // Shiny: prefer the plain portrait before dropping to the front sprite.
-        const plain = portraitUrl(dexId);
-        const fallback = spriteUrl(dexId);
-        if (shiny && !el.src.endsWith(plain) && !el.src.endsWith(fallback)) {
-          el.src = plain;
-        } else if (!el.src.endsWith(fallback)) {
-          el.src = fallback;
-          el.classList.add('[image-rendering:pixelated]');
-        }
-      }}
-      className="h-7 w-7 rounded-md border border-white/10 bg-white/5 object-cover"
-    />
-  );
-  if (!shiny) return img;
-  return (
-    <div className="relative inline-grid place-items-center">
-      {img}
-      <span
-        aria-hidden
-        className="shiny-twinkle pointer-events-none absolute -right-0.5 -top-0.5 text-[9px] leading-none drop-shadow"
-        style={{ color: '#ffd76b' }}
-      >
-        ✦
-      </span>
-    </div>
   );
 }
 
@@ -490,7 +447,7 @@ export function Leaderboard({
                 <DifficultyBadge difficulty={e.difficulty} />
                 <div className="hidden shrink-0 items-center gap-1 sm:flex">
                   {e.team.slice(0, 6).map((mon, i) => (
-                    <TeamPortrait key={i} dexId={Number(mon.id)} shiny={mon.shiny} />
+                    <TeamPortrait key={i} mon={mon} />
                   ))}
                 </div>
                 <span className="hidden shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-white/40 sm:block">

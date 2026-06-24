@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { dailyKey } from '../game/opponents';
-import { portraitUrl, shinyPortraitUrl, spriteUrl } from '../game/pokemon';
+import { TeamPortrait } from './TeamPortrait';
 import {
   GEN_BRACKETS,
   bracketById,
@@ -57,42 +57,6 @@ function relativeDay(key: string): string {
   return `${diff} days ago`;
 }
 
-function TeamPortrait({ dexId, shiny }: { dexId: number; shiny?: boolean }) {
-  const img = (
-    <img
-      src={shiny ? shinyPortraitUrl(dexId) : portraitUrl(dexId)}
-      alt=""
-      loading="lazy"
-      onError={(e) => {
-        const el = e.currentTarget;
-        // Shiny: prefer the plain portrait before dropping to the front sprite.
-        const plain = portraitUrl(dexId);
-        const fallback = spriteUrl(dexId);
-        if (shiny && !el.src.endsWith(plain) && !el.src.endsWith(fallback)) {
-          el.src = plain;
-        } else if (!el.src.endsWith(fallback)) {
-          el.src = fallback;
-          el.classList.add('[image-rendering:pixelated]');
-        }
-      }}
-      className="h-6 w-6 rounded-md border border-white/10 bg-white/5 object-cover"
-    />
-  );
-  if (!shiny) return img;
-  return (
-    <div className="relative inline-grid place-items-center">
-      {img}
-      <span
-        aria-hidden
-        className="shiny-twinkle pointer-events-none absolute -right-0.5 -top-0.5 text-[9px] leading-none drop-shadow"
-        style={{ color: '#ffd76b' }}
-      >
-        ✦
-      </span>
-    </div>
-  );
-}
-
 /** One era's champion for a past day — tap to open that day's full ladder. */
 function ChampionCard({
   rec,
@@ -146,7 +110,7 @@ function ChampionCard({
       </span>
       <div className="hidden shrink-0 items-center gap-1 sm:flex">
         {rec.team.slice(0, 6).map((mon, i) => (
-          <TeamPortrait key={i} dexId={Number(mon.id)} shiny={mon.shiny} />
+          <TeamPortrait key={i} mon={mon} className="h-6 w-6" />
         ))}
       </div>
     </button>

@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
   verifyChampionWin,
   boardScore,
+  monToRecord,
   type SubmissionPayload,
 } from '../src/game/leaderboard.js';
 import { dailyKey } from '../src/game/opponents.js';
@@ -165,12 +166,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       name,
       difficulty: verdict.difficulty,
       clearedStages: Number(body.clearedStages) || 0,
-      team: verdict.team.map((c) => ({
-        id: c.id,
-        sign: c.sign,
-        ...(c.shiny ? { shiny: true } : {}),
-        ...(c.ability ? { ability: c.ability } : {}),
-      })),
+      // `verdict.team` is the server's own re-sim of the run, so the stored look
+      // (shiny / alt colour / emotion) is the validated one — never raw client
+      // input. `monToRecord` keeps it byte-for-byte aligned with the payload.
+      team: verdict.team.map(monToRecord),
       at: now,
     };
     // Upstash serializes objects to JSON automatically (and parses on read).

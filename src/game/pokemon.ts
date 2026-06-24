@@ -85,6 +85,19 @@ export function altColorPortraitEmotions(dexId: number): string[] {
 }
 
 /**
+ * Pull the emotion name out of a portrait URL (e.g. `…/portrait/25/Happy.png`
+ * → `"Happy"`). Lets a finished run record the *exact* face it fielded from the
+ * creature's `portrait` URL, so the leaderboard can later show that same face
+ * instead of falling back to the neutral default. Returns undefined when the
+ * URL isn't a portrait path (e.g. a front-sprite fallback).
+ */
+export function portraitEmotionFromUrl(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  const m = /\/portrait(?:-shiny|-alt)?\/\d+\/([^/]+)\.png(?:[?#].*)?$/.exec(url);
+  return m ? m[1] : undefined;
+}
+
+/**
  * Whether a species has a fan-made alternate-colour variant we can show — either
  * an animated battle sprite or at least one portrait. Species without one never
  * roll an alt colour, so the recolour is always visibly different.

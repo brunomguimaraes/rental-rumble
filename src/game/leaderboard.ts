@@ -1,5 +1,19 @@
 import type { AbilityId, Creature, Sign } from './types.js';
-import { CREATURES_BY_ID, withSign, withAbility, asShiny } from './pokemon.js';
+import {
+  CREATURES_BY_ID,
+  withSign,
+  withAbility,
+  asShiny,
+  asAltColor,
+  canBeAltColor,
+  portraitUrl,
+  shinyPortraitUrl,
+  altColorPortraitUrl,
+  portraitEmotions,
+  shinyPortraitEmotions,
+  altColorPortraitEmotions,
+  portraitEmotionFromUrl,
+} from './pokemon.js';
 import { isAbilityOption } from './abilities.js';
 import { ALL_SIGNS } from './zodiac.js';
 import {
@@ -56,6 +70,16 @@ export interface SubmissionMon {
   // `sign` is — the deterministic re-sim must reproduce the client's exact fight,
   // and the board already rebuilds stats from these claimed attributes.
   shiny?: boolean;
+  // A fan-made *alternate colour* (non-shiny, purely cosmetic) palette. Mutually
+  // exclusive with `shiny`. Carries no stat blessing, so it's display-only — the
+  // re-sim ignores it entirely and it's validated against the species' available
+  // recolours on rebuild. Omitted on legacy payloads (rebuild as ordinary mons).
+  altColor?: boolean;
+  // The PMD emotion portrait this slot actually wore during the run (e.g.
+  // "Happy"). Cosmetic-only and validated against the species' contributed
+  // emotion set for its colour variant, so records can show the *exact* face
+  // that was fielded instead of the neutral default. Omitted = neutral "Normal".
+  emotion?: string;
   // Which ability the slot was born with (species can have two, rolled at draft).
   // Optional + validated against the species' legal options on rebuild, so a
   // legacy payload falls back to the default and a forged one can't smuggle in
@@ -175,6 +199,56 @@ export type VerifyResult =
   | { ok: false; reason: string };
 
 /**
+ * Layer a slot's *cosmetic* claims (shiny / alt colour / emotion portrait) onto
+ * an already stat-built creature. Purely visual — stats are untouched — so it's
+ * safe to apply during the trusted re-sim: it just makes the rebuilt team carry
+ * the exact look the run fielded, which then survives into the stored record.
+ *
+ * Every claim is validated against canonical data: alt colour only when the
+ * species actually has a fan-made recolour (and never alongside shiny, which
+ * wins), and the emotion only when it's a real portrait for the chosen variant.
+ * A forged or stale claim simply falls back to the neutral default.
+ */
+function applyCosmetic(built: Creature, mon: SubmissionMon): Creature {
+  let c = built;
+  if (mon.shiny) c = asShiny(c);
+  else if (mon.altColor && canBeAltColor(c.dexId)) c = asAltColor(c);
+
+  const emotions = c.shiny
+    ? shinyPortraitEmotions(c.dexId)
+    : c.altColor
+      ? altColorPortraitEmotions(c.dexId)
+      : portraitEmotions(c.dexId);
+  if (typeof mon.emotion === 'string' && emotions.includes(mon.emotion)) {
+    const portrait = c.shiny
+      ? shinyPortraitUrl(c.dexId, mon.emotion)
+      : c.altColor
+        ? altColorPortraitUrl(c.dexId, mon.emotion)
+        : portraitUrl(c.dexId, mon.emotion);
+    c = { ...c, portrait };
+  }
+  return c;
+}
+
+/**
+ * Serialise a (re)built creature back into the tiny canonical record stored on
+ * the board: species + sign always, plus the colour/emotion/ability it actually
+ * wore when they're not the default. Shared by the client's submission payload
+ * and the server's stored entry so both speak the exact same shape.
+ */
+export function monToRecord(c: Creature): SubmissionMon {
+  const emotion = portraitEmotionFromUrl(c.portrait);
+  return {
+    id: c.id,
+    sign: c.sign,
+    ...(c.shiny ? { shiny: true } : {}),
+    ...(c.altColor ? { altColor: true } : {}),
+    ...(c.ability ? { ability: c.ability } : {}),
+    ...(emotion && emotion !== 'Normal' ? { emotion } : {}),
+  };
+}
+
+/**
  * Re-run the daily Champion fight from a submission and confirm the player won.
  * Pure and dependency-free so it runs identically in the browser and on the
  * serverless function. Rebuilds every mon from canonical dex data, so a forged
@@ -242,7 +316,7 @@ export function verifyChampionWin(payload: SubmissionPayload): VerifyResult {
       }
       built = withAbility(built, mon.ability);
     }
-    playerTeam.push(mon.shiny ? asShiny(built) : built);
+    playerTeam.push(applyCosmetic(built, mon));
   }
 
   // The daily boss for this bracket: same team for everyone, built from the
@@ -282,7 +356,7 @@ export function teamFromMons(mons: SubmissionMon[]): Creature[] {
     if (mon.ability !== undefined && isAbilityOption(base.dexId, mon.ability)) {
       built = withAbility(built, mon.ability);
     }
-    team.push(mon.shiny ? asShiny(built) : built);
+    team.push(applyCosmetic(built, mon));
   }
   return team;
 }
@@ -349,12 +423,7 @@ export function buildSubmission(args: {
     seed: args.seed,
     stage: args.stage,
     clearedStages: args.clearedStages,
-    team: args.team.map((c) => ({
-      id: c.id,
-      sign: c.sign,
-      shiny: c.shiny,
-      ability: c.ability,
-    })),
+    team: args.team.map(monToRecord),
     token: args.token ?? null,
   };
 }

@@ -8,9 +8,9 @@ import {
 } from '../game/leaderboard';
 import { buildChampion, dailyKey } from '../game/opponents';
 import { bracketById, bracketCup, type BracketId, type CupId } from '../game/gens';
-import { miniUrl } from '../game/pokemon';
 import { DIFFICULTY_INFO, type Difficulty } from '../game/run';
 import { CupIcon } from './CupIcon';
+import { TeamPortrait } from './TeamPortrait';
 import { TrainerSprite } from './TrainerSprite';
 
 /** How long each era's champion stays on screen before the showcase rotates. */
@@ -37,20 +37,6 @@ const CUP_ACCENT: Record<CupId, string> = {
 
 /** The chunky arcade scoreboard font, shared with the ladder's rank numbers. */
 const PIXEL_FONT = "'Press Start 2P', 'Courier New', monospace";
-
-/** A single team miniature rendered straight from a National Dex id. */
-function MiniIcon({ dexId }: { dexId: number }) {
-  return (
-    <div
-      className="h-5 w-5 bg-no-repeat [image-rendering:pixelated]"
-      style={{
-        backgroundImage: `url(${miniUrl(dexId)})`,
-        backgroundSize: '200% 100%',
-        backgroundPosition: 'left center',
-      }}
-    />
-  );
-}
 
 /**
  * A live, auto-rotating teaser of "today's champions" for the title screen.
@@ -182,7 +168,7 @@ export function ChampionSpotlight({
               {leader.team.length > 0 && (
                 <div className="mt-1.5 flex gap-0.5">
                   {leader.team.slice(0, 6).map((m, i) => (
-                    <MiniIcon key={i} dexId={Number(m.id)} />
+                    <TeamPortrait key={i} mon={m} className="h-6 w-6" />
                   ))}
                 </div>
               )}
@@ -277,7 +263,7 @@ export function BracketRankCard({
         {leader.team.length > 0 && (
           <div className="mt-1 flex gap-0.5">
             {leader.team.slice(0, 6).map((m, i) => (
-              <MiniIcon key={i} dexId={Number(m.id)} />
+              <TeamPortrait key={i} mon={m} className="h-6 w-6" />
             ))}
           </div>
         )}
@@ -332,7 +318,7 @@ export function YesterdayChampionCard({
         {record.team.length > 0 && (
           <div className="mt-1 flex gap-0.5">
             {record.team.slice(0, 6).map((m, i) => (
-              <MiniIcon key={i} dexId={Number(m.id)} />
+              <TeamPortrait key={i} mon={m} className="h-6 w-6" />
             ))}
           </div>
         )}
