@@ -58,12 +58,12 @@ in the *build*) and the instant roll → build → simulate loop of
 ## Core systems
 
 - **All 1025 Pokémon** with real base stats and types, plus a rarity tier
-  (legendary / mythical / pseudo-legendary). Generated via
+  (legendary / mythical). Generated via
   `scripts/gen-pokedex.ts` (one PokeAPI GraphQL query) into
   `src/game/pokedex.gen.ts`.
-- **Rarity rules** — at most one legendary/mythical/pseudo-legendary per draft
+- **Rarity rules** — at most one legendary/mythical per draft
   pool; specials get a gold card. Trainers never use legendaries/mythicals
-  (pseudo-legendaries like Dragonite are fair game); a legendary is a rare
+  (heavy hitters like Dragonite are fair game); a legendary is a rare
   player-only boon.
 - **Real 18-type chart** with dual types and immunities (`src/game/typechart.ts`).
 - **Roles** (`src/game/roles.ts`) — Sweeper/Bruiser/Tank/Support tilt stats and

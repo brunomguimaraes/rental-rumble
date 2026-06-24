@@ -98,8 +98,8 @@ export type Sign =
   // Mythic.
   | 'abhijit';
 
-/** Rarity tier — legendary/mythical/pseudo are "special" (gold-bordered). */
-export type SpecialTier = 'normal' | 'legendary' | 'mythical' | 'pseudo';
+/** Rarity tier — legendary/mythical are "special" (gold-bordered). */
+export type SpecialTier = 'normal' | 'legendary' | 'mythical';
 
 /** Raw generated dex row (see scripts/gen-pokedex.ts). */
 export interface DexEntry {

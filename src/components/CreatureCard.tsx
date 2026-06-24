@@ -16,7 +16,6 @@ const TIER_BADGE: Record<SpecialTier, string | null> = {
   normal: null,
   legendary: '★ Legendary',
   mythical: '✦ Mythical',
-  pseudo: '◆ Pseudo',
 };
 
 // Stat bar showing the sign-adjusted value (base × the sign's spread multiplier),

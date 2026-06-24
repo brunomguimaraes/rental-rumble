@@ -99,8 +99,8 @@ export const SPECIAL_POOL_CHANCE = 0.18;
 
 /**
  * Deterministically roll a draft pool of POOL_SIZE from a seed. Specials
- * (legendary / mythical / pseudo-legendary) are rare: most pools have none, and
- * when one is allowed there is never more than one.
+ * (legendary / mythical) are rare: most pools have none, and when one is
+ * allowed there is never more than one.
  */
 export function rollPool(seed: string, dex: Creature[] = CREATURES): Creature[] {
   const rng = new RNG(`pool:${seed}`);

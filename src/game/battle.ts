@@ -836,7 +836,7 @@ function bst(c: Creature): number {
   return c.stats.hp + c.stats.atk + c.stats.def + c.stats.spd;
 }
 
-// Gym/Elite trainers draw from non-legendary/mythical Pokémon (pseudo-legendaries
+// Gym/Elite trainers draw from non-legendary/mythical Pokémon (heavy hitters
 // like Dragonite are fair game). Legendaries are saved for the Champion.
 function trainerPool(dex: Creature[]): Creature[] {
   return dex.filter((c) => c.tier !== 'legendary' && c.tier !== 'mythical');
@@ -900,8 +900,8 @@ export function buildOpponentTeam(
 
 /**
  * Champion team: a strong, type-diverse squad built from the highest-BST
- * Pokémon, guaranteed to include at least one "special" (legendary / mythical /
- * pseudo-legendary). Seeded by the daily champion seed so it's the same team for
+ * Pokémon, guaranteed to include at least one "special" (legendary / mythical).
+ * Seeded by the daily champion seed so it's the same team for
  * everyone that day. The optional `dex` restricts which species can appear (e.g.
  * a gen-locked run), defaulting to the full dex.
  */

@@ -1,6 +1,6 @@
 import type { Creature, Opponent } from './types.js';
 import { TYPE_COLORS, typeIconUrl, typeLabel } from './typechart.js';
-import { signIconUrl } from './zodiac.js';
+import { signIconUrl, signTier } from './zodiac.js';
 import { bracketCup, type BracketId } from './gens.js';
 import { DIFFICULTY_INFO, type Difficulty } from './run.js';
 
@@ -105,6 +105,31 @@ function drawMini(
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, 0, 0, sw, sh, x, y, size, size);
   ctx.imageSmoothingEnabled = prev;
+}
+
+// Celestial-sign rainbow ring — mirrors the animated `.sign-rare` border the
+// live cards wear. Drawn as a diagonal multi-stop gradient (the export is a
+// still image, so there's no spin, just the full spectrum).
+const RAINBOW_STOPS = [
+  '#ff4d4d',
+  '#ffb84d',
+  '#fff24d',
+  '#4dff88',
+  '#4dd2ff',
+  '#8c4dff',
+  '#ff4dd2',
+  '#ff4d4d',
+];
+
+function rainbowGradient(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+): CanvasGradient {
+  const g = ctx.createLinearGradient(x, y, x + size, y + size);
+  RAINBOW_STOPS.forEach((c, i) => g.addColorStop(i / (RAINBOW_STOPS.length - 1), c));
+  return g;
 }
 
 /** Mix a hex color toward black/white by alpha; returns rgba string. */
@@ -419,6 +444,10 @@ export async function renderShareCard(
     const color = TYPE_COLORS[c.types[0]];
     const special = c.tier !== 'normal';
     const accent = special ? COLORS.gold : color;
+    // A rare/mythic zodiac sign gets the rainbow celestial border on its
+    // portrait, just like the live draft cards.
+    const sTier = signTier(c.sign);
+    const celestial = sTier === 'rare' || sTier === 'mythic';
 
     // Tile card
     roundRect(ctx, x, y, tileW, tileH, 26);
@@ -445,8 +474,13 @@ export async function renderShareCard(
       ctx.fill();
     }
     roundRect(ctx, pX, pY, pSize, pSize, 22);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = withAlpha(accent, 0.7);
+    if (celestial) {
+      ctx.lineWidth = sTier === 'mythic' ? 5 : 4;
+      ctx.strokeStyle = rainbowGradient(ctx, pX, pY, pSize);
+    } else {
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = withAlpha(accent, 0.7);
+    }
     ctx.stroke();
 
     // Name
