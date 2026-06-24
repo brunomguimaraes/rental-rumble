@@ -222,37 +222,19 @@ export function Leaderboard({
   };
 
   // The name the player already locked in on an earlier win (this run or any
-  // run before). If we have one, there's no reason to ask again — we know who
-  // they are — so the win is posted automatically under it below.
+  // run before). If we have one, we greet them with it and let them post in a
+  // single tap — only revealing the text field if they want to change it.
   const savedName = (localStorage.getItem('lb-name') ?? '').trim();
+  // Whether the editable text field is shown. Returning players start with a
+  // tidy "posting as X" confirmation; first-timers (no saved name) edit upfront.
+  const [editingName, setEditingName] = useState(!savedName);
 
-  // The name-entry step only belongs on a *first* win — once a name exists we
-  // auto-post under it instead of prompting again.
+  // The name-entry step belongs on a fresh, not-yet-submitted win.
   const showNameStep =
     canSubmit &&
     activeBracket === runBracket &&
     !submittedRef.current &&
-    status === 'name' &&
-    !savedName;
-
-  // A returning winner who already has a name: post this clear automatically
-  // under that name rather than making them re-enter it every run.
-  const autoPostedRef = useRef(false);
-  useEffect(() => {
-    if (
-      canSubmit &&
-      activeBracket === runBracket &&
-      !submittedRef.current &&
-      status === 'name' &&
-      savedName &&
-      !autoPostedRef.current
-    ) {
-      autoPostedRef.current = true;
-      setPlayerName(savedName);
-      void submitUnder(savedName);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canSubmit, activeBracket, runBracket, status, savedName]);
+    status === 'name';
 
   // The reigning Master #1 — the de-facto top of the board (Master is the top
   // rank tier) and the only target for a Throne Challenge.
@@ -364,27 +346,53 @@ export function Leaderboard({
       {showNameStep && (
         <div className="mt-3 rounded-2xl border border-amber-300/30 bg-amber-300/[0.06] p-3">
           <p className="text-sm font-semibold text-amber-200">
-            You beat today’s boss! Put your name on the board.
+            You beat today’s boss!{' '}
+            {editingName ? 'Put your name on the board.' : 'Claim your spot.'}
           </p>
-          <div className="mt-2 flex gap-2">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') confirmName();
-              }}
-              maxLength={24}
-              placeholder="Your name"
-              className="min-w-0 flex-1 rounded-full border border-white/15 bg-black/30 px-4 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-amber-300/60"
-            />
-            <button
-              type="button"
-              onClick={confirmName}
-              className="rounded-full bg-amber-300 px-4 py-2 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
-            >
-              Claim spot
-            </button>
-          </div>
+          {editingName ? (
+            <div className="mt-2 flex gap-2">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') confirmName();
+                }}
+                maxLength={24}
+                placeholder="Your name"
+                autoFocus
+                className="min-w-0 flex-1 rounded-full border border-white/15 bg-black/30 px-4 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-amber-300/60"
+              />
+              <button
+                type="button"
+                onClick={confirmName}
+                className="rounded-full bg-amber-300 px-4 py-2 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
+              >
+                Claim spot
+              </button>
+            </div>
+          ) : (
+            <div className="mt-2 flex items-center gap-2">
+              <p className="min-w-0 flex-1 text-sm text-white/80">
+                Posting as{' '}
+                <span className="font-bold text-white">{savedName}</span>
+                {' · '}
+                <button
+                  type="button"
+                  onClick={() => setEditingName(true)}
+                  className="font-semibold text-amber-300 underline-offset-2 hover:underline"
+                >
+                  change
+                </button>
+              </p>
+              <button
+                type="button"
+                onClick={confirmName}
+                className="shrink-0 rounded-full bg-amber-300 px-4 py-2 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
+              >
+                Claim spot
+              </button>
+            </div>
+          )}
         </div>
       )}
 
