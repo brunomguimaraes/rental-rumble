@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Creature, SpecialTier } from '../game/types';
 import { SHINY_STAT_MULT } from '../game/pokemon';
+import { abilityInfo } from '../game/abilities';
 import { TYPE_COLORS } from '../game/typechart';
 import {
   SIGN_INFO,
@@ -97,6 +98,7 @@ export function CreatureCard({
   const accent = shiny ? GOLD : special ? GOLD : color;
   const clickable = Boolean(onClick) && (!disabled || selected);
   const tierBadge = TIER_BADGE[creature.tier];
+  const ability = creature.ability ? abilityInfo(creature.ability) : null;
 
   // A rare/mythic celestial sign overrides the normal/legendary border with an
   // animated rainbow (rare) or shimmering "super different" frame (mythic).
@@ -270,6 +272,15 @@ export function CreatureCard({
                 }}
               >
                 ✦ Shiny
+              </span>
+            )}
+            {ability && (
+              <span
+                title={`${ability.name} — ${ability.description}`}
+                className="inline-flex min-w-0 shrink items-center gap-1 rounded-md border border-amber-300/30 bg-amber-300/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200/90"
+              >
+                <span className="shrink-0">✦</span>
+                <span className="truncate">{ability.name}</span>
               </span>
             )}
           </div>

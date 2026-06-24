@@ -19,6 +19,7 @@ import {
   signLabel,
 } from '../game/zodiac';
 import { MOVE_SLOTS } from '../game/moves';
+import { ABILITIES } from '../game/abilities';
 
 const STAT_BLURB: { key: string; label: string; desc: string }[] = [
   { key: 'HP', label: 'HP', desc: 'How much damage it can take before fainting.' },
@@ -459,6 +460,33 @@ export function BattleGuide({ onClose }: { onClose: () => void }) {
                   <div className="text-xs font-bold">{s.name}</div>
                   <div className="mt-0.5 text-[11px] leading-snug text-white/55">
                     {s.desc}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        <Section title="Abilities">
+          <p className="mb-2 text-[11px] leading-snug text-white/50">
+            A few species carry a passive{' '}
+            <span className="text-white/75">Ability</span> — a rule that bends the
+            battle itself, on top of their stats and moves. Most Pokémon have
+            none (yet); these are the ones that do.
+          </p>
+          <div className="space-y-1.5">
+            {Object.values(ABILITIES).map((a) => (
+              <div
+                key={a.id}
+                className="flex items-center gap-3 rounded-xl border border-amber-300/20 bg-amber-300/[0.06] p-2.5"
+              >
+                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-amber-300/15 text-[11px] text-amber-200">
+                  ✦
+                </span>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold">{a.name}</div>
+                  <div className="mt-0.5 text-[11px] leading-snug text-white/55">
+                    {a.description}
                   </div>
                 </div>
               </div>
