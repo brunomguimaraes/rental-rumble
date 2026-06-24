@@ -412,6 +412,9 @@ export function buildGauntlet(
       return {
         ...famousOpponent(spec, `special-${i}-${spec.id}`, 'special'),
         signRerollReward: isLast,
+        // The reward's hidden tier rides along on the special's `strong` flag:
+        // a tough cameo's win guarantees a rare sign, a gag cameo's a plain roll.
+        signRerollStrong: isLast ? (spec.strong ?? false) : undefined,
       };
     },
   );

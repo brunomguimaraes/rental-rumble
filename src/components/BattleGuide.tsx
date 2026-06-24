@@ -65,8 +65,9 @@ const AI_PRIORITY: { step: string; desc: string }[] = [
   { step: 'Taunt a staller', desc: 'If the foe packs a heal or setup button, a 50% chance to Taunt it — sealing its setup, heals and status moves for a few turns so it has to trade damage instead of fortifying.' },
   { step: 'Heal', desc: 'Below 35% HP, a 60% chance to use a sustain move like Recover — but each heal restores less than the last (the first is biggest), and Recover runs out after 3 uses, so two walls can no longer out-heal each other forever. Blocked while taunted.' },
   { step: 'Crack a wall', desc: 'When the foe is still above half HP and the best honest hit barely dents it, a 70% chance to use Super Fang — lopping off half the foe\u2019s current HP, ignoring Defense and bulk entirely.' },
-  { step: 'Set up', desc: 'Above 60% HP and not yet stacked, a 40% chance to buff a stat (Swords Dance, Agility, Iron Defense). Blocked while taunted.' },
-  { step: 'Spread status', desc: 'Against an unafflicted foe, a 35% chance to fish for burn / paralysis / poison / sleep. Blocked while taunted.' },
+  { step: 'Set up', desc: 'Above 60% HP and not yet stacked, a 40% chance to buff its stats (Swords Dance, Agility, Iron Defense, or a dual-stat Dragon Dance / Bulk Up). Blocked while taunted.' },
+  { step: "Lower the foe's stats", desc: "While the foe is still above half HP, a 35% chance to drop one of its stats (Charm saps Attack, Screech melts Defense, Scary Face tanks Speed). Blocked while taunted." },
+  { step: 'Spread status', desc: 'Against an unafflicted foe, a 35% chance to fish for burn / paralysis / poison / sleep / confusion. Blocked while taunted.' },
   { step: 'Best damage', desc: 'Otherwise throw the move with the highest forecast damage vs. this defender (coverage matters).' },
 ];
 

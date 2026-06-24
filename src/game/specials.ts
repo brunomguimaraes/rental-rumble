@@ -59,6 +59,16 @@ export interface FamousTrainer {
   /** How many to draw from `pool` each run (default 6). Ignored when using `team`. */
   draw?: number;
   rarity?: number; // 0..1 per-run appearance chance (default: always eligible)
+  /**
+   * Hidden difficulty class for `special` cameos, used only to size the
+   * sign-reroll reward when this trainer is the run's *last* special (see
+   * buildGauntlet / RecruitScreen). `true` marks the tougher faces (villain
+   * bosses, rivals, Frontier Brains) whose win grants the better reward — a
+   * *guaranteed rare* sign. Omitted/`false` = a "weak" gag cameo, whose win
+   * grants the ordinary random reroll. This is deliberately NOT surfaced to the
+   * player anywhere: from the outside every special is just "a special".
+   */
+  strong?: boolean;
 }
 
 export const FAMOUS_TRAINERS: FamousTrainer[] = [
@@ -374,6 +384,7 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
   // --- Villain team bosses (pool-drawn, like a Gym Leader) ------------------
   {
     id: 'archie',
+    strong: true,
     name: 'Archie',
     title: 'Team Aqua Leader',
     slot: 'special',
@@ -386,6 +397,7 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
   },
   {
     id: 'maxie',
+    strong: true,
     name: 'Maxie',
     title: 'Team Magma Leader',
     slot: 'special',
@@ -399,6 +411,7 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
   // --- Rivals --------------------------------------------------------------
   {
     id: 'wally',
+    strong: true,
     name: 'Wally',
     title: 'Rival',
     slot: 'special',
@@ -409,6 +422,7 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
   },
   {
     id: 'silver',
+    strong: true,
     name: 'Silver',
     title: 'Rival',
     slot: 'special',
@@ -447,6 +461,7 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
   },
   {
     id: 'sage',
+    strong: true,
     name: 'Plasma Sage',
     title: 'Team Plasma',
     slot: 'special',
@@ -466,6 +481,7 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
   },
   {
     id: 'elm',
+    strong: true,
     name: 'Prof. Elm',
     title: 'The Johto Professor',
     slot: 'special',
@@ -477,6 +493,7 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
   // --- Battle Frontier Brains (pool-drawn mini-bosses) ---------------------
   {
     id: 'greta',
+    strong: true,
     name: 'Greta',
     title: 'Arena Tycoon',
     slot: 'special',
@@ -487,6 +504,7 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
   },
   {
     id: 'tucker',
+    strong: true,
     name: 'Tucker',
     title: 'Dome Ace',
     slot: 'special',
@@ -497,6 +515,7 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
   },
   {
     id: 'noland',
+    strong: true,
     name: 'Noland',
     title: 'Factory Head',
     slot: 'special',
@@ -507,6 +526,7 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
   },
   {
     id: 'spencer',
+    strong: true,
     name: 'Spencer',
     title: 'Palace Maven',
     slot: 'special',
@@ -517,6 +537,7 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
   },
   {
     id: 'lucy',
+    strong: true,
     name: 'Lucy',
     title: 'Pike Queen',
     slot: 'special',
@@ -527,6 +548,7 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
   },
   {
     id: 'brandon',
+    strong: true,
     name: 'Brandon',
     title: 'Pyramid King',
     slot: 'special',
@@ -537,6 +559,7 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
   },
   {
     id: 'anabel',
+    strong: true,
     name: 'Anabel',
     title: 'Salon Maiden',
     slot: 'special',

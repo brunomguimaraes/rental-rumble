@@ -339,6 +339,32 @@ function pickDamagingMove(
 
 const STATUS_RIDER_KINDS = ['burn', 'stun', 'poison', 'sleep', 'confuse'] as const;
 
+/** The stat stages a pure buff/debuff move touches (single- or multi-stat). */
+function stagedStats(move: Move): StageStat[] {
+  if (move.effect?.kind === 'stage') return [move.effect.stat];
+  if (move.effect?.kind === 'multistage')
+    return move.effect.stages.map((s) => s.stat);
+  return [];
+}
+
+/** A power-0 move that buffs the user's own stage(s) — a setup button. */
+function isSelfSetup(move: Move): boolean {
+  return (
+    move.power === 0 &&
+    (move.effect?.kind === 'stage' || move.effect?.kind === 'multistage') &&
+    move.effect.target === 'self'
+  );
+}
+
+/** A power-0 move that drops the foe's stage(s) — a pure debuff. */
+function isFoeDebuff(move: Move): boolean {
+  return (
+    move.power === 0 &&
+    (move.effect?.kind === 'stage' || move.effect?.kind === 'multistage') &&
+    move.effect.target === 'foe'
+  );
+}
+
 function chooseMove(
   attacker: Battler,
   defender: Battler,
@@ -364,11 +390,7 @@ function chooseMove(
   if (!taunted) {
     const taunt = moves.find((mv) => mv.effect?.kind === 'taunt');
     const foeStalls = defender.creature.moves.some(
-      (mv) =>
-        mv.effect?.kind === 'heal' ||
-        (mv.power === 0 &&
-          mv.effect?.kind === 'stage' &&
-          mv.effect.target === 'self'),
+      (mv) => mv.effect?.kind === 'heal' || isSelfSetup(mv),
     );
     if (
       taunt &&
@@ -409,19 +431,33 @@ function chooseMove(
     return fang;
   }
 
-  // Set up when healthy and not already stacked on that stat.
+  // Set up when healthy and not already stacked. Covers single-stat buttons
+  // (Swords Dance, Agility, Iron Defense) and dual-stat ones (Dragon Dance, Bulk
+  // Up): worth it only while at least one of the move's stats has headroom left.
   if (!taunted) {
-    const setup = moves.find(
-      (mv) =>
-        mv.power === 0 &&
-        mv.effect?.kind === 'stage' &&
-        mv.effect.target === 'self',
-    );
-    if (setup && setup.effect?.kind === 'stage') {
-      const cur = attacker.stages[setup.effect.stat];
-      if (attacker.hp / attacker.maxHp > 0.6 && cur < 4 && rng.chance(0.4)) {
-        return setup;
-      }
+    const setup = moves.find(isSelfSetup);
+    if (
+      setup &&
+      attacker.hp / attacker.maxHp > 0.6 &&
+      rng.chance(0.4) &&
+      stagedStats(setup).some((st) => attacker.stages[st] < 4)
+    ) {
+      return setup;
+    }
+  }
+
+  // Lower the foe's stats when it's still healthy: a defensive Charm, a wall-
+  // cracking Screech, or a speed-tanking Scary Face. Pointless once the foe is
+  // nearly dead (just hit it) or the targeted stat is already bottomed out.
+  if (!taunted) {
+    const debuff = moves.find(isFoeDebuff);
+    if (
+      debuff &&
+      defender.hp / defender.maxHp > 0.5 &&
+      rng.chance(0.35) &&
+      stagedStats(debuff).some((st) => defender.stages[st] > -4)
+    ) {
+      return debuff;
     }
   }
 
@@ -910,6 +946,14 @@ export function simulateBattle(
     if (move.power === 0 && move.effect?.kind === 'stage') {
       const owner = move.effect.target === 'self' ? side : otherSide(side);
       applyStage(owner, move.effect.stat, move.effect.delta);
+      return 'continue';
+    }
+
+    // Dual-stat setup/utility (Dragon Dance, Bulk Up, …): shift several of the
+    // owner's stages in one go.
+    if (move.power === 0 && move.effect?.kind === 'multistage') {
+      const owner = move.effect.target === 'self' ? side : otherSide(side);
+      for (const s of move.effect.stages) applyStage(owner, s.stat, s.delta);
       return 'continue';
     }
 

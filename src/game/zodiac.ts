@@ -305,3 +305,17 @@ export function rerollSign(s: BaseStats, rng: RNG, current?: Sign): Sign {
   if (gate < REROLL_MYTHIC_ODDS + REROLL_RARE_ODDS) return otherRareSign(s, current);
   return rollCommonSign(s, rng, current);
 }
+
+/**
+ * The "strong special" reward: a *guaranteed* rare celestial sign — never a
+ * common roll, and never the mythic Abhijit (that stays a long-shot reserved
+ * for the weak/random reroll). Which of the four wanderers lands is a seeded
+ * random pick (so it's "random but defined" — fixed per run+stage, un-fishable),
+ * and it's always different from the sign the Pokémon already wears. Stats are
+ * accepted only to keep a uniform reroll signature; the pick ignores fit on
+ * purpose so the result feels like a roll of the dice, not a best-fit handout.
+ */
+export function rerollRareSign(_s: BaseStats, rng: RNG, current?: Sign): Sign {
+  const pool = RARE_SIGNS.filter((sign) => sign !== current);
+  return rng.pick(pool.length > 0 ? pool : RARE_SIGNS);
+}

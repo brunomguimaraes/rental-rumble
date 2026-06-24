@@ -457,7 +457,24 @@ export function RecruitScreen({
           confirmLabel={continueLabel}
           rewardChosen={rewardChosen}
           onCancel={() => setConfirming(false)}
-          onConfirm={() => onConfirm(resultTeam)}
+          onConfirm={() => {
+            setConfirming(false);
+            // A locked-in reroll hands off to the slot-machine reveal, which
+            // calls onConfirm once the result has been shown.
+            if (mode === 'reroll' && rerollDone) {
+              setRolling(true);
+              return;
+            }
+            onConfirm(resultTeam);
+          }}
+        />
+      )}
+
+      {rolling && rerollSlot !== null && (
+        <SignRollReveal
+          creature={currentTeam[rerollSlot]}
+          finalSign={rerolledSignFor(rerollSlot)}
+          onDone={() => onConfirm(resultTeam)}
         />
       )}
     </div>
@@ -521,6 +538,126 @@ function ConfirmModal({
           </button>
         </div>
       </div>
+    </div>,
+    document.body,
+  );
+}
+
+// Per-tier glow for the reveal halo, mirroring the SignChip palette: the common
+// twelve stay neutral, rare wanderers blaze fuchsia, the mythic Abhijit gold.
+const SIGN_TIER_GLOW: Record<SignTier, string> = {
+  common: 'rgba(255,255,255,0.28)',
+  rare: 'rgba(232,121,249,0.6)',
+  mythic: 'rgba(251,191,36,0.65)',
+};
+
+/**
+ * Slot-machine reveal for the sign reroll. Spins through sign faces and eases to
+ * a stop on the awarded sign, so the gamble lands with suspense and a flourish
+ * instead of silently swapping the card and moving on. The result is already
+ * fixed before this mounts (seed-pinned upstream) — the spin is pure theatre,
+ * and the final sign's own tier drives the colour, so the hidden strong/weak
+ * split is never named, only *felt* when a rare lights up the halo.
+ */
+function SignRollReveal({
+  creature,
+  finalSign,
+  onDone,
+}: {
+  creature: Creature;
+  finalSign: Sign;
+  onDone: () => void;
+}) {
+  const [display, setDisplay] = useState<Sign>(creature.sign);
+  const [settled, setSettled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    let tick = 0;
+    const TICKS = 22;
+    const spin = () => {
+      if (cancelled) return;
+      tick += 1;
+      if (tick >= TICKS) {
+        setDisplay(finalSign);
+        setSettled(true);
+        return;
+      }
+      // Never flash the final sign mid-spin, so the landing reads as a reveal.
+      const pool = ALL_SIGNS.filter((s) => s !== finalSign);
+      setDisplay(pool[Math.floor(Math.random() * pool.length)]);
+      // Ease-out: each frame waits a little longer, so the wheel slows to a stop.
+      timer = setTimeout(spin, 38 + tick * tick * 0.7);
+    };
+    timer = setTimeout(spin, 60);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [finalSign]);
+
+  const tier = signTier(display);
+  const glow = SIGN_TIER_GLOW[tier];
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-black/85 p-6 text-center backdrop-blur-md">
+      <div className="flex flex-col items-center">
+        <img
+          src={creature.portrait}
+          alt={creature.name}
+          onError={(e) => {
+            const img = e.currentTarget;
+            if (img.src !== creature.sprite) img.src = creature.sprite;
+          }}
+          className="h-20 w-20 rounded-2xl border border-white/10 bg-white/5 object-cover"
+        />
+        <p className="mt-2 text-sm font-bold text-white/70">{creature.name}</p>
+      </div>
+
+      <div
+        className="relative grid h-40 w-40 place-items-center rounded-full border-2 transition-all duration-300"
+        style={{
+          borderColor: glow,
+          boxShadow: settled ? `0 0 56px 10px ${glow}` : `0 0 22px 2px rgba(255,255,255,0.1)`,
+          transform: settled ? 'scale(1.08)' : 'scale(1)',
+        }}
+      >
+        <img
+          src={signIconUrl(display)}
+          alt=""
+          className={`h-20 w-20 object-contain ${settled ? '' : 'animate-pulse'}`}
+        />
+      </div>
+
+      <div className="flex min-h-[6rem] flex-col items-center justify-center">
+        {settled ? (
+          <>
+            <p
+              className="text-xs font-black uppercase tracking-[0.2em]"
+              style={{ color: tier === 'common' ? 'rgba(255,255,255,0.5)' : glow }}
+            >
+              {tier === 'common' ? 'New sign' : `${tier} sign`}
+            </p>
+            <h3 className="mt-1 text-3xl font-black text-white">{signLabel(display)}</h3>
+            <p className="mt-1 max-w-xs text-sm text-white/60">{SIGN_INFO[display].tagline}</p>
+          </>
+        ) : (
+          <p className="animate-pulse text-lg font-black uppercase tracking-[0.3em] text-white/70">
+            Rerolling…
+          </p>
+        )}
+      </div>
+
+      {settled && (
+        <button
+          type="button"
+          onClick={onDone}
+          className="rounded-full bg-white px-8 py-3 text-base font-bold text-black transition-transform hover:scale-105 active:scale-95"
+        >
+          Continue →
+        </button>
+      )}
     </div>,
     document.body,
   );

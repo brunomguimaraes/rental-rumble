@@ -40,7 +40,18 @@ export type MoveEffect =
   | { kind: 'taunt'; chance: number }
   // Buff/debuff: shifts a stat stage on self or the foe. `chance` is 1 for pure
   // setup moves, <1 for on-hit riders.
-  | { kind: 'stage'; stat: StageStat; delta: number; chance: number; target: 'self' | 'foe' };
+  | { kind: 'stage'; stat: StageStat; delta: number; chance: number; target: 'self' | 'foe' }
+  // Multi-stat buff/debuff: shifts SEVERAL stat stages at once on self or the foe
+  // (Dragon Dance, Bulk Up, …). Every entry shares the same sign so the UI can
+  // read it as a single "Raises/Lowers" line. Pure setup/utility only (power 0),
+  // so it resolves alongside `stage` in the setup branch — never as an on-hit
+  // rider. `chance` mirrors `stage` (1 for guaranteed setup moves).
+  | {
+      kind: 'multistage';
+      stages: { stat: StageStat; delta: number }[];
+      chance: number;
+      target: 'self' | 'foe';
+    };
 
 /**
  * Which PMD attack animation a move should play. PMDCollab sprites ship several
@@ -276,4 +287,12 @@ export interface Opponent {
    * once-per-run treat.
    */
   signRerollReward?: boolean;
+  /**
+   * Hidden reward tier for the sign reroll, carried over from the special
+   * trainer's `strong` flag (see specials.ts). When `true`, beating this
+   * opponent grants the *strong* reward — a guaranteed rare sign — instead of
+   * the ordinary random reroll. Only meaningful alongside `signRerollReward`,
+   * and never surfaced to the player.
+   */
+  signRerollStrong?: boolean;
 }

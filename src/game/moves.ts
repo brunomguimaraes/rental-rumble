@@ -47,6 +47,13 @@ export function moveEffectLabel(effect: MoveEffect): string {
       const change = `${sign}${effect.delta} ${who} ${STAT_LABEL[effect.stat]}`;
       return effect.chance >= 1 ? change : `${pct(effect.chance)} ${change}`;
     }
+    case 'multistage': {
+      const who = effect.target === 'self' ? 'own' : "foe's";
+      const verb = effect.stages[0].delta > 0 ? 'Raises' : 'Lowers';
+      const stats = effect.stages.map((s) => STAT_LABEL[s.stat]).join(' & ');
+      const sharply = Math.abs(effect.stages[0].delta) >= 2 ? ' sharply' : '';
+      return `${verb} ${who} ${stats}${sharply}`;
+    }
   }
 }
 
@@ -215,6 +222,67 @@ const IRON_DEFENSE = mk('Iron Defense', 'steel', 0, 1, {
   target: 'self',
 });
 
+// Dual-stat setup (power 0): raise two of the user's stages at once. These are
+// the type-flavored "dance" buttons handed to the relevant attackers in
+// movesFor — a Dragon that's fast and hits hard, a Fighter that snowballs while
+// toughening up. One button per mon, same anti-stall rules as the single setups.
+const DRAGON_DANCE = mk('Dragon Dance', 'dragon', 0, 1, {
+  kind: 'multistage',
+  stages: [
+    { stat: 'atk', delta: 1 },
+    { stat: 'spd', delta: 1 },
+  ],
+  chance: 1,
+  target: 'self',
+});
+const BULK_UP = mk('Bulk Up', 'fighting', 0, 1, {
+  kind: 'multistage',
+  stages: [
+    { stat: 'atk', delta: 1 },
+    { stat: 'def', delta: 1 },
+  ],
+  chance: 1,
+  target: 'self',
+});
+
+// Pure debuff moves (power 0): drop one of the FOE's stages with no damage —
+// support/disruption tools the AI throws at a healthy foe (see chooseMove). They
+// reuse the existing `stage` effect with target 'foe', so the battle engine
+// already resolves them; only the AI needed teaching to pick them.
+//
+// - Charm  : saps the foe's Attack, letting a defensive Fairy tank physical hits.
+// - Screech: melts a wall's Defense so a bulky attacker can punch through it.
+// - Scary Face: tanks the foe's Speed so a slow bruiser moves first.
+const CHARM = mk('Charm', 'fairy', 0, 1, {
+  kind: 'stage',
+  stat: 'atk',
+  delta: -2,
+  chance: 1,
+  target: 'foe',
+});
+const SCREECH = mk('Screech', 'normal', 0, 0.9, {
+  kind: 'stage',
+  stat: 'def',
+  delta: -2,
+  chance: 1,
+  target: 'foe',
+});
+const SCARY_FACE = mk('Scary Face', 'normal', 0, 1, {
+  kind: 'stage',
+  stat: 'spd',
+  delta: -2,
+  chance: 1,
+  target: 'foe',
+});
+
+// Confuse Ray: a no-damage Ghost utility that confuses the foe outright. Shares
+// the pure-status pipeline with Will-O-Wisp/Thunder Wave (confusion is already a
+// status rider kind), so the AI's "spread status" logic uses it for free.
+const CONFUSE_RAY = mk('Confuse Ray', 'ghost', 0, 1, {
+  kind: 'confuse',
+  chance: 1,
+});
+
 // Off-type coverage offered by each element. Because a Pokémon's sign is rolled
 // per run, its element-themed coverage shifts run to run — part of what makes an
 // 8-move pool feel more varied than a fixed 4-move set. Each entry is a real
@@ -302,7 +370,9 @@ export const MOVE_SLOTS = 8;
  *      shifts run to run).
  *   3. Counter  — anti-wall tools (Super Fang / Taunt) for offensive mons.
  *   4. Priority  — Quick Attack for genuinely fast attackers.
- *   5. Defense   — exactly ONE defensive/utility button per mon (see below).
+ *   5. Setup    — exactly ONE setup/sustain button per mon (see below).
+ *   5b. Support — at most ONE disruption move (foe stat-drop / confusion),
+ *                 thematic where the typing fits, otherwise stat-based.
  *   6. Filler    — Body Slam as a dependable Normal-type fallback.
  *
  * Defensive button rule (anti-stall): a mon never carries both Iron Defense and
@@ -347,9 +417,17 @@ export function movesFor(
   // 4) Priority for fast, hard-hitting attackers.
   if (stats.spd >= 95 && stats.atk >= 80) add(QUICK_ATTACK);
 
-  // 5) Exactly one defensive/utility button (never Iron Defense + Recover
-  //    together — see the doc comment above).
-  if (stats.atk >= 100) {
+  // 5) Exactly one setup/sustain button. Type-flavored dual-stat setups take
+  //    precedence for the attackers that fit them (Dragon Dance for fast, hard-
+  //    hitting Dragons; Bulk Up for Fighters), then the single-stat setups, then
+  //    a pure wall's fortify/heal. Never Iron Defense + Recover together.
+  if (stats.atk >= 90 && types.includes('dragon')) {
+    add(DRAGON_DANCE);
+    if (isBulky(stats)) add(RECOVER);
+  } else if (stats.atk >= 90 && types.includes('fighting')) {
+    add(BULK_UP);
+    if (isBulky(stats)) add(RECOVER);
+  } else if (stats.atk >= 100) {
     add(SWORDS_DANCE);
     if (isBulky(stats)) add(RECOVER); // bulky attacker may still pack sustain
   } else if (stats.spd >= 100) {
@@ -359,6 +437,19 @@ export function movesFor(
     // Pure wall: fortify if defence-dominant, otherwise heal. One or the other.
     if (stats.def >= stats.hp) add(IRON_DEFENSE);
     else add(RECOVER);
+  }
+
+  // 5b) One support/disruption move — thematic where the typing fits, otherwise
+  //     stat-based — capped at a single pick so attacks aren't crowded out. The
+  //     battle AI decides when to actually throw these (see chooseMove).
+  if (types.includes('fairy') && stats.def >= stats.atk) {
+    add(CHARM); // defensive Fairy saps the foe's Attack
+  } else if (types.includes('ghost')) {
+    add(CONFUSE_RAY); // Ghosts disrupt with confusion
+  } else if (isBulky(stats) && stats.atk >= 90) {
+    add(SCREECH); // bulky attacker melts a wall's Defense
+  } else if (isBulky(stats) && stats.spd <= 70) {
+    add(SCARY_FACE); // slow wall flips the speed tier
   }
 
   // 6) Dependable filler.

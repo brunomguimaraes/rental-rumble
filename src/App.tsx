@@ -302,6 +302,7 @@ export default function App() {
           currentTeam={team}
           defeatedTeam={defeated}
           allowSignReroll={opponent.signRerollReward ?? false}
+          rerollStrong={opponent.signRerollStrong ?? false}
           rerollSeed={`reroll:${seed}:${stage}`}
           onConfirm={(newTeam) => {
             setTeam(newTeam);
