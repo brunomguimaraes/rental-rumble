@@ -87,7 +87,7 @@ export const ALL_SIGNS: Sign[] = [...ZODIAC_SIGNS, ...RARE_SIGNS, ...MYTHIC_SIGN
 // Odds a single drafted Pokémon is born under a celestial sign, for a regular
 // player. Opponents roll at half these odds (see rollSign's `oddsScale`), and
 // special trainers additionally get a flat team-level chance (see battle.ts).
-export const RARE_ODDS = 1 / 120;
+export const RARE_ODDS = 1 / 60;
 export const MYTHIC_ODDS = 1 / 4000;
 
 export const ELEMENT_ORDER: Element[] = ['fire', 'earth', 'air', 'water'];
@@ -274,7 +274,7 @@ function rollCommonSign(s: BaseStats, rng: RNG, exclude?: Sign): Sign {
 // normal draft roll — a real shot at a celestial sign — but these numbers are
 // deliberately NOT surfaced in the UI: the reward is sold as a plain reroll, and
 // the long-shot upside is meant to be a delightful surprise, not a stated rate.
-export const REROLL_RARE_ODDS = 1 / 10;
+export const REROLL_RARE_ODDS = 1 / 5;
 export const REROLL_MYTHIC_ODDS = 1 / 100;
 
 /** The best-fit rare wanderer, guaranteed to differ from `current`. */

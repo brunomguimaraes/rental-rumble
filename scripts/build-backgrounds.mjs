@@ -1,15 +1,12 @@
-// Slices the Pokémon Platinum "Battle Backgrounds" rip into per-biome backdrops
-// the battle screen can pick from at random:
-//   public/sprites/backgrounds/<key>.png — one horizontal-gradient backdrop
+// Slices the hand-drawn "battle scenes" sheet into per-biome backdrops the
+// battle screen can pick from:
+//   public/sprites/backgrounds/<key>.png — one full pixel-art scene per biome
 // and emits src/game/backgrounds.gen.ts listing the pool of available keys.
 //
-// The sheet's left block is a 3-column grid of backdrop strips. Color varies
-// only vertically (smooth horizontal bands), so each strip stretches cleanly to
-// any battle-arena size. The right block (platform bases) is intentionally
-// ignored — the arena uses a soft shadow under each Pokémon instead.
-//
-// Source is the DS/DSi "Battle Backgrounds" rip — © Nintendo / Game Freak, used
-// here only for a private, non-commercial project.
+// The sheet is a 4×4 grid of distinct biome scenes separated by thin white
+// gridlines (the last cell is intentionally blank). Each tile is cropped with a
+// small inset to skip the seams, then upscaled with a nearest-neighbour filter
+// so the pixel art stays crisp when the arena stretches it.
 //
 // Requires ImageMagick (`magick`). Run: node scripts/build-backgrounds.mjs
 import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
@@ -18,46 +15,37 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SHEET =
-  process.env.BG_SHEET || join(root, 'assets/platinum-battle-backgrounds.png');
+const SHEET = process.env.BG_SHEET || join(root, 'assets/battle-scenes-src.png');
 const outDir = join(root, 'public/sprites/backgrounds');
 
-// Grid geometry (measured off the sheet). Each cell carries a label band at its
-// top, so the gradient strip itself starts ~13px down and runs ~70px tall.
-const COL_X = [2, 130, 258]; // day / afternoon / night (or 1 / 2 / 3)
-const ROW_H = 85.33;
-const CELL_W = 124;
-const CELL_H = 70;
-const LABEL_PAD = 13;
+// Sheet geometry. The source is 1024×681, a 4×4 grid with ~3px white seams.
+const COLS = 4;
+const ROWS = 4;
+const SHEET_W = 1024;
+const SHEET_H = 681;
+const CELL_W = SHEET_W / COLS; // 256
+const CELL_H = SHEET_H / ROWS; // ~170.25
+const INSET = 6; // px trimmed off every edge to skip the white gridlines
+const UPSCALE = 4; // nearest-neighbour multiplier for crisp pixel art
 
-// [rowIndex, baseKey, variantLabels]. The natural, generic-reading biomes — each
-// in day/afternoon/night — themed to the opponent's type at battle time.
-const BIOME_ROWS = [
-  [0, 'field', ['day', 'afternoon', 'night']],
-  [1, 'surf', ['day', 'afternoon', 'night']],
-  [2, 'dirt', ['day', 'afternoon', 'night']],
-  [3, 'forest', ['day', 'afternoon', 'night']],
-  [4, 'rocky', ['day', 'afternoon', 'night']],
-  [5, 'snow', ['day', 'afternoon', 'night']],
-  [6, 'indoor', ['1', '2', '3']],
-  [7, 'cave', ['1', '2', '3']],
-];
-
-// [rowIndex, colIndex, key]. The dramatic, one-off arenas reserved for the
-// Elite Four (Sinnoh E4 arenas, themed to their type), the Champion (Cynthia),
-// the Distortion World, and the Battle Frontier facilities.
-const SPECIAL_CELLS = [
-  [8, 0, 'aaron'], // Bug
-  [8, 1, 'bertha'], // Ground
-  [8, 2, 'flint'], // Fire
-  [9, 0, 'lucian'], // Psychic
-  [9, 1, 'cynthia'], // Champion
-  [9, 2, 'distortion'], // Distortion World
-  [10, 0, 'battle-tower'],
-  [10, 1, 'battle-factory'],
-  [10, 2, 'battle-arcade'],
-  [11, 0, 'battle-castle'],
-  [11, 1, 'battle-hall'],
+// [row, col, key]. Each natural biome maps to one scene; the final cell (3,3)
+// is blank on the sheet and intentionally omitted.
+const SCENES = [
+  [0, 0, 'forest'], // dense woodland
+  [0, 1, 'route'], // forest path
+  [0, 2, 'meadow'], // grassy field + fence
+  [0, 3, 'gym'], // indoor brick arena
+  [1, 0, 'canyon'], // rocky badlands
+  [1, 1, 'cave'], // grey rock cavern
+  [1, 2, 'beach'], // palm-lined shore
+  [1, 3, 'cavern'], // cave mouth in cliffs
+  [2, 0, 'seafloor'], // underwater bed
+  [2, 1, 'abyss'], // deep underwater cave
+  [2, 2, 'shore'], // surf rolling onto sand
+  [2, 3, 'volcano'], // lava cavern
+  [3, 0, 'desert'], // cactus + mesa
+  [3, 1, 'glacier'], // ice cave
+  [3, 2, 'savanna'], // dry golden grassland
 ];
 
 function magick(args) {
@@ -65,59 +53,42 @@ function magick(args) {
 }
 
 if (!existsSync(SHEET)) {
-  console.error(`Background sheet not found at ${SHEET}. Set BG_SHEET.`);
+  console.error(`Battle-scenes sheet not found at ${SHEET}. Set BG_SHEET.`);
   process.exit(1);
 }
 
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
 
-function crop(col, y, key) {
+const w = Math.round(CELL_W - INSET * 2);
+const h = Math.round(CELL_H - INSET * 2);
+
+const keys = [];
+for (const [row, col, key] of SCENES) {
+  const x = Math.round(col * CELL_W + INSET);
+  const y = Math.round(row * CELL_H + INSET);
   magick([
     SHEET,
-    '-crop', `${CELL_W}x${CELL_H}+${COL_X[col]}+${y}`,
+    '-crop', `${w}x${h}+${x}+${y}`,
     '+repage',
+    '-filter', 'point',
+    '-resize', `${UPSCALE * 100}%`,
     join(outDir, `${key}.png`),
   ]);
-}
-
-const biomeKeys = [];
-for (const [row, base, variants] of BIOME_ROWS) {
-  const y = Math.round(row * ROW_H) + LABEL_PAD;
-  variants.forEach((variant, col) => {
-    const key = `${base}-${variant}`;
-    crop(col, y, key);
-    biomeKeys.push(key);
-  });
-}
-
-const specialKeys = [];
-for (const [row, col, key] of SPECIAL_CELLS) {
-  crop(col, Math.round(row * ROW_H) + LABEL_PAD, key);
-  specialKeys.push(key);
+  keys.push(key);
 }
 
 const list = (arr) => arr.map((k) => `  '${k}',`).join('\n');
 const ts = `// AUTO-GENERATED by scripts/build-backgrounds.mjs — do not edit by hand.
 // Battle backdrop keys, each a file at public/sprites/backgrounds/<key>.png,
-// sliced from the Pokémon Platinum battle-background rip. Selection logic lives
-// in src/game/backgrounds.ts.
-//
-// BIOME backdrops come in day/afternoon/night and are themed to an opponent's
-// type. SPECIAL arenas are the one-off Elite Four / Champion / Frontier stages.
-export const BIOME_BACKGROUNDS = [
-${list(biomeKeys)}
+// sliced from the hand-drawn battle-scenes sheet. Selection logic (which biome
+// an opponent fights in) lives in src/game/backgrounds.ts.
+export const BACKGROUNDS = [
+${list(keys)}
 ] as const;
 
-export const SPECIAL_BACKGROUNDS = [
-${list(specialKeys)}
-] as const;
-
-export type BiomeBackground = (typeof BIOME_BACKGROUNDS)[number];
-export type SpecialBackground = (typeof SPECIAL_BACKGROUNDS)[number];
+export type Background = (typeof BACKGROUNDS)[number];
 `;
 writeFileSync(join(root, 'src/game/backgrounds.gen.ts'), ts);
 
-console.log(
-  `backgrounds: ${biomeKeys.length} biome + ${specialKeys.length} special backdrops sliced.`,
-);
+console.log(`backgrounds: ${keys.length} scene backdrops sliced and upscaled ${UPSCALE}×.`);

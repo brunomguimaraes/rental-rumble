@@ -266,13 +266,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Take the throne: slot the challenger one tick ahead of the exact champion
-    // they beat. In the common case that champion is the reigning #1, so this
-    // makes the challenger the new #1 Master (and, since Master is the top tier,
-    // the top of the whole board). If the crown changed hands mid-challenge, the
-    // challenger still lands just above the team they actually toppled.
+    // Take the throne: a player who beats the reigning champion becomes the new
+    // #1, period. We verify the fight against the *exact* king they fought (so a
+    // crown that changed hands mid-challenge can't reject an honest win), but the
+    // promotion has to clear the *current* top of the board — not just the one
+    // king's time. Slotting at `kingAt - 1` alone leaves the challenger at #2
+    // whenever some other Master already sits at or below that tick (a crown that
+    // shuffled since the title shot, a same-ms tie). So we land one tick ahead of
+    // whichever Master currently holds the best time, falling back to the fought
+    // king. Master is the top tier, so this is the top of the whole board.
     const kingAt = Number(kingData.at) || Date.now();
-    const newAt = kingAt - 1;
+    let bestMasterAt = kingAt;
+    for (const m of topMembers) {
+      if (m === challengerMember) continue; // don't chase our own old slot
+      const d = parseEntry(topMeta?.[m]);
+      if (d.difficulty !== 'master') continue;
+      const at = Number(d.at);
+      if (Number.isFinite(at) && at < bestMasterAt) bestMasterAt = at;
+    }
+    const newAt = bestMasterAt - 1;
     const score = boardScore('master', newAt);
 
     await redis.zadd(key, { score, member: challengerMember });
