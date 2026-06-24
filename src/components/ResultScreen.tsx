@@ -47,10 +47,10 @@ export function ResultScreen({
   const fileName = `rental-rumble-${won ? 'champion' : `${clearedStages}of${gauntlet.length}`}-${seed}.png`;
 
   const shareText = won
-    ? `I became Champion in Rental Rumble! 👑 seed ${seed} — same gauntlet, can you take the crown?`
+    ? `I became Champion in Rental Rumble! Same gauntlet, can you take the crown?`
     : `I cleared ${clearedStages}/${gauntlet.length} in Rental Rumble${
         fellTo ? `, fell to ${fellTo.name}` : ''
-      }. seed ${seed} — can you do better?`;
+      }. Can you do better?`;
 
   // Render the shareable card once the team is known.
   useEffect(() => {
