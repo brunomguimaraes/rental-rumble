@@ -230,6 +230,28 @@ const EXTRA_FAMOUS = [
   [hgssDir, 'NPC_Earl', 'earl', 'Earl', 'm'],
 ];
 
+// Nameless background NPCs (anime townsfolk + HGSS civilians) folded into the
+// roadside "random" pool purely for crowd variety. They have no canonical
+// trainer class, so the game shows them as a plain "Trainer"; `sex` is eyeballed
+// from each sprite so the paired given name still agrees ('x' = ambiguous, any
+// name is fine). [sourceDir, sourceFile (sans .png), sex].
+const a = (n, sex) => [animeDir, `Anime NPC ${String(n).padStart(2, '0')}`, sex];
+const GENERIC = [
+  a(1, 'm'), a(2, 'm'), a(3, 'x'), a(4, 'm'), a(5, 'm'), a(6, 'm'), a(7, 'f'), a(8, 'm'),
+  a(9, 'm'), a(10, 'f'), a(11, 'f'), a(12, 'm'), a(13, 'm'), a(14, 'm'), a(15, 'f'), a(16, 'm'),
+  a(17, 'm'), a(18, 'm'), a(19, 'f'), a(20, 'm'), a(21, 'm'), a(22, 'f'), a(23, 'x'), a(24, 'm'),
+  a(25, 'm'), a(26, 'm'), a(27, 'f'), a(28, 'm'), a(29, 'f'), a(30, 'x'), a(31, 'f'), a(32, 'm'),
+  a(33, 'm'), a(34, 'm'), a(35, 'm'), a(36, 'x'), a(37, 'm'), a(38, 'm'), a(39, 'f'), a(40, 'm'),
+  a(41, 'm'), a(42, 'm'), a(43, 'f'), a(44, 'm'), a(45, 'm'), a(46, 'x'), a(47, 'f'),
+  [hgssDir, 'NPC_Shopkeeper', 'm'],
+  [hgssDir, 'NPC_Shopkeeper2', 'm'],
+  [hgssDir, 'NPC_MidageMan', 'm'],
+  [hgssDir, 'NPC_MidageWoman', 'f'],
+  [hgssDir, 'NPC_YoungMan', 'm'],
+  [hgssDir, 'NPC_YoungWoman', 'f'],
+  [hgssDir, 'NPC_Schoolboy', 'm'],
+];
+
 function magick(args) {
   execFileSync('magick', args, { stdio: ['ignore', 'ignore', 'inherit'] });
 }
@@ -326,6 +348,18 @@ if (existsSync(frlgDir)) {
   }
 } else {
   console.warn(`Megapack FRLG NPCs not found at ${frlgDir} — skipping.`);
+}
+
+// --- Nameless background NPCs (anime townsfolk + civilians) → random pool. ----
+for (const [dir, file, g] of GENERIC) {
+  const src = join(dir, `${file}.png`);
+  if (!existsSync(src)) {
+    console.warn(`skip missing ${src}`);
+    continue;
+  }
+  const key = `random-${file.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+  build(src, key);
+  manifest.random.push({ key, gender: g });
 }
 
 // --- Anime "special" trainers (Megapack): bound to a canonical character. -----

@@ -59,8 +59,11 @@ export function RecruitScreen({
     setEvolveTarget(targets.length === 1 ? targets[0] : null);
   };
 
-  const canContinue = mode === 'choose' || recruitDone || evolveDone;
-  const continueLabel = mode === 'choose' ? 'Skip reward' : nextLabel;
+  // A reward is only "claimed" once it's fully chosen. Until then — in any mode,
+  // including after you've stepped into recruit/evolve — the player can still
+  // skip outright and move on with their current team.
+  const rewardChosen = recruitDone || evolveDone;
+  const continueLabel = rewardChosen ? nextLabel : 'Skip reward';
 
   return (
     <div className="mx-auto max-w-6xl px-3 py-6 pb-28 sm:px-4 sm:py-8 sm:pb-28">
@@ -224,13 +227,8 @@ export function RecruitScreen({
         <div className="mx-auto flex max-w-6xl items-center justify-center gap-3 px-3 py-3 sm:px-4">
           <button
             type="button"
-            disabled={!canContinue}
             onClick={() => onConfirm(resultTeam)}
-            className={`w-full rounded-full px-8 py-3 text-base font-bold transition-transform sm:w-auto sm:text-lg ${
-              canContinue
-                ? 'bg-white text-black hover:scale-105 active:scale-95'
-                : 'cursor-not-allowed bg-white/15 text-white/40'
-            }`}
+            className="w-full rounded-full bg-white px-8 py-3 text-base font-bold text-black transition-transform hover:scale-105 active:scale-95 sm:w-auto sm:text-lg"
           >
             {continueLabel} →
           </button>
