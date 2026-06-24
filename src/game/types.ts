@@ -108,6 +108,18 @@ export type Sign =
 /** Rarity tier — legendary/mythical are "special" (gold-bordered). */
 export type SpecialTier = 'normal' | 'legendary' | 'mythical';
 
+/**
+ * A passive species Ability. Unlike zodiac signs (stat tilts) or moves, an
+ * ability is a rule that bends the battle engine itself. Only a handful of
+ * species carry one for now — this is the scaffolding we grow over time, so the
+ * union starts small (see abilities.ts for the registry + species mapping).
+ *
+ * - `truant`      — loafs around every other turn (Slaking line). The drawback
+ *                   that keeps a brute with monstrous stats honest.
+ * - `vital-spirit`— too wired to doze off; can never be put to sleep.
+ */
+export type AbilityId = 'truant' | 'vital-spirit';
+
 /** Raw generated dex row (see scripts/gen-pokedex.ts). */
 export interface DexEntry {
   id: number;
@@ -131,6 +143,13 @@ export interface Creature {
   eligibleSigns: Sign[]; // all 12 signs, ordered best-fit-first for these stats
   stats: BaseStats;
   moves: Move[];
+  /**
+   * The species' passive Ability, if it has one (most don't — yet). Carried
+   * through evolution, sign/ball swaps and recolours like any other trait, and
+   * read by the battle engine to apply its rule (e.g. Truant's loafing). See
+   * abilities.ts for the registry.
+   */
+  ability?: AbilityId;
   pokeball: string; // cosmetic ball id this Pokémon is sent out in (see balls.ts)
   /**
    * A rare shiny: an alternate colouration with a small, flat all-stat blessing
@@ -171,6 +190,10 @@ export interface Battler {
   // Drives diminishing returns: each successive heal restores less, so two
   // healers can't drag a fight out by trading near-full Recovers forever.
   healsUsed: number;
+  // Truant ability state: when true, this battler loafs around (skips its
+  // action) on its next turn. Toggles on each turn it actually acts, so a Truant
+  // user moves only every other turn. Always false for non-Truant species.
+  loafing: boolean;
 }
 
 export type Side = 'player' | 'foe';
