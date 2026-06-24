@@ -110,9 +110,11 @@ export type SpecialTier = 'normal' | 'legendary' | 'mythical';
 
 /**
  * A passive species Ability. Unlike zodiac signs (stat tilts) or moves, an
- * ability is a rule that bends the battle engine itself. Only a handful of
- * species carry one for now — this is the scaffolding we grow over time, so the
- * union starts small (see abilities.ts for the registry + species mapping).
+ * ability is a rule that bends the battle engine itself. We grow this union (and
+ * the registry + species mapping in abilities.ts) over time, sticking to passives
+ * that are clearly fair — deliberately skipping the meta-warpers (Huge Power,
+ * Wonder Guard, Magic Guard, Protean…) and anything that needs systems we don't
+ * model (weather, freeze, flinch, mid-battle switching).
  *
  * - `truant`       — loafs around every other turn (Slaking line). The drawback
  *                    that keeps a brute with monstrous stats honest.
@@ -123,6 +125,23 @@ export type SpecialTier = 'normal' | 'legendary' | 'mythical';
  * - `guts`         — shrugs off the downside of a status to hit 1.5× harder
  *                    while afflicted; turns burn/poison/paralysis into a boon.
  * - `adaptability` — its same-type bonus is doubled (STAB 2× instead of 1.5×).
+ * - `intimidate`   — cows the foe on entry, dropping its Attack a stage. A
+ *                    defensive tempo-swing that softens physical leads.
+ * - `sturdy`       — when at full HP, endures any hit that would KO it, clinging
+ *                    to 1 HP. A one-time safety net, not raw bulk.
+ * - `levitate`     — floats clear of the ground, taking no damage from
+ *                    Ground-type moves at all.
+ * - `thick-fat`    — a layer of blubber halves the damage it takes from Fire and
+ *                    Ice attacks.
+ * - `marvel-scale` — a status condition toughens its hide, raising Defense by
+ *                    half while afflicted — the defensive mirror of Guts.
+ * - `technician`   — wrings extra power from its weakest moves: any attack of 60
+ *                    power or less hits 1.5× harder.
+ * - `blaze`/`torrent`/`overgrow`/`swarm` — the starter pinch boosts: when worn
+ *                    down to a third of its HP, its Fire / Water / Grass / Bug
+ *                    moves rally to 1.5× power.
+ * - `static`/`flame-body`/`poison-point` — its body is a hazard: a foe that
+ *                    lands a hit risks being paralyzed / burned / poisoned.
  */
 export type AbilityId =
   | 'truant'
@@ -130,7 +149,20 @@ export type AbilityId =
   | 'moxie'
   | 'speed-boost'
   | 'guts'
-  | 'adaptability';
+  | 'adaptability'
+  | 'intimidate'
+  | 'sturdy'
+  | 'levitate'
+  | 'thick-fat'
+  | 'marvel-scale'
+  | 'technician'
+  | 'blaze'
+  | 'torrent'
+  | 'overgrow'
+  | 'swarm'
+  | 'static'
+  | 'flame-body'
+  | 'poison-point';
 
 /** Raw generated dex row (see scripts/gen-pokedex.ts). */
 export interface DexEntry {

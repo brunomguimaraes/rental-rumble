@@ -135,8 +135,12 @@ function effectiveAtk(b: Battler, statMult: number): number {
 function effectiveDef(b: Battler, statMult: number): number {
   const spread = SIGN_SPREAD[b.creature.sign];
   const mult = statMult * shinyMult(b.creature);
+  // Marvel Scale: a status condition that would normally be a liability instead
+  // toughens its hide, raising Defense by half — the defensive mirror of Guts.
+  const marvel =
+    b.status !== null && b.creature.ability === 'marvel-scale' ? 1.5 : 1;
   return Math.floor(
-    otherStat(b.creature.stats.def) * spread.def * mult * stageMult(b.stages.def),
+    otherStat(b.creature.stats.def) * spread.def * mult * stageMult(b.stages.def) * marvel,
   );
 }
 function effectiveSpd(b: Battler, statMult: number): number {
@@ -155,6 +159,53 @@ function hasStab(b: Battler, move: Move): boolean {
 // a STAB attacker into a genuine wall-breaker.
 function stabMult(b: Battler): number {
   return b.creature.ability === 'adaptability' ? 2 : 1.5;
+}
+
+// Type effectiveness, accounting for ability-granted immunities. Levitate floats
+// clear of the ground, so Ground-type moves do nothing to it (0×) — everything
+// else falls through to the plain type chart. Used everywhere the engine asks
+// "does this move connect?", so a Levitate mon shrugs off Ground damage, Ground
+// status moves and Ground Super Fang alike.
+function typeMult(move: Move, defender: Battler): number {
+  if (defender.creature.ability === 'levitate' && move.type === 'ground') {
+    return 0;
+  }
+  return effectiveness(move.type, defender.creature.types);
+}
+
+// Flat damage multiplier from the ATTACKER's ability for a given move:
+//   - the starter pinch boosts (Blaze/Torrent/Overgrow/Swarm) rally a matching
+//     STAB type to 1.5× once HP is at or below a third, and
+//   - Technician wrings 1.5× out of any move of 60 power or less.
+// Returns 1 for a mon without a damage-shaping ability, so ordinary fights are
+// byte-identical.
+function attackAbilityMult(attacker: Battler, move: Move): number {
+  let m = 1;
+  const ability = attacker.creature.ability;
+  if (attacker.hp <= attacker.maxHp / 3) {
+    if (
+      (ability === 'blaze' && move.type === 'fire') ||
+      (ability === 'torrent' && move.type === 'water') ||
+      (ability === 'overgrow' && move.type === 'grass') ||
+      (ability === 'swarm' && move.type === 'bug')
+    ) {
+      m *= 1.5;
+    }
+  }
+  if (ability === 'technician' && move.power > 0 && move.power <= 60) m *= 1.5;
+  return m;
+}
+
+// Flat damage multiplier from the DEFENDER's ability: Thick Fat's blubber halves
+// the sting of Fire and Ice attacks. 1 otherwise.
+function defendAbilityMult(defender: Battler, move: Move): number {
+  if (
+    defender.creature.ability === 'thick-fat' &&
+    (move.type === 'fire' || move.type === 'ice')
+  ) {
+    return 0.5;
+  }
+  return 1;
 }
 
 interface SideState {
@@ -181,14 +232,15 @@ function estimateDamage(
   defStatMult: number,
 ): number {
   if (move.power <= 0) return 0;
-  const mult = effectiveness(move.type, defender.creature.types);
+  const mult = typeMult(move, defender);
   if (mult === 0) return 0;
   const atk = effectiveAtk(attacker, atkStatMult);
   const def = effectiveDef(defender, defStatMult);
   const base = (2 * LEVEL) / 5 + 2;
   const raw = (base * move.power * (atk / def)) / 50 + 2;
   const stab = hasStab(attacker, move) ? stabMult(attacker) : 1;
-  return raw * stab * mult * 0.925 * move.accuracy;
+  const abil = attackAbilityMult(attacker, move) * defendAbilityMult(defender, move);
+  return raw * stab * mult * abil * 0.925 * move.accuracy;
 }
 
 /** The damaging move the AI intends to throw, KO-aware (prefers a priority KO). */
@@ -346,9 +398,7 @@ function chooseMove(
   // and it's still above half, halve its HP (ignores Defense) to crack it open
   // instead of chipping. Skipped if the foe is Normal-immune (filtered out).
   const fang = moves.find(
-    (mv) =>
-      mv.effect?.kind === 'fracdamage' &&
-      effectiveness(mv.type, defender.creature.types) !== 0,
+    (mv) => mv.effect?.kind === 'fracdamage' && typeMult(mv, defender) !== 0,
   );
   if (
     fang &&
@@ -414,7 +464,7 @@ function damageRoll(
   defStatMult: number,
   rng: RNG,
 ): { damage: number; mult: number; crit: boolean } {
-  const mult = effectiveness(move.type, defender.creature.types);
+  const mult = typeMult(move, defender);
   if (mult === 0) return { damage: 0, mult: 0, crit: false };
 
   const atk = effectiveAtk(attacker, atkStatMult);
@@ -422,12 +472,13 @@ function damageRoll(
   const base = (2 * LEVEL) / 5 + 2;
   const raw = (base * move.power * (atk / def)) / 50 + 2;
   const stab = hasStab(attacker, move) ? stabMult(attacker) : 1;
+  const abil = attackAbilityMult(attacker, move) * defendAbilityMult(defender, move);
   const crit = rng.chance(0.0625);
   const critMult = crit ? 1.5 : 1;
   const variance = rng.range(0.85, 1);
   const damage = Math.max(
     1,
-    Math.floor(raw * stab * mult * critMult * variance),
+    Math.floor(raw * stab * mult * abil * critMult * variance),
   );
   return { damage, mult, crit };
 }
@@ -572,6 +623,23 @@ export function simulateBattle(
           : `Foe sent out ${b.creature.name}!`,
       ...snapshot(side),
     });
+    // Intimidate: striding in, it cows whoever's across from it and saps a stage
+    // of Attack — a defensive tempo-swing that re-triggers on every send-out, so
+    // a fresh Intimidate body softens the foe each time it enters.
+    if (b.creature.ability === 'intimidate') {
+      const opp = otherSide(side);
+      const t = sides[opp].team[sides[opp].active];
+      if (t.hp > 0) {
+        push({
+          kind: 'ability',
+          actor: side,
+          affected: opp,
+          name: 'Intimidate',
+          text: `${b.creature.name} intimidates ${t.creature.name}!`,
+        });
+        applyStage(opp, 'atk', -1);
+      }
+    }
   };
 
   // The opponent leads off, then you answer — the classic battle-start beat.
@@ -788,7 +856,7 @@ export function simulateBattle(
     // Defense and bulk entirely. Never KOs on its own (leaves >=1 HP from this
     // move). Normal-typed, so Ghosts are immune.
     if (move.effect?.kind === 'fracdamage') {
-      if (effectiveness(move.type, defender.creature.types) === 0) {
+      if (typeMult(move, defender) === 0) {
         push({
           kind: 'noeffect',
           actor: side,
@@ -819,7 +887,7 @@ export function simulateBattle(
 
     // Taunt: seal the foe's setup/heal/status buttons for a few turns.
     if (move.effect?.kind === 'taunt') {
-      const immune = effectiveness(move.type, defender.creature.types) === 0;
+      const immune = typeMult(move, defender) === 0;
       if (immune) {
         push({
           kind: 'noeffect',
@@ -851,7 +919,7 @@ export function simulateBattle(
       move.effect &&
       (STATUS_RIDER_KINDS as readonly string[]).includes(move.effect.kind)
     ) {
-      const immune = effectiveness(move.type, defender.creature.types) === 0;
+      const immune = typeMult(move, defender) === 0;
       let landed = false;
       if (!immune) {
         landed =
@@ -893,22 +961,39 @@ export function simulateBattle(
       return 'continue';
     }
 
-    defender.hp -= damage;
+    // Sturdy: at full health it braces against a knockout blow, clinging to a
+    // single HP instead of fainting. A one-time safety net (it must be at full
+    // HP for it to kick in), not a permanent wall.
+    const sturdyHold =
+      defender.creature.ability === 'sturdy' &&
+      defender.hp === defender.maxHp &&
+      damage >= defender.hp;
+    const dealt = sturdyHold ? defender.hp - 1 : damage;
+    defender.hp -= dealt;
     push({
       kind: 'hit',
       actor: side,
       affected: otherSide(side),
       moveName: move.name,
       moveType: move.type,
-      damage,
+      damage: dealt,
       mult,
       crit,
       text: crit ? 'A critical hit!' : '',
       ...snapshot(otherSide(side)),
     });
+    if (sturdyHold) {
+      push({
+        kind: 'ability',
+        actor: otherSide(side),
+        affected: otherSide(side),
+        name: 'Sturdy',
+        text: `${defender.creature.name} endured the hit with Sturdy!`,
+      });
+    }
 
-    if (move.effect?.kind === 'lifesteal' && damage > 0) {
-      const drained = Math.floor(damage * move.effect.fraction);
+    if (move.effect?.kind === 'lifesteal' && dealt > 0) {
+      const drained = Math.floor(dealt * move.effect.fraction);
       attacker.hp = Math.min(attacker.maxHp, attacker.hp + drained);
       push({
         kind: 'heal',
@@ -929,6 +1014,27 @@ export function simulateBattle(
       }
       if (!survives) return side;
       return 'continue';
+    }
+
+    // Body-hazard abilities: a defender that takes the hit and lives can punish
+    // its attacker with a status (Static paralyzes, Flame Body burns, Poison
+    // Point badly poisons) — making it risky to keep swinging at it.
+    const onHitStatus: Exclude<StatusKind, null> | null =
+      defender.creature.ability === 'static'
+        ? 'stun'
+        : defender.creature.ability === 'flame-body'
+          ? 'burn'
+          : defender.creature.ability === 'poison-point'
+            ? 'poison'
+            : null;
+    if (
+      onHitStatus &&
+      dealt > 0 &&
+      attacker.hp > 0 &&
+      attacker.status === null &&
+      rng.chance(0.3)
+    ) {
+      applyStatus(side, onHitStatus);
     }
 
     // On-hit rider effects: a status, confusion, or a stat-stage shift.
