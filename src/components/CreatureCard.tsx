@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Creature, SpecialTier } from '../game/types';
 import { SHINY_STAT_MULT } from '../game/pokemon';
 import { abilityInfo } from '../game/abilities';
@@ -72,6 +73,83 @@ function StatBar({
 function handleImgError(e: React.SyntheticEvent<HTMLImageElement>, fallback: string) {
   const img = e.currentTarget;
   if (img.src !== fallback) img.src = fallback;
+}
+
+// The ability shows its name only; the full description is revealed in a floating
+// tooltip on hover, and pinned open on click (click again to dismiss). The tooltip
+// is portalled to <body> so it isn't clipped by the card's overflow-hidden frame.
+function AbilityTag({ ability }: { ability: { name: string; description: string } }) {
+  const [hovered, setHovered] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const ref = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const visible = hovered || pinned;
+
+  useEffect(() => {
+    if (!visible) return;
+    const TIP_WIDTH = 240;
+    const update = () => {
+      const el = ref.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const left = Math.min(Math.max(8, r.left), window.innerWidth - TIP_WIDTH - 8);
+      setPos({ top: r.bottom + 6, left });
+    };
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [visible]);
+
+  // Dismiss a pinned tooltip when clicking anywhere else.
+  useEffect(() => {
+    if (!pinned) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setPinned(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [pinned]);
+
+  return (
+    <>
+      <button
+        ref={ref}
+        type="button"
+        aria-expanded={visible}
+        onClick={(e) => {
+          e.stopPropagation();
+          setPinned((p) => !p);
+        }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className={`mt-1.5 flex w-full cursor-help items-center gap-1 rounded-md border px-1.5 py-1 text-left transition-colors ${
+          visible
+            ? 'border-amber-300/45 bg-amber-300/[0.12]'
+            : 'border-amber-300/25 bg-amber-300/[0.07] hover:bg-amber-300/[0.1]'
+        }`}
+      >
+        <span className="shrink-0 text-[10px] text-amber-300">✦</span>
+        <span className="truncate text-[10px] font-bold text-amber-200/90">{ability.name}</span>
+      </button>
+      {visible &&
+        pos &&
+        createPortal(
+          <div
+            role="tooltip"
+            style={{ position: 'fixed', top: pos.top, left: pos.left, width: 240 }}
+            className="z-50 rounded-md border border-amber-300/20 bg-neutral-900/95 px-2.5 py-1.5 text-[11px] leading-snug text-amber-50/90 shadow-xl backdrop-blur"
+          >
+            <span className="font-bold text-amber-200">{ability.name}</span>
+            <span className="text-amber-50/80"> — {ability.description}</span>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
 }
 
 export function CreatureCard({
@@ -288,20 +366,7 @@ export function CreatureCard({
             Moves
           </button>
         </div>
-        {ability && (
-          <div
-            className="mt-1.5 flex items-center gap-1 rounded-md border border-amber-300/25 bg-amber-300/[0.07] px-1.5 py-1"
-            title={ability.description}
-          >
-            <span className="shrink-0 text-[10px] text-amber-300">✦</span>
-            <span className="shrink-0 text-[10px] font-bold text-amber-200/90">
-              {ability.name}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-[9.5px] text-amber-100/45">
-              {ability.description}
-            </span>
-          </div>
-        )}
+        {ability && <AbilityTag ability={ability} />}
         <p className="mt-1 text-[10px] leading-snug text-white/40">
           {SIGN_INFO[creature.sign].tagline}
         </p>
