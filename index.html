@@ -6,17 +6,81 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
+    <meta name="theme-color" content="#0a0a0f" />
+
+    <!-- Primary meta -->
+    <title>Rental Rumble — Pokémon Auto-Battler Roguelite</title>
+    <meta
+      name="description"
+      content="Roll a pool of Pokémon, draft a team of six, and auto-battle from rookie to daily Champion — recruiting the Pokémon you beat along the way. A free, browser-based auto-battler roguelite."
+    />
+    <meta
+      name="keywords"
+      content="Pokémon, auto battler, roguelite, team builder, draft, daily challenge, browser game"
+    />
+    <meta name="author" content="Rental Rumble" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://rental-rumble.vercel.app/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Rental Rumble" />
+    <meta property="og:title" content="Rental Rumble — Pokémon Auto-Battler Roguelite" />
+    <meta
+      property="og:description"
+      content="Draft a team of six Pokémon and auto-battle from rookie to daily Champion. Recruit the Pokémon you beat as you climb the ladder."
+    />
+    <meta property="og:url" content="https://rental-rumble.vercel.app/" />
+    <meta property="og:image" content="https://rental-rumble.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Rental Rumble — a Pokémon auto-battler roguelite" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Rental Rumble — Pokémon Auto-Battler Roguelite" />
+    <meta
+      name="twitter:description"
+      content="Draft a team of six Pokémon and auto-battle from rookie to daily Champion. Recruit the Pokémon you beat as you climb the ladder."
+    />
+    <meta name="twitter:image" content="https://rental-rumble.vercel.app/og-image.png" />
+    <meta name="twitter:image:alt" content="Rental Rumble — a Pokémon auto-battler roguelite" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
       rel="stylesheet"
     />
-    <title>Rental Rumble</title>
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "name": "Rental Rumble",
+        "url": "https://rental-rumble.vercel.app/",
+        "image": "https://rental-rumble.vercel.app/og-image.png",
+        "description": "Roll a pool of Pokémon, draft a team of six, and auto-battle from rookie to daily Champion — recruiting the Pokémon you beat along the way.",
+        "applicationCategory": "Game",
+        "genre": ["Auto-battler", "Roguelite", "Strategy"],
+        "gamePlatform": "Web Browser",
+        "operatingSystem": "Any",
+        "inLanguage": "en",
+        "isAccessibleForFree": true,
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
