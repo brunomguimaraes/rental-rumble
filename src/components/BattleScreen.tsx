@@ -151,15 +151,13 @@ function Combatant({
         {hitFx && hitFx.side === side && (
           <span
             key={hitFx.key}
-            className={`animate-damage-pop pointer-events-none absolute bottom-full left-1/2 z-30 mb-1 select-none whitespace-nowrap font-black tabular-nums drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)] ${
-              hitFx.crit
-                ? 'text-2xl text-amber-300'
-                : 'text-xl text-rose-300'
+            className={`dmg-number animate-damage-pop pointer-events-none absolute bottom-full left-1/2 z-30 mb-1 inline-flex select-none items-start whitespace-nowrap leading-none ${
+              hitFx.crit ? 'text-sm' : 'text-xs'
             }`}
           >
             -{hitFx.amount}
             {hitFx.crit && (
-              <span className="ml-0.5 align-top text-sm">CRIT</span>
+              <span className="ml-1 mt-0.5 text-[8px] text-amber-300">CRIT</span>
             )}
           </span>
         )}

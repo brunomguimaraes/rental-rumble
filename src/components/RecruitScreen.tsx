@@ -1,133 +1,327 @@
 import { useState } from 'react';
 import type { Creature } from '../game/types';
+import type { BracketId } from '../game/gens';
+import { canEvolve, evolutionTargets, evolveCreature } from '../game/pokemon';
 import { CreatureCard } from './CreatureCard';
+import { CupIcon } from './CupIcon';
+
+type Mode = 'choose' | 'recruit' | 'evolve';
 
 export function RecruitScreen({
   opponentName,
   nextLabel,
+  bracket,
   currentTeam,
   defeatedTeam,
   onConfirm,
 }: {
   opponentName: string;
   nextLabel: string;
+  bracket: BracketId;
   currentTeam: Creature[];
   defeatedTeam: Creature[];
   onConfirm: (team: Creature[]) => void;
 }) {
-  const [team, setTeam] = useState<Creature[]>(currentTeam);
-  const [used, setUsed] = useState<number[]>([]);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [mode, setMode] = useState<Mode>('choose');
 
-  const reset = () => {
-    setTeam(currentTeam);
-    setUsed([]);
-    setSelected(null);
+  // Reward 1 — recruit: take exactly one foe Pokémon into one of your slots.
+  const [foeIdx, setFoeIdx] = useState<number | null>(null);
+  const [recruitSlot, setRecruitSlot] = useState<number | null>(null);
+
+  // Reward 2 — evolution ticket: evolve exactly one of YOUR Pokémon.
+  const [evolveSlot, setEvolveSlot] = useState<number | null>(null);
+  const [evolveTarget, setEvolveTarget] = useState<number | null>(null);
+
+  const anyEvolvable = currentTeam.some(canEvolve);
+
+  const recruitDone = foeIdx !== null && recruitSlot !== null;
+  const evolveDone = evolveSlot !== null && evolveTarget !== null;
+
+  // The team we'd hand back if the player confirms right now.
+  const resultTeam = currentTeam.map((c, i) => {
+    if (mode === 'recruit' && recruitDone && i === recruitSlot) return defeatedTeam[foeIdx];
+    if (mode === 'evolve' && evolveDone && i === evolveSlot) return evolveCreature(c, evolveTarget);
+    return c;
+  });
+
+  const backToChoose = () => {
+    setMode('choose');
+    setFoeIdx(null);
+    setRecruitSlot(null);
+    setEvolveSlot(null);
+    setEvolveTarget(null);
   };
 
-  const swapInto = (slot: number) => {
-    if (selected === null) return;
-    const recruit = defeatedTeam[selected];
-    setTeam((t) => t.map((c, i) => (i === slot ? recruit : c)));
-    setUsed((u) => [...u, selected]);
-    setSelected(null);
+  const pickTeamForEvolve = (i: number) => {
+    const targets = evolutionTargets(currentTeam[i].dexId);
+    if (targets.length === 0) return;
+    setEvolveSlot(i);
+    setEvolveTarget(targets.length === 1 ? targets[0] : null);
   };
 
-  const swapsMade = used.length;
-  const armed = selected !== null;
+  const canContinue = mode === 'choose' || recruitDone || evolveDone;
+  const continueLabel = mode === 'choose' ? 'Skip reward' : nextLabel;
 
   return (
     <div className="mx-auto max-w-6xl px-3 py-6 pb-28 sm:px-4 sm:py-8 sm:pb-28">
       <div className="text-center">
-        <div className="text-4xl">🏆</div>
+        <CupIcon bracket={bracket} className="mx-auto h-12 w-12" />
         <h2 className="mt-2 text-2xl font-black text-emerald-300 sm:text-3xl">
           {opponentName} defeated!
         </h2>
         <p className="mx-auto mt-1 max-w-lg text-sm text-white/55">
-          Recruit any of their Pokémon: pick one below, then tap a slot on your
-          team to swap it in.
+          {mode === 'choose'
+            ? 'Claim one reward for the win — choose carefully, you only get one.'
+            : mode === 'recruit'
+              ? 'Pick one of their Pokémon, then tap a slot on your team to swap it in.'
+              : 'Spend your Evolution Ticket on one of your team — pick a Pokémon to evolve.'}
         </p>
       </div>
 
-      {/* Your team */}
-      <div className="mt-7">
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-white/40">
-            Your team
-            {armed && (
-              <span className="ml-2 text-emerald-300">
-                ← tap a Pokémon to swap in {defeatedTeam[selected!].name}
-              </span>
-            )}
-          </h3>
-          {swapsMade > 0 && (
-            <button
-              type="button"
-              onClick={reset}
-              className="text-xs text-white/50 underline-offset-2 hover:underline"
-            >
-              Reset swaps
-            </button>
-          )}
+      {/* Step 1 — choose your reward */}
+      {mode === 'choose' && (
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          <RewardOption
+            emoji="🔄"
+            title="Recruit a Pokémon"
+            desc={`Swap one of ${opponentName}'s Pokémon into your team — keeps its sign & ball.`}
+            preview={<PreviewRow creatures={defeatedTeam} />}
+            onClick={() => setMode('recruit')}
+          />
+          <RewardOption
+            emoji="🎟️"
+            title="Evolution Ticket"
+            desc={
+              anyEvolvable
+                ? 'Evolve one Pokémon already on your team into its next stage.'
+                : 'No Pokémon on your team can evolve right now.'
+            }
+            preview={
+              anyEvolvable ? (
+                <PreviewRow creatures={currentTeam.filter(canEvolve)} />
+              ) : undefined
+            }
+            disabled={!anyEvolvable}
+            onClick={() => anyEvolvable && setMode('evolve')}
+          />
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {team.map((c, i) => (
-            <div
-              key={`${c.id}-${i}`}
-              className={`rounded-2xl ${armed ? 'ring-2 ring-emerald-300/60' : ''}`}
-            >
-              <CreatureCard
-                creature={c}
-                onClick={armed ? () => swapInto(i) : undefined}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
 
-      {/* Defeated pool */}
-      <div className="mt-7">
-        <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
-          {opponentName}'s Pokémon
-        </h3>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {defeatedTeam.map((_, i) => {
-            const taken = used.includes(i);
-            return (
-              <div key={i} className="relative">
-                <CreatureCard
-                  creature={defeatedTeam[i]}
-                  selected={selected === i}
-                  disabled={taken}
-                  onClick={() =>
-                    taken ? undefined : setSelected(selected === i ? null : i)
-                  }
-                />
-                {taken && (
-                  <div className="pointer-events-none absolute inset-0 grid place-items-center rounded-2xl bg-black/60">
-                    <span className="rounded-full bg-emerald-400 px-2 py-0.5 text-[10px] font-bold text-black">
-                      RECRUITED
-                    </span>
+      {/* Step 2a — recruit */}
+      {mode === 'recruit' && (
+        <>
+          <RewardHeader onBack={backToChoose} label="Recruiting from defeated team" />
+
+          <div className="mt-5">
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
+              Your team
+              {foeIdx !== null && recruitSlot === null && (
+                <span className="ml-2 text-emerald-300">
+                  ← tap a slot to swap in {defeatedTeam[foeIdx].name}
+                </span>
+              )}
+            </h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {resultTeam.map((c, i) => {
+                const armed = foeIdx !== null;
+                const swapped = recruitDone && i === recruitSlot;
+                return (
+                  <div
+                    key={`${c.id}-${i}`}
+                    className={`relative rounded-2xl ${armed ? 'ring-2 ring-emerald-300/60' : ''}`}
+                  >
+                    <CreatureCard
+                      creature={c}
+                      onClick={armed ? () => setRecruitSlot(i) : undefined}
+                    />
+                    {swapped && <Tag color="emerald" text="RECRUITED" />}
                   </div>
-                )}
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-7">
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
+              {opponentName}'s Pokémon
+            </h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {defeatedTeam.map((c, i) => (
+                <CreatureCard
+                  key={i}
+                  creature={c}
+                  selected={foeIdx === i}
+                  onClick={() => {
+                    setFoeIdx(foeIdx === i ? null : i);
+                    setRecruitSlot(null);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Step 2b — evolve */}
+      {mode === 'evolve' && (
+        <>
+          <RewardHeader onBack={backToChoose} label="Evolution Ticket" />
+
+          <div className="mt-5">
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
+              Your team
+              <span className="ml-2 text-white/35">tap an evolvable Pokémon</span>
+            </h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {currentTeam.map((c, i) => {
+                const evolvable = canEvolve(c);
+                const isPicked = evolveSlot === i;
+                const shown = evolveDone && isPicked ? evolveCreature(c, evolveTarget) : c;
+                return (
+                  <div
+                    key={`${c.id}-${i}`}
+                    className={`relative rounded-2xl ${isPicked ? 'ring-2 ring-amber-300/70' : ''}`}
+                  >
+                    <CreatureCard
+                      creature={shown}
+                      disabled={!evolvable}
+                      onClick={evolvable ? () => pickTeamForEvolve(i) : undefined}
+                    />
+                    {evolveDone && isPicked && <Tag color="amber" text="EVOLVED" />}
+                    {!evolvable && <Tag color="slate" text="MAX" />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Branched lines: let the player choose which evolution to take. */}
+          {evolveSlot !== null && evolutionTargets(currentTeam[evolveSlot].dexId).length > 1 && (
+            <div className="mt-7">
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
+                Choose an evolution for {currentTeam[evolveSlot].name}
+              </h3>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                {evolutionTargets(currentTeam[evolveSlot].dexId).map((dexId) => {
+                  const preview = evolveCreature(currentTeam[evolveSlot], dexId);
+                  return (
+                    <CreatureCard
+                      key={dexId}
+                      creature={preview}
+                      selected={evolveTarget === dexId}
+                      onClick={() => setEvolveTarget(dexId)}
+                    />
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-      </div>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Anchored action bar */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#0c0c14]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-center gap-3 px-3 py-3 sm:px-4">
           <button
             type="button"
-            onClick={() => onConfirm(team)}
-            className="w-full rounded-full bg-white px-8 py-3 text-base font-bold text-black transition-transform hover:scale-105 active:scale-95 sm:w-auto sm:text-lg"
+            disabled={!canContinue}
+            onClick={() => onConfirm(resultTeam)}
+            className={`w-full rounded-full px-8 py-3 text-base font-bold transition-transform sm:w-auto sm:text-lg ${
+              canContinue
+                ? 'bg-white text-black hover:scale-105 active:scale-95'
+                : 'cursor-not-allowed bg-white/15 text-white/40'
+            }`}
           >
-            {nextLabel} →
+            {continueLabel} →
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function RewardOption({
+  emoji,
+  title,
+  desc,
+  preview,
+  disabled = false,
+  onClick,
+}: {
+  emoji: string;
+  title: string;
+  desc: string;
+  preview?: React.ReactNode;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`group flex flex-col items-center rounded-3xl border p-6 text-center transition-all ${
+        disabled
+          ? 'cursor-not-allowed border-white/10 bg-white/[0.02] opacity-50'
+          : 'border-white/10 bg-white/[0.03] hover:scale-[1.02] hover:border-white/30 hover:bg-white/[0.07]'
+      }`}
+    >
+      <div className="text-5xl">{emoji}</div>
+      <h3 className="mt-3 text-lg font-black text-white">{title}</h3>
+      <p className="mt-1 max-w-xs text-sm text-white/55">{desc}</p>
+      {preview}
+    </button>
+  );
+}
+
+/** A compact row of creature portraits previewing what a reward offers. */
+function PreviewRow({ creatures }: { creatures: Creature[] }) {
+  if (creatures.length === 0) return null;
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
+      {creatures.map((c, i) => (
+        <img
+          key={`${c.id}-${i}`}
+          src={c.portrait}
+          alt={c.name}
+          title={c.name}
+          loading="lazy"
+          onError={(e) => {
+            const img = e.currentTarget;
+            if (img.src !== c.sprite) img.src = c.sprite;
+          }}
+          className="h-10 w-10 rounded-lg border border-white/10 bg-white/5 object-cover"
+        />
+      ))}
+    </div>
+  );
+}
+
+function RewardHeader({ onBack, label }: { onBack: () => void; label: string }) {
+  return (
+    <div className="mt-7 flex items-center justify-between border-b border-white/10 pb-2">
+      <span className="text-xs font-bold uppercase tracking-widest text-white/40">{label}</span>
+      <button
+        type="button"
+        onClick={onBack}
+        className="text-xs text-white/50 underline-offset-2 hover:underline"
+      >
+        ← Change reward
+      </button>
+    </div>
+  );
+}
+
+function Tag({ color, text }: { color: 'emerald' | 'amber' | 'slate'; text: string }) {
+  const bg =
+    color === 'emerald'
+      ? 'bg-emerald-400 text-black'
+      : color === 'amber'
+        ? 'bg-amber-400 text-black'
+        : 'bg-slate-600 text-white';
+  return (
+    <div className="pointer-events-none absolute right-2 top-2 z-10">
+      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${bg}`}>{text}</span>
     </div>
   );
 }

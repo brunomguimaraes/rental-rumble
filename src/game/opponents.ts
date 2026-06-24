@@ -12,6 +12,7 @@ import {
 import {
   famousForSlot,
   famousSpriteKey,
+  rollBonusChallenge,
   rollSpecialPool,
   type FamousTrainer,
 } from './specials';
@@ -268,6 +269,7 @@ function famousOpponent(
   spec: FamousTrainer,
   id: string,
   tier: OpponentTier,
+  opts: { skippable?: boolean } = {},
 ): Opponent {
   return {
     id,
@@ -278,10 +280,13 @@ function famousOpponent(
     art: artUrl(famousSpriteKey(spec.id)),
     artGif: gifUrl(famousSpriteKey(spec.id)),
     type: spec.type,
-    teamSize: spec.team?.length ?? 6,
+    // Fixed-roster cameos field exactly their team; pool-based leaders draw a
+    // standard squad (`draw`, default 6).
+    teamSize: spec.team?.length ?? spec.draw ?? 6,
     tier,
     quote: spec.quote,
     famousId: spec.id,
+    skippable: opts.skippable,
   };
 }
 
@@ -318,6 +323,8 @@ export function buildGauntlet(
   const famousGymPool = rng.shuffle(famousForSlot('gym'));
   const famousElitePool = rng.shuffle(famousForSlot('elite'));
   const specialsPool = rollSpecialPool(rng);
+  // A genuinely rare, optional challenger (Prof. Oak) — null on almost every run.
+  const bonus = rollBonusChallenge(rng);
   const usedThemes = new Set<PokemonType>();
   let themeCursor = 0;
   let nameCursor = 0;
@@ -429,5 +436,18 @@ export function buildGauntlet(
     };
   });
 
-  return [...trainers, ...specials, ...gyms, ...elite, buildChampion(d, bracket)];
+  // The rare bonus challenger slots in just before the Champion as an optional
+  // "final exam" the player can take on or skip outright (see MapScreen/App).
+  const bonusFight: Opponent[] = bonus
+    ? [famousOpponent(bonus, `bonus-${bonus.id}`, 'special', { skippable: true })]
+    : [];
+
+  return [
+    ...trainers,
+    ...specials,
+    ...gyms,
+    ...elite,
+    ...bonusFight,
+    buildChampion(d, bracket),
+  ];
 }

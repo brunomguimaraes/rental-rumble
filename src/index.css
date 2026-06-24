@@ -239,6 +239,20 @@ body {
   animation: damage-pop 0.9s ease-out forwards;
 }
 
+/* 8-bit damage number: a chunky pixel typeface with a white fill and a hard
+   1px black outline drawn via offset shadows in all 8 directions (kept crisp,
+   no anti-aliased glow). */
+.dmg-number {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  color: #fff;
+  letter-spacing: 0.02em;
+  -webkit-font-smoothing: none;
+  text-shadow:
+    -1px 0 #000, 1px 0 #000, 0 -1px #000, 0 1px #000,
+    -1px -1px #000, 1px -1px #000, -1px 1px #000, 1px 1px #000,
+    0 2px 0 rgba(0, 0, 0, 0.55);
+}
+
 .animate-marquee {
   animation: marquee 32s linear infinite;
   will-change: transform;
@@ -255,11 +269,28 @@ body {
   }
 }
 
+/* Keep scrollbars unobtrusive: the thumb stays transparent at rest (so it never
+   reads as a stray pill floating over fixed UI like the bottom team tray) and
+   only fades in while hovering the scrollable area. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+*:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: transparent;
   border-radius: 999px;
+}
+:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
 }

@@ -65,8 +65,15 @@ export interface BaseStats {
  * Zodiac sign — the "personality" a Pokémon is born under. Replaces the old
  * Sweeper/Tank/Support/Bruiser roles: a sign is an identity (any mon can carry
  * any sign) that gently tilts its stats. See zodiac.ts for spreads/elements.
+ *
+ * The 12 common signs are gentle, net-neutral trade-offs. Beyond them sit rare
+ * "celestial" signs that only appear at long odds: the four off-ecliptic
+ * constellations the Moon and planets wander through (Orion / Cetus / Aquila /
+ * Serpens) give big, mixed boosts, and the mythic Abhijit — the dropped 28th
+ * Vedic lunar mansion — buffs every stat by half.
  */
 export type Sign =
+  // The classic twelve.
   | 'aries'
   | 'taurus'
   | 'gemini'
@@ -78,7 +85,14 @@ export type Sign =
   | 'sagittarius'
   | 'capricorn'
   | 'aquarius'
-  | 'pisces';
+  | 'pisces'
+  // Rare celestial wanderers.
+  | 'orion'
+  | 'cetus'
+  | 'aquila'
+  | 'serpens'
+  // Mythic.
+  | 'abhijit';
 
 /** Rarity tier — legendary/mythical/pseudo are "special" (gold-bordered). */
 export type SpecialTier = 'normal' | 'legendary' | 'mythical' | 'pseudo';
@@ -144,4 +158,10 @@ export interface Opponent {
    * Lorelei or James.
    */
   famousId?: string;
+  /**
+   * An optional fight the player may skip outright (no battle, no penalty) and
+   * advance straight to the next rung. Used by the rare `bonus` challenger
+   * (Prof. Oak); ordinary ladder foes are mandatory.
+   */
+  skippable?: boolean;
 }

@@ -13,7 +13,7 @@ import { effectiveness } from './typechart';
 import { RNG } from './rng';
 import { CREATURES, withSign } from './pokemon';
 import { attackAnimFor } from './moves';
-import { SIGN_SPREAD, rollSign } from './zodiac';
+import { SIGN_SPREAD, rollSign, bestRareSign } from './zodiac';
 import { rollOpponentBall } from './balls';
 import { famousTeamCreatures } from './specials';
 
@@ -796,13 +796,40 @@ function trainerPool(dex: Creature[]): Creature[] {
   return dex.filter((c) => c.tier !== 'legendary' && c.tier !== 'mythical');
 }
 
+interface SignRollOpts {
+  /** Scales celestial-sign odds vs. a player's draft (opponents use 0.5). */
+  oddsScale?: number;
+  /** Flat chance the whole team fields one swapped-in rare-sign mon. */
+  rareTeamChance?: number;
+}
+
+// Opponents roll celestial signs at half a player's odds; special-tier cameos
+// additionally get a flat chance to field one swapped-in rare-sign mon.
+function signOptsForTier(tier: string): SignRollOpts {
+  return tier === 'special'
+    ? { oddsScale: 0.5, rareTeamChance: 0.05 }
+    : { oddsScale: 0.5 };
+}
+
 // Opponents get auto-assigned signs with the same variance as the draft, plus a
 // flavourful ball so their send-outs feel as lively as the player's.
-function assignSigns(list: Creature[], rng: RNG): Creature[] {
-  return list.map((c) => ({
-    ...withSign(c, rollSign(c.stats, rng)),
+function assignSigns(
+  list: Creature[],
+  rng: RNG,
+  opts: SignRollOpts = {},
+): Creature[] {
+  const scale = opts.oddsScale ?? 1;
+  const team = list.map((c) => ({
+    ...withSign(c, rollSign(c.stats, rng, scale)),
     pokeball: rollOpponentBall(rng),
   }));
+  // Special trainers occasionally pack a guaranteed rare-sign mon on top of the
+  // per-mon rolls — a beat-them-and-recruit-it reward.
+  if (opts.rareTeamChance && team.length > 0 && rng.chance(opts.rareTeamChance)) {
+    const i = rng.int(0, team.length - 1);
+    team[i] = withSign(team[i], bestRareSign(team[i].stats));
+  }
+  return team;
 }
 
 /** Gym / Elite team: themed around `type`, topped up with off-type mons. The
@@ -810,7 +837,7 @@ function assignSigns(list: Creature[], rng: RNG): Creature[] {
 export function buildOpponentTeam(
   type: PokemonType,
   size: number,
-  _tier: string,
+  tier: string,
   seed: string,
   dex: Creature[] = CREATURES,
 ): Creature[] {
@@ -822,7 +849,7 @@ export function buildOpponentTeam(
   if (team.length < size) {
     team.push(...rng.shuffle(offType).slice(0, size - team.length));
   }
-  return assignSigns(rng.shuffle(team), rng);
+  return assignSigns(rng.shuffle(team), rng, signOptsForTier(tier));
 }
 
 /**
@@ -867,14 +894,16 @@ export function buildChampionTeam(
     if (!chosen.includes(c)) chosen.push(c);
   }
 
-  return assignSigns(rng.shuffle(chosen), rng);
+  // The champion is a tough regular trainer for sign purposes: half-odds
+  // celestial rolls, no guaranteed rare injection.
+  return assignSigns(rng.shuffle(chosen), rng, { oddsScale: 0.5 });
 }
 
 /**
- * Famous trainer team: the character's hand-picked, canonical roster (see
- * specials.ts), kept in its authored send-out order so the signature ace leads.
- * Used for any famous opponent — Gym Leaders (Brock), Elite Four (Lorelei) and
- * the "special" villain/gag cameos (James, Team Rocket). Signs/balls are rolled
+ * Famous trainer team (see specials.ts). Villain/gag cameos (James, Team Rocket)
+ * field their fixed, hand-picked roster in authored send-out order; known Gym
+ * Leaders & Elite Four (Brock, Lorelei…) draw a random `size` subset from their
+ * on-theme species pool, so their squad varies run-to-run. Signs/balls are rolled
  * from the seed, like any other foe. On a gen-locked run that filters out the
  * whole roster, we fall back to a type-themed squad so the fight still happens.
  */
@@ -884,11 +913,15 @@ export function buildFamousTeam(
   size: number,
   seed: string,
   dex: Creature[] = CREATURES,
+  tier = 'special',
 ): Creature[] {
   const rng = new RNG(`famous-team:${famousId}:${seed}`);
-  const roster = famousTeamCreatures(famousId, dex);
+  // Pool-based leaders draw a random subset of `size`; fixed-roster cameos ignore
+  // it and field their authored team. The rng is seeded per battle, so a given
+  // run/stage always faces the same draw.
+  const roster = famousTeamCreatures(famousId, dex, rng, size);
   if (roster.length === 0) {
-    return buildOpponentTeam(fallbackType, Math.max(1, size), 'special', seed, dex);
+    return buildOpponentTeam(fallbackType, Math.max(1, size), tier, seed, dex);
   }
-  return assignSigns(roster, rng);
+  return assignSigns(roster, rng, signOptsForTier(tier));
 }

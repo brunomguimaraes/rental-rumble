@@ -19,16 +19,26 @@ function tilt(mult: number): string {
   return d === 0 ? '±0%' : `${d > 0 ? '+' : ''}${d}%`;
 }
 
+/** Rarity tier of a sign. */
+export function signTier(sign: Sign): SignTier {
+  return SIGN_INFO[sign].tier;
+}
+
 /**
  * Multi-line hover summary of the stat changes a sign applies, plus its
- * element/modality and tagline. Used as the `title` on every sign badge so
- * hovering anywhere on the sign reveals exactly how it tilts the stats.
+ * element/modality (or rarity, for celestial signs) and tagline. Used as the
+ * `title` on every sign badge so hovering anywhere on the sign reveals exactly
+ * how it tilts the stats.
  */
 export function signSummary(sign: Sign): string {
   const sp = SIGN_SPREAD[sign];
   const info = SIGN_INFO[sign];
+  const subtitle =
+    info.element && info.modality
+      ? `${info.element}/${info.modality}`
+      : `${info.tier} celestial sign`;
   return (
-    `${signLabel(sign)} — ${info.element}/${info.modality}\n` +
+    `${signLabel(sign)} — ${subtitle}\n` +
     `HP ${tilt(sp.hp)}   ATK ${tilt(sp.atk)}   DEF ${tilt(sp.def)}   SPD ${tilt(sp.spd)}\n` +
     info.tagline
   );
@@ -36,6 +46,9 @@ export function signSummary(sign: Sign): string {
 
 export type Element = 'fire' | 'earth' | 'air' | 'water';
 export type Modality = 'cardinal' | 'fixed' | 'mutable';
+
+/** Rarity class of a sign. Drives roll odds and card-border treatment. */
+export type SignTier = 'common' | 'rare' | 'mythic';
 
 // Astrological order. Each Pokémon is born under one sign, which gives it a
 // personality (a stat tilt) the way the old role system did — but a sign is an
@@ -58,6 +71,24 @@ export const ZODIAC_SIGNS: Sign[] = [
   'aquarius',
   'pisces',
 ];
+
+// Rare "celestial" wanderers — the off-ecliptic constellations the Moon and
+// planets pass through. They never appear via best-fit ordering; only the long
+// odds in rollSign can surface them. Each is a big, mixed boost (well above the
+// gentle ±14% of the common twelve).
+export const RARE_SIGNS: Sign[] = ['orion', 'cetus', 'aquila', 'serpens'];
+
+// Mythic — the dropped 28th Vedic lunar mansion. A flat +50% to everything.
+export const MYTHIC_SIGNS: Sign[] = ['abhijit'];
+
+/** Every valid sign (12 common + 4 rare + 1 mythic), for payload validation. */
+export const ALL_SIGNS: Sign[] = [...ZODIAC_SIGNS, ...RARE_SIGNS, ...MYTHIC_SIGNS];
+
+// Odds a single drafted Pokémon is born under a celestial sign, for a regular
+// player. Opponents roll at half these odds (see rollSign's `oddsScale`), and
+// special trainers additionally get a flat team-level chance (see battle.ts).
+export const RARE_ODDS = 1 / 999;
+export const MYTHIC_ODDS = 1 / 999_999;
 
 export const ELEMENT_ORDER: Element[] = ['fire', 'earth', 'air', 'water'];
 
@@ -98,24 +129,44 @@ export const SIGN_SPREAD: Record<Sign, SignSpread> = {
   cancer: { hp: 1.12, atk: 0.94, def: 1.06, spd: 0.92 }, // cardinal: protective
   scorpio: { hp: 0.96, atk: 1.1, def: 0.94, spd: 1.04 }, // fixed: venomous striker
   pisces: { hp: 1.06, atk: 0.98, def: 1.02, spd: 1.0 }, // mutable: dreamy all-rounder
+  // Rare celestial wanderers — big, lopsided boosts with at most a slight dip.
+  orion: { hp: 1.06, atk: 1.26, def: 0.98, spd: 1.2 }, // the Hunter: overwhelming offense
+  cetus: { hp: 1.3, atk: 1.08, def: 1.24, spd: 0.92 }, // the Sea Monster: monstrous bulk
+  aquila: { hp: 1.0, atk: 1.16, def: 0.96, spd: 1.32 }, // the Eagle: blinding speed
+  serpens: { hp: 1.14, atk: 1.18, def: 1.12, spd: 1.16 }, // the Serpent: strong all-rounder
+  // Mythic — a flat blessing across the board.
+  abhijit: { hp: 1.5, atk: 1.5, def: 1.5, spd: 1.5 },
 };
 
-export const SIGN_INFO: Record<
-  Sign,
-  { glyph: string; element: Element; modality: Modality; tagline: string }
-> = {
-  aries: { glyph: '♈', element: 'fire', modality: 'cardinal', tagline: 'Glass-cannon rusher — fast and fierce, but frail.' },
-  taurus: { glyph: '♉', element: 'earth', modality: 'fixed', tagline: 'Immovable wall; hits slow but never breaks.' },
-  gemini: { glyph: '♊', element: 'air', modality: 'mutable', tagline: 'Blazing speed and versatility, little bulk.' },
-  cancer: { glyph: '♋', element: 'water', modality: 'cardinal', tagline: 'Protective and bulky; outlasts the clock.' },
-  leo: { glyph: '♌', element: 'fire', modality: 'fixed', tagline: 'Proud, heavy-hitting power with steady bulk.' },
-  virgo: { glyph: '♍', element: 'earth', modality: 'mutable', tagline: 'Efficient bulk — precise and hard to wear down.' },
-  libra: { glyph: '♎', element: 'air', modality: 'cardinal', tagline: 'Perfectly balanced across every stat.' },
-  scorpio: { glyph: '♏', element: 'water', modality: 'fixed', tagline: 'Venomous striker — quick and aggressive.' },
-  sagittarius: { glyph: '♐', element: 'fire', modality: 'mutable', tagline: 'Ranged skirmisher; fast attacker, soft.' },
-  capricorn: { glyph: '♑', element: 'earth', modality: 'cardinal', tagline: 'Disciplined wall that still pushes forward.' },
-  aquarius: { glyph: '♒', element: 'air', modality: 'fixed', tagline: 'Unconventional — fast and slippery.' },
-  pisces: { glyph: '♓', element: 'water', modality: 'mutable', tagline: 'Dreamy all-rounder with gentle bulk.' },
+export interface SignMeta {
+  glyph: string;
+  tier: SignTier;
+  /** Present on the common twelve; celestial signs are element-less. */
+  element?: Element;
+  modality?: Modality;
+  tagline: string;
+}
+
+export const SIGN_INFO: Record<Sign, SignMeta> = {
+  aries: { glyph: '♈', tier: 'common', element: 'fire', modality: 'cardinal', tagline: 'Glass-cannon rusher — fast and fierce, but frail.' },
+  taurus: { glyph: '♉', tier: 'common', element: 'earth', modality: 'fixed', tagline: 'Immovable wall; hits slow but never breaks.' },
+  gemini: { glyph: '♊', tier: 'common', element: 'air', modality: 'mutable', tagline: 'Blazing speed and versatility, little bulk.' },
+  cancer: { glyph: '♋', tier: 'common', element: 'water', modality: 'cardinal', tagline: 'Protective and bulky; outlasts the clock.' },
+  leo: { glyph: '♌', tier: 'common', element: 'fire', modality: 'fixed', tagline: 'Proud, heavy-hitting power with steady bulk.' },
+  virgo: { glyph: '♍', tier: 'common', element: 'earth', modality: 'mutable', tagline: 'Efficient bulk — precise and hard to wear down.' },
+  libra: { glyph: '♎', tier: 'common', element: 'air', modality: 'cardinal', tagline: 'Perfectly balanced across every stat.' },
+  scorpio: { glyph: '♏', tier: 'common', element: 'water', modality: 'fixed', tagline: 'Venomous striker — quick and aggressive.' },
+  sagittarius: { glyph: '♐', tier: 'common', element: 'fire', modality: 'mutable', tagline: 'Ranged skirmisher; fast attacker, soft.' },
+  capricorn: { glyph: '♑', tier: 'common', element: 'earth', modality: 'cardinal', tagline: 'Disciplined wall that still pushes forward.' },
+  aquarius: { glyph: '♒', tier: 'common', element: 'air', modality: 'fixed', tagline: 'Unconventional — fast and slippery.' },
+  pisces: { glyph: '♓', tier: 'common', element: 'water', modality: 'mutable', tagline: 'Dreamy all-rounder with gentle bulk.' },
+  // Rare celestial wanderers.
+  orion: { glyph: '🏹', tier: 'rare', tagline: 'The Hunter — overwhelming Attack and Speed.' },
+  cetus: { glyph: '🐋', tier: 'rare', tagline: 'The Sea Monster — colossal HP and Defense.' },
+  aquila: { glyph: '🦅', tier: 'rare', tagline: 'The Eagle — blinding Speed and a sharp strike.' },
+  serpens: { glyph: '🐍', tier: 'rare', tagline: 'The Serpent — strong, balanced power across the board.' },
+  // Mythic.
+  abhijit: { glyph: '✴', tier: 'mythic', tagline: 'The Victorious — every stat raised by half.' },
 };
 
 /**
@@ -145,13 +196,26 @@ export function defaultSign(s: BaseStats): Sign {
   return signsByFit(s)[0];
 }
 
+/** The rare celestial sign whose big boost best suits this stat line. */
+export function bestRareSign(s: BaseStats): Sign {
+  return [...RARE_SIGNS].sort((a, b) => signFit(b, s) - signFit(a, s))[0];
+}
+
 /**
- * Seeded sign for the draft. Weighted toward the best-fit signs but with a long
- * tail, so a Pokémon usually shows up "in character" yet can be born under an
- * off-beat sign now and then — that's the draft variance. The weight of the
- * Nth-best sign decays smoothly (1/(N+1.3)), keeping every sign reachable.
+ * Seeded sign for the draft. First rolls the long-shot celestial signs: the
+ * mythic Abhijit, then the rare wanderers (a best-fit pick of the four). Most
+ * of the time it falls through to the common twelve, weighted toward the
+ * best-fit signs but with a long tail, so a Pokémon usually shows up "in
+ * character" yet can be born under an off-beat sign now and then.
+ *
+ * `oddsScale` scales the celestial odds: 1 for a regular player's draft, 0.5
+ * for opponents (who hit the rare signs at half a player's rate).
  */
-export function rollSign(s: BaseStats, rng: RNG): Sign {
+export function rollSign(s: BaseStats, rng: RNG, oddsScale = 1): Sign {
+  const gate = rng.next();
+  if (gate < MYTHIC_ODDS * oddsScale) return 'abhijit';
+  if (gate < (MYTHIC_ODDS + RARE_ODDS) * oddsScale) return bestRareSign(s);
+
   const ranked = signsByFit(s);
   const weights = ranked.map((_, i) => 1 / (i + 1.3));
   const total = weights.reduce((a, b) => a + b, 0);

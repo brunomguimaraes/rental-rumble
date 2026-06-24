@@ -1,6 +1,6 @@
 import type { Creature, Sign } from './types';
 import { CREATURES_BY_ID, withSign } from './pokemon';
-import { ZODIAC_SIGNS } from './zodiac';
+import { ALL_SIGNS } from './zodiac';
 import {
   buildChampionTeam,
   simulateBattle,
@@ -109,7 +109,7 @@ export function verifyChampionWin(payload: SubmissionPayload): VerifyResult {
     if (!mon || typeof mon.id !== 'string') {
       return { ok: false, reason: 'bad mon' };
     }
-    if (!ZODIAC_SIGNS.includes(mon.sign)) {
+    if (!ALL_SIGNS.includes(mon.sign)) {
       return { ok: false, reason: 'bad sign' };
     }
     const base = CREATURES_BY_ID[mon.id];
@@ -150,7 +150,7 @@ export function teamFromMons(mons: SubmissionMon[]): Creature[] {
   for (const mon of mons) {
     const base = CREATURES_BY_ID[mon.id];
     if (!base) continue;
-    team.push(withSign(base, ZODIAC_SIGNS.includes(mon.sign) ? mon.sign : base.sign));
+    team.push(withSign(base, ALL_SIGNS.includes(mon.sign) ? mon.sign : base.sign));
   }
   return team;
 }

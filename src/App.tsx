@@ -87,6 +87,7 @@ export default function App() {
             opponent.teamSize,
             battleSeed,
             dex,
+            opponent.tier,
           )
         : opponent.tier === 'champion'
           ? buildChampionTeam(championSeed(new Date(), bracket), opponent.teamSize, dex)
@@ -188,6 +189,10 @@ export default function App() {
           stage={stage}
           seed={seed}
           onFight={() => setPhase('battle')}
+          onSkip={() => {
+            setStage((s) => s + 1);
+            setPhase('map');
+          }}
           onQuit={() => setPhase('title')}
           onReorder={setTeam}
         />
@@ -211,6 +216,7 @@ export default function App() {
         <RecruitScreen
           opponentName={opponent.name}
           nextLabel={`On to ${TIER_LABEL[next.tier]} ${next.name}`}
+          bracket={bracket}
           currentTeam={team}
           defeatedTeam={defeated}
           onConfirm={(newTeam) => {

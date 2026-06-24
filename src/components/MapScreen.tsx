@@ -11,6 +11,7 @@ export function MapScreen({
   stage,
   seed,
   onFight,
+  onSkip,
   onQuit,
   onReorder,
 }: {
@@ -19,17 +20,22 @@ export function MapScreen({
   stage: number;
   seed: string;
   onFight: () => void;
+  onSkip: () => void;
   onQuit: () => void;
   onReorder: (team: Creature[]) => void;
 }) {
   const [confirmingQuit, setConfirmingQuit] = useState(false);
+  const currentOpp = gauntlet[stage];
+  // Skippable foes (the rare bonus challenge) don't count toward the mandatory
+  // tally — you can wave them off and still be crowned Champion.
+  const required = gauntlet.filter((o) => !o.skippable).length;
   return (
     <div className="mx-auto max-w-5xl px-3 py-6 pb-28 sm:px-4 sm:py-8 sm:pb-28">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-2xl font-black sm:text-3xl">The Gauntlet</h2>
           <p className="mt-1 text-sm text-white/55">
-            Defeat all {gauntlet.length} to be crowned Champion.
+            Defeat all {required} to be crowned Champion.
           </p>
         </div>
         {confirmingQuit ? (
@@ -107,6 +113,11 @@ export function MapScreen({
                   <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">
                     {TIER_LABEL[opp.tier]}
                   </span>
+                  {opp.skippable && (
+                    <span className="rounded-full border border-amber-300/50 bg-amber-300/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
+                      Optional
+                    </span>
+                  )}
                   {isTypeThemed(opp) ? (
                     <TypeBadge type={opp.type} size="sm" />
                   ) : (
@@ -149,13 +160,24 @@ export function MapScreen({
             <span className="text-white/40">seed</span>{' '}
             <span className="font-mono text-white/80">{seed}</span>
           </div>
-          <button
-            type="button"
-            onClick={onFight}
-            className="w-full rounded-full bg-white px-8 py-3 text-base font-bold text-black transition-transform hover:scale-105 active:scale-95 sm:w-auto sm:text-lg"
-          >
-            Battle {gauntlet[stage].name} →
-          </button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            {currentOpp.skippable && (
+              <button
+                type="button"
+                onClick={onSkip}
+                className="w-full rounded-full border border-white/20 px-6 py-3 text-base font-bold text-white/80 transition hover:bg-white/10 sm:w-auto"
+              >
+                Skip ⏭
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onFight}
+              className="w-full rounded-full bg-white px-8 py-3 text-base font-bold text-black transition-transform hover:scale-105 active:scale-95 sm:w-auto sm:text-lg"
+            >
+              Battle {currentOpp.name} →
+            </button>
+          </div>
         </div>
       </div>
     </div>

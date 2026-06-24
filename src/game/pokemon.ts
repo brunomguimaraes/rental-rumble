@@ -1,5 +1,6 @@
 import type { Creature, Sign } from './types';
 import { RAW_DEX } from './pokedex.gen';
+import { EVOLUTIONS } from './evolutions.gen';
 import { movesFor } from './moves';
 import { defaultSign, signsByFit } from './zodiac';
 import { PORTRAIT_EMOTIONS } from './portraits.gen';
@@ -98,4 +99,29 @@ export function withSign(creature: Creature, sign: Sign): Creature {
 export function withBall(creature: Creature, pokeball: string): Creature {
   if (creature.pokeball === pokeball) return creature;
   return { ...creature, pokeball };
+}
+
+/**
+ * Dex ids this species can evolve INTO (already restricted to species we ship).
+ * Most return a single id; branched lines (Eevee, Tyrogue, …) return several.
+ * Empty when the species is already fully evolved / has no next stage.
+ */
+export function evolutionTargets(dexId: number): number[] {
+  return (EVOLUTIONS[dexId] ?? []).filter((id) => Boolean(CREATURES_BY_ID[String(id)]));
+}
+
+/** Whether a creature has at least one evolution available. */
+export function canEvolve(creature: Creature): boolean {
+  return evolutionTargets(creature.dexId).length > 0;
+}
+
+/**
+ * Evolve a creature into one of its next stages, carrying over its hard-won
+ * identity: the same zodiac sign (so its stat tilt & move flavour persist) and
+ * the same cosmetic ball. Stats, types, tier and moves become the new species'.
+ * `targetDexId` must be one of `evolutionTargets(creature.dexId)`.
+ */
+export function evolveCreature(creature: Creature, targetDexId: number): Creature {
+  const base = getCreature(String(targetDexId));
+  return withBall(withSign(base, creature.sign), creature.pokeball);
 }
