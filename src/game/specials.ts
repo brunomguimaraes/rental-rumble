@@ -21,7 +21,7 @@ import { RNG } from './rng';
  * character is best known for (or a gag set). `type` is the thematic accent
  * (badge, backdrop, map glow). `rarity` (0..1) is the chance a `special` cameo is
  * eligible to appear at all — `undefined` means always eligible; Prof. Oak is a
- * rare surprise. Roles and cosmetic balls are assigned at battle-build time, just
+ * rare surprise. Signs and cosmetic balls are assigned at battle-build time, just
  * like every other foe.
  */
 export type FamousSlot = 'gym' | 'elite' | 'champion' | 'special';
@@ -212,7 +212,7 @@ export function rollSpecialPool(rng: RNG): FamousTrainer[] {
  * Resolve a famous trainer's team to live Creatures, restricted to the run's
  * available species (`dex`). Out-of-pool members (e.g. on a gen-locked run) are
  * dropped; if that empties the roster, the caller should fall back to a generated
- * team. Returns base creatures — the battle builder assigns roles/balls.
+ * team. Returns base creatures — the battle builder assigns signs/balls.
  */
 export function famousTeamCreatures(id: string, dex: Creature[]): Creature[] {
   const spec = FAMOUS_BY_ID[id];

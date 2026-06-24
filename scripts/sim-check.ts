@@ -1,4 +1,4 @@
-import { CREATURES, withRole } from '../src/game/pokemon';
+import { CREATURES, withSign } from '../src/game/pokemon';
 import { buildGauntlet, championSeed } from '../src/game/opponents';
 import {
   buildChampionTeam,
@@ -7,9 +7,9 @@ import {
   TIER_STAT_MULT,
 } from '../src/game/battle';
 import { rollPool } from '../src/game/run';
-import { defaultRole, eligibleRoles, rollRole, ALL_ROLES } from '../src/game/roles';
+import { defaultSign, rollSign, ZODIAC_SIGNS } from '../src/game/zodiac';
 import { RNG } from '../src/game/rng';
-import type { Creature, Role } from '../src/game/types';
+import type { Creature, Sign } from '../src/game/types';
 
 const N = 400;
 const PLAYER_MULT = 1.13;
@@ -20,14 +20,14 @@ const bst = (c: Creature) => c.stats.hp + c.stats.atk + c.stats.def + c.stats.sp
 const bruteStat = (pool: Creature[]) =>
   [...pool].sort((a, b) => bst(b) - bst(a)).slice(0, 6);
 
-type RoleMode = 'asRolled' | 'bestFit';
+type SignMode = 'asRolled' | 'bestFit';
 
-const applyRoles = (team: Creature[], mode: RoleMode) =>
+const applySigns = (team: Creature[], mode: SignMode) =>
   mode === 'bestFit'
-    ? team.map((c) => withRole(c, defaultRole(c.stats)))
+    ? team.map((c) => withSign(c, defaultSign(c.stats)))
     : team;
 
-function runGauntlets(mode: RoleMode) {
+function runGauntlets(mode: SignMode) {
   let wins = 0;
   let runs = 0;
   let totalTurns = 0;
@@ -36,7 +36,7 @@ function runGauntlets(mode: RoleMode) {
   for (let i = 0; i < N; i++) {
     const seed = `test-${i}`;
     const gauntlet = buildGauntlet(seed);
-    let team = applyRoles(bruteStat(rollPool(seed)), mode);
+    let team = applySigns(bruteStat(rollPool(seed)), mode);
     let alive = true;
     for (let s = 0; s < gauntlet.length && alive; s++) {
       const opp = gauntlet[s];
@@ -67,37 +67,32 @@ for (const mode of ['bestFit', 'asRolled'] as const) {
     ? ((r.championWins / r.championReached) * 100).toFixed(0)
     : '–';
   console.log(
-    `  roles=${mode.padEnd(8)} → ${((r.wins / N) * 100).toFixed(1)}% full clears, ` +
+    `  signs=${mode.padEnd(8)} → ${((r.wins / N) * 100).toFixed(1)}% full clears, ` +
       `reached champ ${((r.championReached / N) * 100).toFixed(0)}% (won ${champRate}% of those), ` +
       `avg ${(r.totalTurns / r.runs).toFixed(1)} turns`,
   );
 }
 
-// How much variance does rollRole actually inject?
-const rng = new RNG('role-dist');
-const dist: Record<Role, number> = { Sweeper: 0, Bruiser: 0, Tank: 0, Support: 0 };
+// How much variance does rollSign actually inject?
+const rng = new RNG('sign-dist');
+const dist = Object.fromEntries(ZODIAC_SIGNS.map((s) => [s, 0])) as Record<Sign, number>;
 let offBest = 0;
 let total = 0;
-let multiRole = 0;
 for (const c of CREATURES) {
-  if (eligibleRoles(c.stats).length > 1) multiRole++;
   for (let k = 0; k < 20; k++) {
-    const r = rollRole(c.stats, rng);
+    const r = rollSign(c.stats, rng);
     dist[r]++;
-    if (r !== defaultRole(c.stats)) offBest++;
+    if (r !== defaultSign(c.stats)) offBest++;
     total++;
   }
 }
-console.log(`\nrollRole over all ${CREATURES.length} mons × 20 draws:`);
+console.log(`\nrollSign over all ${CREATURES.length} mons × 20 draws:`);
 console.log(
-  `  multi-role-capable: ${((multiRole / CREATURES.length) * 100).toFixed(0)}% of dex`,
+  `  landed off the best-fit sign: ${((offBest / total) * 100).toFixed(1)}% of draws`,
 );
 console.log(
-  `  landed off the best-fit role: ${((offBest / total) * 100).toFixed(1)}% of draws`,
-);
-console.log(
-  '  role mix: ' +
-    ALL_ROLES.map((r) => `${r} ${((dist[r] / total) * 100).toFixed(0)}%`).join(', '),
+  '  sign mix: ' +
+    ZODIAC_SIGNS.map((s) => `${s} ${((dist[s] / total) * 100).toFixed(0)}%`).join(', '),
 );
 
 // Determinism check.

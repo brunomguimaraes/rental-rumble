@@ -20,6 +20,6 @@ export const boardDataKey = (date: string, bracket: BracketId = 'all') =>
 
 export interface BoardEntryData {
   clearedStages: number;
-  team: SubmissionMon[]; // species + role, so the team can be re-fought
+  team: SubmissionMon[]; // species + sign, so the team can be re-fought
   at: number;
 }

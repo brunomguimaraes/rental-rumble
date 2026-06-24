@@ -110,7 +110,11 @@ export function ResultScreen({
     <div className="mx-auto flex min-h-[100dvh] max-w-xl flex-col items-center justify-center px-4 py-8 text-center sm:px-6">
       <div className="animate-floaty">
         {won ? (
-          <span className="text-6xl sm:text-7xl">👑</span>
+          <img
+            src={`${import.meta.env.BASE_URL}sprites/ui/masterball.png`}
+            alt="Champion"
+            className="mx-auto h-28 w-auto object-contain [image-rendering:pixelated] drop-shadow-[0_4px_20px_rgba(168,85,247,0.35)] sm:h-36"
+          />
         ) : (
           <img
             src={`${import.meta.env.BASE_URL}sprites/ui/cubone-skull.png`}

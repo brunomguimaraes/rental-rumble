@@ -107,9 +107,9 @@ export function DraftScreen({
           <p className="mt-1 max-w-prose text-sm text-white/55">
             You'll be shown {DRAFT_CHOICES} Pokémon at a time — pick one and the
             next, totally fresh set appears. Each one's{' '}
-            <span className="text-white/80">role</span> is auto-assigned (it tunes
-            stats and moves). Beat a trainer and you can recruit their Pokémon
-            afterward.
+            <span className="text-white/80">zodiac sign</span> is auto-assigned (it
+            tunes stats and moves). Beat a trainer and you can recruit their
+            Pokémon afterward.
           </p>
         </div>
         <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 import type { Creature, Opponent } from './types';
 import { TYPE_COLORS, typeIconUrl, typeLabel } from './typechart';
-import { ROLE_INFO } from './roles';
+import { SIGN_INFO } from './zodiac';
 
 // All assets are served from the same origin (public/sprites), so the canvas
 // never gets tainted and we can export the result as a PNG / share a File.
@@ -314,12 +314,13 @@ export async function renderShareCard(
       chipX += chipWidths[t] + 8;
     }
 
-    // Role line
+    // Zodiac sign line
     ctx.fillStyle = COLORS.faint;
     ctx.font = `600 20px ${FONT}`;
     ctx.textAlign = 'center';
+    const signLabel = c.sign.charAt(0).toUpperCase() + c.sign.slice(1);
     ctx.fillText(
-      `${ROLE_INFO[c.role].glyph} ${c.role}`,
+      `${SIGN_INFO[c.sign].glyph} ${signLabel}`,
       x + tileW / 2,
       chipY + chipH + 28,
     );

@@ -61,7 +61,24 @@ export interface BaseStats {
   spd: number;
 }
 
-export type Role = 'Sweeper' | 'Tank' | 'Support' | 'Bruiser';
+/**
+ * Zodiac sign — the "personality" a Pokémon is born under. Replaces the old
+ * Sweeper/Tank/Support/Bruiser roles: a sign is an identity (any mon can carry
+ * any sign) that gently tilts its stats. See zodiac.ts for spreads/elements.
+ */
+export type Sign =
+  | 'aries'
+  | 'taurus'
+  | 'gemini'
+  | 'cancer'
+  | 'leo'
+  | 'virgo'
+  | 'libra'
+  | 'scorpio'
+  | 'sagittarius'
+  | 'capricorn'
+  | 'aquarius'
+  | 'pisces';
 
 /** Rarity tier — legendary/mythical/pseudo are "special" (gold-bordered). */
 export type SpecialTier = 'normal' | 'legendary' | 'mythical' | 'pseudo';
@@ -85,8 +102,8 @@ export interface Creature {
   mini: string; // box/icon mini sprite sheet (team miniatures)
   types: PokemonType[]; // 1 or 2 real types
   tier: SpecialTier;
-  role: Role; // currently selected role
-  eligibleRoles: Role[]; // roles this Pokémon may take, best-fit first
+  sign: Sign; // zodiac sign this Pokémon is born under (tilts its stats)
+  eligibleSigns: Sign[]; // all 12 signs, ordered best-fit-first for these stats
   stats: BaseStats;
   moves: Move[];
   pokeball: string; // cosmetic ball id this Pokémon is sent out in (see balls.ts)

@@ -1,11 +1,11 @@
 import type { Creature, SpecialTier } from './types';
-import { CREATURES, withRole, withRandomPortrait } from './pokemon';
-import { rollRole } from './roles';
+import { CREATURES, withSign, withRandomPortrait } from './pokemon';
+import { rollSign } from './zodiac';
 import { RNG } from './rng';
 
-/** Roll a fresh pool/reroll entry: a random eligible role + random emotion. */
+/** Roll a fresh pool/reroll entry: a random zodiac sign + random emotion. */
 function rollCreature(creature: Creature, rng: RNG): Creature {
-  return withRandomPortrait(withRole(creature, rollRole(creature.stats, rng)), rng);
+  return withRandomPortrait(withSign(creature, rollSign(creature.stats, rng)), rng);
 }
 
 export const POOL_SIZE = 10;
@@ -82,7 +82,7 @@ export function rollPool(seed: string, dex: Creature[] = CREATURES): Creature[] 
       if (!allowSpecial || usedSpecial) continue;
       usedSpecial = true;
     }
-    // Role is auto-assigned (with variance) here — not chosen by the player.
+    // The sign is auto-assigned (with variance) here — not chosen by the player.
     // Each card also gets a random emotion portrait for extra flavour.
     pool.push(rollCreature(c, rng));
   }

@@ -1,7 +1,7 @@
-import type { Creature, Role } from './types';
+import type { Creature, Sign } from './types';
 import { RAW_DEX } from './pokedex.gen';
 import { movesFor } from './moves';
-import { defaultRole, eligibleRoles } from './roles';
+import { defaultSign, signsByFit } from './zodiac';
 import { PORTRAIT_EMOTIONS } from './portraits.gen';
 import { DEFAULT_BALL } from './balls';
 import { RNG } from './rng';
@@ -55,7 +55,7 @@ export function miniUrl(dexId: number): string {
 }
 
 export const CREATURES: Creature[] = RAW_DEX.map((e) => {
-  const role = defaultRole(e.stats);
+  const sign = defaultSign(e.stats);
   return {
     id: String(e.id),
     dexId: e.id,
@@ -66,10 +66,10 @@ export const CREATURES: Creature[] = RAW_DEX.map((e) => {
     mini: miniUrl(e.id),
     types: e.types,
     tier: e.tier,
-    role,
-    eligibleRoles: eligibleRoles(e.stats),
+    sign,
+    eligibleSigns: signsByFit(e.stats),
     stats: e.stats,
-    moves: movesFor(e.types, role),
+    moves: movesFor(e.types, e.stats, sign),
     pokeball: DEFAULT_BALL,
   };
 });
@@ -84,10 +84,14 @@ export function getCreature(id: string): Creature {
   return c;
 }
 
-/** Return a copy of the creature playing a different (eligible) role. */
-export function withRole(creature: Creature, role: Role): Creature {
-  if (creature.role === role) return creature;
-  return { ...creature, role, moves: movesFor(creature.types, role) };
+/** Return a copy of the creature born under a different zodiac sign. */
+export function withSign(creature: Creature, sign: Sign): Creature {
+  if (creature.sign === sign) return creature;
+  return {
+    ...creature,
+    sign,
+    moves: movesFor(creature.types, creature.stats, sign),
+  };
 }
 
 /** Return a copy of the creature sent out in a different (cosmetic) ball. */

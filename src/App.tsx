@@ -26,9 +26,11 @@ import { BattleScreen } from './components/BattleScreen';
 import { RecruitScreen } from './components/RecruitScreen';
 import { ResultScreen } from './components/ResultScreen';
 import { ChallengeResultScreen } from './components/ChallengeResultScreen';
+import { LadderScreen } from './components/LadderScreen';
 
 type Phase =
   | 'title'
+  | 'ladder'
   | 'draft'
   | 'map'
   | 'battle'
@@ -154,7 +156,15 @@ export default function App() {
 
   switch (phase) {
     case 'title':
-      return <TitleScreen onStart={startRun} />;
+      return (
+        <TitleScreen
+          onStart={startRun}
+          onViewLadder={() => setPhase('ladder')}
+        />
+      );
+
+    case 'ladder':
+      return <LadderScreen onBack={() => setPhase('title')} />;
 
     case 'draft':
       return (

@@ -7,7 +7,16 @@ import {
   typeLabel,
   typeMultiplier,
 } from '../game/typechart';
-import { ALL_ROLES, ROLE_INFO, ROLE_SPREAD } from '../game/roles';
+import {
+  ELEMENT_INFO,
+  ELEMENT_ORDER,
+  SIGN_INFO,
+  SIGN_SPREAD,
+  ZODIAC_SIGNS,
+  signIconUrl,
+  signLabel,
+} from '../game/zodiac';
+import { MOVE_SLOTS } from '../game/moves';
 
 const STAT_BLURB: { key: string; label: string; desc: string }[] = [
   { key: 'HP', label: 'HP', desc: 'How much damage it can take before fainting.' },
@@ -16,63 +25,44 @@ const STAT_BLURB: { key: string; label: string; desc: string }[] = [
   { key: 'SPD', label: 'Speed', desc: 'Decides who moves first each turn.' },
 ];
 
-// FireRed/LeafGreen in-game status markers (see scripts/build-status-icons.py).
-const STATUS_ASSET = import.meta.env?.BASE_URL ?? '/';
-function statusIconUrl(kind: string): string {
-  return `${STATUS_ASSET}sprites/status/${kind}.png`;
-}
+const ASSET = import.meta.env?.BASE_URL ?? '/';
+const statusIconUrl = (icon: string) => `${ASSET}sprites/status/${icon}.png`;
 
-// `icon` points at the FRLG marker; `glyph` is the emoji fallback for statuses
-// the games never show a marker for (confusion is a volatile status).
-const STATUSES: { name: string; icon?: string; glyph?: string; desc: string }[] = [
+const STATUSES: { name: string; icon: string; desc: string }[] = [
   {
     name: 'Burn',
-    icon: statusIconUrl('burn'),
-    desc: 'Chips away ~1/12 of max HP at the end of each turn for a few turns.',
+    icon: 'burn',
+    desc: 'Chips 1/12 of max HP at the end of each turn, for 4 turns.',
   },
   {
     name: 'Poison',
-    icon: statusIconUrl('poison'),
-    desc: 'Escalating damage that grows every turn and does not wear off — a clock on bulky walls.',
+    icon: 'poison',
+    desc: 'Escalating damage: turn N costs N/16 of max HP and never wears off — a clock on bulky walls.',
   },
   {
     name: 'Paralysis',
-    icon: statusIconUrl('stun'),
+    icon: 'stun',
     desc: 'Speed drops to 60% and there is a 30% chance to lose the turn outright.',
   },
   {
     name: 'Sleep',
-    icon: statusIconUrl('sleep'),
+    icon: 'sleep',
     desc: "Can't act for 1–3 turns, then wakes up.",
   },
   {
     name: 'Confusion',
-    glyph: '💫',
+    icon: 'confusion',
     desc: 'For 2–4 turns there is a 33% chance to hit itself instead of attacking.',
   },
 ];
 
-const BASICS: { title: string; desc: string }[] = [
-  {
-    title: 'Turn order',
-    desc: 'Priority moves (like Quick Attack) always strike first; otherwise the faster Pokémon goes, with ties decided by a coin flip.',
-  },
-  {
-    title: 'STAB',
-    desc: 'A move whose type matches the user’s own type deals 1.5× damage (Same-Type Attack Bonus).',
-  },
-  {
-    title: 'Critical hits',
-    desc: 'Every hit has a 6.25% chance to crit for 1.5× damage.',
-  },
-  {
-    title: 'Type effectiveness',
-    desc: 'Multipliers stack across both of a Pokémon’s types, so a hit can land for 0×, ¼×, ½×, 1×, 2×, or 4×.',
-  },
-  {
-    title: 'Setting up',
-    desc: 'Some Pokémon can buff their own stats mid-fight (Swords Dance raises Attack, Agility raises Speed) to snowball an advantage.',
-  },
+// The AI's fixed decision order each turn (mirrors chooseMove in battle.ts).
+const AI_PRIORITY: { step: string; desc: string }[] = [
+  { step: 'Guaranteed KO', desc: 'If any move (priority first) is forecast to faint the foe, take it.' },
+  { step: 'Heal', desc: 'Below 35% HP, there is a 60% chance to use a sustain move like Recover.' },
+  { step: 'Set up', desc: 'Above 60% HP and not yet stacked, a 40% chance to buff a stat (Swords Dance, Agility, Iron Defense).' },
+  { step: 'Spread status', desc: 'Against an unafflicted foe, a 35% chance to fish for burn / paralysis / poison / sleep.' },
+  { step: 'Best damage', desc: 'Otherwise throw the move with the highest forecast damage vs. this defender (coverage matters).' },
 ];
 
 function pct(mult: number): string {
@@ -190,6 +180,103 @@ function TypeChartExplorer() {
   );
 }
 
+/** The 12 signs grouped by element, with their stat tilts. */
+function ZodiacTable() {
+  return (
+    <div className="space-y-3">
+      {ELEMENT_ORDER.map((el) => {
+        const info = ELEMENT_INFO[el];
+        const signs = ZODIAC_SIGNS.filter((s) => SIGN_INFO[s].element === el);
+        return (
+          <div key={el} className="overflow-hidden rounded-2xl border border-white/10">
+            <div
+              className="flex items-center justify-between px-2.5 py-1.5"
+              style={{ background: `${info.color}1f` }}
+            >
+              <span className="text-xs font-black" style={{ color: info.color }}>
+                {info.label}
+              </span>
+              <span className="text-[10px] text-white/50">{info.blurb}</span>
+            </div>
+            <table className="w-full border-collapse text-left text-[11px]">
+              <tbody>
+                {signs.map((sign) => {
+                  const sp = SIGN_SPREAD[sign];
+                  return (
+                    <tr key={sign} className="border-t border-white/10">
+                      <td className="px-2 py-1.5">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <img
+                            src={signIconUrl(sign)}
+                            alt=""
+                            className="h-4 w-4 object-contain"
+                          />
+                          {signLabel(sign)}
+                          <span className="text-[9px] font-medium uppercase tracking-wide text-white/35">
+                            {SIGN_INFO[sign].modality}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-white/45">
+                          {SIGN_INFO[sign].tagline}
+                        </div>
+                      </td>
+                      <td className={`w-9 px-1 py-1.5 text-center tabular-nums ${pctClass(sp.hp)}`}>
+                        {pct(sp.hp)}
+                      </td>
+                      <td className={`w-9 px-1 py-1.5 text-center tabular-nums ${pctClass(sp.atk)}`}>
+                        {pct(sp.atk)}
+                      </td>
+                      <td className={`w-9 px-1 py-1.5 text-center tabular-nums ${pctClass(sp.def)}`}>
+                        {pct(sp.def)}
+                      </td>
+                      <td className={`w-9 px-1 py-1.5 text-center tabular-nums ${pctClass(sp.spd)}`}>
+                        {pct(sp.spd)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** The exact damage math, for the curious. All fights run at Level 50. */
+function DamageMath() {
+  return (
+    <div className="space-y-2 text-[11px] leading-relaxed text-white/60">
+      <p>
+        Every Pokémon fights at <span className="font-semibold text-white/80">Level 50</span>, so the
+        stat lines simplify to:
+      </p>
+      <pre className="overflow-x-auto rounded-xl border border-white/10 bg-black/40 p-2.5 font-mono text-[10.5px] text-white/75">
+{`HP  = base + 60
+Atk/Def/Spd = (base + 5) × sign × stage
+stage(+n) = (2+n)/2     stage(−n) = 2/(2+n)`}
+      </pre>
+      <p>A single hit then resolves as:</p>
+      <pre className="overflow-x-auto rounded-xl border border-white/10 bg-black/40 p-2.5 font-mono text-[10.5px] text-white/75">
+{`raw = (22 × power × Atk/Def) / 50 + 2
+dmg = raw × STAB × type × crit × rand`}
+      </pre>
+      <ul className="ml-3 list-disc space-y-1 marker:text-white/30">
+        <li><span className="font-semibold text-white/80">STAB</span> = 1.5× if the move shares the user's type, else 1×.</li>
+        <li><span className="font-semibold text-white/80">type</span> = the type-effectiveness product (0, ¼, ½, 1, 2 or 4×).</li>
+        <li><span className="font-semibold text-white/80">crit</span> = 1.5× on a 6.25% roll.</li>
+        <li><span className="font-semibold text-white/80">rand</span> = a uniform 0.85–1.0 spread, so identical hits vary ±15%.</li>
+        <li>The result is floored, with a minimum of 1 damage on any non-immune hit.</li>
+      </ul>
+      <p className="text-white/45">
+        The AI sizes up moves with the same formula at mid-roll (×0.925) and multiplies by accuracy,
+        so it can spot guaranteed KOs without rolling the dice.
+      </p>
+    </div>
+  );
+}
+
 export function BattleGuide({ onClose }: { onClose: () => void }) {
   return (
     <div
@@ -207,7 +294,8 @@ export function BattleGuide({ onClose }: { onClose: () => void }) {
           <div>
             <h2 className="text-lg font-black">How battles work</h2>
             <p className="mt-0.5 text-xs text-white/50">
-              Fights play out automatically — these are the rules under the hood.
+              Fights play out automatically — these are the rules under the hood,
+              right down to the math.
             </p>
           </div>
           <button
@@ -236,53 +324,61 @@ export function BattleGuide({ onClose }: { onClose: () => void }) {
           </div>
         </Section>
 
-        <Section title="Roles tilt the stats">
+        <Section title="Zodiac signs tilt the stats">
           <p className="mb-2 text-[11px] leading-snug text-white/50">
-            Every Pokémon plays a role that nudges its stats up or down (shown vs.
-            its base line). The choice shapes how it fights.
+            Every Pokémon is born under one of twelve signs, which nudges its
+            stats up or down (shown vs. its base line). The twelve break down as
+            four <span className="text-white/75">elements</span> — the broad
+            archetype — each split into three{' '}
+            <span className="text-white/75">modalities</span> that set the flavour:
+            cardinal initiates (Speed-lean), fixed is stubborn/extreme, mutable is
+            rounded. A sign is an identity, so any Pokémon can carry any sign —
+            but the draft favours the ones that suit its stats.
           </p>
-          <div className="overflow-hidden rounded-2xl border border-white/10">
-            <table className="w-full border-collapse text-left text-[11px]">
-              <thead className="bg-white/[0.05] text-white/50">
-                <tr>
-                  <th className="px-2 py-1.5 font-semibold">Role</th>
-                  <th className="px-1 py-1.5 text-center font-semibold">HP</th>
-                  <th className="px-1 py-1.5 text-center font-semibold">Atk</th>
-                  <th className="px-1 py-1.5 text-center font-semibold">Def</th>
-                  <th className="px-1 py-1.5 text-center font-semibold">Spd</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ALL_ROLES.map((role) => {
-                  const sp = ROLE_SPREAD[role];
-                  return (
-                    <tr key={role} className="border-t border-white/10">
-                      <td className="px-2 py-1.5">
-                        <div className="font-bold">
-                          {ROLE_INFO[role].glyph} {role}
-                        </div>
-                        <div className="text-[10px] text-white/45">
-                          {ROLE_INFO[role].tagline}
-                        </div>
-                      </td>
-                      <td className={`px-1 py-1.5 text-center tabular-nums ${pctClass(sp.hp)}`}>
-                        {pct(sp.hp)}
-                      </td>
-                      <td className={`px-1 py-1.5 text-center tabular-nums ${pctClass(sp.atk)}`}>
-                        {pct(sp.atk)}
-                      </td>
-                      <td className={`px-1 py-1.5 text-center tabular-nums ${pctClass(sp.def)}`}>
-                        {pct(sp.def)}
-                      </td>
-                      <td className={`px-1 py-1.5 text-center tabular-nums ${pctClass(sp.spd)}`}>
-                        {pct(sp.spd)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <ZodiacTable />
+        </Section>
+
+        <Section title="Move pools">
+          <p className="text-[11px] leading-snug text-white/55">
+            Forget the four-move limit: every Pokémon walks in with up to{' '}
+            <span className="font-semibold text-white/80">{MOVE_SLOTS} moves</span>{' '}
+            and the AI decides which to throw each turn. A pool layers its own
+            STAB attacks, element-themed coverage (which shifts with the sign, so
+            the same species plays differently run to run), a priority jab for
+            fast attackers, one matching setup move, and{' '}
+            <span className="font-semibold text-white/80">Recover</span> for bulky
+            mons — sustain lives in the moveset now, not the sign.
+          </p>
+        </Section>
+
+        <Section title="Turn order & the AI">
+          <p className="mb-2 text-[11px] leading-snug text-white/55">
+            Higher move priority (e.g. Quick Attack) always strikes first;
+            otherwise the faster Pokémon goes, with ties broken by a coin flip.
+            Each turn the AI walks a fixed checklist:
+          </p>
+          <ol className="space-y-1.5">
+            {AI_PRIORITY.map((a, i) => (
+              <li
+                key={a.step}
+                className="flex gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] p-2.5"
+              >
+                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white/10 text-[10px] font-black text-white/70">
+                  {i + 1}
+                </span>
+                <div>
+                  <span className="text-xs font-bold">{a.step}</span>
+                  <span className="ml-1.5 text-[11px] leading-snug text-white/55">
+                    {a.desc}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </Section>
+
+        <Section title="The damage formula">
+          <DamageMath />
         </Section>
 
         <Section title="Status conditions">
@@ -290,17 +386,13 @@ export function BattleGuide({ onClose }: { onClose: () => void }) {
             {STATUSES.map((s) => (
               <div
                 key={s.name}
-                className="flex items-start gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] p-2.5"
+                className="flex gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] p-2.5"
               >
-                {s.icon ? (
-                  <img
-                    src={s.icon}
-                    alt={s.name}
-                    className="mt-0.5 h-4 w-auto shrink-0 [image-rendering:pixelated]"
-                  />
-                ) : (
-                  <span className="text-lg leading-none">{s.glyph}</span>
-                )}
+                <img
+                  src={statusIconUrl(s.icon)}
+                  alt=""
+                  className="h-5 w-5 shrink-0 object-contain"
+                />
                 <div>
                   <span className="text-xs font-bold">{s.name}</span>
                   <span className="ml-1.5 text-[11px] leading-snug text-white/55">
@@ -314,22 +406,6 @@ export function BattleGuide({ onClose }: { onClose: () => void }) {
 
         <Section title="Type effectiveness">
           <TypeChartExplorer />
-        </Section>
-
-        <Section title="Battle basics">
-          <div className="space-y-1.5">
-            {BASICS.map((b) => (
-              <div
-                key={b.title}
-                className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5"
-              >
-                <span className="text-xs font-bold">{b.title}</span>
-                <span className="ml-1.5 text-[11px] leading-snug text-white/55">
-                  {b.desc}
-                </span>
-              </div>
-            ))}
-          </div>
         </Section>
 
         <button

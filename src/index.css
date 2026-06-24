@@ -212,6 +212,33 @@ body {
   animation: floaty 3s ease-in-out infinite;
 }
 
+/* A damage number that pops above a Pokémon's head and drifts up as it fades,
+   so it reads clearly without ever covering the sprite. The translateX(-50%)
+   in every keyframe preserves the horizontal centering the static utility class
+   would otherwise provide (a CSS animation's transform wins over it). */
+@keyframes damage-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.7);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -2px) scale(1.12);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(-50%, -7px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -26px) scale(1);
+  }
+}
+
+.animate-damage-pop {
+  animation: damage-pop 0.9s ease-out forwards;
+}
+
 .animate-marquee {
   animation: marquee 32s linear infinite;
   will-change: transform;

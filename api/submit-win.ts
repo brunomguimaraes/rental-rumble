@@ -63,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const entry: BoardEntryData = {
     clearedStages: Number(body.clearedStages) || 0,
-    team: verdict.team.map((c) => ({ id: c.id, role: c.role })),
+    team: verdict.team.map((c) => ({ id: c.id, sign: c.sign })),
     at: now,
   };
   // Upstash serializes objects to JSON automatically (and parses on read).

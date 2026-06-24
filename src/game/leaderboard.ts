@@ -1,6 +1,6 @@
-import type { Creature, Role } from './types';
-import { CREATURES_BY_ID, withRole } from './pokemon';
-import { ALL_ROLES } from './roles';
+import type { Creature, Sign } from './types';
+import { CREATURES_BY_ID, withSign } from './pokemon';
+import { ZODIAC_SIGNS } from './zodiac';
 import {
   buildChampionTeam,
   simulateBattle,
@@ -29,7 +29,7 @@ function champSeedForDate(date: string, bracket: BracketId): string {
  * The "first to beat today's boss" leaderboard.
  *
  * The whole game is deterministic, so the server can re-run the Champion fight
- * from a tiny, tamper-proof payload (species id + role only — never raw stats)
+ * from a tiny, tamper-proof payload (species id + sign only — never raw stats)
  * and accept a win only if its own simulation agrees. That keeps the board
  * honest even though the game runs entirely in the browser.
  */
@@ -42,7 +42,7 @@ export const LEADERBOARD_TOP = 25;
 /** A single team slot, identified canonically (server rebuilds the stats). */
 export interface SubmissionMon {
   id: string; // CREATURES id (string form of the National Dex id)
-  role: Role;
+  sign: Sign;
 }
 
 /** What the client POSTs after taking the crown. */
@@ -62,7 +62,7 @@ export interface LeaderboardEntry {
   name: string;
   at: number; // epoch ms of the verified win
   clearedStages: number;
-  team: SubmissionMon[]; // species + role, enough to re-fight the team
+  team: SubmissionMon[]; // species + sign, enough to re-fight the team
 }
 
 export interface LeaderboardResponse {
@@ -109,8 +109,8 @@ export function verifyChampionWin(payload: SubmissionPayload): VerifyResult {
     if (!mon || typeof mon.id !== 'string') {
       return { ok: false, reason: 'bad mon' };
     }
-    if (!ALL_ROLES.includes(mon.role)) {
-      return { ok: false, reason: 'bad role' };
+    if (!ZODIAC_SIGNS.includes(mon.sign)) {
+      return { ok: false, reason: 'bad sign' };
     }
     const base = CREATURES_BY_ID[mon.id];
     if (!base) return { ok: false, reason: `unknown mon ${mon.id}` };
@@ -119,7 +119,7 @@ export function verifyChampionWin(payload: SubmissionPayload): VerifyResult {
     if (!inBracket(base.dexId, bracket)) {
       return { ok: false, reason: `mon ${mon.id} is out of bracket` };
     }
-    playerTeam.push(withRole(base, mon.role));
+    playerTeam.push(withSign(base, mon.sign));
   }
 
   // The daily boss for this bracket: same team for everyone, built from the
@@ -141,7 +141,7 @@ export function verifyChampionWin(payload: SubmissionPayload): VerifyResult {
 }
 
 /**
- * Rebuild a playable team from its canonical (id + role) form — used both to
+ * Rebuild a playable team from its canonical (id + sign) form — used both to
  * verify a win and to let other players challenge a saved team for fun. Unknown
  * ids are skipped, so a stale entry can never crash a battle.
  */
@@ -150,7 +150,7 @@ export function teamFromMons(mons: SubmissionMon[]): Creature[] {
   for (const mon of mons) {
     const base = CREATURES_BY_ID[mon.id];
     if (!base) continue;
-    team.push(withRole(base, ALL_ROLES.includes(mon.role) ? mon.role : base.role));
+    team.push(withSign(base, ZODIAC_SIGNS.includes(mon.sign) ? mon.sign : base.sign));
   }
   return team;
 }
@@ -172,7 +172,7 @@ export function buildSubmission(args: {
     seed: args.seed,
     stage: args.stage,
     clearedStages: args.clearedStages,
-    team: args.team.map((c) => ({ id: c.id, role: c.role })),
+    team: args.team.map((c) => ({ id: c.id, sign: c.sign })),
   };
 }
 

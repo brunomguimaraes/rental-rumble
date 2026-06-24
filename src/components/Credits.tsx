@@ -5,10 +5,6 @@ const isUrl = (s: string) => /^https?:\/\//.test(s);
 
 const OTHER_SOURCES: { label: string; detail: string; href?: string }[] = [
   {
-    label: 'Battle sprites & team icons',
-    detail: 'Gen 9 Pokémon Essentials sprite pack',
-  },
-  {
     label: 'Gym / League badges',
     detail: 'Paldea badges, Bulbagarden Archives',
     href: 'https://archives.bulbagarden.net/wiki/Category:Badges',
@@ -154,9 +150,15 @@ export function Credits() {
             </ul>
 
             <p className="mt-5 text-xs leading-relaxed text-white/40">
-              Pokémon and all related sprites, names, and trademarks are ©
-              Nintendo / Game Freak. No copyright infringement intended; this
-              project is not for sale and earns nothing.
+              Rental Rumble is an unofficial, non-commercial fan project. It is
+              not affiliated with, endorsed, sponsored, or approved by Nintendo,
+              Game Freak, or The Pokémon Company, and does not own or claim any
+              rights to any Nintendo trademark or the Pokémon trademark. Pokémon
+              and all related sprites, names, and trademarks are © Nintendo /
+              Game Freak / The Pokémon Company. All such references are used for
+              commentary and informational purposes only. No copyright
+              infringement is intended; this project is not for sale and earns
+              nothing.
             </p>
           </div>
         </div>

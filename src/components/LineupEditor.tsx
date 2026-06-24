@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { Creature } from '../game/types';
-import { ROLE_INFO } from '../game/roles';
+import { signIconUrl, signLabel, signSummary } from '../game/zodiac';
 import { MiniSprite } from './MiniSprite';
 
 interface DragState {
@@ -163,7 +163,7 @@ export function LineupEditor({
               onPointerUp={endPress(i)}
               onPointerCancel={endPress(i)}
               onKeyDown={onKeyDown(i)}
-              title={`${c.name} · ${c.types.join('/')} · ${c.role}`}
+              title={`${c.name} · ${c.types.join('/')}\n${signSummary(c.sign)}`}
               className={`relative flex touch-none select-none flex-col items-center gap-1 rounded-xl border p-2 transition ${
                 isLead
                   ? 'border-amber-300/40 bg-amber-300/[0.06]'
@@ -185,9 +185,11 @@ export function LineupEditor({
               />
               <span className="pointer-events-none flex items-center gap-1 text-center text-xs font-semibold leading-tight">
                 {c.name}
-                <span className="text-[11px] text-white/60">
-                  {ROLE_INFO[c.role].glyph}
-                </span>
+                <img
+                  src={signIconUrl(c.sign)}
+                  alt={signLabel(c.sign)}
+                  className="h-3.5 w-3.5 object-contain opacity-80"
+                />
               </span>
             </div>
           );

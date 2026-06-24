@@ -1,6 +1,6 @@
 import type { Creature, SpecialTier } from '../game/types';
 import { TYPE_COLORS } from '../game/typechart';
-import { ROLE_INFO, ROLE_SPREAD } from '../game/roles';
+import { SIGN_INFO, SIGN_SPREAD, signIconUrl, signLabel, signSummary } from '../game/zodiac';
 import { TypeBadges } from './TypeBadge';
 
 const GOLD = '#f5c542';
@@ -12,8 +12,8 @@ const TIER_BADGE: Record<SpecialTier, string | null> = {
   pseudo: '◆ Pseudo',
 };
 
-// Stat bar showing the role-adjusted value (base × the role's spread multiplier),
-// with a small arrow + colour when the role tilts that stat up or down.
+// Stat bar showing the sign-adjusted value (base × the sign's spread multiplier),
+// with a small arrow + colour when the sign tilts that stat up or down.
 function StatBar({
   label,
   value,
@@ -38,7 +38,7 @@ function StatBar({
       title={
         mult === 1
           ? `${label}: ${adjusted}`
-          : `${label}: ${value} base → ${adjusted} as ${up ? 'boosted' : 'lowered'} by role (${
+          : `${label}: ${value} base → ${adjusted} as ${up ? 'boosted' : 'lowered'} by sign (${
               mult > 1 ? '+' : ''
             }${Math.round((mult - 1) * 100)}%)`
       }
@@ -78,7 +78,7 @@ export function CreatureCard({
   onReroll?: () => void;
 }) {
   const color = TYPE_COLORS[creature.types[0]];
-  const spread = ROLE_SPREAD[creature.role];
+  const spread = SIGN_SPREAD[creature.sign];
   const special = creature.tier !== 'normal';
   const accent = special ? GOLD : color;
   const clickable = Boolean(onClick) && (!disabled || selected);
@@ -173,9 +173,12 @@ export function CreatureCard({
 
       <div className="mt-1 flex items-center justify-between">
         <h3 className="text-sm font-bold">{creature.name}</h3>
-        <span className="text-[11px] text-white/50" title={creature.role}>
-          {ROLE_INFO[creature.role].glyph}
-        </span>
+        <img
+          src={signIconUrl(creature.sign)}
+          alt={signLabel(creature.sign)}
+          title={signSummary(creature.sign)}
+          className="h-4 w-4 object-contain opacity-70"
+        />
       </div>
       <div className="mt-1">
         <TypeBadges types={creature.types} />
@@ -189,12 +192,20 @@ export function CreatureCard({
 
       <div className="mt-2.5 border-t border-white/10 pt-2">
         <div className="flex items-center gap-1.5">
-          <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-white/80">
-            {ROLE_INFO[creature.role].glyph} {creature.role}
+          <span
+            className="inline-flex cursor-help items-center gap-1 rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-white/80"
+            title={signSummary(creature.sign)}
+          >
+            <img
+              src={signIconUrl(creature.sign)}
+              alt=""
+              className="h-3.5 w-3.5 object-contain"
+            />
+            {signLabel(creature.sign)}
           </span>
         </div>
         <p className="mt-1 text-[10px] leading-snug text-white/40">
-          {ROLE_INFO[creature.role].tagline}
+          {SIGN_INFO[creature.sign].tagline}
         </p>
       </div>
     </div>

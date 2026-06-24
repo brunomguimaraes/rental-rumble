@@ -1,4 +1,5 @@
-import type { AttackAnim, Move, PokemonType, Role } from './types';
+import type { AttackAnim, BaseStats, Move, PokemonType, Sign } from './types';
+import { SIGN_INFO, type Element } from './zodiac';
 
 const mk = (
   name: string,
@@ -108,6 +109,8 @@ const QUICK_ATTACK: Move = {
   accuracy: 1,
   priority: 1,
 };
+// Sustain. No longer granted by a role/sign — it's a regular move any
+// sufficiently bulky Pokémon can pack (see movesFor).
 const RECOVER = mk('Recover', 'normal', 0, 1, { kind: 'heal', amount: 0.3 });
 
 // Pure setup moves (power 0): sharply raise one of the user's own stat stages.
@@ -125,13 +128,29 @@ const AGILITY = mk('Agility', 'psychic', 0, 1, {
   chance: 1,
   target: 'self',
 });
+const IRON_DEFENSE = mk('Iron Defense', 'steel', 0, 1, {
+  kind: 'stage',
+  stat: 'def',
+  delta: 2,
+  chance: 1,
+  target: 'self',
+});
 
-// The setup move each offensive role brings to the table. Tanks (Recover) and
-// Support (coverage/utility) keep their existing fourth slot instead.
-const SETUP_FOR: Partial<Record<Role, Move>> = {
-  Sweeper: AGILITY, // already fast; doubling down on Speed snowballs sweeps
-  Bruiser: SWORDS_DANCE, // raw-power role wants the Attack boost
+// Off-type coverage offered by each element. Because a Pokémon's sign is rolled
+// per run, its element-themed coverage shifts run to run — part of what makes an
+// 8-move pool feel more varied than a fixed 4-move set. Each entry is a real
+// damaging move pulled from the type's kit.
+const ELEMENT_COVERAGE: Record<Element, PokemonType[]> = {
+  fire: ['fighting', 'rock'],
+  earth: ['rock', 'ground'],
+  air: ['flying', 'electric'],
+  water: ['ice', 'poison'],
 };
+
+/** Bulky enough to justify a sustain/defensive button (Recover, Iron Defense). */
+function isBulky(s: BaseStats): boolean {
+  return s.hp + s.def >= 170;
+}
 
 // Contact moves — punches, claws, bites, body checks and dashes — play a melee
 // "Strike" (dart in, hit, dart back).
@@ -182,33 +201,61 @@ export function attackAnimFor(move: Move): AttackAnim {
   return 'shoot';
 }
 
-/** Build a 4-move set from a creature's types and role. */
-export function movesFor(types: PokemonType[], role: Role): Move[] {
+/** How many moves a Pokémon carries. Deliberately wider than the games' 4 so
+ *  the AI has real choices and the same species plays differently across runs. */
+export const MOVE_SLOTS = 8;
+
+/**
+ * Build a Pokémon's move pool from its types, stats and sign. Unlike the
+ * canonical 4-move limit, every mon carries up to {@link MOVE_SLOTS} moves and
+ * the battle AI decides which to throw each turn (see chooseMove in battle.ts).
+ *
+ * The pool is layered, best-first so attacks are never crowded out:
+ *   1. STAB core — both moves of each of the mon's own types.
+ *   2. Coverage  — element-themed off-type attacks (driven by the sign, so it
+ *      shifts run to run).
+ *   3. Priority  — Quick Attack for genuinely fast attackers.
+ *   4. Setup     — one self-buff matched to the mon's strongest stat.
+ *   5. Sustain   — Recover for bulky mons (sign-independent now).
+ *   6. Filler    — Body Slam as a dependable Normal-type fallback.
+ */
+export function movesFor(
+  types: PokemonType[],
+  stats: BaseStats,
+  sign: Sign,
+): Move[] {
   const moves: Move[] = [];
+  const seen = new Set<string>();
+  const add = (m: Move | undefined) => {
+    if (!m || seen.has(m.name)) return;
+    seen.add(m.name);
+    moves.push(m);
+  };
 
-  const setup = SETUP_FOR[role];
-
-  if (types.length >= 2) {
-    const [a, b] = types;
-    moves.push(TYPE_MOVES[a][0], TYPE_MOVES[b][0], TYPE_MOVES[a][1]);
-    // Tanks trade their 4th slot for sustain; offensive roles for a setup move;
-    // Support keeps the extra coverage/utility move.
-    moves.push(role === 'Tank' ? RECOVER : (setup ?? TYPE_MOVES[b][1]));
-  } else {
-    const a = types[0];
-    moves.push(TYPE_MOVES[a][0], TYPE_MOVES[a][1]);
-    moves.push(role === 'Tank' ? RECOVER : BODY_SLAM);
-    // Sweepers get priority (Quick Attack); Bruisers a setup move; others filler.
-    moves.push(
-      role === 'Sweeper' ? QUICK_ATTACK : (setup ?? BODY_SLAM),
-    );
+  // 1) STAB core.
+  for (const t of types) {
+    add(TYPE_MOVES[t][0]);
+    add(TYPE_MOVES[t][1]);
   }
 
-  // De-duplicate (e.g. a Normal-type would otherwise get Body Slam twice).
-  const seen = new Set<string>();
-  return moves.filter((m) => {
-    if (seen.has(m.name)) return false;
-    seen.add(m.name);
-    return true;
-  });
+  // 2) Element-themed coverage for off-type reach.
+  for (const t of ELEMENT_COVERAGE[SIGN_INFO[sign].element]) {
+    if (!types.includes(t)) add(TYPE_MOVES[t][0]);
+  }
+
+  // 3) Priority for fast, hard-hitting attackers.
+  if (stats.spd >= 95 && stats.atk >= 80) add(QUICK_ATTACK);
+
+  // 4) A single setup move that plays to the mon's best stat.
+  if (stats.atk >= 100) add(SWORDS_DANCE);
+  else if (stats.spd >= 100) add(AGILITY);
+  else if (isBulky(stats)) add(IRON_DEFENSE);
+
+  // 5) Sustain for bulky mons.
+  if (isBulky(stats)) add(RECOVER);
+
+  // 6) Dependable filler.
+  add(BODY_SLAM);
+
+  return moves.slice(0, MOVE_SLOTS);
 }

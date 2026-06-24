@@ -4,16 +4,16 @@ import type {
   Creature,
   Move,
   PokemonType,
-  Role,
+  Sign,
   Side,
   StageStat,
   StatusKind,
 } from './types';
 import { effectiveness } from './typechart';
 import { RNG } from './rng';
-import { CREATURES, withRole } from './pokemon';
+import { CREATURES, withSign } from './pokemon';
 import { attackAnimFor } from './moves';
-import { ROLE_SPREAD, rollRole } from './roles';
+import { SIGN_SPREAD, rollSign } from './zodiac';
 import { rollOpponentBall } from './balls';
 import { famousTeamCreatures } from './specials';
 
@@ -24,7 +24,7 @@ export interface TransformInfo {
   dexId: number;
   name: string;
   types: PokemonType[];
-  role: Role;
+  sign: Sign;
   sprite: string; // front battle sprite
   back: string; // back battle sprite
 }
@@ -79,7 +79,7 @@ function otherStat(base: number): number {
 }
 
 export function makeBattler(creature: Creature, statMult = 1): Battler {
-  const spread = ROLE_SPREAD[creature.role];
+  const spread = SIGN_SPREAD[creature.sign];
   const maxHp = Math.floor(hpStat(creature.stats.hp) * spread.hp * statMult);
   return {
     creature,
@@ -101,19 +101,19 @@ function stageMult(stage: number): number {
 }
 
 function effectiveAtk(b: Battler, statMult: number): number {
-  const spread = ROLE_SPREAD[b.creature.role];
+  const spread = SIGN_SPREAD[b.creature.sign];
   return Math.floor(
     otherStat(b.creature.stats.atk) * spread.atk * statMult * stageMult(b.stages.atk),
   );
 }
 function effectiveDef(b: Battler, statMult: number): number {
-  const spread = ROLE_SPREAD[b.creature.role];
+  const spread = SIGN_SPREAD[b.creature.sign];
   return Math.floor(
     otherStat(b.creature.stats.def) * spread.def * statMult * stageMult(b.stages.def),
   );
 }
 function effectiveSpd(b: Battler, statMult: number): number {
-  const spread = ROLE_SPREAD[b.creature.role];
+  const spread = SIGN_SPREAD[b.creature.sign];
   const base =
     otherStat(b.creature.stats.spd) * spread.spd * statMult * stageMult(b.stages.spd);
   return b.status === 'stun' ? base * 0.6 : base;
@@ -425,7 +425,7 @@ export function simulateBattle(
     if (attacker.hp <= 0) return 'continue';
 
     // Ditto copies the opposing active Pokémon the first time it acts: types,
-    // stats, role and moves all become the foe's, so it fights as a mirror of
+    // stats, sign and moves all become the foe's, so it fights as a mirror of
     // whatever it's up against. HP stays Ditto's own (classic Transform), and
     // only this battler's copy mutates — the team's Creature is untouched, so a
     // recruited Ditto is still a Ditto. This is a free action; it then attacks.
@@ -447,7 +447,7 @@ export function simulateBattle(
           dexId: copy.dexId,
           name: copy.name,
           types: copy.types,
-          role: copy.role,
+          sign: copy.sign,
           sprite: copy.sprite,
           back: copy.back,
         },
@@ -796,11 +796,11 @@ function trainerPool(dex: Creature[]): Creature[] {
   return dex.filter((c) => c.tier !== 'legendary' && c.tier !== 'mythical');
 }
 
-// Opponents get auto-assigned roles with the same variance as the draft, plus a
+// Opponents get auto-assigned signs with the same variance as the draft, plus a
 // flavourful ball so their send-outs feel as lively as the player's.
-function assignRoles(list: Creature[], rng: RNG): Creature[] {
+function assignSigns(list: Creature[], rng: RNG): Creature[] {
   return list.map((c) => ({
-    ...withRole(c, rollRole(c.stats, rng)),
+    ...withSign(c, rollSign(c.stats, rng)),
     pokeball: rollOpponentBall(rng),
   }));
 }
@@ -822,7 +822,7 @@ export function buildOpponentTeam(
   if (team.length < size) {
     team.push(...rng.shuffle(offType).slice(0, size - team.length));
   }
-  return assignRoles(rng.shuffle(team), rng);
+  return assignSigns(rng.shuffle(team), rng);
 }
 
 /**
@@ -867,14 +867,14 @@ export function buildChampionTeam(
     if (!chosen.includes(c)) chosen.push(c);
   }
 
-  return assignRoles(rng.shuffle(chosen), rng);
+  return assignSigns(rng.shuffle(chosen), rng);
 }
 
 /**
  * Famous trainer team: the character's hand-picked, canonical roster (see
  * specials.ts), kept in its authored send-out order so the signature ace leads.
  * Used for any famous opponent — Gym Leaders (Brock), Elite Four (Lorelei) and
- * the "special" villain/gag cameos (James, Team Rocket). Roles/balls are rolled
+ * the "special" villain/gag cameos (James, Team Rocket). Signs/balls are rolled
  * from the seed, like any other foe. On a gen-locked run that filters out the
  * whole roster, we fall back to a type-themed squad so the fight still happens.
  */
@@ -890,5 +890,5 @@ export function buildFamousTeam(
   if (roster.length === 0) {
     return buildOpponentTeam(fallbackType, Math.max(1, size), 'special', seed, dex);
   }
-  return assignRoles(roster, rng);
+  return assignSigns(roster, rng);
 }

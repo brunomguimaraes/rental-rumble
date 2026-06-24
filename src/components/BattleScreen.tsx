@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { BattleEvent, BattleResult } from '../game/battle';
-import type { Creature, Opponent, PokemonType, Role, Side } from '../game/types';
+import type { Creature, Opponent, PokemonType, Sign, Side } from '../game/types';
 import { TYPE_COLORS, effectivenessLabel, typeIconUrl } from '../game/typechart';
-import { ROLE_INFO } from '../game/roles';
+import { signIconUrl, signLabel, signSummary } from '../game/zodiac';
 import { hasPmdSprite, type PmdAnimKind } from '../game/pmd';
 import { ballUrl } from '../game/balls';
 import { backdropFor } from '../game/backgrounds';
@@ -21,7 +21,7 @@ interface ActiveView {
   dexId: number;
   sprite: string;
   types: PokemonType[];
-  role: Role;
+  sign: Sign;
   ball: string;
   hp: number;
   maxHp: number;
@@ -66,7 +66,7 @@ function initialView(c: Creature, side: Side): ActiveView {
     dexId: c.dexId,
     sprite: spriteFor(c, side),
     types: c.types,
-    role: c.role,
+    sign: c.sign,
     ball: c.pokeball,
     hp: 0,
     maxHp: 1,
@@ -151,11 +151,16 @@ function Combatant({
         {hitFx && hitFx.side === side && (
           <span
             key={hitFx.key}
-            className="pointer-events-none absolute left-1/2 top-0 z-10 -translate-x-1/2 select-none text-xl font-black text-red-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
-            style={{ animation: 'floaty 0.6s ease-out' }}
+            className={`animate-damage-pop pointer-events-none absolute bottom-full left-1/2 z-30 mb-1 select-none whitespace-nowrap font-black tabular-nums drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)] ${
+              hitFx.crit
+                ? 'text-2xl text-amber-300'
+                : 'text-xl text-rose-300'
+            }`}
           >
             -{hitFx.amount}
-            {hitFx.crit ? '!' : ''}
+            {hitFx.crit && (
+              <span className="ml-0.5 align-top text-sm">CRIT</span>
+            )}
           </span>
         )}
         {/* The ball throw + open flash, replayed on each fresh send-out. */}
@@ -232,31 +237,37 @@ function InfoCard({
       className={`animate-card-in absolute z-10 w-40 rounded-2xl border border-white/10 bg-black/55 px-3 py-2 shadow-lg backdrop-blur-sm sm:w-52 ${className}`}
     >
       <div
-        className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 ${alignEnd ? 'justify-end' : ''}`}
+        className={`flex items-center gap-1.5 ${alignEnd ? 'flex-row-reverse' : ''}`}
       >
-        <span className="text-sm font-bold">{view.name}</span>
-        <span
-          className="text-[11px] text-white/55"
-          title={ROLE_INFO[view.role].tagline}
-        >
-          {ROLE_INFO[view.role].glyph} {view.role}
-        </span>
+        <span className="truncate text-sm font-bold">{view.name}</span>
+        <img
+          src={signIconUrl(view.sign)}
+          alt={signLabel(view.sign)}
+          title={signSummary(view.sign)}
+          className="h-4 w-4 shrink-0 cursor-help object-contain"
+        />
       </div>
       <div className={`mt-1 flex ${alignEnd ? 'justify-end' : ''}`}>
         <TypeBadges types={view.types} />
       </div>
       <div className="mt-1.5">
-        <HpBar hp={view.hp} maxHp={view.maxHp} />
+        <HpBar hp={view.hp} maxHp={view.maxHp} compact />
       </div>
-      <div className={`mt-1.5 flex gap-1 ${alignEnd ? 'justify-end' : ''}`}>
-        {Array.from({ length: teamSize }).map((_, i) => (
-          <span
-            key={i}
-            className={`h-2.5 w-2.5 rounded-full ${
-              i < teamSize - faints ? 'bg-white/80' : 'bg-white/15'
-            }`}
-          />
-        ))}
+      <div className="mt-1.5 flex items-center justify-between gap-2">
+        <span className="text-[11px] font-semibold tabular-nums text-white/75">
+          {Math.max(0, Math.ceil(view.hp))}
+          <span className="text-white/35"> / {view.maxHp}</span>
+        </span>
+        <div className="flex gap-1">
+          {Array.from({ length: teamSize }).map((_, i) => (
+            <span
+              key={i}
+              className={`h-2.5 w-2.5 rounded-full ${
+                i < teamSize - faints ? 'bg-white/80' : 'bg-white/15'
+              }`}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -356,7 +367,7 @@ export function BattleScreen({
           dexId: c.dexId,
           sprite: spriteFor(c, side),
           types: c.types,
-          role: c.role,
+          sign: c.sign,
           ball: c.pokeball,
           hp: fillBar ? 0 : full,
           maxHp,
@@ -422,7 +433,7 @@ export function BattleScreen({
           dexId: t.dexId,
           sprite: side === 'player' ? t.back : t.sprite,
           types: t.types,
-          role: t.role,
+          sign: t.sign,
         }));
         if (animate) (side === 'player' ? setPAnim : setFAnim)(IDLE);
         break;
@@ -496,12 +507,12 @@ export function BattleScreen({
           </button>
           <button
             type="button"
-            onClick={() => setSpeed((s) => (s === 1 ? 2 : 1))}
+            onClick={() => setSpeed((s) => (s === 1 ? 2 : s === 2 ? 4 : 1))}
             className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold transition hover:bg-white/10"
           >
             {speed}× speed
           </button>
-          {!finished && (
+          {import.meta.env.DEV && !finished && (
             <button
               type="button"
               onClick={skip}
