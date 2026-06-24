@@ -130,6 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           typeof rawMeta === 'string' ? safeParse(rawMeta) : rawMeta ?? {};
         return {
           rank: i + 1,
+          id: member,
           name: displayName(member, data),
           // Legacy entries (pre-difficulty) default to the normal mode.
           difficulty: data.difficulty ?? 'normal',
@@ -305,6 +306,7 @@ async function bracketLeader(
     total,
     leader: {
       rank: 1,
+      id: member,
       name: displayName(member, data),
       difficulty: data.difficulty ?? 'normal',
       at: Number(data.at) || 0,

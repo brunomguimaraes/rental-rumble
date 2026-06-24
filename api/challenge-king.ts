@@ -61,6 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     token?: unknown;
     name?: unknown;
     eid?: unknown;
+    kingEid?: unknown;
     date?: unknown;
     bracket?: unknown;
     seed?: unknown;
@@ -160,12 +161,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let kingMember: string | null = null;
     let kingData: Partial<BoardEntryData> | null = null;
-    for (const m of topMembers) {
-      const d = parseEntry(topMeta?.[m]);
-      if (d.difficulty === 'master') {
-        kingMember = m;
+
+    // Prefer the *exact* champion the challenger fought (their row id, echoed
+    // from the board). Re-simulating against that specific saved team — rather
+    // than "whoever is #1 right now" — means a king who got dethroned between
+    // the title shot and this request can't turn an honest win into a spurious
+    // mismatch. The fought row must still be a Master with a real team, so this
+    // can only ever target a legitimate crown holder. Falls back to the current
+    // top Master for old clients that don't send a kingEid.
+    const requestedKingEid =
+      typeof body.kingEid === 'string' ? body.kingEid : '';
+    if (requestedKingEid) {
+      const m = await redis.hmget<Record<string, BoardEntryData | string>>(
+        dataKey,
+        requestedKingEid,
+      );
+      const d = parseEntry(m?.[requestedKingEid]);
+      if (
+        d.difficulty === 'master' &&
+        Array.isArray(d.team) &&
+        d.team.length > 0
+      ) {
+        kingMember = requestedKingEid;
         kingData = d;
-        break;
+      }
+    }
+    if (!kingMember || !kingData) {
+      for (const m of topMembers) {
+        const d = parseEntry(topMeta?.[m]);
+        if (d.difficulty === 'master') {
+          kingMember = m;
+          kingData = d;
+          break;
+        }
       }
     }
     if (!kingMember || !kingData) {
@@ -238,10 +266,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Take the throne: slot the challenger just ahead of the champion they beat.
-    // The king held the best (earliest) Master time, so one tick earlier makes
-    // the challenger the new #1 Master — and, since Master is the top tier, the
-    // top of the whole board.
+    // Take the throne: slot the challenger one tick ahead of the exact champion
+    // they beat. In the common case that champion is the reigning #1, so this
+    // makes the challenger the new #1 Master (and, since Master is the top tier,
+    // the top of the whole board). If the crown changed hands mid-challenge, the
+    // challenger still lands just above the team they actually toppled.
     const kingAt = Number(kingData.at) || Date.now();
     const newAt = kingAt - 1;
     const score = boardScore('master', newAt);

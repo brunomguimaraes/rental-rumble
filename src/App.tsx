@@ -130,11 +130,12 @@ export default function App() {
       const result = simulateBattle(team, foeTeam, battleSeed, {
         playerStatMult: PLAYER_STAT_MULT,
         foeStatMult: TIER_STAT_MULT[opponent.tier] ?? 1,
+        difficulty,
       });
       return { foeTeam, result };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [phase, seed, stage, dex, bracket],
+    [phase, seed, stage, dex, bracket, difficulty],
   );
 
   // A throne fight is a fair mirror, replayed from the server-issued seed so the
@@ -172,6 +173,9 @@ export default function App() {
       token: throneToken,
       name: localStorage.getItem('lb-name') ?? '',
       eid: throneEid,
+      // Pin the exact champion we just fought, so the server verifies against
+      // their team — not whoever happens to be #1 by the time this lands.
+      kingEid: throneKing.id,
       date: dailyKey(),
       bracket,
       seed: throneSeed,

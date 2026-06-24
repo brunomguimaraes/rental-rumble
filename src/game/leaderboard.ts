@@ -1,5 +1,6 @@
-import type { Creature, Sign } from './types.js';
-import { CREATURES_BY_ID, withSign, asShiny } from './pokemon.js';
+import type { AbilityId, Creature, Sign } from './types.js';
+import { CREATURES_BY_ID, withSign, withAbility, asShiny } from './pokemon.js';
+import { isAbilityOption } from './abilities.js';
 import { ALL_SIGNS } from './zodiac.js';
 import {
   buildChampionTeam,
@@ -55,6 +56,11 @@ export interface SubmissionMon {
   // `sign` is — the deterministic re-sim must reproduce the client's exact fight,
   // and the board already rebuilds stats from these claimed attributes.
   shiny?: boolean;
+  // Which ability the slot was born with (species can have two, rolled at draft).
+  // Optional + validated against the species' legal options on rebuild, so a
+  // legacy payload falls back to the default and a forged one can't smuggle in
+  // an ability the species can't actually have. Trusted like `sign`/`shiny`.
+  ability?: AbilityId;
 }
 
 /** What the client POSTs after taking the crown. */
@@ -76,6 +82,11 @@ export interface SubmissionPayload {
 /** One row on the public board. */
 export interface LeaderboardEntry {
   rank: number; // 1-based
+  // The row's unique board id (sorted-set member). Lets a Throne Challenge pin
+  // the *exact* champion the player fought, so a king that gets dethroned
+  // mid-challenge can't turn an honest win into a spurious mismatch. Optional
+  // because some legacy/summary responses don't carry it.
+  id?: string;
   name: string;
   difficulty: Difficulty; // the mode this win was earned on
   at: number; // epoch ms of the verified win
@@ -220,7 +231,17 @@ export function verifyChampionWin(payload: SubmissionPayload): VerifyResult {
     if (!inBracket(base.dexId, bracket)) {
       return { ok: false, reason: `mon ${mon.id} is out of bracket` };
     }
-    const built = withSign(base, mon.sign);
+    let built = withSign(base, mon.sign);
+    // Apply the claimed ability, but only if it's one the species can legally be
+    // born with — otherwise reject, so a forged payload can't grant, say,
+    // Adaptability to a mon that never has it. A missing ability keeps the
+    // species default (legacy payloads).
+    if (mon.ability !== undefined) {
+      if (!isAbilityOption(base.dexId, mon.ability)) {
+        return { ok: false, reason: `bad ability for ${mon.id}` };
+      }
+      built = withAbility(built, mon.ability);
+    }
     playerTeam.push(mon.shiny ? asShiny(built) : built);
   }
 
@@ -234,6 +255,9 @@ export function verifyChampionWin(payload: SubmissionPayload): VerifyResult {
   const result = simulateBattle(playerTeam, foeTeam, `${seed}#${stage}`, {
     playerStatMult: PLAYER_STAT_MULT,
     foeStatMult: TIER_STAT_MULT.champion ?? 1,
+    // Must match the client's Champion fight: on Master the foe plays perfectly,
+    // on Easy it plays sloppily, so verification has to use the same difficulty.
+    difficulty,
   });
 
   if (result.winner !== 'player') {
@@ -252,7 +276,12 @@ export function teamFromMons(mons: SubmissionMon[]): Creature[] {
   for (const mon of mons) {
     const base = CREATURES_BY_ID[mon.id];
     if (!base) continue;
-    const built = withSign(base, ALL_SIGNS.includes(mon.sign) ? mon.sign : base.sign);
+    let built = withSign(base, ALL_SIGNS.includes(mon.sign) ? mon.sign : base.sign);
+    // Honour the claimed ability when it's legal for the species; otherwise keep
+    // the species default so a stale/odd entry still fights sensibly.
+    if (mon.ability !== undefined && isAbilityOption(base.dexId, mon.ability)) {
+      built = withAbility(built, mon.ability);
+    }
     team.push(mon.shiny ? asShiny(built) : built);
   }
   return team;
@@ -320,7 +349,12 @@ export function buildSubmission(args: {
     seed: args.seed,
     stage: args.stage,
     clearedStages: args.clearedStages,
-    team: args.team.map((c) => ({ id: c.id, sign: c.sign, shiny: c.shiny })),
+    team: args.team.map((c) => ({
+      id: c.id,
+      sign: c.sign,
+      shiny: c.shiny,
+      ability: c.ability,
+    })),
     token: args.token ?? null,
   };
 }
@@ -424,6 +458,10 @@ export async function challengeKing(payload: {
   /** The challenger's board row id (from the throne grant), so the right row is
    *  promoted when names repeat — used when no secret pins it in the token. */
   eid?: string;
+  /** The board row id of the champion the player actually fought. The server
+   *  re-simulates against this exact king (not "whoever is #1 now"), so a king
+   *  that changes mid-challenge can't reject an otherwise-honest win. */
+  kingEid?: string;
   date: string;
   bracket: BracketId;
   seed: string;
