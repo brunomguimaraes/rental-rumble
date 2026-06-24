@@ -105,6 +105,24 @@ export interface LeaderboardResponse {
   entries: LeaderboardEntry[];
 }
 
+/** Today's standing for a single era: its boss and current #1 finisher. */
+export interface BracketLeader {
+  bracket: BracketId;
+  champion: { name: string; type: string } | null;
+  total: number;
+  leader: LeaderboardEntry | null; // the day's first clear, if anyone has won
+}
+
+/**
+ * A one-shot digest of every era's board for the day — the top finisher (plus
+ * boss + total) per bracket — so the title screen can showcase "today's
+ * champions" without firing a fetch per era.
+ */
+export interface LeaderboardSummary {
+  date: string;
+  brackets: BracketLeader[];
+}
+
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
 export type VerifyResult =
@@ -294,6 +312,21 @@ export async function fetchLeaderboard(
     );
     if (!res.ok) return null;
     return (await res.json()) as LeaderboardResponse;
+  } catch {
+    return null;
+  }
+}
+
+/** Fetch every era's top finisher for the day in a single request. */
+export async function fetchLeaderboardSummary(
+  date: string,
+): Promise<LeaderboardSummary | null> {
+  try {
+    const res = await fetch(
+      `/api/leaderboard?summary=1&date=${encodeURIComponent(date)}`,
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as LeaderboardSummary;
   } catch {
     return null;
   }
