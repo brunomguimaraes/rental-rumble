@@ -1,6 +1,7 @@
 import type { Creature, Opponent } from './types';
 import { TYPE_COLORS, typeIconUrl, typeLabel } from './typechart';
 import { SIGN_INFO } from './zodiac';
+import { bracketCup, type BracketId } from './gens';
 
 // All assets are served from the same origin (public/sprites), so the canvas
 // never gets tainted and we can export the result as a PNG / share a File.
@@ -12,6 +13,9 @@ export interface ShareCardData {
   clearedStages: number;
   gauntlet: Opponent[];
   seed: string;
+  /** The generation bracket the run was played on — its Ribbon Cup becomes the
+   *  champion card's header emblem. */
+  bracket?: BracketId;
   /** Roster of the trainer who ended the run; drawn on the loss card. */
   fellToTeam?: Creature[];
 }
@@ -145,7 +149,11 @@ async function drawTypeChip(
 export async function renderShareCard(
   data: ShareCardData,
 ): Promise<HTMLCanvasElement> {
-  const { team, won, clearedStages, gauntlet, seed, fellToTeam = [] } = data;
+  const { team, won, clearedStages, gauntlet, seed, bracket = 'all', fellToTeam = [] } = data;
+
+  // On a win, the header emblem is the era's Ribbon Cup (the "trophy" for the
+  // mode you played); otherwise we fall back to the Poké Ball.
+  const cupSrc = won ? `${ASSET}sprites/ui/cup-${bracketCup(bracket)}.png` : null;
 
   // Trainer who ended the run (only meaningful on a loss).
   const fellTo = !won ? gauntlet[clearedStages] : null;
@@ -163,12 +171,13 @@ export async function renderShareCard(
   team.forEach((c) => c.types.forEach((t) => typeSet.add(t)));
   const typeList = [...typeSet];
 
-  const [portraits, typeIcons, pokeball, foeArt, foeMinis] = await Promise.all([
+  const [portraits, typeIcons, pokeball, cup, foeArt, foeMinis] = await Promise.all([
     Promise.all(
       team.map(async (c) => (await loadImage(c.portrait)) ?? loadImage(c.sprite)),
     ),
     Promise.all(typeList.map((t) => loadImage(typeIconUrl(t)))),
     loadImage(`${ASSET}sprites/ui/pokeball.png`),
+    cupSrc ? loadImage(cupSrc) : Promise.resolve(null),
     fellTo ? loadImage(fellTo.art) : Promise.resolve(null),
     Promise.all(fellToTeam.map((c) => loadImage(c.mini))),
   ]);
@@ -203,9 +212,16 @@ export async function renderShareCard(
   const cx = W / 2;
 
   // ---- Header -------------------------------------------------------------
-  if (pokeball) {
+  // On a win, crown the card with the era's Ribbon Cup (a small pixel-art
+  // sprite, so scale it up cleanly and keep its aspect). Otherwise: Poké Ball.
+  const emblem = cup ?? pokeball;
+  if (emblem) {
+    const box = 72;
+    const s = Math.min(box / emblem.width, box / emblem.height);
+    const ew = emblem.width * s;
+    const eh = emblem.height * s;
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(pokeball, cx - 30, 64, 60, 60);
+    ctx.drawImage(emblem, cx - ew / 2, 64 + (box - eh) / 2, ew, eh);
     ctx.imageSmoothingEnabled = true;
   }
   ctx.textAlign = 'center';
@@ -431,24 +447,27 @@ export async function renderShareCard(
   }
 
   // ---- Footer -------------------------------------------------------------
-  // Center the "SEED <value>" pair as one group.
-  const seedLabel = 'SEED';
-  const labelFont = `600 22px ${FONT}`;
-  const valueFont = `700 24px "SF Mono", ui-monospace, Menlo, monospace`;
-  ctx.textBaseline = 'alphabetic';
-  ctx.font = labelFont;
-  const labelW = ctx.measureText(seedLabel).width;
-  ctx.font = valueFont;
-  const valueW = ctx.measureText(seed).width;
-  const seedGap = 14;
-  const groupStart = cx - (labelW + seedGap + valueW) / 2;
-  ctx.textAlign = 'left';
-  ctx.font = labelFont;
-  ctx.fillStyle = 'rgba(255,255,255,0.4)';
-  ctx.fillText(seedLabel, groupStart, H - 80);
-  ctx.font = valueFont;
-  ctx.fillStyle = 'rgba(255,255,255,0.82)';
-  ctx.fillText(seed, groupStart + labelW + seedGap, H - 80);
+  // The champion card keeps its seed secret — only the loss card reveals the
+  // "SEED <value>" pair so others can rematch the same draft.
+  if (!won) {
+    const seedLabel = 'SEED';
+    const labelFont = `600 22px ${FONT}`;
+    const valueFont = `700 24px "SF Mono", ui-monospace, Menlo, monospace`;
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = labelFont;
+    const labelW = ctx.measureText(seedLabel).width;
+    ctx.font = valueFont;
+    const valueW = ctx.measureText(seed).width;
+    const seedGap = 14;
+    const groupStart = cx - (labelW + seedGap + valueW) / 2;
+    ctx.textAlign = 'left';
+    ctx.font = labelFont;
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText(seedLabel, groupStart, H - 80);
+    ctx.font = valueFont;
+    ctx.fillStyle = 'rgba(255,255,255,0.82)';
+    ctx.fillText(seed, groupStart + labelW + seedGap, H - 80);
+  }
 
   ctx.textAlign = 'center';
   ctx.fillStyle = won ? withAlpha(COLORS.gold, 0.9) : 'rgba(255,255,255,0.6)';

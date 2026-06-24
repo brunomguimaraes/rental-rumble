@@ -50,7 +50,7 @@ export function ResultScreen({
     let url: string | null = null;
     let alive = true;
     setBuilding(true);
-    renderShareBlob({ team, won, clearedStages, gauntlet, seed, fellToTeam: lostToTeam })
+    renderShareBlob({ team, won, clearedStages, gauntlet, seed, bracket, fellToTeam: lostToTeam })
       .then((blob) => {
         if (!alive) return;
         blobRef.current = blob;
