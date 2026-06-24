@@ -7,7 +7,7 @@ import {
   rollDraftDeck,
   type Difficulty,
 } from '../game/run';
-import { withBall } from '../game/pokemon';
+import { withBall, familyId } from '../game/pokemon';
 import { ballUrl } from '../game/balls';
 import { CreatureCard } from './CreatureCard';
 import { BallBadge, BallPicker } from './BallPicker';
@@ -91,9 +91,35 @@ export function DraftScreen({
 
   const showCoverageTip =
     (difficulty === 'easy' || difficulty === 'normal') && !done;
-  // Each pick and each skip burns one trio off the front of the deck.
-  const cursor = (picked.length + skipsUsed) * DRAFT_CHOICES;
-  const choices = deck.slice(cursor, cursor + DRAFT_CHOICES);
+
+  // Build the trio on offer by walking the deterministic deck. A team can't hold
+  // two members of the same evolutionary line, so once you've picked a mon every
+  // card in its family is hidden — we skip past it and draw the next fresh card
+  // instead of ever showing it. We replay every past decision (each pick or skip
+  // consumes one trio) so the deck position and the current trio are derived
+  // purely from `deck`, `history` and `picked` — which makes undo trivially
+  // correct. Picks only ever *add* family blocks, so a card hidden now stays
+  // hidden, meaning a consumed card never needs to reappear later in the draft.
+  const choices = useMemo(() => {
+    const blocked = new Set<number>();
+    let deckIndex = 0;
+    let pickIndex = 0;
+    const takeTrio = (): Creature[] => {
+      const trio: Creature[] = [];
+      while (deckIndex < deck.length && trio.length < DRAFT_CHOICES) {
+        const card = deck[deckIndex++];
+        if (!blocked.has(familyId(card.dexId))) trio.push(card);
+      }
+      return trio;
+    };
+    for (const move of history) {
+      takeTrio(); // burn the trio that decision was made on
+      if (move.kind === 'pick') {
+        blocked.add(familyId(picked[pickIndex++].dexId));
+      }
+    }
+    return takeTrio();
+  }, [deck, history, picked]);
 
   const pick = (c: Creature) => {
     if (done) return;
@@ -287,7 +313,7 @@ export function DraftScreen({
           <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
             {choices.map((c, i) => (
               <CreatureCard
-                key={`${c.id}-${cursor}-${i}`}
+                key={`${c.id}-${history.length}-${i}`}
                 creature={c}
                 onClick={() => pick(c)}
               />

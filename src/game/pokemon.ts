@@ -235,6 +235,63 @@ export function canEvolve(creature: Creature, bracket?: BracketId): boolean {
 }
 
 /**
+ * Map every species to a stable "family id" — the lowest National Dex id in its
+ * evolutionary line, treating EVOLUTIONS as an undirected graph. Two species
+ * share a family when one evolves into the other at any distance, so Bulbasaur,
+ * Ivysaur and Venusaur all resolve to 1, and branched lines (Eevee, Wurmple, …)
+ * collapse into a single family too. A species with no relatives is its own
+ * family. Built once at module load by flood-filling connected components.
+ */
+const FAMILY_OF: Map<number, number> = (() => {
+  const adjacency = new Map<number, Set<number>>();
+  const link = (a: number, b: number) => {
+    if (!adjacency.has(a)) adjacency.set(a, new Set());
+    if (!adjacency.has(b)) adjacency.set(b, new Set());
+    adjacency.get(a)!.add(b);
+    adjacency.get(b)!.add(a);
+  };
+  for (const [fromId, targets] of Object.entries(EVOLUTIONS)) {
+    for (const to of targets) link(Number(fromId), to);
+  }
+
+  const family = new Map<number, number>();
+  const visited = new Set<number>();
+  for (const start of adjacency.keys()) {
+    if (visited.has(start)) continue;
+    const stack = [start];
+    const component: number[] = [];
+    visited.add(start);
+    while (stack.length > 0) {
+      const node = stack.pop()!;
+      component.push(node);
+      for (const next of adjacency.get(node) ?? []) {
+        if (!visited.has(next)) {
+          visited.add(next);
+          stack.push(next);
+        }
+      }
+    }
+    const root = Math.min(...component);
+    for (const node of component) family.set(node, root);
+  }
+  return family;
+})();
+
+/**
+ * Stable id shared by every member of a species' evolutionary line. Species with
+ * no (shipped) evolutions are their own family, so this is always defined — which
+ * makes it a safe key for "one per evolutionary line on a team" rules.
+ */
+export function familyId(dexId: number): number {
+  return FAMILY_OF.get(dexId) ?? dexId;
+}
+
+/** Whether two species belong to the same evolutionary line. */
+export function sameFamily(a: number, b: number): boolean {
+  return familyId(a) === familyId(b);
+}
+
+/**
  * Evolve a creature into one of its next stages, carrying over its hard-won
  * identity: the same zodiac sign (so its stat tilt & move flavour persist) and
  * the same cosmetic ball. Stats, types, tier and moves become the new species'.

@@ -162,10 +162,14 @@ export function rollPool(seed: string, dex: Creature[] = CREATURES): Creature[] 
 
 /**
  * Upper bound on cards a single draft can reveal: one trio per team slot plus
- * the most generous skip budget, with a little headroom. The deck is sliced to
- * this length so we never roll the whole dex up front.
+ * the most generous skip budget, with generous headroom. The deck is sliced to
+ * this length so we never roll the whole dex up front. The headroom is deliberately
+ * large because the draft hides any card sharing an evolutionary line with a mon
+ * you've already picked (no two members of the same family on one team) — those
+ * hidden cards are still drawn off the deck, so a heavily-family-blocked draft
+ * burns through more of it than the bare pick + skip count would suggest.
  */
-const DRAFT_DECK_SIZE = (TEAM_SIZE + 8) * DRAFT_CHOICES;
+const DRAFT_DECK_SIZE = (TEAM_SIZE + 24) * DRAFT_CHOICES;
 
 /**
  * Deterministically build the ordered deck a sequential draft draws from. The

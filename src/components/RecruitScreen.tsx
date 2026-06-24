@@ -9,6 +9,7 @@ import {
   asShiny,
   canBeShiny,
   withRandomPortrait,
+  sameFamily,
 } from '../game/pokemon';
 import { rerollSign, forcedRareSign } from '../game/zodiac';
 import { allRareEnabled, allShinyEnabled } from '../game/dev';
@@ -94,6 +95,16 @@ export function RecruitScreen({
     return view;
   };
   const defeatedView = defeatedTeam.map(recruitView);
+
+  // A team can't hold two members of the same evolutionary line. Recruiting swaps
+  // a foe into one slot, so a slot is only a legal target if no *other* slot
+  // already holds a mon from the foe's family — letting you swap a foe onto its
+  // own line (e.g. trade your Ivysaur for their Venusaur) while still blocking a
+  // duplicate line. A foe with no legal slot at all can't be recruited.
+  const recruitSlotAllowed = (foe: Creature, slot: number) =>
+    currentTeam.every((c, j) => j === slot || !sameFamily(c.dexId, foe.dexId));
+  const canRecruitFoe = (foe: Creature) =>
+    currentTeam.some((_, slot) => recruitSlotAllowed(foe, slot));
 
   const anyEvolvable = currentTeam.some((c) => canEvolve(c, bracket));
 
@@ -206,15 +217,19 @@ export function RecruitScreen({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               {resultTeam.map((c, i) => {
                 const armed = foeIdx !== null;
+                // While a foe is armed, only slots that wouldn't leave the team
+                // with two members of the foe's evolutionary line are tappable.
+                const allowed = armed && recruitSlotAllowed(defeatedView[foeIdx], i);
                 const swapped = recruitDone && i === recruitSlot;
                 return (
                   <div
                     key={`${c.id}-${i}`}
-                    className={`relative rounded-2xl ${armed ? 'ring-2 ring-emerald-300/60' : ''}`}
+                    className={`relative rounded-2xl ${allowed ? 'ring-2 ring-emerald-300/60' : ''}`}
                   >
                     <CreatureCard
                       creature={c}
-                      onClick={armed ? () => setRecruitSlot(i) : undefined}
+                      disabled={armed && !allowed}
+                      onClick={allowed ? () => setRecruitSlot(i) : undefined}
                     />
                     {swapped && <Tag color="emerald" text="RECRUITED" />}
                   </div>
@@ -228,17 +243,29 @@ export function RecruitScreen({
               {opponentName}'s Pokémon
             </h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              {defeatedView.map((c, i) => (
-                <CreatureCard
-                  key={i}
-                  creature={c}
-                  selected={foeIdx === i}
-                  onClick={() => {
-                    setFoeIdx(foeIdx === i ? null : i);
-                    setRecruitSlot(null);
-                  }}
-                />
-              ))}
+              {defeatedView.map((c, i) => {
+                // Every team slot already belongs to this foe's line, so taking it
+                // would unavoidably duplicate that line — it can't be recruited.
+                const recruitable = canRecruitFoe(c);
+                return (
+                  <div key={i} className="relative rounded-2xl">
+                    <CreatureCard
+                      creature={c}
+                      selected={foeIdx === i}
+                      disabled={!recruitable}
+                      onClick={
+                        recruitable
+                          ? () => {
+                              setFoeIdx(foeIdx === i ? null : i);
+                              setRecruitSlot(null);
+                            }
+                          : undefined
+                      }
+                    />
+                    {!recruitable && <Tag color="slate" text="ON TEAM" />}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </>
