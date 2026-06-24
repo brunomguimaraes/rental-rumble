@@ -629,10 +629,10 @@ export function BattleScreen({
       </div>
 
       <div className="relative mt-4 min-h-[360px] flex-1 overflow-hidden rounded-3xl border border-white/10">
-        {/* Battle backdrop (pixel-art, kept crisp) + a subtle darkening pass so
-            sprites and cards stay readable over any background. */}
+        {/* Battle backdrop (smooth-scaled illustration) + a subtle darkening
+            pass so sprites and cards stay readable over any background. */}
         <div
-          className="absolute inset-0 bg-cover bg-center [image-rendering:pixelated]"
+          className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: `url(${bg})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/15 to-black/40" />

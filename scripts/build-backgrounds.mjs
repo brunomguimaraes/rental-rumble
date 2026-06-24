@@ -5,8 +5,10 @@
 //
 // The sheet is a 4×4 grid of distinct biome scenes separated by thin white
 // gridlines (the last cell is intentionally blank). Each tile is cropped with a
-// small inset to skip the seams, then upscaled with a nearest-neighbour filter
-// so the pixel art stays crisp when the arena stretches it.
+// small inset to skip the seams, then upscaled with a smooth (Lanczos) filter:
+// these are detailed illustrations, not true low-res pixel art, so a smooth
+// resample reads far better than nearest-neighbour, which only magnifies each
+// source pixel into a hard block.
 //
 // Requires ImageMagick (`magick`). Run: node scripts/build-backgrounds.mjs
 import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
@@ -26,7 +28,7 @@ const SHEET_H = 576;
 const CELL_W = SHEET_W / COLS; // 256
 const CELL_H = SHEET_H / ROWS; // 144
 const INSET = 6; // px trimmed off every edge to skip the white gridlines
-const UPSCALE = 4; // nearest-neighbour multiplier for crisp pixel art
+const UPSCALE = 4; // smooth (Lanczos) multiplier — see crop loop below
 
 // [row, col, key]. Each natural biome maps to one scene; the final cell (3,3)
 // is blank on the sheet and intentionally omitted.
@@ -71,7 +73,7 @@ for (const [row, col, key] of SCENES) {
     SHEET,
     '-crop', `${w}x${h}+${x}+${y}`,
     '+repage',
-    '-filter', 'point',
+    '-filter', 'Lanczos',
     '-resize', `${UPSCALE * 100}%`,
     join(outDir, `${key}.png`),
   ]);
@@ -91,4 +93,4 @@ export type Background = (typeof BACKGROUNDS)[number];
 `;
 writeFileSync(join(root, 'src/game/backgrounds.gen.ts'), ts);
 
-console.log(`backgrounds: ${keys.length} scene backdrops sliced and upscaled ${UPSCALE}×.`);
+console.log(`backgrounds: ${keys.length} scene backdrops sliced and smooth-scaled ${UPSCALE}×.`);
