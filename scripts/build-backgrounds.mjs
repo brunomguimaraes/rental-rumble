@@ -1,13 +1,13 @@
-// Slices the woodland battle-background strip into per-time-of-day backdrops the
+// Slices the pixel-art battle-background sheets into per-scene backdrops the
 // battle screen can pick from:
-//   public/sprites/backgrounds/<key>.png — one pixel-art scene per time band
+//   public/sprites/backgrounds/<key>.png — one pixel-art scene per key
 // and emits src/game/backgrounds.gen.ts listing the pool of available keys.
 //
-// The source is a 768×192 horizontal strip of three adjacent panels — the same
-// woodland clearing at day, afternoon and night. Unlike the earlier illustrated
-// sheet, these are true low-res pixel art, so each panel is upscaled with a
-// nearest-neighbour ("point") filter to keep the pixels crisp when the arena
-// stretches it.
+// Each source sheet is a grid of distinct panels (most biomes ship a
+// day/afternoon/night triplet; the cave ships four colour variants). These are
+// true low-res pixel art, so panels are upscaled with a nearest-neighbour
+// ("point") filter at an integer factor to keep the pixels crisp when the arena
+// stretches them — never blurred.
 //
 // Requires ImageMagick (`magick`). Run: node scripts/build-backgrounds.mjs
 import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
@@ -16,64 +16,126 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SHEET = process.env.BG_SHEET || join(root, 'assets/woodland-bg-src.png');
 const outDir = join(root, 'public/sprites/backgrounds');
+const TARGET_H = 768; // every panel is upscaled toward this height (integer ×)
 
-// Sheet geometry. The source is 768×192, three adjacent 256×192 panels with no
-// seams between them.
-const COLS = 3;
-const ROWS = 1;
-const SHEET_W = 768;
-const SHEET_H = 192;
-const CELL_W = SHEET_W / COLS; // 256
-const CELL_H = SHEET_H / ROWS; // 192
-const UPSCALE = 4; // nearest-neighbour multiplier — true pixel art, kept crisp
-
-// [row, col, key]. The three time-of-day variants, left to right.
-const SCENES = [
-  [0, 0, 'woodland-day'],
-  [0, 1, 'woodland-afternoon'],
-  [0, 2, 'woodland-night'],
+// Per-sheet geometry. `cellW`/`cellH` are the panel size in source pixels;
+// `gapX`/`gapY` are seam widths between panels (0 unless the artist drew thin
+// separators). `panels` lists the cells we actually use as [row, col, key];
+// cells left out (blanks, alt time-of-day we don't wire up) are simply skipped.
+const SHEETS = [
+  // 768×192 horizontal triplets, day → afternoon → night, left to right.
+  {
+    file: 'woodland-bg-src.png',
+    cellW: 256, cellH: 192,
+    panels: [
+      [0, 0, 'woodland-day'], [0, 1, 'woodland-afternoon'], [0, 2, 'woodland-night'],
+    ],
+  },
+  {
+    file: 'plains-bg-src.png',
+    cellW: 256, cellH: 192,
+    panels: [
+      [0, 0, 'plains-day'], [0, 1, 'plains-afternoon'], [0, 2, 'plains-night'],
+    ],
+  },
+  // 322×585 vertical triplet, day → afternoon → night, top to bottom.
+  {
+    file: 'mountain-bg-src.png',
+    cellW: 322, cellH: 195,
+    panels: [
+      [0, 0, 'mountain-day'], [1, 0, 'mountain-afternoon'], [2, 0, 'mountain-night'],
+    ],
+  },
+  // 320×578 vertical triplet with thin 1px seams (192 + 1 + 192 + 1 + 192).
+  {
+    file: 'autumn-bg-src.png',
+    cellW: 320, cellH: 192, gapY: 1,
+    panels: [
+      [0, 0, 'autumn-day'], [1, 0, 'autumn-afternoon'], [2, 0, 'autumn-night'],
+    ],
+  },
+  // 323×780 vertical strip of four colour variants, top to bottom.
+  {
+    file: 'cave-bg-src.png',
+    cellW: 323, cellH: 195,
+    panels: [
+      [0, 0, 'cave-blue'], [1, 0, 'cave-sand'], [2, 0, 'cave-snow'], [3, 0, 'cave-lava'],
+    ],
+  },
+  // 1024×768 2×2: day (top-left), afternoon/sunset (top-right), night
+  // (bottom-left). The bottom-right dawn variant is left unused.
+  {
+    file: 'cliff-bg-src.png',
+    cellW: 512, cellH: 384,
+    panels: [
+      [0, 0, 'cliff-day'], [0, 1, 'cliff-afternoon'], [1, 0, 'cliff-night'],
+    ],
+  },
+  // 768×384 3×2. Top-left day; bottom-middle sunset → afternoon; bottom-right
+  // night. The storm/dusk panels and the blank bottom-left cell are skipped.
+  {
+    file: 'pier-bg-src.png',
+    cellW: 256, cellH: 192,
+    panels: [
+      [0, 0, 'pier-day'], [1, 1, 'pier-afternoon'], [1, 2, 'pier-night'],
+    ],
+  },
+  // 768×576 3×3: three scenes (grass meadow, stadium court, town plaza), each a
+  // day/afternoon/night row.
+  {
+    file: 'fields-bg-src.png',
+    cellW: 256, cellH: 192,
+    panels: [
+      [0, 0, 'meadow-day'], [0, 1, 'meadow-afternoon'], [0, 2, 'meadow-night'],
+      [1, 0, 'court-day'], [1, 1, 'court-afternoon'], [1, 2, 'court-night'],
+      [2, 0, 'town-day'], [2, 1, 'town-afternoon'], [2, 2, 'town-night'],
+    ],
+  },
 ];
 
 function magick(args) {
   execFileSync('magick', args, { stdio: ['ignore', 'ignore', 'inherit'] });
 }
 
-if (!existsSync(SHEET)) {
-  console.error(`Woodland background strip not found at ${SHEET}. Set BG_SHEET.`);
-  process.exit(1);
-}
-
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
 
 const keys = [];
-for (const [row, col, key] of SCENES) {
-  const x = col * CELL_W;
-  const y = row * CELL_H;
-  magick([
-    SHEET,
-    '-crop', `${CELL_W}x${CELL_H}+${x}+${y}`,
-    '+repage',
-    '-filter', 'point',
-    '-resize', `${UPSCALE * 100}%`,
-    join(outDir, `${key}.png`),
-  ]);
-  keys.push(key);
+for (const sheet of SHEETS) {
+  const src = join(root, 'assets', sheet.file);
+  if (!existsSync(src)) {
+    console.error(`Background sheet not found: ${src}`);
+    process.exit(1);
+  }
+  const { cellW, cellH, gapX = 0, gapY = 0, x0 = 0, y0 = 0 } = sheet;
+  const scale = Math.max(1, Math.round(TARGET_H / cellH));
+  for (const [row, col, key] of sheet.panels) {
+    const x = x0 + col * (cellW + gapX);
+    const y = y0 + row * (cellH + gapY);
+    magick([
+      src,
+      '-crop', `${cellW}x${cellH}+${x}+${y}`,
+      '+repage',
+      '-filter', 'point',
+      '-resize', `${scale * 100}%`,
+      join(outDir, `${key}.png`),
+    ]);
+    keys.push(key);
+  }
 }
 
-const list = (arr) => arr.map((k) => `  '${k}',`).join('\n');
+const list = keys.map((k) => `  '${k}',`).join('\n');
 const ts = `// AUTO-GENERATED by scripts/build-backgrounds.mjs — do not edit by hand.
 // Battle backdrop keys, each a file at public/sprites/backgrounds/<key>.png,
-// sliced from the woodland background strip. Selection logic (which variant a
-// battle uses) lives in src/game/backgrounds.ts.
+// sliced from the pixel-art battle-background sheets. Selection logic (which
+// scene a battle uses) lives in src/game/backgrounds.ts.
 export const BACKGROUNDS = [
-${list(keys)}
+${list}
 ] as const;
 
 export type Background = (typeof BACKGROUNDS)[number];
 `;
 writeFileSync(join(root, 'src/game/backgrounds.gen.ts'), ts);
 
-console.log(`backgrounds: ${keys.length} woodland backdrops sliced and upscaled ${UPSCALE}×.`);
+console.log(`backgrounds: ${keys.length} backdrops sliced from ${SHEETS.length} sheets.`);
