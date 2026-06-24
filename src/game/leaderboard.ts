@@ -336,6 +336,13 @@ export function buildSubmission(args: {
 export interface ThroneGrant {
   token: string | null;
   seed: string;
+  /**
+   * The challenger's board row id for this win. Echoed back to `challenge-king`
+   * so the exact row is promoted — names can repeat (arcade-style board), so a
+   * name match alone could pick the wrong row. The signed token also carries it
+   * when a secret is configured; this covers the no-secret path.
+   */
+  eid?: string;
 }
 
 export interface SubmitResult {
@@ -414,6 +421,9 @@ export async function submitWin(
 export async function challengeKing(payload: {
   token?: string | null;
   name: string;
+  /** The challenger's board row id (from the throne grant), so the right row is
+   *  promoted when names repeat — used when no secret pins it in the token. */
+  eid?: string;
   date: string;
   bracket: BracketId;
   seed: string;

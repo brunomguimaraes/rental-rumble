@@ -77,6 +77,9 @@ export default function App() {
   const [throneKing, setThroneKing] = useState<LeaderboardEntry | null>(null);
   const [throneSeed, setThroneSeed] = useState<string>('');
   const [throneToken, setThroneToken] = useState<string | null>(null);
+  // The challenger's board row id for this title shot, echoed to the server so
+  // it promotes the exact row (names can repeat on the arcade-style board).
+  const [throneEid, setThroneEid] = useState<string>('');
   const [throneWon, setThroneWon] = useState(false);
   const [throneSubmitting, setThroneSubmitting] = useState(false);
   const [throneResult, setThroneResult] = useState<ChallengeKingResult | null>(
@@ -149,6 +152,7 @@ export default function App() {
     if (foeTeam.length === 0) return;
     setThroneToken(grant.token);
     setThroneSeed(grant.seed);
+    setThroneEid(grant.eid ?? '');
     setThroneKing(king);
     setThroneResult(null);
     setThroneWon(false);
@@ -167,6 +171,7 @@ export default function App() {
     const result = await challengeKing({
       token: throneToken,
       name: localStorage.getItem('lb-name') ?? '',
+      eid: throneEid,
       date: dailyKey(),
       bracket,
       seed: throneSeed,

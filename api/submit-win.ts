@@ -198,6 +198,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const throneSeed = newSeed();
       throne = {
         seed: throneSeed,
+        // Echo this win's exact row id so the challenge promotes the right row
+        // even when the name repeats (and when no secret pins it in the token).
+        eid,
         token: secret
           ? signThroneToken(
               {
