@@ -336,9 +336,9 @@ export function TitleScreen({
         <button
           type="button"
           onClick={onViewHistory}
-          className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/75 transition hover:bg-white/10"
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/75 transition hover:bg-white/10"
         >
-          🏆 Hall of Champions
+          <CupIcon cup="tough" className="h-4 w-4" /> Hall of Champions
         </button>
         <button
           type="button"
