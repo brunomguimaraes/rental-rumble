@@ -191,20 +191,22 @@ export function CreatureCard({
       )}
 
       <div className="flex items-start justify-between">
-        <div
-          className="relative grid h-16 w-16 place-items-center overflow-hidden rounded-xl"
-          style={{
-            background: `${accent}1f`,
-            border: `1px solid ${accent}66`,
-          }}
-        >
-          <img
-            src={creature.portrait}
-            alt={creature.name}
-            loading="lazy"
-            onError={(e) => handleImgError(e, creature.sprite)}
-            className="h-16 w-16 rounded-xl object-cover drop-shadow"
-          />
+        <div className="relative h-16 w-16">
+          <div
+            className="grid h-16 w-16 place-items-center overflow-hidden rounded-xl"
+            style={{
+              background: `${accent}1f`,
+              border: `1px solid ${accent}66`,
+            }}
+          >
+            <img
+              src={creature.portrait}
+              alt={creature.name}
+              loading="lazy"
+              onError={(e) => handleImgError(e, creature.sprite)}
+              className="h-16 w-16 rounded-xl object-cover drop-shadow"
+            />
+          </div>
           {shiny && (
             <span
               title="Shiny — a rare colour variant with a flat stat boost"
