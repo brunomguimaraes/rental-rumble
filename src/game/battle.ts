@@ -12,7 +12,7 @@ import type {
 import { effectiveness } from './typechart.js';
 import { RNG } from './rng.js';
 import { CREATURES, withSign, SHINY_STAT_MULT } from './pokemon.js';
-import { attackAnimFor } from './moves.js';
+import { attackAnimFor, HEAL_DECAY } from './moves.js';
 import { SIGN_SPREAD, rollSign, bestRareSign } from './zodiac.js';
 import { rollOpponentBall } from './balls.js';
 import { famousTeamCreatures } from './specials.js';
@@ -101,6 +101,7 @@ export function makeBattler(creature: Creature, statMult = 1): Battler {
     confusion: 0,
     stages: { atk: 0, def: 0, spd: 0 },
     pp,
+    healsUsed: 0,
   };
 }
 
@@ -582,9 +583,13 @@ export function simulateBattle(
       return 'continue';
     }
 
-    // Self-heal move.
+    // Self-heal move. Diminishing returns: each successive heal this battle
+    // restores HEAL_DECAY as much as the last, so two healers can't trade
+    // near-full Recovers into a stalemate (see Battler.healsUsed / HEAL_DECAY).
     if (move.effect?.kind === 'heal') {
-      const heal = Math.floor(attacker.maxHp * move.effect.amount);
+      const amount = move.effect.amount * HEAL_DECAY ** attacker.healsUsed;
+      attacker.healsUsed += 1;
+      const heal = Math.floor(attacker.maxHp * amount);
       attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal);
       push({
         kind: 'heal',

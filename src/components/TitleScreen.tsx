@@ -1,10 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   DIFFICULTIES,
   DIFFICULTY_INFO,
   gauntletLength,
   type Difficulty,
 } from '../game/run';
+import {
+  fetchLeaderboardSummary,
+  type LeaderboardSummary,
+} from '../game/leaderboard';
 import {
   GEN_BRACKETS,
   bracketDex,
@@ -22,7 +26,7 @@ import { PrivacyPolicy } from './PrivacyPolicy';
 import { SupportLinks } from './SupportLinks';
 import { DiscordLink } from './DiscordLink';
 import { BattleGuide } from './BattleGuide';
-import { ChampionSpotlight } from './ChampionSpotlight';
+import { ChampionSpotlight, BracketRankCard } from './ChampionSpotlight';
 
 export function TitleScreen({
   onStart,
@@ -60,6 +64,26 @@ export function TitleScreen({
   };
 
   const isAll = bracket === 'all';
+
+  // Today's standings for every era, fetched once and shared between the
+  // rotating spotlight and the per-mode rank card below the boss.
+  const [summary, setSummary] = useState<LeaderboardSummary | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetchLeaderboardSummary(dailyKey()).then((s) => {
+      if (alive) setSummary(s);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // The current #1 for the selected era, if anyone has cleared it today.
+  const bracketLeader = useMemo(
+    () =>
+      summary?.brackets.find((b) => b.bracket === bracket)?.leader ?? null,
+    [summary, bracket],
+  );
 
   // Today's Champion for the chosen era. Every bracket has its own daily boss
   // (name + team), shared by everyone all day; `all` is the original full-dex
@@ -99,7 +123,7 @@ export function TitleScreen({
       {/* Live "today's champions" teaser — the first players to topple each
           era's daily boss, auto-rotating. Falls back to boss hype when no board
           has been cleared yet. Tapping it opens the full ladder. */}
-      <ChampionSpotlight onViewLadder={onViewLadder} />
+      <ChampionSpotlight onViewLadder={onViewLadder} summary={summary} />
 
       {/* Generation bracket picker — locks the whole run (draft pool and every
           foe, Champion included) to an era's dex, with its own daily board. */}
@@ -193,6 +217,14 @@ export function TitleScreen({
             </div>
           </div>
         )}
+
+        {/* The selected era's current #1 — shown right under the boss so the
+            score to beat is visible the moment you pick a mode. */}
+        <BracketRankCard
+          bracket={bracket}
+          leader={bracketLeader}
+          onViewLadder={onViewLadder}
+        />
       </div>
 
       {/* Difficulty picker */}

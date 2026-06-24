@@ -156,6 +156,10 @@ export interface Battler {
   // Remaining uses for any move that carries a `pp` cap (keyed by move name).
   // Moves without a cap are absent here and may be used freely.
   pp: Record<string, number>;
+  // How many times this battler has self-healed (Recover) so far this battle.
+  // Drives diminishing returns: each successive heal restores less, so two
+  // healers can't drag a fight out by trading near-full Recovers forever.
+  healsUsed: number;
 }
 
 export type Side = 'player' | 'foe';

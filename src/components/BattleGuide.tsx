@@ -61,7 +61,7 @@ const STATUSES: { name: string; icon: string; desc: string }[] = [
 // The AI's fixed decision order each turn (mirrors chooseMove in battle.ts).
 const AI_PRIORITY: { step: string; desc: string }[] = [
   { step: 'Guaranteed KO', desc: 'If any move (priority first) is forecast to faint the foe, take it.' },
-  { step: 'Heal', desc: 'Below 35% HP, there is a 60% chance to use a sustain move like Recover — but Recover runs out after 5 uses, so walls can no longer heal forever.' },
+  { step: 'Heal', desc: 'Below 35% HP, there is a 60% chance to use a sustain move like Recover — but each heal restores less than the last (the first is biggest), and Recover runs out after 5 uses, so two walls can no longer out-heal each other forever.' },
   { step: 'Set up', desc: 'Above 60% HP and not yet stacked, a 40% chance to buff a stat (Swords Dance, Agility, Iron Defense).' },
   { step: 'Spread status', desc: 'Against an unafflicted foe, a 35% chance to fish for burn / paralysis / poison / sleep.' },
   { step: 'Best damage', desc: 'Otherwise throw the move with the highest forecast damage vs. this defender (coverage matters).' },

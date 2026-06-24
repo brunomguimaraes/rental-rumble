@@ -534,7 +534,7 @@ export async function renderShareCard(
   ctx.fillStyle = won ? withAlpha(COLORS.gold, 0.9) : 'rgba(255,255,255,0.6)';
   ctx.font = `700 24px ${FONT}`;
   ctx.fillText(
-    won ? 'Same seed, same gauntlet — can you take the crown too?' : 'Same seed, same draft pool — can you do better?',
+    won ? 'Same gauntlet — can you take the crown too?' : 'Same draft pool — can you do better?',
     cx,
     H - 44,
   );

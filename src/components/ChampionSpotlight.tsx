@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   fetchLeaderboardSummary,
   type BracketLeader,
+  type LeaderboardEntry,
   type LeaderboardSummary,
 } from '../game/leaderboard';
 import { buildChampion, dailyKey } from '../game/opponents';
-import { bracketById, bracketCup, type CupId } from '../game/gens';
+import { bracketById, bracketCup, type BracketId, type CupId } from '../game/gens';
 import { miniUrl } from '../game/pokemon';
 import { DIFFICULTY_INFO, type Difficulty } from '../game/run';
 import { CupIcon } from './CupIcon';
@@ -60,21 +61,31 @@ function MiniIcon({ dexId }: { dexId: number }) {
  */
 export function ChampionSpotlight({
   onViewLadder,
+  summary: summaryProp,
 }: {
   onViewLadder: () => void;
+  /**
+   * Pre-fetched summary supplied by the parent. When provided, the spotlight
+   * reuses it instead of firing its own request, so the title screen can share
+   * one fetch across the spotlight and the per-mode rank card. Omit it to keep
+   * the component self-fetching (its original standalone behaviour).
+   */
+  summary?: LeaderboardSummary | null;
 }) {
-  const [summary, setSummary] = useState<LeaderboardSummary | null>(null);
+  const [fetched, setFetched] = useState<LeaderboardSummary | null>(null);
+  const summary = summaryProp !== undefined ? summaryProp : fetched;
   const [idx, setIdx] = useState(0);
 
   useEffect(() => {
+    if (summaryProp !== undefined) return; // parent owns the data
     let alive = true;
     fetchLeaderboardSummary(dailyKey()).then((s) => {
-      if (alive) setSummary(s);
+      if (alive) setFetched(s);
     });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [summaryProp]);
 
   const slides = useMemo<BracketLeader[]>(() => {
     if (!summary) return [];
@@ -210,6 +221,72 @@ export function ChampionSpotlight({
           View ladder →
         </span>
       </div>
+    </button>
+  );
+}
+
+/**
+ * The selected era's current #1 finisher, pinned beneath the day's boss so a
+ * player eyeing a specific mode immediately sees the name, mode and team to
+ * beat — without waiting for the spotlight to rotate around to it. Renders
+ * nothing until someone has actually cleared that bracket today.
+ */
+export function BracketRankCard({
+  bracket,
+  leader,
+  onViewLadder,
+}: {
+  bracket: BracketId;
+  leader: LeaderboardEntry | null;
+  onViewLadder: () => void;
+}) {
+  if (!leader) return null;
+  const accent = CUP_ACCENT[bracketCup(bracket)] ?? '#f5c542';
+
+  return (
+    <button
+      type="button"
+      onClick={onViewLadder}
+      aria-label="View today’s ladder"
+      className="group mt-2 flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition hover:brightness-110"
+      style={{ borderColor: `${accent}55`, background: `${accent}12` }}
+    >
+      <div
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-xl"
+        style={{ background: `${accent}1f` }}
+      >
+        <span
+          className="text-sm leading-none text-amber-300"
+          style={{ fontFamily: PIXEL_FONT }}
+        >
+          1
+        </span>
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div
+          className="text-[10px] font-bold uppercase tracking-widest"
+          style={{ color: accent }}
+        >
+          Today’s #1
+        </div>
+        <div className="truncate font-black leading-tight text-white">
+          {leader.name}
+        </div>
+        {leader.team.length > 0 && (
+          <div className="mt-1 flex gap-0.5">
+            {leader.team.slice(0, 6).map((m, i) => (
+              <MiniIcon key={i} dexId={Number(m.id)} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <span
+        className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${DIFFICULTY_PILL[leader.difficulty]}`}
+      >
+        {DIFFICULTY_INFO[leader.difficulty].label}
+      </span>
     </button>
   );
 }

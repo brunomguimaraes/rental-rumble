@@ -4,6 +4,7 @@ import { TIER_LABEL, isTypeThemed, opponentAccent } from '../game/opponents';
 import { TypeBadge } from './TypeBadge';
 import { TrainerSprite } from './TrainerSprite';
 import { LineupEditor } from './LineupEditor';
+import { DEV } from '../game/dev';
 
 export function MapScreen({
   gauntlet,
@@ -145,11 +146,13 @@ export function MapScreen({
       {/* Anchored action bar */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#0c0c14]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-5xl flex-col-reverse items-stretch gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
-          <div className="self-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs sm:self-auto">
-            <span className="text-white/40">seed</span>{' '}
-            <span className="font-mono text-white/80">{seed}</span>
-          </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          {DEV && (
+            <div className="self-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs sm:self-auto">
+              <span className="text-white/40">seed</span>{' '}
+              <span className="font-mono text-white/80">{seed}</span>
+            </div>
+          )}
+          <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:items-center">
             {currentOpp.skippable && (
               <button
                 type="button"

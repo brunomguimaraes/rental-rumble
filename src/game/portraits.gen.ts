@@ -133,7 +133,7 @@ export const PORTRAIT_EMOTIONS: Record<number, string[]> = {
   129: ["Angry", "Crying", "Determined", "Dizzy", "Happy", "Inspired", "Joyous", "Normal", "Pain", "Sad", "Shouting", "Sigh", "Stunned", "Surprised", "Teary-Eyed", "Worried"],
   130: ["Angry", "Crying", "Determined", "Dizzy", "Happy", "Inspired", "Joyous", "Normal", "Pain", "Sad", "Shouting", "Sigh", "Stunned", "Surprised", "Teary-Eyed", "Worried"],
   131: ["Angry", "Crying", "Determined", "Dizzy", "Happy", "Inspired", "Joyous", "Normal", "Pain", "Sad", "Shouting", "Sigh", "Stunned", "Surprised", "Teary-Eyed", "Worried"],
-  132: ["Angry", "Crying", "Determined", "Dizzy", "Happy", "Inspired", "Joyous", "Normal", "Pain", "Sad", "Shouting", "Sigh", "Special0", "Stunned", "Surprised", "Teary-Eyed", "Worried"],
+  132: ["Angry", "Crying", "Determined", "Dizzy", "Happy", "Inspired", "Joyous", "Normal", "Pain", "Sad", "Shouting", "Sigh", "Stunned", "Surprised", "Teary-Eyed", "Worried"],
   133: ["Angry", "Crying", "Determined", "Dizzy", "Happy", "Inspired", "Joyous", "Normal", "Pain", "Sad", "Shouting", "Sigh", "Stunned", "Surprised", "Teary-Eyed", "Worried"],
   134: ["Angry", "Crying", "Determined", "Dizzy", "Happy", "Inspired", "Joyous", "Normal", "Pain", "Sad", "Shouting", "Sigh", "Stunned", "Surprised", "Teary-Eyed", "Worried"],
   135: ["Angry", "Crying", "Determined", "Dizzy", "Happy", "Inspired", "Joyous", "Normal", "Pain", "Sad", "Shouting", "Sigh", "Stunned", "Surprised", "Teary-Eyed", "Worried"],

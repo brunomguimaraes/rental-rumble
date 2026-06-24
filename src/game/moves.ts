@@ -34,7 +34,7 @@ export function moveEffectLabel(effect: MoveEffect): string {
     case 'confuse':
       return effect.chance >= 1 ? 'Confuses the foe' : `${pct(effect.chance)} confuse`;
     case 'heal':
-      return `Heals ${Math.round(effect.amount * 100)}% HP`;
+      return `Heals up to ${Math.round(effect.amount * 100)}% HP (less each repeat)`;
     case 'lifesteal':
       return `Drains ${Math.round(effect.fraction * 100)}% of damage`;
     case 'stage': {
@@ -159,6 +159,12 @@ const QUICK_ATTACK: Move = {
 // two bulky walls (e.g. Chansey) can't out-heal each other into an endless
 // stalemate — once the heals dry up, the fight is decided on damage.
 export const HEAL_PP = 5;
+// Diminishing returns on repeated self-heals within a single battle: every
+// Recover after the first restores HEAL_DECAY as much as the previous one
+// (heal #n = amount * HEAL_DECAY^(n-1)). The first heal still bites for the
+// full amount, but a healer-vs-healer war decays fast instead of stalling —
+// applied in battle.ts where the heal is resolved (see Battler.healsUsed).
+export const HEAL_DECAY = 0.65;
 const RECOVER: Move = {
   ...mk('Recover', 'normal', 0, 1, { kind: 'heal', amount: 0.3 }),
   pp: HEAL_PP,
