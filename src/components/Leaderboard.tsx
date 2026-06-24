@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Creature } from '../game/types';
-import { miniUrl } from '../game/pokemon';
+import { portraitUrl, spriteUrl } from '../game/pokemon';
 import { GEN_BRACKETS, bracketById, type BracketId } from '../game/gens';
 import { DIFFICULTY_INFO, type Difficulty } from '../game/run';
 import { CupIcon } from './CupIcon';
@@ -19,7 +19,23 @@ function timeLabel(at: number): string {
   });
 }
 
-const medal = ['🥇', '🥈', '🥉'];
+// Top three placements get the podium palette (gold / silver / bronze); the
+// rest are a quiet white. Everyone's placement is drawn in the chunky 8-bit
+// game font for a little arcade-scoreboard flavour.
+const RANK_COLOR = ['text-amber-300', 'text-slate-200', 'text-[#cd7f32]'];
+
+function RankNum({ rank }: { rank: number }) {
+  return (
+    <span
+      className={`w-9 shrink-0 text-center text-[11px] leading-none ${
+        RANK_COLOR[rank - 1] ?? 'text-white/45'
+      }`}
+      style={{ fontFamily: "'Press Start 2P', 'Courier New', monospace" }}
+    >
+      {rank}
+    </span>
+  );
+}
 
 // Colour-coded pill per mode, so a Master win visibly outranks an Easy one.
 const DIFFICULTY_BADGE: Record<Difficulty, string> = {
@@ -40,16 +56,26 @@ function DifficultyBadge({ difficulty }: { difficulty: Difficulty }) {
   );
 }
 
-/** A single team miniature rendered straight from a National Dex id. */
-function MiniIcon({ dexId }: { dexId: number }) {
+/**
+ * A single team member shown as its PMD-style portrait — more characterful than
+ * the box icon. Species without a contributed portrait fall back to the front
+ * battle sprite (kept crisp).
+ */
+function TeamPortrait({ dexId }: { dexId: number }) {
   return (
-    <div
-      className="h-6 w-6 bg-no-repeat [image-rendering:pixelated]"
-      style={{
-        backgroundImage: `url(${miniUrl(dexId)})`,
-        backgroundSize: '200% 100%',
-        backgroundPosition: 'left center',
+    <img
+      src={portraitUrl(dexId)}
+      alt=""
+      loading="lazy"
+      onError={(e) => {
+        const img = e.currentTarget;
+        const fallback = spriteUrl(dexId);
+        if (img.src !== fallback) {
+          img.src = fallback;
+          img.classList.add('[image-rendering:pixelated]');
+        }
       }}
+      className="h-7 w-7 rounded-md border border-white/10 bg-white/5 object-cover"
     />
   );
 }
@@ -268,16 +294,17 @@ export function Leaderboard({
                 key={`${e.rank}-${e.name}`}
                 className="flex items-center gap-2 px-3 py-2"
               >
-                <span className="w-7 shrink-0 text-center text-sm font-bold text-white/70">
-                  {medal[e.rank - 1] ?? e.rank}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
+                <RankNum rank={e.rank} />
+                <span
+                  title={e.name}
+                  className="min-w-0 max-w-[8rem] flex-1 truncate text-sm font-semibold text-white"
+                >
                   {e.name}
                 </span>
                 <DifficultyBadge difficulty={e.difficulty} />
-                <div className="hidden shrink-0 items-center gap-0.5 sm:flex">
+                <div className="hidden shrink-0 items-center gap-1 sm:flex">
                   {e.team.slice(0, 6).map((mon, i) => (
-                    <MiniIcon key={i} dexId={Number(mon.id)} />
+                    <TeamPortrait key={i} dexId={Number(mon.id)} />
                   ))}
                 </div>
                 <span className="hidden w-12 shrink-0 text-right text-xs tabular-nums text-white/40 sm:block">
