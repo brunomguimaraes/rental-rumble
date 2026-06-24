@@ -1,6 +1,6 @@
 import type { Creature, SpecialTier } from '../game/types';
 import { TYPE_COLORS } from '../game/typechart';
-import { ROLE_INFO } from '../game/roles';
+import { ROLE_INFO, ROLE_SPREAD } from '../game/roles';
 import { TypeBadges } from './TypeBadge';
 
 const GOLD = '#f5c542';
@@ -12,29 +12,48 @@ const TIER_BADGE: Record<SpecialTier, string | null> = {
   pseudo: '◆ Pseudo',
 };
 
+// Stat bar showing the role-adjusted value (base × the role's spread multiplier),
+// with a small arrow + colour when the role tilts that stat up or down.
 function StatBar({
   label,
   value,
+  mult = 1,
   max = 160,
 }: {
   label: string;
   value: number;
+  mult?: number;
   max?: number;
 }) {
-  const pct = Math.min(100, (value / max) * 100);
+  const adjusted = Math.round(value * mult);
+  const pct = Math.min(100, (adjusted / max) * 100);
+  const up = mult > 1.001;
+  const down = mult < 0.999;
+  const fill = up ? 'bg-emerald-400/70' : down ? 'bg-rose-400/70' : 'bg-white/55';
+  const numColor = up ? 'text-emerald-300' : down ? 'text-rose-300' : 'text-white/60';
+  const arrow = up ? '▲' : down ? '▼' : '';
   return (
-    <div className="flex items-center gap-1.5">
+    <div
+      className="flex items-center gap-1.5"
+      title={
+        mult === 1
+          ? `${label}: ${adjusted}`
+          : `${label}: ${value} base → ${adjusted} as ${up ? 'boosted' : 'lowered'} by role (${
+              mult > 1 ? '+' : ''
+            }${Math.round((mult - 1) * 100)}%)`
+      }
+    >
       <span className="w-6 shrink-0 text-[10px] uppercase tracking-wider text-white/45 sm:w-7">
         {label}
       </span>
       <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/10">
-        <div
-          className="h-full rounded-full bg-white/55"
-          style={{ width: `${pct}%` }}
-        />
+        <div className={`h-full rounded-full ${fill}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="w-6 shrink-0 text-right text-[10px] tabular-nums text-white/60 sm:w-7">
-        {value}
+      <span
+        className={`flex w-8 shrink-0 items-center justify-end gap-0.5 text-[10px] tabular-nums sm:w-9 ${numColor}`}
+      >
+        {arrow && <span className="text-[7px] leading-none">{arrow}</span>}
+        {adjusted}
       </span>
     </div>
   );
@@ -59,6 +78,7 @@ export function CreatureCard({
   onReroll?: () => void;
 }) {
   const color = TYPE_COLORS[creature.types[0]];
+  const spread = ROLE_SPREAD[creature.role];
   const special = creature.tier !== 'normal';
   const accent = special ? GOLD : color;
   const clickable = Boolean(onClick) && (!disabled || selected);
@@ -161,10 +181,10 @@ export function CreatureCard({
         <TypeBadges types={creature.types} />
       </div>
       <div className="mt-2 space-y-1">
-        <StatBar label="HP" value={creature.stats.hp} />
-        <StatBar label="ATK" value={creature.stats.atk} />
-        <StatBar label="DEF" value={creature.stats.def} />
-        <StatBar label="SPD" value={creature.stats.spd} />
+        <StatBar label="HP" value={creature.stats.hp} mult={spread.hp} />
+        <StatBar label="ATK" value={creature.stats.atk} mult={spread.atk} />
+        <StatBar label="DEF" value={creature.stats.def} mult={spread.def} />
+        <StatBar label="SPD" value={creature.stats.spd} mult={spread.spd} />
       </div>
 
       <div className="mt-2.5 border-t border-white/10 pt-2">

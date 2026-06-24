@@ -36,12 +36,19 @@ const TYPE_MOVES: Record<PokemonType, [Move, Move]> = {
     mk('Icicle Crash', 'ice', 85, 0.9, { kind: 'stun', chance: 0.3 }),
   ],
   fighting: [
-    mk('Close Combat', 'fighting', 100, 1),
+    // Close Combat lowers the user's own Defense as it connects.
+    mk('Close Combat', 'fighting', 100, 1, {
+      kind: 'stage',
+      stat: 'def',
+      delta: -1,
+      chance: 1,
+      target: 'self',
+    }),
     mk('Drain Punch', 'fighting', 75, 1, { kind: 'lifesteal', fraction: 0.5 }),
   ],
   poison: [
-    mk('Sludge Bomb', 'poison', 90, 1, { kind: 'burn', chance: 0.3 }),
-    mk('Poison Jab', 'poison', 80, 1, { kind: 'burn', chance: 0.2 }),
+    mk('Sludge Bomb', 'poison', 90, 1, { kind: 'poison', chance: 0.3 }),
+    mk('Toxic', 'poison', 0, 0.9, { kind: 'poison', chance: 1 }),
   ],
   ground: [
     mk('Earthquake', 'ground', 100, 1),
@@ -53,7 +60,7 @@ const TYPE_MOVES: Record<PokemonType, [Move, Move]> = {
   ],
   psychic: [
     mk('Psychic', 'psychic', 90, 1),
-    mk('Zen Headbutt', 'psychic', 80, 0.9, { kind: 'stun', chance: 0.2 }),
+    mk('Hypnosis', 'psychic', 0, 0.75, { kind: 'sleep', chance: 1 }),
   ],
   bug: [
     mk('Bug Buzz', 'bug', 90, 1),
@@ -72,8 +79,15 @@ const TYPE_MOVES: Record<PokemonType, [Move, Move]> = {
     mk('Dragon Claw', 'dragon', 80, 1),
   ],
   dark: [
-    mk('Dark Pulse', 'dark', 80, 1, { kind: 'stun', chance: 0.2 }),
-    mk('Crunch', 'dark', 80, 1),
+    mk('Dark Pulse', 'dark', 80, 1, { kind: 'confuse', chance: 0.2 }),
+    // Crunch has a chance to drop the target's Defense.
+    mk('Crunch', 'dark', 80, 1, {
+      kind: 'stage',
+      stat: 'def',
+      delta: -1,
+      chance: 0.3,
+      target: 'foe',
+    }),
   ],
   steel: [
     mk('Iron Head', 'steel', 80, 1, { kind: 'stun', chance: 0.3 }),
@@ -86,8 +100,38 @@ const TYPE_MOVES: Record<PokemonType, [Move, Move]> = {
 };
 
 const BODY_SLAM = TYPE_MOVES.normal[0];
-const QUICK_ATTACK = mk('Quick Attack', 'normal', 40, 1);
+// Priority move: always strikes before slower foes (and ties) regardless of Speed.
+const QUICK_ATTACK: Move = {
+  name: 'Quick Attack',
+  type: 'normal',
+  power: 40,
+  accuracy: 1,
+  priority: 1,
+};
 const RECOVER = mk('Recover', 'normal', 0, 1, { kind: 'heal', amount: 0.3 });
+
+// Pure setup moves (power 0): sharply raise one of the user's own stat stages.
+const SWORDS_DANCE = mk('Swords Dance', 'normal', 0, 1, {
+  kind: 'stage',
+  stat: 'atk',
+  delta: 2,
+  chance: 1,
+  target: 'self',
+});
+const AGILITY = mk('Agility', 'psychic', 0, 1, {
+  kind: 'stage',
+  stat: 'spd',
+  delta: 2,
+  chance: 1,
+  target: 'self',
+});
+
+// The setup move each offensive role brings to the table. Tanks (Recover) and
+// Support (coverage/utility) keep their existing fourth slot instead.
+const SETUP_FOR: Partial<Record<Role, Move>> = {
+  Sweeper: AGILITY, // already fast; doubling down on Speed snowballs sweeps
+  Bruiser: SWORDS_DANCE, // raw-power role wants the Attack boost
+};
 
 // Contact moves — punches, claws, bites, body checks and dashes — play a melee
 // "Strike" (dart in, hit, dart back).
@@ -142,16 +186,22 @@ export function attackAnimFor(move: Move): AttackAnim {
 export function movesFor(types: PokemonType[], role: Role): Move[] {
   const moves: Move[] = [];
 
+  const setup = SETUP_FOR[role];
+
   if (types.length >= 2) {
     const [a, b] = types;
     moves.push(TYPE_MOVES[a][0], TYPE_MOVES[b][0], TYPE_MOVES[a][1]);
-    // Tanks trade their 4th coverage slot for sustain.
-    moves.push(role === 'Tank' ? RECOVER : TYPE_MOVES[b][1]);
+    // Tanks trade their 4th slot for sustain; offensive roles for a setup move;
+    // Support keeps the extra coverage/utility move.
+    moves.push(role === 'Tank' ? RECOVER : (setup ?? TYPE_MOVES[b][1]));
   } else {
     const a = types[0];
     moves.push(TYPE_MOVES[a][0], TYPE_MOVES[a][1]);
     moves.push(role === 'Tank' ? RECOVER : BODY_SLAM);
-    moves.push(role === 'Sweeper' ? QUICK_ATTACK : BODY_SLAM);
+    // Sweepers get priority (Quick Attack); Bruisers a setup move; others filler.
+    moves.push(
+      role === 'Sweeper' ? QUICK_ATTACK : (setup ?? BODY_SLAM),
+    );
   }
 
   // De-duplicate (e.g. a Normal-type would otherwise get Body Slam twice).

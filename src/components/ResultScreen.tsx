@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Creature, Opponent } from '../game/types';
 import { renderShareBlob } from '../game/shareCard';
+import { dailyKey } from '../game/opponents';
+import type { LeaderboardEntry } from '../game/leaderboard';
+import type { BracketId } from '../game/gens';
+import { Leaderboard } from './Leaderboard';
+import { SupportLinks } from './SupportLinks';
 
 export function ResultScreen({
   gauntlet,
@@ -8,14 +13,19 @@ export function ResultScreen({
   team,
   seed,
   clearedStages,
+  bracket,
   onPlayAgain,
+  onChallenge,
 }: {
   gauntlet: Opponent[];
   won: boolean;
   team: Creature[];
   seed: string;
   clearedStages: number;
+  /** The generation bracket this run was locked to (drives which board it ranks on). */
+  bracket: BracketId;
   onPlayAgain: () => void;
+  onChallenge?: (entry: LeaderboardEntry) => void;
 }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [building, setBuilding] = useState(true);
@@ -168,6 +178,26 @@ export function ResultScreen({
         </button>
       </div>
       <div className="mt-2 h-4 text-xs text-white/45">{shareNote}</div>
+
+      <Leaderboard
+        date={dailyKey()}
+        runBracket={bracket}
+        canSubmit={won}
+        run={{
+          seed,
+          stage: gauntlet.length - 1,
+          clearedStages,
+          team,
+        }}
+        onChallenge={onChallenge}
+      />
+
+      <div className="mt-8">
+        <p className="mb-2 text-xs text-white/40">
+          Enjoying Rental Rumble? Help keep it running:
+        </p>
+        <SupportLinks />
+      </div>
     </div>
   );
 }

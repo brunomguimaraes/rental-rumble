@@ -50,3 +50,63 @@ export function creaturesForGens(gens: Generation[]): Creature[] {
 export function genCount(gen: Generation): number {
   return CREATURES.reduce((n, c) => (genOf(c.dexId) === gen ? n + 1 : n), 0);
 }
+
+/* -------------------------------------------------------------------------- */
+/* Generation brackets                                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The five playable "era" brackets. Each is cumulative (a superset of the one
+ * before it) and maps to the console era / childhood cohort a player grew up
+ * with — the strongest predictor of a fan's favourite generation. Picking a
+ * bracket locks the *entire* run (draft pool and every foe, Champion included)
+ * to that era's dex, and each bracket keeps its own daily Champion and board.
+ * `all` is the standard, full-dex main mode.
+ */
+export type BracketId = 'kanto' | 'gb' | 'ds' | '3ds' | 'all';
+
+export interface GenBracket {
+  id: BracketId;
+  /** Headline name shown on the picker tile. */
+  label: string;
+  /** One-line era hook shown under the label. */
+  tag: string;
+  /** Short label for compact leaderboard tabs. */
+  tab: string;
+  /** Generations included in this bracket. */
+  gens: Generation[];
+}
+
+export const GEN_BRACKETS: GenBracket[] = [
+  { id: 'kanto', label: 'The Original 151', tag: 'Game Boy · Kanto', tab: '151', gens: [1] },
+  { id: 'gb', label: 'Game Boy Era', tag: 'Kanto + Johto', tab: 'I–II', gens: [1, 2] },
+  { id: 'ds', label: 'DS Golden Age', tag: 'through Sinnoh', tab: 'I–IV', gens: [1, 2, 3, 4] },
+  { id: '3ds', label: '3DS Era', tag: 'through Kalos', tab: 'I–VI', gens: [1, 2, 3, 4, 5, 6] },
+  { id: 'all', label: 'Full Dex', tag: 'Every region · main mode', tab: 'All', gens: GENERATIONS },
+];
+
+/** The standard, full-dex main mode — the default selection. */
+export const DEFAULT_BRACKET: BracketId = 'all';
+
+const BRACKET_BY_ID: Record<BracketId, GenBracket> = Object.fromEntries(
+  GEN_BRACKETS.map((b) => [b.id, b]),
+) as Record<BracketId, GenBracket>;
+
+export function isBracketId(x: unknown): x is BracketId {
+  return typeof x === 'string' && x in BRACKET_BY_ID;
+}
+
+/** Resolve a bracket by id, falling back to the full-dex main mode. */
+export function bracketById(id: string): GenBracket {
+  return BRACKET_BY_ID[id as BracketId] ?? BRACKET_BY_ID[DEFAULT_BRACKET];
+}
+
+/** The playable species pool for a bracket (its era's dex). */
+export function bracketDex(id: BracketId): Creature[] {
+  return creaturesForGens(bracketById(id).gens);
+}
+
+/** Whether a National Dex id belongs to a bracket's era. */
+export function inBracket(dexId: number, id: BracketId): boolean {
+  return bracketById(id).gens.includes(genOf(dexId));
+}

@@ -53,6 +53,19 @@ export function pmdSheetUrl(dexId: number, sheet: string): string {
   return `${ASSET}sprites/pmd/${dexId}/${sheet}-Anim.png`;
 }
 
+/**
+ * Every distinct sheet URL a species can render. Used to preload (decode) sheets
+ * up front so switching animations mid-battle never flashes a blank frame while
+ * the browser fetches the not-yet-seen sheet.
+ */
+export function pmdSheetUrls(dexId: number): string[] {
+  const entry: PmdEntry | undefined = PMD_SPRITES[dexId];
+  if (!entry) return [];
+  const sheets = new Set<string>();
+  for (const anim of Object.values(entry)) sheets.add(anim.sheet);
+  return [...sheets].map((sheet) => pmdSheetUrl(dexId, sheet));
+}
+
 export interface ResolvedPmdAnim extends PmdAnim {
   /** Resting-frame height for this species, so scale stays constant across anims. */
   refHeight: number;

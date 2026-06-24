@@ -5,10 +5,12 @@ import { TYPE_COLORS, effectivenessLabel, typeIconUrl } from '../game/typechart'
 import { ROLE_INFO } from '../game/roles';
 import { hasPmdSprite, type PmdAnimKind } from '../game/pmd';
 import { ballUrl } from '../game/balls';
+import { backdropFor } from '../game/backgrounds';
 import { HpBar } from './HpBar';
 import { TypeBadges } from './TypeBadge';
 import { TrainerSprite } from './TrainerSprite';
 import { PmdSprite } from './PmdSprite';
+import { BattleGuide } from './BattleGuide';
 
 const REDUCED_MOTION =
   typeof window !== 'undefined' &&
@@ -34,10 +36,6 @@ interface AnimState {
 // Resting height (px) of the on-screen sprite; bigger attack frames overflow.
 const PMD_HEIGHT = 84;
 
-// Battle backdrop. Static for now — this is the single knob to swap when we add
-// dynamic, per-biome backgrounds later.
-const BATTLE_BG = `${import.meta.env.BASE_URL}sprites/backgrounds/forest.png`;
-
 // Per-event pacing (ms). The delay is applied *before* an event is shown, so the
 // gap between a 'move' (attacker lunges) and the following 'hit' (target flinches)
 // is DELAY.hit — kept long enough to actually watch the attack land. Tuned slower
@@ -49,9 +47,11 @@ const DELAY: Record<BattleEvent['kind'], number> = {
   hit: 820,
   noeffect: 850,
   status: 850,
+  stat: 800,
   heal: 850,
   statusTick: 800,
   stunned: 800,
+  transform: 950,
   faint: 1150,
   end: 650,
 };
@@ -277,6 +277,10 @@ export function BattleScreen({
 }) {
   const events = result.events;
 
+  // Resolve the backdrop once per battle (themed to the opponent + the local
+  // time of day) and keep it stable across the many per-event re-renders.
+  const [bg] = useState(() => backdropFor(opponent));
+
   const [player, setPlayer] = useState<ActiveView>(() =>
     initialView(playerTeam[0], 'player'),
   );
@@ -292,6 +296,7 @@ export function BattleScreen({
   const [bannerType, setBannerType] = useState<PokemonType | null>(null);
   const [hitFx, setHitFx] = useState<HitFx | null>(null);
   const [speed, setSpeed] = useState(1);
+  const [showGuide, setShowGuide] = useState(false);
   const [finished, setFinished] = useState(false);
   const [pAnim, setPAnim] = useState<AnimState>(IDLE);
   const [fAnim, setFAnim] = useState<AnimState>(IDLE);
@@ -317,6 +322,7 @@ export function BattleScreen({
   };
 
   const processEvent = (e: BattleEvent, animate: boolean) => {
+    let logText = e.text;
     // Send-out manages its own HP (it animates the bar filling), so skip the
     // generic update for it.
     if (
@@ -388,6 +394,37 @@ export function BattleScreen({
           setBanner(label);
           setBannerType(e.moveType ?? null);
         }
+        // Spell out the result in the log: damage taken, plus why it landed the
+        // way it did (effectiveness, crit, STAB). Self-inflicted confusion hits
+        // carry their own text and have no moveName, so leave those untouched.
+        if (e.moveName && e.affected) {
+          const targetName = (e.affected === 'player' ? player : foe).name;
+          const atkTypes = (e.actor === 'player' ? player : foe).types;
+          const tags: string[] = [];
+          if (label) tags.push(label);
+          if (e.crit) tags.push('Critical hit!');
+          if (e.moveType && atkTypes.includes(e.moveType)) tags.push('STAB ×1.5');
+          logText = `${targetName} took ${e.damage} dmg${
+            tags.length ? ` · ${tags.join(' · ')}` : ''
+          }`;
+        }
+        break;
+      }
+      case 'transform': {
+        const side = e.actor!;
+        const t = e.transform!;
+        const setter = side === 'player' ? setPlayer : setFoe;
+        // Swap identity in place: the combatant is keyed by dexId, so the new
+        // species materialises (a morph) without replaying the ball toss.
+        setter((v) => ({
+          ...v,
+          name: t.name,
+          dexId: t.dexId,
+          sprite: side === 'player' ? t.back : t.sprite,
+          types: t.types,
+          role: t.role,
+        }));
+        if (animate) (side === 'player' ? setPAnim : setFAnim)(IDLE);
         break;
       }
       case 'noeffect':
@@ -403,7 +440,7 @@ export function BattleScreen({
         setFinished(true);
         break;
     }
-    if (e.text) setLog((l) => [...l.slice(-40), e.text]);
+    if (logText) setLog((l) => [...l.slice(-40), logText]);
   };
 
   useEffect(() => {
@@ -451,6 +488,14 @@ export function BattleScreen({
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
+            onClick={() => setShowGuide(true)}
+            aria-label="How battles work"
+            className="grid h-7 w-7 place-items-center rounded-full border border-white/20 text-xs font-semibold transition hover:bg-white/10"
+          >
+            ?
+          </button>
+          <button
+            type="button"
             onClick={() => setSpeed((s) => (s === 1 ? 2 : 1))}
             className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold transition hover:bg-white/10"
           >
@@ -473,7 +518,7 @@ export function BattleScreen({
             sprites and cards stay readable over any background. */}
         <div
           className="absolute inset-0 bg-cover bg-center [image-rendering:pixelated]"
-          style={{ backgroundImage: `url(${BATTLE_BG})` }}
+          style={{ backgroundImage: `url(${bg})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/15 to-black/40" />
 
@@ -553,6 +598,8 @@ export function BattleScreen({
           ))}
         </div>
       </div>
+
+      {showGuide && <BattleGuide onClose={() => setShowGuide(false)} />}
     </div>
   );
 }

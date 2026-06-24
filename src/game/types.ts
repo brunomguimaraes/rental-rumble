@@ -18,13 +18,22 @@ export type PokemonType =
   | 'steel'
   | 'fairy';
 
-export type StatusKind = 'burn' | 'stun' | null;
+export type StatusKind = 'burn' | 'stun' | 'poison' | 'sleep' | null;
+
+/** A stat a stage modifier can tilt during battle (HP is never staged). */
+export type StageStat = 'atk' | 'def' | 'spd';
 
 export type MoveEffect =
   | { kind: 'burn'; chance: number }
   | { kind: 'stun'; chance: number }
+  | { kind: 'poison'; chance: number } // escalating "toxic"-style end-of-turn damage
+  | { kind: 'sleep'; chance: number } // skips a few turns, then wakes
+  | { kind: 'confuse'; chance: number } // may hurt itself instead of acting
   | { kind: 'heal'; amount: number } // fraction of max hp
-  | { kind: 'lifesteal'; fraction: number };
+  | { kind: 'lifesteal'; fraction: number }
+  // Buff/debuff: shifts a stat stage on self or the foe. `chance` is 1 for pure
+  // setup moves, <1 for on-hit riders.
+  | { kind: 'stage'; stat: StageStat; delta: number; chance: number; target: 'self' | 'foe' };
 
 /**
  * Which PMD attack animation a move should play. PMDCollab sprites ship several
@@ -39,8 +48,9 @@ export type AttackAnim = 'strike' | 'shoot' | 'special' | 'swing' | 'charge';
 export interface Move {
   name: string;
   type: PokemonType;
-  power: number; // 0 for pure-status / heal moves
+  power: number; // 0 for pure-status / heal / setup moves
   accuracy: number; // 0..1
+  priority?: number; // >0 moves before slower foes regardless of Speed (default 0)
   effect?: MoveEffect;
 }
 
@@ -88,12 +98,15 @@ export interface Battler {
   maxHp: number;
   hp: number;
   status: StatusKind;
-  statusTurns: number;
+  statusTurns: number; // remaining turns for burn / stun / sleep
+  toxicCounter: number; // escalation step for poison (0 when not poisoned)
+  confusion: number; // remaining confused turns (0 = not confused); a volatile
+  stages: { atk: number; def: number; spd: number }; // -6..+6 battle buffs/debuffs
 }
 
 export type Side = 'player' | 'foe';
 
-export type OpponentTier = 'trainer' | 'gym' | 'elite' | 'champion';
+export type OpponentTier = 'trainer' | 'gym' | 'elite' | 'champion' | 'special';
 
 export interface Opponent {
   id: string;
@@ -107,4 +120,10 @@ export interface Opponent {
   teamSize: number;
   tier: OpponentTier;
   quote: string;
+  /**
+   * For `special` trainers only: the id into SPECIAL_TRAINERS (see specials.ts)
+   * whose hand-picked, canonical anime/manga team this opponent fields instead
+   * of a randomly generated one.
+   */
+  specialId?: string;
 }

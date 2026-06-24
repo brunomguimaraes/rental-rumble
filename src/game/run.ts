@@ -25,21 +25,22 @@ export const DIFFICULTIES: Difficulty[] = ['easy', 'normal', 'hard', 'master'];
  */
 export interface GauntletShape {
   trainers: number; // 2–8 random roadside trainers
+  specials: number; // 0–2 famous anime/manga cameo mini-bosses (fixed teams)
   gyms: number; // 2–4 type-themed Gym Leaders
   elites: number; // 1–2 Elite trainers
 }
 
 export const GAUNTLET_SHAPE: Record<Difficulty, GauntletShape> = {
-  easy: { trainers: 2, gyms: 2, elites: 1 },
-  normal: { trainers: 4, gyms: 3, elites: 1 },
-  hard: { trainers: 6, gyms: 4, elites: 2 },
-  master: { trainers: 8, gyms: 4, elites: 2 },
+  easy: { trainers: 2, specials: 1, gyms: 2, elites: 1 },
+  normal: { trainers: 4, specials: 1, gyms: 3, elites: 1 },
+  hard: { trainers: 6, specials: 2, gyms: 4, elites: 2 },
+  master: { trainers: 8, specials: 2, gyms: 4, elites: 2 },
 };
 
 /** Total number of opponents in a ladder (the +1 is the Champion). */
 export function gauntletLength(diff: Difficulty): number {
   const s = GAUNTLET_SHAPE[diff];
-  return s.trainers + s.gyms + s.elites + 1;
+  return s.trainers + s.specials + s.gyms + s.elites + 1;
 }
 
 export const DIFFICULTY_INFO: Record<

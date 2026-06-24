@@ -2,24 +2,30 @@ import type { Opponent, OpponentTier, PokemonType } from './types';
 import { TYPE_COLORS, typeLabel } from './typechart';
 import { RNG } from './rng';
 import { GAUNTLET_SHAPE, type Difficulty } from './run';
+import type { BracketId } from './gens';
 import {
   TRAINER_SPRITES,
   type TrainerCategory,
   type TrainerGender,
   type TrainerSprite,
 } from './trainers.gen';
+import { SPECIAL_TRAINERS, specialSpriteKey, type SpecialTrainer } from './specials';
 
 export const TIER_LABEL: Record<OpponentTier, string> = {
   trainer: 'Trainer',
   gym: 'Gym',
   elite: 'Elite',
+  special: 'Special',
   champion: 'Champion',
 };
 
 // Gym Leaders and the Elite specialize in a type. The Champion does not — it
 // fields a randomized, all-rounder team, so it gets a neutral rank accent.
+// "Special" cameo trainers keep their type badge but get a distinct rose glow so
+// a famous face (James, Misty, Gary, …) reads as a stand-out fight on the ladder.
 const TIER_ACCENT: Partial<Record<OpponentTier, string>> = {
   champion: '#f5c542',
+  special: '#fb7185',
 };
 
 /** Whether this opponent is built around a single type (everyone but Champion). */
@@ -158,22 +164,44 @@ const CHAMP_QUOTES = [
   'Let’s make this a battle to remember.',
 ];
 
-/** Local YYYY-MM-DD key — the daily champion is shared by everyone that day. */
+/**
+ * UTC hour at which the daily boss flips. 0 = 00:00 UTC, which is prime-time
+ * evening in the Americas (~8pm US Eastern / 9pm Brazil / 5pm US Pacific), so
+ * the race to be "first to beat the boss" kicks off when the most players are
+ * around. Bump to 1–2 to favour the US West coast's evening instead.
+ * Keep this within 0–11 so the noon-anchored reconstruction below stays correct.
+ */
+export const DAILY_RESET_UTC_HOUR = 0;
+
+/**
+ * Global YYYY-MM-DD key for the daily boss. Computed in UTC (shifted by the
+ * reset hour) so every player worldwide shares the exact same champion and
+ * leaderboard, all flipping at the same instant — never a per-timezone local
+ * date, which would fragment the daily race.
+ */
 export function dailyKey(d = new Date()): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+  const shifted = new Date(d.getTime() - DAILY_RESET_UTC_HOUR * 3_600_000);
+  const y = shifted.getUTCFullYear();
+  const m = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(shifted.getUTCDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
 
-/** Seed for the daily Champion (name + team), independent of the run seed. */
-export function championSeed(d = new Date()): string {
-  return `champion:${dailyKey(d)}`;
+/**
+ * Seed for the daily Champion (name + team), independent of the run seed. Each
+ * generation bracket gets its own daily Champion, so the seed is suffixed with
+ * the bracket id — except the full-dex main mode (`all`), which keeps the bare,
+ * legacy seed so its shared daily boss and leaderboard stay continuous.
+ */
+export function championSeed(d = new Date(), bracket: BracketId = 'all'): string {
+  const base = `champion:${dailyKey(d)}`;
+  return bracket === 'all' ? base : `${base}:${bracket}`;
 }
 
-/** Build the daily Champion opponent (same for everyone on a given day). */
-export function buildChampion(d = new Date()): Opponent {
-  const rng = new RNG(championSeed(d));
+/** Build the daily Champion opponent (same for everyone on a given day, per
+ *  bracket). The full-dex `all` mode is the original shared daily boss. */
+export function buildChampion(d = new Date(), bracket: BracketId = 'all'): Opponent {
+  const rng = new RNG(championSeed(d, bracket));
   const type = rng.pick(ALL_TYPES);
   // The art is a specific person — let it name the Champion (fallback for any
   // sprite we haven't identified yet).
@@ -194,6 +222,30 @@ export function buildChampion(d = new Date()): Opponent {
 }
 
 /**
+ * A stand-in opponent representing another player's saved team, for the
+ * just-for-fun "challenge this team" exhibition match. The avatar is drawn
+ * deterministically from the owner's name so a given player always looks the
+ * same. No real difficulty theme — it fields whatever team they saved.
+ */
+export function challengeOpponent(name: string, seed: string): Opponent {
+  const rng = new RNG(`challenge:${seed}:${name}`);
+  const sprite = rng.pick(TRAINER_SPRITES.champion);
+  return {
+    id: `challenge:${name}`,
+    name,
+    title: 'Saved team',
+    sprite: '⚔️',
+    badge: badgeUrl('champion'),
+    art: artUrl(sprite.key),
+    artGif: gifUrl(sprite.key),
+    type: rng.pick(ALL_TYPES),
+    teamSize: 6,
+    tier: 'champion',
+    quote: 'Think your team can take mine?',
+  };
+}
+
+/**
  * Build a full gauntlet from a run seed and difficulty. The ladder ramps:
  * a handful of random roadside trainers, then type-themed Gym Leaders, then
  * one or two Elite trainers, capped by the shared daily Champion. Counts come
@@ -204,6 +256,7 @@ export function buildGauntlet(
   seed: string,
   difficulty: Difficulty = 'normal',
   d = new Date(),
+  bracket: BracketId = 'all',
 ): Opponent[] {
   const rng = new RNG(`gauntlet:${seed}:${difficulty}`);
   const shape = GAUNTLET_SHAPE[difficulty];
@@ -219,6 +272,8 @@ export function buildGauntlet(
   const drawRandom = spriteDrawer(rng, 'random');
   const drawGym = spriteDrawer(rng, 'gym');
   const drawElite = spriteDrawer(rng, 'elite');
+  // Distinct famous cameos for this run's "special" mini-bosses.
+  const specialsPool = rng.shuffle([...SPECIAL_TRAINERS]);
   let themeCursor = 0;
   let nameCursor = 0;
 
@@ -272,6 +327,32 @@ export function buildGauntlet(
     };
   });
 
+  // Special cameo trainers: famous faces from the anime/manga who field a fixed,
+  // hand-picked team (see specials.ts) instead of a generated one. They drop in
+  // as mid-ladder mini-bosses after the roadside warm-ups. The art, name, theme
+  // type and team are all bound to the chosen character.
+  const specials: Opponent[] = Array.from(
+    { length: shape.specials ?? 0 },
+    (_, i): Opponent => {
+      const spec: SpecialTrainer =
+        specialsPool[i % specialsPool.length] ?? rng.pick(SPECIAL_TRAINERS);
+      return {
+        id: `special-${i}-${spec.id}`,
+        name: spec.name,
+        title: spec.title,
+        sprite: TYPE_EMOJI[spec.type],
+        badge: badgeUrl(spec.type),
+        art: artUrl(specialSpriteKey(spec.id)),
+        artGif: gifUrl(specialSpriteKey(spec.id)),
+        type: spec.type,
+        teamSize: spec.team.length,
+        tier: 'special' as const,
+        quote: spec.quote,
+        specialId: spec.id,
+      };
+    },
+  );
+
   // Elite trainer(s) — likewise named after the character in the art.
   const elite: Opponent[] = Array.from({ length: shape.elites }, (_, i) => {
     const type = themes[themeCursor++];
@@ -291,5 +372,5 @@ export function buildGauntlet(
     };
   });
 
-  return [...trainers, ...gyms, ...elite, buildChampion(d)];
+  return [...trainers, ...specials, ...gyms, ...elite, buildChampion(d, bracket)];
 }

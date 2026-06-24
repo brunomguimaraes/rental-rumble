@@ -3,13 +3,13 @@
 // at public/sprites/trainers/<key>.png (front-facing icon) and .gif (idle loop).
 // `gender` is the sprite's sex ('x' = unisex/ambiguous); roadside sprites carry
 // their trainer `cls`, and the famous tiers carry the canonical character `name`.
-export type TrainerCategory = 'random' | 'gym' | 'elite' | 'champion';
+export type TrainerCategory = 'random' | 'gym' | 'elite' | 'champion' | 'special';
 export type TrainerGender = 'm' | 'f' | 'x';
 
 export interface TrainerSprite {
   key: string;
   gender: TrainerGender;
-  /** Canonical character depicted (gym / elite / champion). */
+  /** Canonical character depicted (gym / elite / champion / special). */
   name?: string;
   /** Trainer-class title (roadside "random" trainers). */
   cls?: string;
@@ -71,6 +71,20 @@ export const TRAINER_SPRITES: Record<TrainerCategory, readonly TrainerSprite[]> 
     {"key":"random-waitress","gender":"f","cls":"Waitress"},
     {"key":"random-worker","gender":"m","cls":"Worker"},
     {"key":"random-youngster","gender":"m","cls":"Youngster"},
+    {"key":"random-frlg-bug-catcher","gender":"m","cls":"Bug Catcher"},
+    {"key":"random-frlg-biker","gender":"m","cls":"Biker"},
+    {"key":"random-frlg-burglar","gender":"m","cls":"Burglar"},
+    {"key":"random-frlg-super-nerd","gender":"m","cls":"Super Nerd"},
+    {"key":"random-frlg-rocker","gender":"m","cls":"Rocker"},
+    {"key":"random-frlg-tamer","gender":"m","cls":"Tamer"},
+    {"key":"random-frlg-painter","gender":"m","cls":"Painter"},
+    {"key":"random-frlg-ruin-maniac","gender":"m","cls":"Ruin Maniac"},
+    {"key":"random-frlg-bird-keeper","gender":"m","cls":"Bird Keeper"},
+    {"key":"random-frlg-engineer","gender":"m","cls":"Engineer"},
+    {"key":"random-frlg-juggler","gender":"m","cls":"Juggler"},
+    {"key":"random-frlg-pok-maniac","gender":"m","cls":"Poké Maniac"},
+    {"key":"random-frlg-crush-girl","gender":"f","cls":"Crush Girl"},
+    {"key":"random-frlg-aroma-lady","gender":"f","cls":"Aroma Lady"},
   ],
   gym: [
     {"key":"gym-01","gender":"m","name":"Chili"},
@@ -95,5 +109,22 @@ export const TRAINER_SPRITES: Record<TrainerCategory, readonly TrainerSprite[]> 
     {"key":"champion-01","gender":"m","name":"Alder"},
     {"key":"champion-02","gender":"f","name":"Iris"},
     {"key":"champion-03","gender":"m","name":"Benga"},
+  ],
+  special: [
+    {"key":"special-james","gender":"m","name":"James"},
+    {"key":"special-jessie","gender":"f","name":"Jessie"},
+    {"key":"special-meowth","gender":"x","name":"Meowth"},
+    {"key":"special-brock","gender":"m","name":"Brock"},
+    {"key":"special-misty","gender":"f","name":"Misty"},
+    {"key":"special-gary","gender":"m","name":"Gary Oak"},
+    {"key":"special-sabrina","gender":"f","name":"Sabrina"},
+    {"key":"special-blaine","gender":"m","name":"Blaine"},
+    {"key":"special-lorelei","gender":"f","name":"Lorelei"},
+    {"key":"special-bruno","gender":"m","name":"Bruno"},
+    {"key":"special-cassidy","gender":"f","name":"Cassidy"},
+    {"key":"special-butch","gender":"m","name":"Butch"},
+    {"key":"special-samurai","gender":"m","name":"Samurai"},
+    {"key":"special-tracey","gender":"m","name":"Tracey"},
+    {"key":"special-oak","gender":"m","name":"Prof. Oak"},
   ],
 };

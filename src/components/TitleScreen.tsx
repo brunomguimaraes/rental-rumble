@@ -5,34 +5,55 @@ import {
   gauntletLength,
   type Difficulty,
 } from '../game/run';
-import { GENERATIONS, type Generation } from '../game/gens';
+import {
+  GEN_BRACKETS,
+  bracketDex,
+  DEFAULT_BRACKET,
+  type BracketId,
+} from '../game/gens';
 import { buildChampion, championSeed, dailyKey } from '../game/opponents';
 import { buildChampionTeam } from '../game/battle';
 import { TypeMarquee } from './TypeMarquee';
 import { MiniSprite } from './MiniSprite';
 import { TrainerSprite } from './TrainerSprite';
 import { Credits } from './Credits';
+import { SupportLinks } from './SupportLinks';
+import { BattleGuide } from './BattleGuide';
 
 export function TitleScreen({
   onStart,
-  onGenMode,
 }: {
   onStart: (
     difficulty: Difficulty,
-    gens: Generation[],
+    bracket: BracketId,
     seed?: string,
   ) => void;
-  onGenMode: () => void;
 }) {
-  const [seedInput, setSeedInput] = useState('');
+  // Custom seed feature disabled: letting players paste a seed added UI/UX
+  // complexity (extra input, validation, share copy) for little payoff. Runs
+  // still use an internal random seed, so determinism/sharing logic is intact —
+  // only the manual entry is gone. Left commented for easy re-enable later.
+  //   const [seedInput, setSeedInput] = useState('');
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
+  const [bracket, setBracket] = useState<BracketId>(DEFAULT_BRACKET);
   const [showChampion, setShowChampion] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
-  // Today's shared Champion — the same boss (name + team) for everyone, all day.
-  const champion = useMemo(() => buildChampion(), []);
+  const isAll = bracket === 'all';
+
+  // Today's Champion for the chosen era. Every bracket has its own daily boss
+  // (name + team), shared by everyone all day; `all` is the original full-dex
+  // boss. The team is locked to the bracket's dex so the whole ladder stays
+  // in-era.
+  const champion = useMemo(() => buildChampion(new Date(), bracket), [bracket]);
   const championTeam = useMemo(
-    () => buildChampionTeam(championSeed(), champion.teamSize),
-    [champion],
+    () =>
+      buildChampionTeam(
+        championSeed(new Date(), bracket),
+        champion.teamSize,
+        bracketDex(bracket),
+      ),
+    [champion, bracket],
   );
 
   return (
@@ -55,7 +76,46 @@ export function TitleScreen({
         <TypeMarquee />
       </div>
 
-      {/* Today's Champion — the shared daily boss everyone is racing to topple */}
+      {/* Generation bracket picker — locks the whole run (draft pool and every
+          foe, Champion included) to an era's dex, with its own daily board. */}
+      <div className="mt-8 w-full max-w-md">
+        <div className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
+          Era — locks the dex & its own leaderboard
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {GEN_BRACKETS.map((b) => {
+            const active = b.id === bracket;
+            return (
+              <button
+                key={b.id}
+                type="button"
+                onClick={() => setBracket(b.id)}
+                aria-pressed={active}
+                className={`rounded-2xl border px-2 py-2.5 text-center transition ${
+                  active
+                    ? 'border-white/70 bg-white/10'
+                    : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
+                }`}
+              >
+                <div className="text-sm font-bold">{b.label}</div>
+                <div className="text-[11px] text-white/50">{b.tag}</div>
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-center text-xs text-white/45">
+          {isAll ? (
+            <>The complete National Dex — the standard mode.</>
+          ) : (
+            <>
+              {bracketDex(bracket).length} Pokémon in play · ranked on its own
+              board.
+            </>
+          )}
+        </p>
+      </div>
+
+      {/* Today's Champion — the daily boss everyone is racing to topple (per era) */}
       <div className="mt-6 w-full max-w-md">
         <button
           type="button"
@@ -73,7 +133,7 @@ export function TitleScreen({
             <div className="truncate font-bold">
               {champion.name}{' '}
               <span className="font-normal text-white/45">
-                · the daily boss
+                · {isAll ? 'the daily boss' : GEN_BRACKETS.find((b) => b.id === bracket)?.label}
               </span>
             </div>
           </div>
@@ -86,8 +146,9 @@ export function TitleScreen({
         {showChampion && (
           <div className="mt-2 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
             <p className="text-xs text-white/55">
-              {champion.name} fields the same six all day ({dailyKey()}). Clear
-              the ladder, then dethrone them to take the crown.
+              {champion.name} fields the same six all day ({dailyKey()})
+              {isAll ? '' : ' for this era'}. Clear the ladder, then dethrone
+              them to take the crown.
             </p>
             <div className="mt-3 flex flex-wrap justify-center gap-2">
               {championTeam.map((c, i) => (
@@ -139,12 +200,15 @@ export function TitleScreen({
 
       <button
         type="button"
-        onClick={() => onStart(difficulty, GENERATIONS)}
+        onClick={() => onStart(difficulty, bracket)}
         className="mt-8 rounded-full bg-white px-8 py-3 text-lg font-bold text-black transition-transform hover:scale-105 active:scale-95"
       >
-        Roll the dice →
+        Start Adventure →
       </button>
 
+      {/* Custom seed entry disabled: the manual seed box added complexity
+          without enough player value. Internal random seeds still drive every
+          run; only this manual-entry UI is hidden. Kept for easy re-enable.
       <div className="mt-6 flex w-full max-w-md flex-wrap items-center justify-center gap-2">
         <input
           value={seedInput}
@@ -163,25 +227,32 @@ export function TitleScreen({
           Use seed
         </button>
       </div>
+      */}
 
-      {/* Gen-locked challenge — a separate menu that restricts the whole run
-          (draft and every foe) to a single generation. */}
-      <button
-        type="button"
-        onClick={onGenMode}
-        className="mt-5 rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/75 transition hover:bg-white/10"
-      >
-        🔒 Gen-locked challenge →
-      </button>
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={() => setShowGuide(true)}
+          className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/75 transition hover:bg-white/10"
+        >
+          ❔ How battles work
+        </button>
+      </div>
 
+      {/* Seed-sharing blurb hidden alongside the disabled custom seed feature —
+          it promised manual seed entry that no longer exists in the UI.
       <p className="mt-10 max-w-sm text-xs leading-relaxed text-white/35">
         Every run is defined by its seed — share it and a friend gets the exact
         same draft pool and gauntlet.
       </p>
+      */}
 
-      <div className="mt-4">
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
         <Credits />
+        <SupportLinks />
       </div>
+
+      {showGuide && <BattleGuide onClose={() => setShowGuide(false)} />}
     </div>
   );
 }

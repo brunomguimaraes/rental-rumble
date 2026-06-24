@@ -1,37 +1,41 @@
 import { useMemo, useState } from 'react';
-import type { Creature, Side } from './game/types';
+import type { Creature, Opponent, Side } from './game/types';
 import { randomSeed } from './game/rng';
-import { buildGauntlet, championSeed, TIER_LABEL } from './game/opponents';
+import {
+  buildGauntlet,
+  challengeOpponent,
+  championSeed,
+  TIER_LABEL,
+} from './game/opponents';
+import { teamFromMons, type LeaderboardEntry } from './game/leaderboard';
 import {
   buildChampionTeam,
   buildOpponentTeam,
+  buildSpecialTeam,
   simulateBattle,
   TIER_STAT_MULT,
+  PLAYER_STAT_MULT,
   type BattleResult,
 } from './game/battle';
 import type { Difficulty } from './game/run';
-import { GENERATIONS, creaturesForGens, type Generation } from './game/gens';
+import { bracketDex, DEFAULT_BRACKET, type BracketId } from './game/gens';
 import { TitleScreen } from './components/TitleScreen';
-import { GenSelectScreen } from './components/GenSelectScreen';
 import { DraftScreen } from './components/DraftScreen';
 import { MapScreen } from './components/MapScreen';
 import { BattleScreen } from './components/BattleScreen';
 import { RecruitScreen } from './components/RecruitScreen';
 import { ResultScreen } from './components/ResultScreen';
+import { ChallengeResultScreen } from './components/ChallengeResultScreen';
 
 type Phase =
   | 'title'
-  | 'genSelect'
   | 'draft'
   | 'map'
   | 'battle'
   | 'recruit'
-  | 'over';
-
-// "Hero" edge so a well-drafted (and well-recruited) team can realistically
-// run the gauntlet — a strong team clears all 7 ~40% of the time. See
-// scripts/sim-check.ts for the tuning sweep.
-const PLAYER_STAT_MULT = 1.13;
+  | 'over'
+  | 'challengeBattle'
+  | 'challengeOver';
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>('title');
@@ -41,19 +45,27 @@ export default function App() {
   const [won, setWon] = useState(false);
   const [defeated, setDefeated] = useState<Creature[]>([]);
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
-  const [gens, setGens] = useState<Generation[]>(GENERATIONS);
+  const [bracket, setBracket] = useState<BracketId>(DEFAULT_BRACKET);
+
+  // Just-for-fun exhibition match against another player's saved team.
+  const [challenge, setChallenge] = useState<{
+    foeTeam: Creature[];
+    opponent: Opponent;
+  } | null>(null);
+  const [challengeSeed, setChallengeSeed] = useState<string>('');
+  const [challengeWon, setChallengeWon] = useState(false);
 
   const gauntlet = useMemo(
-    () => buildGauntlet(seed, difficulty),
-    [seed, difficulty],
+    () => buildGauntlet(seed, difficulty, undefined, bracket),
+    [seed, difficulty, bracket],
   );
   const opponent = gauntlet[stage];
 
-  // The species pool for this run, restricted to the selected generations.
-  // Drives the draft and every foe — including the Champion — so a gen-locked
-  // run keeps the whole ladder in-gen. For a standard (all-gens) run this is
-  // the full dex, so the Champion stays the shared daily boss.
-  const dex = useMemo(() => creaturesForGens(gens), [gens]);
+  // The species pool for this run, restricted to the selected generation
+  // bracket. Drives the draft and every foe — including the Champion — so a
+  // gen-locked run keeps the whole ladder in-era. The `all` bracket is the full
+  // dex, so its Champion stays the shared daily boss.
+  const dex = useMemo(() => bracketDex(bracket), [bracket]);
 
   const battle = useMemo<{ foeTeam: Creature[]; result: BattleResult } | null>(
     () => {
@@ -63,16 +75,26 @@ export default function App() {
       // standard run), while the fight RNG stays run-specific. On a gen-locked
       // run the filtered `dex` keeps the Champion in-gen too. The Champion has
       // no type theme; Gyms and the Elite are type-themed.
+      // Special cameo trainers field their fixed, canonical roster; the Champion
+      // is the date-seeded daily boss; everyone else gets a type-themed squad.
       const foeTeam =
         opponent.tier === 'champion'
-          ? buildChampionTeam(championSeed(), opponent.teamSize, dex)
-          : buildOpponentTeam(
-              opponent.type,
-              opponent.teamSize,
-              opponent.tier,
-              battleSeed,
-              dex,
-            );
+          ? buildChampionTeam(championSeed(new Date(), bracket), opponent.teamSize, dex)
+          : opponent.tier === 'special' && opponent.specialId
+            ? buildSpecialTeam(
+                opponent.specialId,
+                opponent.type,
+                opponent.teamSize,
+                battleSeed,
+                dex,
+              )
+            : buildOpponentTeam(
+                opponent.type,
+                opponent.teamSize,
+                opponent.tier,
+                battleSeed,
+                dex,
+              );
       const result = simulateBattle(team, foeTeam, battleSeed, {
         playerStatMult: PLAYER_STAT_MULT,
         foeStatMult: TIER_STAT_MULT[opponent.tier] ?? 1,
@@ -80,16 +102,34 @@ export default function App() {
       return { foeTeam, result };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [phase, seed, stage, dex],
+    [phase, seed, stage, dex, bracket],
   );
+
+  // Both teams get the same "hero" edge so a challenge is a fair mirror.
+  const challengeBattle = useMemo<BattleResult | null>(() => {
+    if (phase !== 'challengeBattle' || !challenge) return null;
+    return simulateBattle(team, challenge.foeTeam, `challenge#${challengeSeed}`, {
+      playerStatMult: PLAYER_STAT_MULT,
+      foeStatMult: PLAYER_STAT_MULT,
+    });
+  }, [phase, challenge, challengeSeed, team]);
+
+  const startChallenge = (entry: LeaderboardEntry) => {
+    const foeTeam = teamFromMons(entry.team);
+    if (foeTeam.length === 0) return;
+    const cseed = randomSeed();
+    setChallengeSeed(cseed);
+    setChallenge({ foeTeam, opponent: challengeOpponent(entry.name, cseed) });
+    setPhase('challengeBattle');
+  };
 
   const startRun = (
     diff: Difficulty,
-    chosenGens: Generation[],
+    chosenBracket: BracketId,
     customSeed?: string,
   ) => {
     setDifficulty(diff);
-    setGens(chosenGens.length > 0 ? chosenGens : GENERATIONS);
+    setBracket(chosenBracket);
     setSeed(customSeed ?? randomSeed());
     setTeam([]);
     setStage(0);
@@ -114,17 +154,7 @@ export default function App() {
 
   switch (phase) {
     case 'title':
-      return (
-        <TitleScreen
-          onStart={startRun}
-          onGenMode={() => setPhase('genSelect')}
-        />
-      );
-
-    case 'genSelect':
-      return (
-        <GenSelectScreen onStart={startRun} onBack={() => setPhase('title')} />
-      );
+      return <TitleScreen onStart={startRun} />;
 
     case 'draft':
       return (
@@ -183,14 +213,48 @@ export default function App() {
     }
 
     case 'over':
+      // Every bracket has its own daily Champion and leaderboard, so a finished
+      // run always faces a verifiable boss for its era.
       return (
         <ResultScreen
           gauntlet={gauntlet}
           won={won}
           team={team}
           seed={seed}
+          bracket={bracket}
           clearedStages={won ? gauntlet.length : stage}
           onPlayAgain={() => setPhase('title')}
+          onChallenge={startChallenge}
+        />
+      );
+
+    case 'challengeBattle':
+      if (!challengeBattle || !challenge) return null;
+      return (
+        <BattleScreen
+          opponent={challenge.opponent}
+          playerTeam={team}
+          foeTeam={challenge.foeTeam}
+          result={challengeBattle}
+          onComplete={(winner) => {
+            setChallengeWon(winner === 'player');
+            setPhase('challengeOver');
+          }}
+        />
+      );
+
+    case 'challengeOver':
+      if (!challenge) return null;
+      return (
+        <ChallengeResultScreen
+          won={challengeWon}
+          foeName={challenge.opponent.name}
+          foeTeam={challenge.foeTeam}
+          onRematch={() => {
+            setChallengeSeed(randomSeed());
+            setPhase('challengeBattle');
+          }}
+          onHome={() => setPhase('title')}
         />
       );
   }

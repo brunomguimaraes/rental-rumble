@@ -84,9 +84,7 @@ export function DraftScreen({
   }, [teamTypes]);
 
   const showCoverageTip =
-    (difficulty === 'easy' || difficulty === 'normal') &&
-    picked.length > 0 &&
-    !done;
+    (difficulty === 'easy' || difficulty === 'normal') && !done;
   // Each pick and each skip burns one trio off the front of the deck.
   const cursor = (picked.length + skipsUsed) * DRAFT_CHOICES;
   const choices = deck.slice(cursor, cursor + DRAFT_CHOICES);
@@ -133,7 +131,15 @@ export function DraftScreen({
 
       {showCoverageTip && (
         <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-          {coverage.uncovered.length === 0 ? (
+          {picked.length === 0 ? (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white/55">
+              <span className="font-bold uppercase tracking-wider text-white/40">
+                Coverage tip
+              </span>
+              Pick a Pokémon to see which types your team can't hit
+              super-effectively yet.
+            </div>
+          ) : coverage.uncovered.length === 0 ? (
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white/55">
               <span className="font-bold uppercase tracking-wider text-emerald-300/80">
                 Great coverage

@@ -11,8 +11,18 @@
 // games — Alder, Elesa, Clay, Roxie, …). That keeps the displayed name/sex
 // honest: a "Lass" is never a male body, and Clay's sprite is always "Clay".
 //
-// Source is the Gen-5 "OW PACK" (BW/B2W2 style) — © Nintendo / Game Freak, used
-// here only for a private, non-commercial project.
+// Two sources are fused, both © Nintendo / Game Freak and used here only for a
+// private, non-commercial project:
+//   • the Gen-5 "OW PACK" (BW/B2W2 style) — the bulk of roadside classes and the
+//     numbered Gym/Elite/Champion rips, AND
+//   • the "FRLG Accurate NPC Megapack" (Relic Castle Edition) — which adds extra
+//     Gen-1-flavoured roadside classes (Bug Catcher, Biker, Burglar, …) and, most
+//     importantly, the anime overworld cast (James, Jessie, Meowth, Brock, Misty,
+//     Gary, Sabrina, …). Those anime sprites back the game's "special" trainers,
+//     who field hand-picked teams straight from the show (see src/game/specials.ts).
+//
+// All charsets are RMXP 4×4 grids (top row = front-facing walk), so the same
+// slicer handles every source regardless of cell size.
 //
 // Requires ImageMagick (`magick`). Run: node scripts/build-trainers.mjs
 import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
@@ -23,6 +33,11 @@ import { tmpdir } from 'node:os';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OWPACK = process.env.OWPACK_DIR || '/Users/milano/Downloads/OW PACK';
+const MEGAPACK =
+  process.env.MEGAPACK_DIR ||
+  '/Users/milano/Downloads/FRLG Accurate NPC Megapack (Relic Castle Edition)';
+const animeDir = join(MEGAPACK, 'Anime NPCs', 'Characters');
+const frlgDir = join(MEGAPACK, 'FRLG NPCs', 'Characters');
 const outDir = join(root, 'public/sprites/trainers');
 const tmp = join(tmpdir(), 'trainer-frames');
 
@@ -102,6 +117,48 @@ const CLASSES = [
   ['Youngster', 'Youngster', 'm'],
 ];
 
+// Extra roadside classes only the FRLG Megapack ships — Gen-1 flavour the OW PACK
+// lacks. [sourceCode, displayTitle, sex]; file is `trainer_<CODE>.png`. We only
+// pull classes the OW PACK doesn't already cover, so the random pool gains breadth
+// (Bug Catcher, Biker, Burglar, …) instead of duplicate Lasses.
+const FRLG_CLASSES = [
+  ['BUGCATCHER', 'Bug Catcher', 'm'],
+  ['BIKER2', 'Biker', 'm'],
+  ['BURGLAR', 'Burglar', 'm'],
+  ['SUPERNERD', 'Super Nerd', 'm'],
+  ['ROCKER', 'Rocker', 'm'],
+  ['TAMER', 'Tamer', 'm'],
+  ['PAINTER', 'Painter', 'm'],
+  ['RUINMANIAC', 'Ruin Maniac', 'm'],
+  ['BIRDKEEPER', 'Bird Keeper', 'm'],
+  ['ENGINEER', 'Engineer', 'm'],
+  ['JUGGLER', 'Juggler', 'm'],
+  ['POKEMANIAC', 'Poké Maniac', 'm'],
+  ['CRUSHGIRL', 'Crush Girl', 'f'],
+  ['AROMALADY', 'Aroma Lady', 'f'],
+];
+
+// Anime overworld cast → "special" trainers. [sourceFile (sans .png), key, name,
+// sex]. Files live under `Anime NPCs/Characters/`. The matching hand-picked teams
+// (straight from the show) are defined in src/game/specials.ts, keyed by `key`.
+const SPECIAL = [
+  ['Anime James', 'james', 'James', 'm'],
+  ['Anime Jessie', 'jessie', 'Jessie', 'f'],
+  ['Anime Meowth', 'meowth', 'Meowth', 'x'],
+  ['Anime Brock', 'brock', 'Brock', 'm'],
+  ['Anime Misty', 'misty', 'Misty', 'f'],
+  ['Anime Gary Oak', 'gary', 'Gary Oak', 'm'],
+  ['Anime Sabrina', 'sabrina', 'Sabrina', 'f'],
+  ['Anime Blaine in Disguise', 'blaine', 'Blaine', 'm'],
+  ['Anime Lorelei', 'lorelei', 'Lorelei', 'f'],
+  ['Anime Bruno', 'bruno', 'Bruno', 'm'],
+  ['Anime Cassidy', 'cassidy', 'Cassidy', 'f'],
+  ['Anime Butch', 'butch', 'Butch', 'm'],
+  ['Anime Samurai', 'samurai', 'Samurai', 'm'],
+  ['Anime Tracy', 'tracey', 'Tracey', 'm'],
+  ['Anime Samuel Oak', 'oak', 'Prof. Oak', 'm'],
+];
+
 function magick(args) {
   execFileSync('magick', args, { stdio: ['ignore', 'ignore', 'inherit'] });
 }
@@ -163,7 +220,7 @@ if (!existsSync(OWPACK)) {
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
 
-const manifest = { random: [], gym: [], elite: [], champion: [] };
+const manifest = { random: [], gym: [], elite: [], champion: [], special: [] };
 const slug = (s) => s.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
 
 // --- Roadside "random" trainers: gendered class sprites. ---------------------
@@ -182,6 +239,38 @@ for (const [base, title, sex] of CLASSES) {
     build(src, key);
     manifest.random.push({ key, gender: g, cls: title });
   }
+}
+
+// --- Extra FRLG roadside classes (Megapack), folded into the random pool. -----
+if (existsSync(frlgDir)) {
+  for (const [code, title, g] of FRLG_CLASSES) {
+    const src = join(frlgDir, `trainer_${code}.png`);
+    if (!existsSync(src)) {
+      console.warn(`skip missing ${src}`);
+      continue;
+    }
+    const key = `random-frlg-${slug(title).replace(/[^a-z0-9]+/g, '-')}`;
+    build(src, key);
+    manifest.random.push({ key, gender: g, cls: title });
+  }
+} else {
+  console.warn(`Megapack FRLG NPCs not found at ${frlgDir} — skipping.`);
+}
+
+// --- Anime "special" trainers (Megapack): bound to a canonical character. -----
+if (existsSync(animeDir)) {
+  for (const [file, key, name, g] of SPECIAL) {
+    const src = join(animeDir, `${file}.png`);
+    if (!existsSync(src)) {
+      console.warn(`skip missing ${src}`);
+      continue;
+    }
+    const outKey = `special-${key}`;
+    build(src, outKey);
+    manifest.special.push({ key: outKey, gender: g, name });
+  }
+} else {
+  console.warn(`Megapack Anime NPCs not found at ${animeDir} — skipping.`);
 }
 
 // --- Famous tiers: numbered role rips bound to their canonical character. -----
@@ -211,13 +300,13 @@ const ts = `// AUTO-GENERATED by scripts/build-trainers.mjs — do not edit by h
 // at public/sprites/trainers/<key>.png (front-facing icon) and .gif (idle loop).
 // \`gender\` is the sprite's sex ('x' = unisex/ambiguous); roadside sprites carry
 // their trainer \`cls\`, and the famous tiers carry the canonical character \`name\`.
-export type TrainerCategory = 'random' | 'gym' | 'elite' | 'champion';
+export type TrainerCategory = 'random' | 'gym' | 'elite' | 'champion' | 'special';
 export type TrainerGender = 'm' | 'f' | 'x';
 
 export interface TrainerSprite {
   key: string;
   gender: TrainerGender;
-  /** Canonical character depicted (gym / elite / champion). */
+  /** Canonical character depicted (gym / elite / champion / special). */
   name?: string;
   /** Trainer-class title (roadside "random" trainers). */
   cls?: string;
@@ -228,6 +317,7 @@ export const TRAINER_SPRITES: Record<TrainerCategory, readonly TrainerSprite[]> 
   gym: ${fmt(manifest.gym)},
   elite: ${fmt(manifest.elite)},
   champion: ${fmt(manifest.champion)},
+  special: ${fmt(manifest.special)},
 };
 `;
 writeFileSync(join(root, 'src/game/trainers.gen.ts'), ts);

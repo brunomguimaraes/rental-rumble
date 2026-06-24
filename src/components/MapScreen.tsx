@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Creature, Opponent } from '../game/types';
 import { TIER_LABEL, isTypeThemed, opponentAccent } from '../game/opponents';
 import { TypeBadge } from './TypeBadge';
@@ -21,6 +22,7 @@ export function MapScreen({
   onQuit: () => void;
   onReorder: (team: Creature[]) => void;
 }) {
+  const [confirmingQuit, setConfirmingQuit] = useState(false);
   return (
     <div className="mx-auto max-w-5xl px-3 py-6 pb-28 sm:px-4 sm:py-8 sm:pb-28">
       <div className="flex items-start justify-between gap-3">
@@ -30,13 +32,33 @@ export function MapScreen({
             Defeat all {gauntlet.length} to be crowned Champion.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onQuit}
-          className="shrink-0 rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/10"
-        >
-          Forfeit
-        </button>
+        {confirmingQuit ? (
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="hidden text-xs text-white/60 sm:inline">Forfeit run?</span>
+            <button
+              type="button"
+              onClick={onQuit}
+              className="rounded-full border border-red-400/40 bg-red-500/15 px-3 py-1.5 text-xs font-bold text-red-300 transition hover:bg-red-500/25"
+            >
+              Confirm
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmingQuit(false)}
+              className="rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/10"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmingQuit(true)}
+            className="shrink-0 rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/10"
+          >
+            Forfeit
+          </button>
+        )}
       </div>
 
       {/* Your team — arrange the lineup (slot 1 leads) */}

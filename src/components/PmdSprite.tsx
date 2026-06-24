@@ -4,6 +4,7 @@ import {
   dirRow,
   PMD_FRAME_MS,
   pmdSheetUrl,
+  pmdSheetUrls,
   resolvePmdAnim,
   type PmdAnimKind,
 } from '../game/pmd';
@@ -56,6 +57,30 @@ export function PmdSprite({
   const frames = anim?.frames ?? 1;
   const durKey = anim ? anim.durs.join(',') : '';
 
+  // Reset to the first frame *during render* (not in the effect, which runs
+  // after paint) whenever we switch to a different sheet/anim. Without this the
+  // browser can paint one frame using the previous anim's frame index — which
+  // may point past the new, shorter sheet — flashing a blank cell ("blink").
+  const animSig = `${dexId}|${anim?.sheet ?? ''}|${durKey}|${playToken}`;
+  const sigRef = useRef(animSig);
+  if (sigRef.current !== animSig) {
+    sigRef.current = animSig;
+    if (frame !== 0) setFrame(0);
+  }
+
+  // Preload (decode) every sheet this species can use, so an animation switch
+  // never blanks while the browser fetches a sheet it hasn't shown yet.
+  useEffect(() => {
+    const imgs = pmdSheetUrls(dexId).map((url) => {
+      const img = new Image();
+      img.src = url;
+      return img;
+    });
+    return () => {
+      for (const img of imgs) img.src = '';
+    };
+  }, [dexId]);
+
   useEffect(() => {
     if (!anim) return;
     setFrame(0);
@@ -107,6 +132,8 @@ export function PmdSprite({
   const w = anim.fw * scale;
   const h = anim.fh * scale;
   const row = dirRow(side, anim.rows);
+  // Guard against a stale index landing past the current sheet (blank cell).
+  const safeFrame = Math.min(Math.max(frame, 0), frames - 1);
 
   return (
     <div
@@ -117,7 +144,7 @@ export function PmdSprite({
         backgroundImage: `url(${pmdSheetUrl(dexId, anim.sheet)})`,
         backgroundRepeat: 'no-repeat',
         backgroundSize: `${anim.frames * w}px ${anim.rows * h}px`,
-        backgroundPosition: `${-frame * w}px ${-row * h}px`,
+        backgroundPosition: `${-safeFrame * w}px ${-row * h}px`,
         imageRendering: 'pixelated',
       }}
       className="pointer-events-none drop-shadow-lg"
