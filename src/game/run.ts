@@ -59,6 +59,22 @@ export function gauntletLength(diff: Difficulty): number {
   return s.trainers + s.specials + s.gyms + s.elites + 1;
 }
 
+/**
+ * The difficulty a finished run's Champion-stage index implies. The Champion is
+ * the last rung, so its index is `gauntletLength(diff) - 1` — or one more when
+ * the rare bonus challenger slotted in just before it. Every difficulty's ladder
+ * is a distinct length, so the mapping is unambiguous. Returns null for a stage
+ * that matches no ladder. Used to recover the mode when a submission's difficulty
+ * label is missing or stale, instead of discarding an otherwise-legit win.
+ */
+export function difficultyForStage(stage: number): Difficulty | null {
+  for (const diff of DIFFICULTIES) {
+    const len = gauntletLength(diff);
+    if (stage === len - 1 || stage === len) return diff;
+  }
+  return null;
+}
+
 export const DIFFICULTY_INFO: Record<
   Difficulty,
   { label: string; skips: number; blurb: string }

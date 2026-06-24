@@ -16,6 +16,7 @@ import {
 } from './gens.js';
 import {
   DIFFICULTY_RANK,
+  difficultyForStage,
   gauntletLength,
   isDifficulty,
   type Difficulty,
@@ -144,23 +145,28 @@ export function verifyChampionWin(payload: SubmissionPayload): VerifyResult {
   if (typeof date !== 'string' || !YMD.test(date)) {
     return { ok: false, reason: 'bad date' };
   }
-  if (!isDifficulty(payload.difficulty)) {
-    return { ok: false, reason: 'bad difficulty' };
-  }
-  const difficulty = payload.difficulty;
   if (typeof seed !== 'string' || seed.length === 0 || seed.length > 120) {
     return { ok: false, reason: 'bad seed' };
   }
   if (!Number.isInteger(stage) || stage < 0 || stage > 64) {
     return { ok: false, reason: 'bad stage' };
   }
-  // The Champion is the last rung, so its index pins the ladder length. A run is
-  // exactly `gauntletLength(difficulty)` long, plus an optional rare bonus
-  // challenger right before the boss (+1). Anything else means the claimed mode
-  // doesn't match the run, so the difficulty label can't be trusted.
-  const expectedLen = gauntletLength(difficulty);
-  if (stage !== expectedLen - 1 && stage !== expectedLen) {
-    return { ok: false, reason: 'stage does not match difficulty' };
+  // Difficulty is only a ranking label; the Champion's stage index is what truly
+  // pins the ladder. A run is exactly `gauntletLength(difficulty)` long, plus an
+  // optional rare bonus challenger right before the boss (+1), and every mode's
+  // ladder is a distinct length. So trust an explicit difficulty only when it
+  // agrees with the stage, and otherwise recover the mode from the stage itself.
+  // That keeps a genuine win from a client whose difficulty was missing or stale
+  // (e.g. an old tab left open before the field existed) from being thrown away,
+  // without ever trusting an unverifiable label.
+  const stated = isDifficulty(payload.difficulty) ? payload.difficulty : null;
+  const statedLen = stated ? gauntletLength(stated) : -1;
+  const difficulty =
+    stated && (stage === statedLen - 1 || stage === statedLen)
+      ? stated
+      : difficultyForStage(stage);
+  if (!difficulty) {
+    return { ok: false, reason: 'stage does not match any difficulty' };
   }
   if (!Array.isArray(team) || team.length === 0 || team.length > 6) {
     return { ok: false, reason: 'bad team size' };
