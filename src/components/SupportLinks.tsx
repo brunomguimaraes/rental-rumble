@@ -1,10 +1,36 @@
+const AUTHOR_URL = 'https://github.com/brunomguimaraes';
+
+// Donations are hidden for now to reduce commercial/legal exposure while the
+// project is shared publicly. To re-enable, restore the imports and the
+// commented donation implementation at the bottom of this file, and swap it
+// back in for the builder-credit row below.
+
+/** Small footer row. Donations are currently hidden; instead we show a small
+ *  builder credit. Reused on the title, result, and ladder screens. */
+export function SupportLinks({ className = '' }: { className?: string }) {
+  return (
+    <div
+      className={`flex flex-wrap items-center justify-center gap-x-4 gap-y-2 ${className}`}
+    >
+      <a
+        href={AUTHOR_URL}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 transition hover:text-slate-200"
+      >
+        Built with <span aria-hidden>♥</span> by{' '}
+        <span className="font-semibold text-slate-300">brunomguimaraes</span>
+      </a>
+    </div>
+  );
+}
+
+/* --- Donations (hidden for now) ---------------------------------------------
 import { useState } from 'react';
 
 const COFFEE_URL = 'https://buymeacoffee.com/pokerentalrumble';
 const PIX_KEY = 'pokerentalrumble@gmail.com';
 
-/** Small "support the project" row: a Buy Me a Coffee link and a one-tap
- *  copy button for the Pix key. Reused on the title and result screens. */
 export function SupportLinks({ className = '' }: { className?: string }) {
   const [pixRevealed, setPixRevealed] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
@@ -54,3 +80,4 @@ export function SupportLinks({ className = '' }: { className?: string }) {
     </div>
   );
 }
+--------------------------------------------------------------------------- */
