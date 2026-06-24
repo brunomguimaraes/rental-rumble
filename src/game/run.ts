@@ -1,11 +1,50 @@
 import type { Creature, SpecialTier } from './types.js';
-import { CREATURES, withSign, withRandomPortrait } from './pokemon.js';
-import { rollSign } from './zodiac.js';
+import {
+  CREATURES,
+  withSign,
+  withRandomPortrait,
+  asShiny,
+  canBeShiny,
+  asAltColor,
+  canBeAltColor,
+} from './pokemon.js';
+import { rollSign, forcedRareSign } from './zodiac.js';
+import { allRareEnabled, allShinyEnabled } from './dev.js';
 import { RNG } from './rng.js';
 
-/** Roll a fresh pool/reroll entry: a random zodiac sign + random emotion. */
+/**
+ * Odds a freshly-drafted Pokémon shows up shiny. Rarer than a recruit reward but
+ * common enough to actually happen across a run (a player sees a few dozen cards
+ * per gauntlet), so finding one feels lucky rather than impossible. A shiny is a
+ * gentle, flat stat upgrade (see SHINY_STAT_MULT) — never a build-warper.
+ */
+export const SHINY_CHANCE = 1 / 60;
+
+/**
+ * Odds a freshly-drafted Pokémon shows up in a fan-made alternate colour — a
+ * far more common (but purely cosmetic) treat than a shiny. It only applies when
+ * the mon didn't already roll shiny, so the two colourings never overlap.
+ */
+export const ALT_COLOR_CHANCE = 1 / 10;
+
+/** Roll a fresh pool/reroll entry: a random zodiac sign + emotion + colour luck. */
 function rollCreature(creature: Creature, rng: RNG): Creature {
-  return withRandomPortrait(withSign(creature, rollSign(creature.stats, rng)), rng);
+  // Dev cheat: force every drafted Pokémon to a rare/mythic celestial sign.
+  const sign = allRareEnabled()
+    ? forcedRareSign(creature.stats, rng)
+    : rollSign(creature.stats, rng);
+  // Always draw both colour gates (keeps the seed deterministic in production);
+  // the dev cheat only OR's shiny in on top. Shiny wins over the alt colour, and
+  // a species with no such variant simply can't roll it.
+  const shinyRoll = rng.chance(SHINY_CHANCE);
+  const altRoll = rng.chance(ALT_COLOR_CHANCE);
+  let c = withSign(creature, sign);
+  if ((allShinyEnabled() || shinyRoll) && canBeShiny(c.dexId)) {
+    c = asShiny(c);
+  } else if (altRoll && canBeAltColor(c.dexId)) {
+    c = asAltColor(c);
+  }
+  return withRandomPortrait(c, rng);
 }
 
 export const POOL_SIZE = 10;

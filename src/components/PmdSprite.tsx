@@ -2,11 +2,14 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Side } from '../game/types';
 import {
   dirRow,
+  hasAltColorPmdSprite,
+  hasShinyPmdSprite,
   PMD_FRAME_MS,
   pmdSheetUrl,
   pmdSheetUrls,
   resolvePmdAnim,
   type PmdAnimKind,
+  type PmdVariant,
 } from '../game/pmd';
 
 const prefersReducedMotion = () =>
@@ -34,6 +37,8 @@ export function PmdSprite({
   loop,
   speed = 1,
   playToken = 0,
+  shiny = false,
+  altColor = false,
   onAnimEnd,
   fallback,
 }: {
@@ -45,10 +50,22 @@ export function PmdSprite({
   speed?: number;
   /** Bump to restart a one-shot anim even when `kind` is unchanged. */
   playToken?: number;
+  /** Render the shiny recolour (falls back to the normal sheets if none exists). */
+  shiny?: boolean;
+  /** Render the fan-made alternate colour (falls back to normal if none exists). */
+  altColor?: boolean;
   onAnimEnd?: () => void;
   fallback: ReactNode;
 }) {
   const anim = resolvePmdAnim(dexId, kind);
+  // Pick the recolour to render, but only when this species ships its full set
+  // of sheets (else fall back to the base palette). Shiny takes precedence.
+  const variant: PmdVariant =
+    shiny && hasShinyPmdSprite(dexId)
+      ? 'shiny'
+      : altColor && hasAltColorPmdSprite(dexId)
+        ? 'alt'
+        : undefined;
   const [frame, setFrame] = useState(0);
   const timer = useRef<number | undefined>(undefined);
   const endRef = useRef(onAnimEnd);
@@ -71,7 +88,7 @@ export function PmdSprite({
   // Preload (decode) every sheet this species can use, so an animation switch
   // never blanks while the browser fetches a sheet it hasn't shown yet.
   useEffect(() => {
-    const imgs = pmdSheetUrls(dexId).map((url) => {
+    const imgs = pmdSheetUrls(dexId, variant).map((url) => {
       const img = new Image();
       img.src = url;
       return img;
@@ -79,7 +96,7 @@ export function PmdSprite({
     return () => {
       for (const img of imgs) img.src = '';
     };
-  }, [dexId]);
+  }, [dexId, variant]);
 
   useEffect(() => {
     if (!anim) return;
@@ -141,7 +158,7 @@ export function PmdSprite({
       style={{
         width: w,
         height: h,
-        backgroundImage: `url(${pmdSheetUrl(dexId, anim.sheet)})`,
+        backgroundImage: `url(${pmdSheetUrl(dexId, anim.sheet, variant)})`,
         backgroundRepeat: 'no-repeat',
         backgroundSize: `${anim.frames * w}px ${anim.rows * h}px`,
         backgroundPosition: `${-safeFrame * w}px ${-row * h}px`,

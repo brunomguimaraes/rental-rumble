@@ -125,6 +125,22 @@ export interface Creature {
   stats: BaseStats;
   moves: Move[];
   pokeball: string; // cosmetic ball id this Pokémon is sent out in (see balls.ts)
+  /**
+   * A rare shiny: an alternate colouration with a small, flat all-stat blessing
+   * (see SHINY_STAT_MULT in pokemon.ts). Cosmetically it swaps the battle sprite
+   * & portrait for the PMD shiny recolour; mechanically every stat is nudged up
+   * by the same gentle factor, so a shiny is strictly a lucky upgrade without
+   * warping balance the way a celestial sign can.
+   */
+  shiny: boolean;
+  /**
+   * A fan-made *alternate colour* (non-shiny) palette — purely cosmetic. Swaps
+   * the battle sprite & portrait for the PMDCollab "Altcolor"/"Alternate" recolour
+   * with zero stat or card change. Rolls more often than a shiny but, unlike one,
+   * carries no boost and no special framing — just a different-looking colour.
+   * Mutually exclusive with `shiny` (a mon is at most one special colouring).
+   */
+  altColor: boolean;
 }
 
 /** A creature as it exists during a battle (with live HP & status). */
@@ -171,4 +187,11 @@ export interface Opponent {
    * (Prof. Oak); ordinary ladder foes are mandatory.
    */
   skippable?: boolean;
+  /**
+   * Whether beating this opponent unlocks the "reroll a sign" reward on the
+   * recruit screen. Set only on the run's *last* special trainer (the single
+   * special, or the second one when a run fields two), so the gamble is a
+   * once-per-run treat.
+   */
+  signRerollReward?: boolean;
 }

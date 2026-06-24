@@ -1,11 +1,23 @@
 import { useState } from 'react';
-import type { Creature } from '../game/types';
+import type { Creature, Sign } from '../game/types';
 import type { BracketId } from '../game/gens';
-import { canEvolve, evolutionTargets, evolveCreature } from '../game/pokemon';
+import {
+  canEvolve,
+  evolutionTargets,
+  evolveCreature,
+  withSign,
+  asShiny,
+  canBeShiny,
+  withRandomPortrait,
+} from '../game/pokemon';
+import { rerollSign, signLabel, signTier, forcedRareSign } from '../game/zodiac';
+import { allRareEnabled, allShinyEnabled } from '../game/dev';
+import { SHINY_CHANCE } from '../game/run';
+import { RNG } from '../game/rng';
 import { CreatureCard } from './CreatureCard';
 import { CupIcon } from './CupIcon';
 
-type Mode = 'choose' | 'recruit' | 'evolve';
+type Mode = 'choose' | 'recruit' | 'evolve' | 'reroll';
 
 export function RecruitScreen({
   opponentName,
@@ -13,6 +25,8 @@ export function RecruitScreen({
   bracket,
   currentTeam,
   defeatedTeam,
+  allowSignReroll = false,
+  rerollSeed,
   onConfirm,
 }: {
   opponentName: string;
@@ -20,6 +34,11 @@ export function RecruitScreen({
   bracket: BracketId;
   currentTeam: Creature[];
   defeatedTeam: Creature[];
+  // Whether the rare "reroll a sign" reward is offered (set after the run's last
+  // special trainer). `rerollSeed` pins the outcome deterministically so the
+  // gamble can't be re-rolled by leaving and re-entering the screen.
+  allowSignReroll?: boolean;
+  rerollSeed?: string;
   onConfirm: (team: Creature[]) => void;
 }) {
   const [mode, setMode] = useState<Mode>('choose');
@@ -32,15 +51,55 @@ export function RecruitScreen({
   const [evolveSlot, setEvolveSlot] = useState<number | null>(null);
   const [evolveTarget, setEvolveTarget] = useState<number | null>(null);
 
+  // Reward 3 — sign reroll: gamble one of YOUR Pokémon's signs. The outcome is
+  // pinned to a run+stage seed, so the *rarity* of the result is fixed before the
+  // player ever picks — they only choose which Pokémon receives it. That makes it
+  // impossible to fish for a rare/mythic by leaving and re-entering the screen.
+  const [rerollSlot, setRerollSlot] = useState<number | null>(null);
+
+  // The sign this reward would grant a given slot. Deterministic (seed-pinned),
+  // so re-selecting only swaps which Pokémon benefits — never the luck.
+  const rerolledSignFor = (i: number): Sign =>
+    rerollSign(currentTeam[i].stats, new RNG(rerollSeed ?? 'reroll'));
+
+  // How a defeated foe presents as a recruit. Two independent blessings can land
+  // here, mirroring the draft so a recruit can be rare/mythic AND shiny at once:
+  //   • A celestial sign — a small natural shot, or every time under the dev
+  //     "all rare/mythic" cheat.
+  //   • A shiny coat (flat stat boost) — the same natural SHINY_CHANCE the draft
+  //     uses, or forced by the dev "all shiny" cheat (where the species supports
+  //     it). Opponents never fight shiny, so this is the foe's lustre revealing
+  //     itself only once it joins your team.
+  // Every roll is seeded by the creature so the previewed card and the Pokémon
+  // you actually receive always match, and can't be re-fished by re-entering.
+  const allRare = allRareEnabled();
+  const allShiny = allShinyEnabled();
+  const recruitView = (c: Creature): Creature => {
+    let view = c;
+    if (allRare) {
+      const sign = forcedRareSign(view.stats, new RNG(`devrare:${view.dexId}:${view.sign}`));
+      view = withSign(view, sign);
+    }
+    const shinyRng = new RNG(`recruitshiny:${c.dexId}:${c.sign}`);
+    const shinyRoll = shinyRng.chance(SHINY_CHANCE);
+    if (!view.shiny && (allShiny || shinyRoll) && canBeShiny(view.dexId)) {
+      view = withRandomPortrait(asShiny(view), shinyRng);
+    }
+    return view;
+  };
+  const defeatedView = defeatedTeam.map(recruitView);
+
   const anyEvolvable = currentTeam.some((c) => canEvolve(c, bracket));
 
   const recruitDone = foeIdx !== null && recruitSlot !== null;
   const evolveDone = evolveSlot !== null && evolveTarget !== null;
+  const rerollDone = rerollSlot !== null;
 
   // The team we'd hand back if the player confirms right now.
   const resultTeam = currentTeam.map((c, i) => {
-    if (mode === 'recruit' && recruitDone && i === recruitSlot) return defeatedTeam[foeIdx];
+    if (mode === 'recruit' && recruitDone && i === recruitSlot) return defeatedView[foeIdx];
     if (mode === 'evolve' && evolveDone && i === evolveSlot) return evolveCreature(c, evolveTarget);
+    if (mode === 'reroll' && rerollDone && i === rerollSlot) return withSign(c, rerolledSignFor(i));
     return c;
   });
 
@@ -50,6 +109,7 @@ export function RecruitScreen({
     setRecruitSlot(null);
     setEvolveSlot(null);
     setEvolveTarget(null);
+    setRerollSlot(null);
   };
 
   const pickTeamForEvolve = (i: number) => {
@@ -62,7 +122,7 @@ export function RecruitScreen({
   // A reward is only "claimed" once it's fully chosen. Until then — in any mode,
   // including after you've stepped into recruit/evolve — the player can still
   // skip outright and move on with their current team.
-  const rewardChosen = recruitDone || evolveDone;
+  const rewardChosen = recruitDone || evolveDone || rerollDone;
   const continueLabel = rewardChosen ? nextLabel : 'Skip reward';
 
   return (
@@ -77,18 +137,22 @@ export function RecruitScreen({
             ? 'Claim one reward for the win — choose carefully, you only get one.'
             : mode === 'recruit'
               ? 'Pick one of their Pokémon, then tap a slot on your team to swap it in.'
-              : 'Spend your Evolution Ticket on one of your team — pick a Pokémon to evolve.'}
+              : mode === 'evolve'
+                ? 'Spend your Evolution Ticket on one of your team — pick a Pokémon to evolve.'
+                : 'Pick one of your team to reroll its sign — fate decides the rest.'}
         </p>
       </div>
 
       {/* Step 1 — choose your reward */}
       {mode === 'choose' && (
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        <div
+          className={`mt-8 grid gap-4 sm:grid-cols-2 ${allowSignReroll ? 'lg:grid-cols-3' : ''}`}
+        >
           <RewardOption
             emoji="🔄"
             title="Recruit a Pokémon"
             desc={`Swap one of ${opponentName}'s Pokémon into your team — keeps its sign & ball.`}
-            preview={<PreviewRow creatures={defeatedTeam} />}
+            preview={<PreviewRow creatures={defeatedView} />}
             onClick={() => setMode('recruit')}
           />
           <RewardOption
@@ -107,6 +171,15 @@ export function RecruitScreen({
             disabled={!anyEvolvable}
             onClick={() => anyEvolvable && setMode('evolve')}
           />
+          {allowSignReroll && (
+            <RewardOption
+              emoji="🎲"
+              title="Reroll a Sign"
+              desc="Gamble one of your team's zodiac signs for a brand-new one. Who knows what the stars hold?"
+              preview={<PreviewRow creatures={currentTeam} />}
+              onClick={() => setMode('reroll')}
+            />
+          )}
         </div>
       )}
 
@@ -149,7 +222,7 @@ export function RecruitScreen({
               {opponentName}'s Pokémon
             </h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              {defeatedTeam.map((c, i) => (
+              {defeatedView.map((c, i) => (
                 <CreatureCard
                   key={i}
                   creature={c}
@@ -219,6 +292,54 @@ export function RecruitScreen({
               </div>
             </div>
           )}
+        </>
+      )}
+
+      {/* Step 2c — sign reroll */}
+      {mode === 'reroll' && (
+        <>
+          <RewardHeader onBack={backToChoose} label="Reroll a Sign" />
+
+          <div className="mt-5">
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
+              Your team
+              <span className="ml-2 text-white/35">
+                {rerollDone ? 'tap another to move the reroll' : 'tap a Pokémon to reroll its sign'}
+              </span>
+            </h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {currentTeam.map((c, i) => {
+                const isPicked = rerollSlot === i;
+                const shown = isPicked ? withSign(c, rerolledSignFor(i)) : c;
+                const newTier = isPicked ? signTier(rerolledSignFor(i)) : null;
+                const tagColor =
+                  newTier === 'rare' || newTier === 'mythic' ? 'amber' : 'emerald';
+                return (
+                  <div
+                    key={`${c.id}-${i}`}
+                    className={`relative rounded-2xl ${isPicked ? 'ring-2 ring-violet-300/70' : ''}`}
+                  >
+                    <CreatureCard
+                      creature={shown}
+                      onClick={() => setRerollSlot(isPicked ? null : i)}
+                    />
+                    {isPicked && (
+                      <Tag color={tagColor} text={`→ ${signLabel(rerolledSignFor(i))}`} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {rerollDone && (
+              <p className="mt-4 text-center text-sm text-white/55">
+                The stars realign — {currentTeam[rerollSlot].name} is now{' '}
+                <span className="font-bold text-violet-200">
+                  {signLabel(rerolledSignFor(rerollSlot))}
+                </span>
+                .
+              </p>
+            )}
+          </div>
         </>
       )}
 

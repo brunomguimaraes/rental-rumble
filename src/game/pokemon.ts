@@ -6,6 +6,8 @@ import { EVOLUTIONS } from './evolutions.gen.js';
 import { movesFor } from './moves.js';
 import { defaultSign, signsByFit } from './zodiac.js';
 import { PORTRAIT_EMOTIONS } from './portraits.gen.js';
+import { SHINY_PORTRAITS, SHINY_SPRITE_IDS } from './shiny.gen.js';
+import { ALT_COLOR_PORTRAITS, ALT_COLOR_SPRITE_IDS } from './altcolor.gen.js';
 import { DEFAULT_BALL } from './balls.js';
 import { RNG } from './rng.js';
 
@@ -40,16 +42,122 @@ export function portraitEmotions(dexId: number): string[] {
 }
 
 /**
+ * The gentle, flat blessing a shiny carries on every stat. Kept small (a 25%
+ * nudge — well under the swing of a celestial sign) so a shiny is a pleasant
+ * upgrade that never warps battle balance. Applied multiplicatively on top of
+ * the zodiac sign's spread, both in battle (see battle.ts) and on the card.
+ */
+export const SHINY_STAT_MULT = 1.25;
+
+/** Shiny recolour of the PMD-style portrait (mirrors the base-form emotions). */
+export function shinyPortraitUrl(dexId: number, emotion = 'Normal'): string {
+  return `${ASSET}sprites/portrait-shiny/${dexId}/${emotion}.png`;
+}
+
+/** Shiny emotion portraits bundled for a species (empty if none contributed). */
+export function shinyPortraitEmotions(dexId: number): string[] {
+  return SHINY_PORTRAITS[dexId] ?? [];
+}
+
+/**
+ * Whether a species has a shiny variant we can actually show — either an
+ * animated battle sprite or at least one portrait. Species without one never
+ * roll shiny, so a "shiny" is always visibly different.
+ */
+export function canBeShiny(dexId: number): boolean {
+  return SHINY_SPRITE_IDS.has(dexId) || shinyPortraitEmotions(dexId).length > 0;
+}
+
+/** Whether a species ships a full set of shiny battle-animation sheets. */
+export function hasShinySprite(dexId: number): boolean {
+  return SHINY_SPRITE_IDS.has(dexId);
+}
+
+/** Alternate-colour (non-shiny) recolour of the PMD-style portrait. */
+export function altColorPortraitUrl(dexId: number, emotion = 'Normal'): string {
+  return `${ASSET}sprites/portrait-alt/${dexId}/${emotion}.png`;
+}
+
+/** Alt-colour emotion portraits bundled for a species (empty if none). */
+export function altColorPortraitEmotions(dexId: number): string[] {
+  return ALT_COLOR_PORTRAITS[dexId] ?? [];
+}
+
+/**
+ * Whether a species has a fan-made alternate-colour variant we can show — either
+ * an animated battle sprite or at least one portrait. Species without one never
+ * roll an alt colour, so the recolour is always visibly different.
+ */
+export function canBeAltColor(dexId: number): boolean {
+  return (
+    ALT_COLOR_SPRITE_IDS.has(dexId) ||
+    altColorPortraitEmotions(dexId).length > 0
+  );
+}
+
+/**
  * Return a copy of the creature wearing a random emotion portrait, chosen from
  * the seeded RNG so a given run is reproducible. Adds visual variety to each
  * rolled rental Pokémon. Falls back to the creature unchanged (Normal portrait)
  * when no portraits exist for the species.
  */
 export function withRandomPortrait(creature: Creature, rng: RNG): Creature {
+  // A special colouring (shiny / alt colour) draws from its own recoloured
+  // emotion set, so the random face still lands on a portrait that exists.
+  if (creature.shiny) {
+    const shinyEmotions = shinyPortraitEmotions(creature.dexId);
+    if (shinyEmotions.length === 0) return creature;
+    const emotion = rng.pick(shinyEmotions);
+    return { ...creature, portrait: shinyPortraitUrl(creature.dexId, emotion) };
+  }
+  if (creature.altColor) {
+    const altEmotions = altColorPortraitEmotions(creature.dexId);
+    if (altEmotions.length === 0) return creature;
+    const emotion = rng.pick(altEmotions);
+    return { ...creature, portrait: altColorPortraitUrl(creature.dexId, emotion) };
+  }
   const emotions = portraitEmotions(creature.dexId);
   if (emotions.length === 0) return creature;
   const emotion = rng.pick(emotions);
   return { ...creature, portrait: portraitUrl(creature.dexId, emotion) };
+}
+
+/**
+ * Mark a creature shiny: flips the flag and swaps its neutral portrait to the
+ * shiny recolour (a random emotion is layered on later by withRandomPortrait).
+ * Pure and DOM-free, so the server re-sim can reconstruct a shiny's stats from
+ * the submitted flag exactly. No-op if already shiny.
+ */
+export function asShiny(creature: Creature): Creature {
+  if (creature.shiny) return creature;
+  const hasPortrait = shinyPortraitEmotions(creature.dexId).length > 0;
+  return {
+    ...creature,
+    shiny: true,
+    altColor: false,
+    portrait: hasPortrait
+      ? shinyPortraitUrl(creature.dexId)
+      : creature.portrait,
+  };
+}
+
+/**
+ * Mark a creature with its fan-made alternate colour: flips the flag and swaps
+ * to the recoloured portrait (a random emotion is layered on later by
+ * withRandomPortrait). Purely cosmetic — never touches stats. No-op if already
+ * alt-coloured; clears `shiny` since the two colourings are exclusive.
+ */
+export function asAltColor(creature: Creature): Creature {
+  if (creature.altColor) return creature;
+  const hasPortrait = altColorPortraitEmotions(creature.dexId).length > 0;
+  return {
+    ...creature,
+    altColor: true,
+    shiny: false,
+    portrait: hasPortrait
+      ? altColorPortraitUrl(creature.dexId)
+      : creature.portrait,
+  };
 }
 
 /** Box/icon mini sprite (2-frame sheet; the UI shows the first frame). */
@@ -74,6 +182,8 @@ export const CREATURES: Creature[] = RAW_DEX.map((e) => {
     stats: e.stats,
     moves: movesFor(e.types, e.stats, sign),
     pokeball: DEFAULT_BALL,
+    shiny: false,
+    altColor: false,
   };
 });
 
@@ -132,5 +242,11 @@ export function canEvolve(creature: Creature, bracket?: BracketId): boolean {
  */
 export function evolveCreature(creature: Creature, targetDexId: number): Creature {
   const base = getCreature(String(targetDexId));
-  return withBall(withSign(base, creature.sign), creature.pokeball);
+  const evolved = withBall(withSign(base, creature.sign), creature.pokeball);
+  // A special colouring carries over through evolution (shiny stays shiny, an
+  // alt colour stays an alt colour) — falling back to the base palette if the
+  // evolved species has no matching recolour.
+  if (creature.shiny) return asShiny(evolved);
+  if (creature.altColor) return asAltColor(evolved);
+  return evolved;
 }

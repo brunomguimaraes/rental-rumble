@@ -398,17 +398,27 @@ export function buildGauntlet(
   });
 
   // Special cameo trainers: villains & gag faces from the anime (Team Rocket,
-  // Ash's mom, a rare Prof. Oak) who field a fixed, hand-picked team. They drop in
-  // as mid-ladder mini-bosses after the roadside warm-ups — the "for fun" rung.
+  // Ash's mom, a rare Prof. Oak) who field a fixed, hand-picked team. The first
+  // drops in just before the Gym Leaders; a second (on the longer ladders) waits
+  // right before the Champion. Beating the LAST special — the single one, or the
+  // pre-Champion one when there are two — unlocks the sign-reroll reward.
   const specials: Opponent[] = Array.from(
     { length: shape.specials ?? 0 },
     (_, i): Opponent => {
       const spec =
         specialsPool[i % Math.max(1, specialsPool.length)] ??
         rng.pick(famousForSlot('special'));
-      return famousOpponent(spec, `special-${i}-${spec.id}`, 'special');
+      const isLast = i === (shape.specials ?? 0) - 1;
+      return {
+        ...famousOpponent(spec, `special-${i}-${spec.id}`, 'special'),
+        signRerollReward: isLast,
+      };
     },
   );
+  // The first special warms up the Gym rung; any remaining ones (just the
+  // second, on the long ladders) guard the gate to the Champion.
+  const preGymSpecials = specials.slice(0, 1);
+  const preChampionSpecials = specials.slice(1);
 
   // Elite Four: famous anime members (Lorelei, Bruno) blend in with their real
   // type + team; the rest are procedural, named after the sprite's character.
@@ -444,10 +454,11 @@ export function buildGauntlet(
 
   return [
     ...trainers,
-    ...specials,
+    ...preGymSpecials,
     ...gyms,
     ...elite,
     ...bonusFight,
+    ...preChampionSpecials,
     buildChampion(d, bracket),
   ];
 }

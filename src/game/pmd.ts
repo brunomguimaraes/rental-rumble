@@ -1,5 +1,10 @@
 import type { AttackAnim, Side } from './types.js';
 import { PMD_SPRITES, type PmdAnim, type PmdEntry } from './pmdSprites.gen.js';
+import { SHINY_SPRITE_IDS } from './shiny.gen.js';
+import { ALT_COLOR_SPRITE_IDS } from './altcolor.gen.js';
+
+/** Which colour variant of a species' sheets to render (base when undefined). */
+export type PmdVariant = 'shiny' | 'alt' | undefined;
 
 // Runtime access to the bundled PMD-style animated battle sprites (from
 // PMDCollab's SpriteCollab; downloaded locally by scripts/fetch-battle-sprites.mjs
@@ -49,8 +54,24 @@ export function hasPmdSprite(dexId: number): boolean {
   return PMD_SPRITES[dexId] !== undefined;
 }
 
-export function pmdSheetUrl(dexId: number, sheet: string): string {
-  return `${ASSET}sprites/pmd/${dexId}/${sheet}-Anim.png`;
+/** Whether a shiny recolour of the animated battle sprite is bundled. */
+export function hasShinyPmdSprite(dexId: number): boolean {
+  return SHINY_SPRITE_IDS.has(dexId) && PMD_SPRITES[dexId] !== undefined;
+}
+
+/** Whether an alternate-colour (non-shiny) animated battle sprite is bundled. */
+export function hasAltColorPmdSprite(dexId: number): boolean {
+  return ALT_COLOR_SPRITE_IDS.has(dexId) && PMD_SPRITES[dexId] !== undefined;
+}
+
+export function pmdSheetUrl(
+  dexId: number,
+  sheet: string,
+  variant: PmdVariant = undefined,
+): string {
+  // Recolours mirror the base sheets (and geometry) under sibling folders.
+  const dir = variant === 'shiny' ? 'pmd-shiny' : variant === 'alt' ? 'pmd-alt' : 'pmd';
+  return `${ASSET}sprites/${dir}/${dexId}/${sheet}-Anim.png`;
 }
 
 /**
@@ -58,12 +79,12 @@ export function pmdSheetUrl(dexId: number, sheet: string): string {
  * up front so switching animations mid-battle never flashes a blank frame while
  * the browser fetches the not-yet-seen sheet.
  */
-export function pmdSheetUrls(dexId: number): string[] {
+export function pmdSheetUrls(dexId: number, variant: PmdVariant = undefined): string[] {
   const entry: PmdEntry | undefined = PMD_SPRITES[dexId];
   if (!entry) return [];
   const sheets = new Set<string>();
   for (const anim of Object.values(entry)) sheets.add(anim.sheet);
-  return [...sheets].map((sheet) => pmdSheetUrl(dexId, sheet));
+  return [...sheets].map((sheet) => pmdSheetUrl(dexId, sheet, variant));
 }
 
 export interface ResolvedPmdAnim extends PmdAnim {

@@ -11,7 +11,7 @@ import type {
 } from './types.js';
 import { effectiveness } from './typechart.js';
 import { RNG } from './rng.js';
-import { CREATURES, withSign } from './pokemon.js';
+import { CREATURES, withSign, SHINY_STAT_MULT } from './pokemon.js';
 import { attackAnimFor } from './moves.js';
 import { SIGN_SPREAD, rollSign, bestRareSign } from './zodiac.js';
 import { rollOpponentBall } from './balls.js';
@@ -78,9 +78,15 @@ function otherStat(base: number): number {
   return Math.floor((2 * base * LEVEL) / 100) + 5;
 }
 
+/** The flat per-creature stat factor a shiny carries (1 for a normal mon). */
+function shinyMult(creature: Creature): number {
+  return creature.shiny ? SHINY_STAT_MULT : 1;
+}
+
 export function makeBattler(creature: Creature, statMult = 1): Battler {
   const spread = SIGN_SPREAD[creature.sign];
-  const maxHp = Math.floor(hpStat(creature.stats.hp) * spread.hp * statMult);
+  const mult = statMult * shinyMult(creature);
+  const maxHp = Math.floor(hpStat(creature.stats.hp) * spread.hp * mult);
   const pp: Record<string, number> = {};
   for (const mv of creature.moves) {
     if (mv.pp !== undefined) pp[mv.name] = mv.pp;
@@ -112,20 +118,23 @@ function stageMult(stage: number): number {
 
 function effectiveAtk(b: Battler, statMult: number): number {
   const spread = SIGN_SPREAD[b.creature.sign];
+  const mult = statMult * shinyMult(b.creature);
   return Math.floor(
-    otherStat(b.creature.stats.atk) * spread.atk * statMult * stageMult(b.stages.atk),
+    otherStat(b.creature.stats.atk) * spread.atk * mult * stageMult(b.stages.atk),
   );
 }
 function effectiveDef(b: Battler, statMult: number): number {
   const spread = SIGN_SPREAD[b.creature.sign];
+  const mult = statMult * shinyMult(b.creature);
   return Math.floor(
-    otherStat(b.creature.stats.def) * spread.def * statMult * stageMult(b.stages.def),
+    otherStat(b.creature.stats.def) * spread.def * mult * stageMult(b.stages.def),
   );
 }
 function effectiveSpd(b: Battler, statMult: number): number {
   const spread = SIGN_SPREAD[b.creature.sign];
+  const mult = statMult * shinyMult(b.creature);
   const base =
-    otherStat(b.creature.stats.spd) * spread.spd * statMult * stageMult(b.stages.spd);
+    otherStat(b.creature.stats.spd) * spread.spd * mult * stageMult(b.stages.spd);
   return b.status === 'stun' ? base * 0.6 : base;
 }
 

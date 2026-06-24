@@ -242,7 +242,21 @@ export function rollSign(s: BaseStats, rng: RNG, oddsScale = 1): Sign {
   const gate = rng.next();
   if (gate < MYTHIC_ODDS * oddsScale) return 'abhijit';
   if (gate < (MYTHIC_ODDS + RARE_ODDS) * oddsScale) return bestRareSign(s);
+  return rollCommonSign(s, rng);
+}
 
+/**
+ * Always a celestial sign, for the dev "all rare/mythic" cheat: the mythic
+ * Abhijit on a ~1-in-4 gate, otherwise the best-fit rare wanderer. Consumes one
+ * `rng` draw so a seeded caller stays deterministic.
+ */
+export function forcedRareSign(s: BaseStats, rng: RNG): Sign {
+  return rng.next() < 0.25 ? 'abhijit' : bestRareSign(s);
+}
+
+// Weighted pick among the common twelve: best-fit signs are favoured, but a long
+// tail keeps an off-beat sign possible. Shared by the draft roll and the reroll.
+function rollCommonSign(s: BaseStats, rng: RNG): Sign {
   const ranked = signsByFit(s);
   const weights = ranked.map((_, i) => 1 / (i + 1.3));
   const total = weights.reduce((a, b) => a + b, 0);
@@ -252,4 +266,25 @@ export function rollSign(s: BaseStats, rng: RNG, oddsScale = 1): Sign {
     if (r <= 0) return ranked[i];
   }
   return ranked[0];
+}
+
+// Odds for the special-battle "reroll a sign" reward. Far more generous than a
+// normal draft roll — a real shot at a celestial sign — but these numbers are
+// deliberately NOT surfaced in the UI: the reward is sold as a plain reroll, and
+// the long-shot upside is meant to be a delightful surprise, not a stated rate.
+export const REROLL_RARE_ODDS = 1 / 10;
+export const REROLL_MYTHIC_ODDS = 1 / 100;
+
+/**
+ * Reroll a single Pokémon's sign as a special-battle reward. Same weighted
+ * common-twelve fall-through as the draft, but with hugely boosted odds of
+ * surfacing a rare celestial (≈1/10) or the mythic Abhijit (≈1/100). The roll is
+ * driven entirely by `rng`, so a caller seeding it deterministically (per run +
+ * stage) gets a fixed, un-fishable outcome.
+ */
+export function rerollSign(s: BaseStats, rng: RNG): Sign {
+  const gate = rng.next();
+  if (gate < REROLL_MYTHIC_ODDS) return 'abhijit';
+  if (gate < REROLL_MYTHIC_ODDS + REROLL_RARE_ODDS) return bestRareSign(s);
+  return rollCommonSign(s, rng);
 }

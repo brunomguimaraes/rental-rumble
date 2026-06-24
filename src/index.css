@@ -351,6 +351,65 @@ body {
   }
 }
 
+/* Shiny treatment. A "foil card" look: a soft diagonal light sweep glides across
+   the card on a loop (::after, clipped by the card's overflow-hidden), reading as
+   a holographic sheen, while a gold/aqua/pink ring + glow (applied inline) frames
+   it. Uses ::after so it never collides with the celestial sign ::before ring —
+   a shiny that's *also* born under a celestial sign wears both. */
+@keyframes shiny-sweep {
+  0% {
+    left: -70%;
+  }
+  55%,
+  100% {
+    left: 130%;
+  }
+}
+
+.shiny-card::after {
+  content: '';
+  position: absolute;
+  top: -10%;
+  bottom: -10%;
+  left: -70%;
+  width: 55%;
+  pointer-events: none;
+  z-index: 7;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.22),
+    rgba(190, 245, 255, 0.16),
+    transparent
+  );
+  transform: skewX(-18deg);
+  animation: shiny-sweep 4.5s ease-in-out infinite;
+}
+
+/* The little sparkle that marks a shiny — a gentle twinkle (scale + opacity). */
+@keyframes shiny-twinkle {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.25) rotate(20deg);
+    opacity: 0.6;
+  }
+}
+
+.shiny-twinkle {
+  animation: shiny-twinkle 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shiny-card::after,
+  .shiny-twinkle {
+    animation: none;
+  }
+}
+
 /* Keep scrollbars unobtrusive: the thumb stays transparent at rest (so it never
    reads as a stray pill floating over fixed UI like the bottom team tray) and
    only fades in while hovering the scrollable area. */

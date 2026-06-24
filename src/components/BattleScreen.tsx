@@ -11,6 +11,7 @@ import type {
 import { TYPE_COLORS, effectivenessLabel, typeIconUrl } from '../game/typechart';
 import { signIconUrl, signLabel, signSummary, signTier } from '../game/zodiac';
 import { hasPmdSprite, type PmdAnimKind } from '../game/pmd';
+import { autoWinEnabled } from '../game/dev';
 import { ballUrl } from '../game/balls';
 import { backdropFor } from '../game/backgrounds';
 import { HpBar } from './HpBar';
@@ -55,6 +56,8 @@ interface ActiveView {
   hp: number;
   maxHp: number;
   status: StatusKind;
+  shiny: boolean;
+  altColor: boolean;
 }
 
 interface AnimState {
@@ -101,6 +104,8 @@ function initialView(c: Creature, side: Side): ActiveView {
     hp: 0,
     maxHp: 1,
     status: null,
+    shiny: c.shiny,
+    altColor: c.altColor,
   };
 }
 
@@ -215,6 +220,8 @@ function Combatant({
                 playToken={anim.token}
                 loop={anim.loop}
                 speed={speed}
+                shiny={view.shiny}
+                altColor={view.altColor}
                 heightPx={PMD_HEIGHT}
                 onAnimEnd={() => onAnimEnd(side)}
                 fallback={
@@ -424,6 +431,8 @@ export function BattleScreen({
           hp: fillBar ? 0 : full,
           maxHp,
           status: null,
+          shiny: c.shiny,
+          altColor: c.altColor,
         });
         (side === 'player' ? setPVisible : setFVisible)(true);
         (side === 'player' ? setPAnim : setFAnim)(IDLE);
@@ -507,6 +516,18 @@ export function BattleScreen({
     if (logText) setLog((l) => [...l.slice(-40), logText]);
   };
 
+  // Dev cheat: when "auto-win every match" is on, resolve the fight as a win the
+  // moment the screen mounts — no animation, straight to the next stage. Guarded
+  // by a ref so it fires exactly once even under StrictMode's double-invoke.
+  const autoWon = useRef(false);
+  useEffect(() => {
+    if (autoWon.current || !autoWinEnabled()) return;
+    autoWon.current = true;
+    const t = window.setTimeout(() => onComplete('player'), 0);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (finished || idx >= events.length) return;
     const e = events[idx];
@@ -574,13 +595,22 @@ export function BattleScreen({
             {speed}× speed
           </button>
           {import.meta.env.DEV && !finished && (
-            <button
-              type="button"
-              onClick={skip}
-              className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold transition hover:bg-white/10"
-            >
-              Skip ⏭
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => onComplete('player')}
+                className="rounded-full border border-emerald-400/40 px-3 py-1 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-400/10"
+              >
+                Win ✓
+              </button>
+              <button
+                type="button"
+                onClick={skip}
+                className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold transition hover:bg-white/10"
+              >
+                Skip ⏭
+              </button>
+            </>
           )}
         </div>
       </div>

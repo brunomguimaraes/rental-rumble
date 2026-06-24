@@ -37,6 +37,7 @@ import { ResultScreen } from './components/ResultScreen';
 import { ChallengeResultScreen } from './components/ChallengeResultScreen';
 import { ThroneResultScreen } from './components/ThroneResultScreen';
 import { LadderScreen } from './components/LadderScreen';
+import { DevPanel } from './components/DevPanel';
 
 type Phase =
   | 'title'
@@ -248,7 +249,8 @@ export default function App() {
     setPhase('recruit');
   };
 
-  switch (phase) {
+  const renderScreen = () => {
+    switch (phase) {
     case 'title':
       return (
         <TitleScreen
@@ -312,6 +314,8 @@ export default function App() {
           bracket={bracket}
           currentTeam={team}
           defeatedTeam={defeated}
+          allowSignReroll={opponent.signRerollReward ?? false}
+          rerollSeed={`reroll:${seed}:${stage}`}
           onConfirm={(newTeam) => {
             setTeam(newTeam);
             setStage((s) => s + 1);
@@ -395,5 +399,15 @@ export default function App() {
           onHome={() => setPhase('title')}
         />
       );
-  }
+    }
+  };
+
+  return (
+    <>
+      {renderScreen()}
+      {/* Statically gated so Vite tree-shakes the whole dev panel out of any
+          production build — the cheats simply don't exist there. */}
+      {import.meta.env.DEV && <DevPanel />}
+    </>
+  );
 }

@@ -12,7 +12,7 @@ export function MiniSprite({
   creature: Creature;
   className?: string;
 }) {
-  return (
+  const sprite = (
     <div
       role="img"
       aria-label={creature.name}
@@ -24,5 +24,19 @@ export function MiniSprite({
         backgroundPosition: 'left center',
       }}
     />
+  );
+  if (!creature.shiny) return sprite;
+  // The mini icons have no shiny recolour, so mark a shiny with a small twinkle.
+  return (
+    <div className="relative inline-grid place-items-center">
+      {sprite}
+      <span
+        aria-hidden
+        className="shiny-twinkle pointer-events-none absolute -right-0.5 -top-0.5 text-[9px] leading-none drop-shadow"
+        style={{ color: '#ffd76b' }}
+      >
+        ✦
+      </span>
+    </div>
   );
 }

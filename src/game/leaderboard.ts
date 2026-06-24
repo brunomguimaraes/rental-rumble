@@ -1,5 +1,5 @@
 import type { Creature, Sign } from './types.js';
-import { CREATURES_BY_ID, withSign } from './pokemon.js';
+import { CREATURES_BY_ID, withSign, asShiny } from './pokemon.js';
 import { ALL_SIGNS } from './zodiac.js';
 import {
   buildChampionTeam,
@@ -50,6 +50,11 @@ export const LEADERBOARD_TOP = 25;
 export interface SubmissionMon {
   id: string; // CREATURES id (string form of the National Dex id)
   sign: Sign;
+  // Whether this slot was a shiny (gets the flat shiny stat blessing). Optional
+  // so legacy payloads without it rebuild as ordinary mons. Trusted the same way
+  // `sign` is — the deterministic re-sim must reproduce the client's exact fight,
+  // and the board already rebuilds stats from these claimed attributes.
+  shiny?: boolean;
 }
 
 /** What the client POSTs after taking the crown. */
@@ -190,7 +195,8 @@ export function verifyChampionWin(payload: SubmissionPayload): VerifyResult {
     if (!inBracket(base.dexId, bracket)) {
       return { ok: false, reason: `mon ${mon.id} is out of bracket` };
     }
-    playerTeam.push(withSign(base, mon.sign));
+    const built = withSign(base, mon.sign);
+    playerTeam.push(mon.shiny ? asShiny(built) : built);
   }
 
   // The daily boss for this bracket: same team for everyone, built from the
@@ -221,7 +227,8 @@ export function teamFromMons(mons: SubmissionMon[]): Creature[] {
   for (const mon of mons) {
     const base = CREATURES_BY_ID[mon.id];
     if (!base) continue;
-    team.push(withSign(base, ALL_SIGNS.includes(mon.sign) ? mon.sign : base.sign));
+    const built = withSign(base, ALL_SIGNS.includes(mon.sign) ? mon.sign : base.sign);
+    team.push(mon.shiny ? asShiny(built) : built);
   }
   return team;
 }
@@ -288,7 +295,7 @@ export function buildSubmission(args: {
     seed: args.seed,
     stage: args.stage,
     clearedStages: args.clearedStages,
-    team: args.team.map((c) => ({ id: c.id, sign: c.sign })),
+    team: args.team.map((c) => ({ id: c.id, sign: c.sign, shiny: c.shiny })),
     token: args.token ?? null,
   };
 }
