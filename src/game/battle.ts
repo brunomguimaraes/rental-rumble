@@ -484,6 +484,7 @@ export function simulateBattle(
           kind: 'status',
           actor: side,
           affected: side,
+          status: null,
           text: `${attacker.creature.name} woke up!`,
         });
       } else {
@@ -507,7 +508,16 @@ export function simulateBattle(
         return 'continue';
       }
       attacker.statusTurns -= 1;
-      if (attacker.statusTurns <= 0) attacker.status = null;
+      if (attacker.statusTurns <= 0) {
+        attacker.status = null;
+        push({
+          kind: 'status',
+          actor: side,
+          affected: side,
+          status: null,
+          text: `${attacker.creature.name} shook off the paralysis!`,
+        });
+      }
     }
 
     // Confusion: tick down, then risk hurting itself instead of acting.
@@ -707,7 +717,18 @@ export function simulateBattle(
         ...snapshot(side),
       });
       b.statusTurns -= 1;
-      if (b.statusTurns <= 0) b.status = null;
+      if (b.statusTurns <= 0) {
+        b.status = null;
+        if (b.hp > 0) {
+          push({
+            kind: 'status',
+            actor: side,
+            affected: side,
+            status: null,
+            text: `${b.creature.name}'s burn faded.`,
+          });
+        }
+      }
     } else if (b.status === 'poison') {
       // Toxic-style escalation: each turn hurts a little more than the last.
       const dmg = Math.max(1, Math.floor((b.maxHp * b.toxicCounter) / 16));

@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { BattleEvent, BattleResult } from '../game/battle';
-import type { Creature, Opponent, PokemonType, Sign, Side } from '../game/types';
+import type {
+  Creature,
+  Opponent,
+  PokemonType,
+  Sign,
+  Side,
+  StatusKind,
+} from '../game/types';
 import { TYPE_COLORS, effectivenessLabel, typeIconUrl } from '../game/typechart';
 import { signIconUrl, signLabel, signSummary, signTier } from '../game/zodiac';
 import { hasPmdSprite, type PmdAnimKind } from '../game/pmd';
@@ -16,6 +23,16 @@ const REDUCED_MOTION =
   typeof window !== 'undefined' &&
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
+const ASSET = import.meta.env?.BASE_URL ?? '/';
+const statusIconUrl = (s: Exclude<StatusKind, null>) =>
+  `${ASSET}sprites/status/${s}.png`;
+const STATUS_LABEL: Record<Exclude<StatusKind, null>, string> = {
+  burn: 'Burned',
+  stun: 'Paralyzed',
+  poison: 'Badly poisoned',
+  sleep: 'Asleep',
+};
+
 interface ActiveView {
   name: string;
   dexId: number;
@@ -25,6 +42,7 @@ interface ActiveView {
   ball: string;
   hp: number;
   maxHp: number;
+  status: StatusKind;
 }
 
 interface AnimState {
@@ -70,6 +88,7 @@ function initialView(c: Creature, side: Side): ActiveView {
     ball: c.pokeball,
     hp: 0,
     maxHp: 1,
+    status: null,
   };
 }
 
@@ -248,8 +267,20 @@ function InfoCard({
           className="h-4 w-4 shrink-0 cursor-help object-contain"
         />
       </div>
-      <div className={`mt-1 flex ${alignEnd ? 'justify-end' : ''}`}>
+      <div
+        className={`mt-1 flex items-center gap-1.5 ${
+          alignEnd ? 'flex-row-reverse' : ''
+        }`}
+      >
         <TypeBadges types={view.types} />
+        {view.status && (
+          <img
+            src={statusIconUrl(view.status)}
+            alt={STATUS_LABEL[view.status]}
+            title={STATUS_LABEL[view.status]}
+            className="h-3.5 shrink-0 object-contain [image-rendering:pixelated]"
+          />
+        )}
       </div>
       <div className="mt-1.5">
         <HpBar hp={view.hp} maxHp={view.maxHp} compact />
@@ -346,6 +377,14 @@ export function BattleScreen({
       const setter = e.affected === 'player' ? setPlayer : setFoe;
       setter((v) => ({ ...v, hp: e.hp!, maxHp: e.maxHp! }));
     }
+    // Mirror the live main status (burn/paralysis/poison/sleep) onto the card.
+    // Apply/tick events carry the kind; the engine emits `status: null` when a
+    // condition clears (woke up, shook off paralysis, burn faded). Volatile
+    // confusion carries no `status` field, so it leaves the badge untouched.
+    if (e.affected && e.status !== undefined) {
+      const setter = e.affected === 'player' ? setPlayer : setFoe;
+      setter((v) => ({ ...v, status: e.status ?? null }));
+    }
     if (e.kind === 'move') {
       setBanner('');
       setBannerType(null);
@@ -372,6 +411,7 @@ export function BattleScreen({
           ball: c.pokeball,
           hp: fillBar ? 0 : full,
           maxHp,
+          status: null,
         });
         (side === 'player' ? setPVisible : setFVisible)(true);
         (side === 'player' ? setPAnim : setFAnim)(IDLE);
