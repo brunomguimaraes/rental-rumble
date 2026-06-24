@@ -274,15 +274,6 @@ export function CreatureCard({
                 ✦ Shiny
               </span>
             )}
-            {ability && (
-              <span
-                title={`${ability.name} — ${ability.description}`}
-                className="inline-flex min-w-0 shrink items-center gap-1 rounded-md border border-amber-300/30 bg-amber-300/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200/90"
-              >
-                <span className="shrink-0">✦</span>
-                <span className="truncate">{ability.name}</span>
-              </span>
-            )}
           </div>
           <button
             type="button"
@@ -297,6 +288,20 @@ export function CreatureCard({
             Moves
           </button>
         </div>
+        {ability && (
+          <div
+            className="mt-1.5 flex items-center gap-1 rounded-md border border-amber-300/25 bg-amber-300/[0.07] px-1.5 py-1"
+            title={ability.description}
+          >
+            <span className="shrink-0 text-[10px] text-amber-300">✦</span>
+            <span className="shrink-0 text-[10px] font-bold text-amber-200/90">
+              {ability.name}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[9.5px] text-amber-100/45">
+              {ability.description}
+            </span>
+          </div>
+        )}
         <p className="mt-1 text-[10px] leading-snug text-white/40">
           {SIGN_INFO[creature.sign].tagline}
         </p>
