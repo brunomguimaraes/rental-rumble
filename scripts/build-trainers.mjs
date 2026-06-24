@@ -226,6 +226,8 @@ const EXTRA_FAMOUS = [
   [rseDir, 'trainer_PIKEQUEEN_Lucy', 'lucy', 'Lucy', 'f'],
   [rseDir, 'trainer_PYRAMIDKING_Brandon', 'brandon', 'Brandon', 'm'],
   [rseDir, 'trainer_SALONMAIDEN_Anabel', 'anabel', 'Anabel', 'f'],
+  [hgssDir, 'NPC_Kurt', 'kurt', 'Kurt', 'm'],
+  [hgssDir, 'NPC_Earl', 'earl', 'Earl', 'm'],
 ];
 
 function magick(args) {

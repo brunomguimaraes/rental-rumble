@@ -545,6 +545,25 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
     draw: 4,
     pool: [65, 196, 376, 199, 282, 475, 518, 579, 561, 203],
   },
+  // --- Gag NPC cameos ------------------------------------------------------
+  {
+    id: 'kurt',
+    name: 'Kurt',
+    title: 'Apricorn Craftsman',
+    slot: 'special',
+    type: 'bug',
+    quote: 'Caught every one of these in a ball I made myself!',
+    team: [205, 214, 12], // Forretress, Heracross, Butterfree
+  },
+  {
+    id: 'earl',
+    name: 'Earl',
+    title: 'Pokémon Academy',
+    slot: 'special',
+    type: 'fighting',
+    quote: "I'm-a Earl! Pokémon teacher EXTRAORDINAIRE! HahH!",
+    team: [57, 62, 68], // Primeape, Poliwrath, Machamp
+  },
   {
     id: 'delia',
     name: 'Delia',

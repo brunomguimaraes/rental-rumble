@@ -166,5 +166,7 @@ export const TRAINER_SPRITES: Record<TrainerCategory, readonly TrainerSprite[]> 
     {"key":"special-lucy","gender":"f","name":"Lucy"},
     {"key":"special-brandon","gender":"m","name":"Brandon"},
     {"key":"special-anabel","gender":"f","name":"Anabel"},
+    {"key":"special-kurt","gender":"m","name":"Kurt"},
+    {"key":"special-earl","gender":"m","name":"Earl"},
   ],
 };
