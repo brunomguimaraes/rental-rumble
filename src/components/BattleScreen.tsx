@@ -29,7 +29,7 @@ const ASSET = import.meta.env?.BASE_URL ?? '/';
 // Battle speed is a player preference that should stick across battles and
 // reloads, so it lives in localStorage rather than resetting to 1× each time.
 const SPEED_KEY = 'battle-speed';
-const SPEED_CYCLE = [1, 2, 4] as const;
+const SPEED_CYCLE = [1, 2, 4, 8] as const;
 const readStoredSpeed = (): number => {
   if (typeof window === 'undefined') return 1;
   const stored = Number(window.localStorage.getItem(SPEED_KEY));
@@ -597,7 +597,10 @@ export function BattleScreen({
             onClick={() =>
               setSpeed((s) => {
                 const next =
-                  SPEED_CYCLE[(SPEED_CYCLE.indexOf(s as 1 | 2 | 4) + 1) % SPEED_CYCLE.length];
+                  SPEED_CYCLE[
+                    (SPEED_CYCLE.indexOf(s as (typeof SPEED_CYCLE)[number]) + 1) %
+                      SPEED_CYCLE.length
+                  ];
                 if (typeof window !== 'undefined')
                   window.localStorage.setItem(SPEED_KEY, String(next));
                 return next;
