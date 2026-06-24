@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Creature, Opponent } from '../game/types';
 import { TIER_LABEL, isTypeThemed, opponentAccent } from '../game/opponents';
 import { TypeBadge } from './TypeBadge';
@@ -38,34 +38,23 @@ export function MapScreen({
             Defeat all {required} to be crowned Champion.
           </p>
         </div>
-        {confirmingQuit ? (
-          <div className="flex shrink-0 items-center gap-2">
-            <span className="hidden text-xs text-white/60 sm:inline">Forfeit run?</span>
-            <button
-              type="button"
-              onClick={onQuit}
-              className="rounded-full border border-red-400/40 bg-red-500/15 px-3 py-1.5 text-xs font-bold text-red-300 transition hover:bg-red-500/25"
-            >
-              Confirm
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmingQuit(false)}
-              className="rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/10"
-            >
-              Cancel
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setConfirmingQuit(true)}
-            className="shrink-0 rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/10"
-          >
-            Forfeit
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setConfirmingQuit(true)}
+          className="shrink-0 rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/10"
+        >
+          Forfeit
+        </button>
       </div>
+
+      {confirmingQuit && (
+        <ForfeitDialog
+          required={required}
+          stage={stage}
+          onConfirm={onQuit}
+          onCancel={() => setConfirmingQuit(false)}
+        />
+      )}
 
       {/* Your team — arrange the lineup (slot 1 leads) */}
       <div className="mt-6">
@@ -178,6 +167,78 @@ export function MapScreen({
               Battle {currentOpp.name} →
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Forfeit confirmation modal. Following destructive-action best practice, the
+ * safe choice (Keep playing) is the auto-focused default, Escape and a backdrop
+ * click both cancel, and the destructive action is visually separated so it
+ * can't be triggered by a stray double-tap.
+ */
+function ForfeitDialog({
+  required,
+  stage,
+  onConfirm,
+  onCancel,
+}: {
+  required: number;
+  stage: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    cancelRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="forfeit-title"
+        aria-describedby="forfeit-desc"
+        className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#0c0c14] p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 id="forfeit-title" className="text-lg font-black">
+          Forfeit this run?
+        </h3>
+        <p id="forfeit-desc" className="mt-1 text-sm text-white/55">
+          {stage > 0
+            ? `You've beaten ${stage} of ${required}. This will end the run and your progress will be lost.`
+            : `This will end the run before it really begins.`}
+        </p>
+
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded-full border border-red-400/40 bg-red-500/15 px-4 py-2.5 text-sm font-bold text-red-300 transition hover:bg-red-500/25"
+          >
+            Forfeit run
+          </button>
+          <button
+            ref={cancelRef}
+            type="button"
+            onClick={onCancel}
+            className="rounded-full bg-white px-5 py-2.5 text-sm font-bold text-black transition hover:bg-white/90"
+          >
+            Keep playing
+          </button>
         </div>
       </div>
     </div>
