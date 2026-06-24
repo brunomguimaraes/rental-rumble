@@ -10,7 +10,7 @@ import {
   canBeShiny,
   withRandomPortrait,
 } from '../game/pokemon';
-import { rerollSign, signLabel, signTier, forcedRareSign } from '../game/zodiac';
+import { rerollSign, forcedRareSign } from '../game/zodiac';
 import { allRareEnabled, allShinyEnabled } from '../game/dev';
 import { SHINY_CHANCE } from '../game/run';
 import { RNG } from '../game/rng';
@@ -58,9 +58,15 @@ export function RecruitScreen({
   const [rerollSlot, setRerollSlot] = useState<number | null>(null);
 
   // The sign this reward would grant a given slot. Deterministic (seed-pinned),
-  // so re-selecting only swaps which Pokémon benefits — never the luck.
+  // so re-selecting only swaps which Pokémon benefits — never the luck. The
+  // outcome is kept hidden from the player until they confirm, so this is only
+  // ever used to build the final team — never to preview the result on screen.
   const rerolledSignFor = (i: number): Sign =>
-    rerollSign(currentTeam[i].stats, new RNG(rerollSeed ?? 'reroll'));
+    rerollSign(
+      currentTeam[i].stats,
+      new RNG(rerollSeed ?? 'reroll'),
+      currentTeam[i].sign,
+    );
 
   // How a defeated foe presents as a recruit. Two independent blessings can land
   // here, mirroring the draft so a recruit can be rare/mythic AND shiny at once:
@@ -310,33 +316,26 @@ export function RecruitScreen({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               {currentTeam.map((c, i) => {
                 const isPicked = rerollSlot === i;
-                const shown = isPicked ? withSign(c, rerolledSignFor(i)) : c;
-                const newTier = isPicked ? signTier(rerolledSignFor(i)) : null;
-                const tagColor =
-                  newTier === 'rare' || newTier === 'mythic' ? 'amber' : 'emerald';
+                // The card keeps showing the Pokémon's *current* sign — the
+                // reroll's result is a blind gamble, hidden until they confirm.
                 return (
                   <div
                     key={`${c.id}-${i}`}
                     className={`relative rounded-2xl ${isPicked ? 'ring-2 ring-violet-300/70' : ''}`}
                   >
                     <CreatureCard
-                      creature={shown}
+                      creature={c}
                       onClick={() => setRerollSlot(isPicked ? null : i)}
                     />
-                    {isPicked && (
-                      <Tag color={tagColor} text={`→ ${signLabel(rerolledSignFor(i))}`} />
-                    )}
+                    {isPicked && <Tag color="violet" text="🎲 REROLL" />}
                   </div>
                 );
               })}
             </div>
             {rerollDone && (
               <p className="mt-4 text-center text-sm text-white/55">
-                The stars realign — {currentTeam[rerollSlot].name} is now{' '}
-                <span className="font-bold text-violet-200">
-                  {signLabel(rerolledSignFor(rerollSlot))}
-                </span>
-                .
+                {currentTeam[rerollSlot].name}'s sign goes to the stars. The
+                result stays hidden until you continue — fate decides the rest.
               </p>
             )}
           </div>
@@ -431,13 +430,21 @@ function RewardHeader({ onBack, label }: { onBack: () => void; label: string }) 
   );
 }
 
-function Tag({ color, text }: { color: 'emerald' | 'amber' | 'slate'; text: string }) {
+function Tag({
+  color,
+  text,
+}: {
+  color: 'emerald' | 'amber' | 'slate' | 'violet';
+  text: string;
+}) {
   const bg =
     color === 'emerald'
       ? 'bg-emerald-400 text-black'
       : color === 'amber'
         ? 'bg-amber-400 text-black'
-        : 'bg-slate-600 text-white';
+        : color === 'violet'
+          ? 'bg-violet-400 text-black'
+          : 'bg-slate-600 text-white';
   return (
     <div className="pointer-events-none absolute right-2 top-2 z-10">
       <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${bg}`}>{text}</span>

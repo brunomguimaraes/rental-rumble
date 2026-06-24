@@ -283,7 +283,7 @@ export function CreatureCard({
             }}
             className="inline-flex shrink-0 items-center gap-1 rounded-md border border-sky-400/25 bg-sky-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-sky-200/80 transition hover:bg-sky-400/20 hover:text-sky-100"
           >
-            ⚔ Moves
+            Moves
           </button>
         </div>
         <p className="mt-1 text-[10px] leading-snug text-white/40">

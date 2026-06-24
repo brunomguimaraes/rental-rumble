@@ -256,8 +256,10 @@ export function forcedRareSign(s: BaseStats, rng: RNG): Sign {
 
 // Weighted pick among the common twelve: best-fit signs are favoured, but a long
 // tail keeps an off-beat sign possible. Shared by the draft roll and the reroll.
-function rollCommonSign(s: BaseStats, rng: RNG): Sign {
-  const ranked = signsByFit(s);
+// `exclude` drops one sign from the pool (used by the reroll, which must never
+// hand back the sign the Pokémon already wears).
+function rollCommonSign(s: BaseStats, rng: RNG, exclude?: Sign): Sign {
+  const ranked = signsByFit(s).filter((sign) => sign !== exclude);
   const weights = ranked.map((_, i) => 1 / (i + 1.3));
   const total = weights.reduce((a, b) => a + b, 0);
   let r = rng.next() * total;
@@ -275,16 +277,31 @@ function rollCommonSign(s: BaseStats, rng: RNG): Sign {
 export const REROLL_RARE_ODDS = 1 / 10;
 export const REROLL_MYTHIC_ODDS = 1 / 100;
 
+/** The best-fit rare wanderer, guaranteed to differ from `current`. */
+function otherRareSign(s: BaseStats, current?: Sign): Sign {
+  const best = bestRareSign(s);
+  if (best !== current) return best;
+  // The best-fit rare is the one they already wear — take the next rare along.
+  return RARE_SIGNS.find((sign) => sign !== current) ?? best;
+}
+
 /**
  * Reroll a single Pokémon's sign as a special-battle reward. Same weighted
  * common-twelve fall-through as the draft, but with hugely boosted odds of
  * surfacing a rare celestial (≈1/10) or the mythic Abhijit (≈1/100). The roll is
  * driven entirely by `rng`, so a caller seeding it deterministically (per run +
  * stage) gets a fixed, un-fishable outcome.
+ *
+ * A reroll always *changes* the sign: pass the Pokémon's `current` sign and the
+ * result is guaranteed to differ from it (a mythic-tier hit on a Pokémon that's
+ * already the mythic falls back to the best-fit rare, since there's nowhere
+ * higher to go).
  */
-export function rerollSign(s: BaseStats, rng: RNG): Sign {
+export function rerollSign(s: BaseStats, rng: RNG, current?: Sign): Sign {
   const gate = rng.next();
-  if (gate < REROLL_MYTHIC_ODDS) return 'abhijit';
-  if (gate < REROLL_MYTHIC_ODDS + REROLL_RARE_ODDS) return bestRareSign(s);
-  return rollCommonSign(s, rng);
+  if (gate < REROLL_MYTHIC_ODDS) {
+    return current === 'abhijit' ? otherRareSign(s, current) : 'abhijit';
+  }
+  if (gate < REROLL_MYTHIC_ODDS + REROLL_RARE_ODDS) return otherRareSign(s, current);
+  return rollCommonSign(s, rng, current);
 }
