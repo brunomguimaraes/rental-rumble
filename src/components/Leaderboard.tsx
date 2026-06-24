@@ -153,6 +153,43 @@ export function Leaderboard({
         {bracketById(activeBracket).label} · {bracketById(activeBracket).tag}
       </p>
 
+      <details className="group mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-left [&_summary::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-semibold text-white/70 transition hover:text-white">
+          How the ladder works
+          <span className="text-white/40 transition group-open:rotate-180">▾</span>
+        </summary>
+        <ul className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-white/50">
+          <li>
+            <span className="text-white/70">It’s a race, not a score.</span>{' '}
+            Rank is purely the order you beat the boss — #1 is the first player
+            to clear today’s Champion, #2 the second, and so on.
+          </li>
+          <li>
+            <span className="text-white/70">Team strength doesn’t matter.</span>{' '}
+            How you won, which Pokémon you drafted, and how far you climbed have
+            no effect on rank — only your clear time counts.
+          </li>
+          <li>
+            <span className="text-white/70">Every era has its own board.</span>{' '}
+            Each generation bracket faces a different daily Champion and is
+            ranked separately.
+          </li>
+          <li>
+            <span className="text-white/70">Wins are verified.</span> The server
+            re-simulates your fight against the exact same Champion before
+            adding you, so the board stays honest.
+          </li>
+          <li>
+            <span className="text-white/70">One name, one slot.</span> Your
+            first verified clear sticks — you can’t resubmit to move up.
+          </li>
+          <li>
+            <span className="text-white/70">Fresh boss daily.</span> Everyone
+            faces the same six all day; the board resets at 00:00 UTC.
+          </li>
+        </ul>
+      </details>
+
       {showForm && (
         <div className="mt-3 rounded-2xl border border-amber-300/30 bg-amber-300/[0.06] p-3">
           <p className="text-sm font-semibold text-amber-200">
