@@ -366,7 +366,20 @@ export function CreatureCard({
             Moves
           </button>
         </div>
-        {ability && <AbilityTag ability={ability} />}
+        {ability ? (
+          <AbilityTag ability={ability} />
+        ) : (
+          // Reserve the ability row's exact footprint so cards stay the same
+          // height whether or not the species has an ability — otherwise the
+          // selector grid renders mismatched card/border sizes.
+          <div
+            aria-hidden
+            className="invisible mt-1.5 flex w-full items-center gap-1 rounded-md border px-1.5 py-1 text-left"
+          >
+            <span className="shrink-0 text-[10px]">✦</span>
+            <span className="truncate text-[10px] font-bold">—</span>
+          </div>
+        )}
         <p className="mt-1 text-[10px] leading-snug text-white/40">
           {SIGN_INFO[creature.sign].tagline}
         </p>
