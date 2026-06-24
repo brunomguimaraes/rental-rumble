@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type { Creature, SpecialTier } from '../game/types';
+import { SHINY_STAT_MULT } from '../game/pokemon';
 import { TYPE_COLORS } from '../game/typechart';
 import {
   SIGN_INFO,
@@ -9,6 +11,7 @@ import {
   signTier,
 } from '../game/zodiac';
 import { TypeBadges } from './TypeBadge';
+import { MovesModal } from './MovesModal';
 
 const GOLD = '#f5c542';
 
@@ -83,10 +86,15 @@ export function CreatureCard({
   onClick?: () => void;
   onReroll?: () => void;
 }) {
+  const [showMoves, setShowMoves] = useState(false);
   const color = TYPE_COLORS[creature.types[0]];
   const spread = SIGN_SPREAD[creature.sign];
   const special = creature.tier !== 'normal';
-  const accent = special ? GOLD : color;
+  const shiny = creature.shiny;
+  // A shiny nudges every stat by the same flat factor, stacked on the sign's
+  // spread, so the card's bars match what the battle actually computes.
+  const shinyMult = shiny ? SHINY_STAT_MULT : 1;
+  const accent = shiny ? GOLD : special ? GOLD : color;
   const clickable = Boolean(onClick) && (!disabled || selected);
   const tierBadge = TIER_BADGE[creature.tier];
 
@@ -97,13 +105,13 @@ export function CreatureCard({
   const celestialClass = tier === 'rare' ? 'sign-rare' : tier === 'mythic' ? 'sign-mythic' : '';
 
   const borderClass =
-    celestial || special
+    celestial || special || shiny
       ? 'border-transparent'
       : selected
         ? 'border-white/70'
         : 'border-white/10 hover:border-white/30';
 
-  const boxShadow = celestial
+  const baseShadow = celestial
     ? tier === 'mythic'
       ? selected
         ? '0 0 0 1px #fff, 0 10px 42px rgba(255,205,80,0.55)'
@@ -119,7 +127,20 @@ export function CreatureCard({
         ? `0 0 0 1px ${color}, 0 8px 30px ${color}44`
         : undefined;
 
+  // Shiny "foil" frame: a gold ring with a warm glow plus a faint aqua halo, so
+  // it reads as iridescent. Layered in front of any base shadow so a shiny that's
+  // also legendary/celestial keeps its other cues underneath.
+  const shinyShadow = selected
+    ? '0 0 0 2px #ffd76b, 0 0 24px rgba(255,210,90,0.6), 0 0 44px rgba(120,230,255,0.28)'
+    : '0 0 0 1.5px #ffd76b, 0 6px 26px rgba(255,210,90,0.42), 0 0 36px rgba(120,230,255,0.2)';
+  const boxShadow = shiny
+    ? baseShadow
+      ? `${shinyShadow}, ${baseShadow}`
+      : shinyShadow
+    : baseShadow;
+
   return (
+    <>
     <div
       role={onClick ? 'button' : undefined}
       tabIndex={clickable ? 0 : undefined}
@@ -134,7 +155,7 @@ export function CreatureCard({
             }
           : undefined
       }
-      className={`group relative w-full overflow-hidden rounded-2xl border p-3 text-left transition-all ${celestialClass} ${borderClass} ${
+      className={`group relative w-full overflow-hidden rounded-2xl border p-3 text-left transition-all ${celestialClass} ${shiny ? 'shiny-card' : ''} ${borderClass} ${
         selected ? 'scale-[1.01] bg-white/10 shadow-lg' : 'bg-white/[0.03] hover:bg-white/[0.06]'
       } ${disabled && !selected ? 'opacity-40' : ''} ${
         clickable ? 'cursor-pointer' : 'cursor-default'
@@ -184,6 +205,18 @@ export function CreatureCard({
             onError={(e) => handleImgError(e, creature.sprite)}
             className="h-16 w-16 rounded-xl object-cover drop-shadow"
           />
+          {shiny && (
+            <span
+              title="Shiny — a rare colour variant with a flat stat boost"
+              className="shiny-twinkle pointer-events-none absolute -left-1.5 -top-1.5 z-10 grid h-5 w-5 place-items-center rounded-full text-[12px] drop-shadow"
+              style={{
+                background: 'radial-gradient(circle, #fff6d6 0%, #ffd76b 55%, #f5a623 100%)',
+                color: '#7a4b00',
+              }}
+            >
+              ✦
+            </span>
+          )}
           {selected && (
             <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-white text-[11px] font-black text-black">
               ✓
@@ -205,30 +238,60 @@ export function CreatureCard({
         <TypeBadges types={creature.types} />
       </div>
       <div className="mt-2 space-y-1">
-        <StatBar label="HP" value={creature.stats.hp} mult={spread.hp} />
-        <StatBar label="ATK" value={creature.stats.atk} mult={spread.atk} />
-        <StatBar label="DEF" value={creature.stats.def} mult={spread.def} />
-        <StatBar label="SPD" value={creature.stats.spd} mult={spread.spd} />
+        <StatBar label="HP" value={creature.stats.hp} mult={spread.hp * shinyMult} />
+        <StatBar label="ATK" value={creature.stats.atk} mult={spread.atk * shinyMult} />
+        <StatBar label="DEF" value={creature.stats.def} mult={spread.def * shinyMult} />
+        <StatBar label="SPD" value={creature.stats.spd} mult={spread.spd * shinyMult} />
       </div>
 
       <div className="mt-2.5 border-t border-white/10 pt-2">
-        <div className="flex items-center gap-1.5">
-          <span
-            className="inline-flex cursor-help items-center gap-1 rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-white/80"
-            title={signSummary(creature.sign)}
+        <div className="flex items-center justify-between gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span
+              className="inline-flex min-w-0 cursor-help items-center gap-1 rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-white/80"
+              title={signSummary(creature.sign)}
+            >
+              <img
+                src={signIconUrl(creature.sign)}
+                alt=""
+                className="h-3.5 w-3.5 shrink-0 object-contain"
+              />
+              <span className="truncate">{signLabel(creature.sign)}</span>
+            </span>
+            {shiny && (
+              <span
+                title={`Shiny — every stat boosted ×${SHINY_STAT_MULT}`}
+                className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold"
+                style={{
+                  background: 'linear-gradient(90deg, #ffe9a8, #ffd76b, #bfefff)',
+                  color: '#5c3b00',
+                }}
+              >
+                ✦ Shiny
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            title={`View ${creature.name}'s moveset`}
+            aria-label={`View ${creature.name}'s moveset`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMoves(true);
+            }}
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-white/15 bg-white/5 px-1.5 py-0.5 text-[10px] font-semibold text-white/65 transition hover:bg-white/15 hover:text-white"
           >
-            <img
-              src={signIconUrl(creature.sign)}
-              alt=""
-              className="h-3.5 w-3.5 object-contain"
-            />
-            {signLabel(creature.sign)}
-          </span>
+            ⚔ Moves
+          </button>
         </div>
         <p className="mt-1 text-[10px] leading-snug text-white/40">
           {SIGN_INFO[creature.sign].tagline}
         </p>
       </div>
     </div>
+    {showMoves && (
+      <MovesModal creature={creature} onClose={() => setShowMoves(false)} />
+    )}
+    </>
   );
 }
