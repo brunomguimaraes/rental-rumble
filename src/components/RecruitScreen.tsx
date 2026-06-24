@@ -221,13 +221,19 @@ export function RecruitScreen({
                 // with two members of the foe's evolutionary line are tappable.
                 const allowed = armed && recruitSlotAllowed(defeatedView[foeIdx], i);
                 const swapped = recruitDone && i === recruitSlot;
+                // Highlight valid drop targets only while you're still choosing —
+                // once a slot is picked it carries the card's own selected frame.
+                const targetable = allowed && !recruitDone;
                 return (
                   <div
                     key={`${c.id}-${i}`}
-                    className={`relative rounded-2xl ${allowed ? 'ring-2 ring-emerald-300/60' : ''}`}
+                    className={`relative rounded-2xl ${
+                      targetable ? 'ring-2 ring-emerald-300/60 ring-offset-2 ring-offset-[#0c0c14]' : ''
+                    }`}
                   >
                     <CreatureCard
                       creature={c}
+                      selected={swapped}
                       disabled={armed && !allowed}
                       onClick={allowed ? () => setRecruitSlot(i) : undefined}
                     />
@@ -287,12 +293,10 @@ export function RecruitScreen({
                 const isPicked = evolveSlot === i;
                 const shown = evolveDone && isPicked ? evolveCreature(c, evolveTarget) : c;
                 return (
-                  <div
-                    key={`${c.id}-${i}`}
-                    className={`relative rounded-2xl ${isPicked ? 'ring-2 ring-amber-300/70' : ''}`}
-                  >
+                  <div key={`${c.id}-${i}`} className="relative rounded-2xl">
                     <CreatureCard
                       creature={shown}
+                      selected={isPicked}
                       disabled={!evolvable}
                       onClick={evolvable ? () => pickTeamForEvolve(i) : undefined}
                     />
@@ -346,12 +350,10 @@ export function RecruitScreen({
                 // The card keeps showing the Pokémon's *current* sign — the
                 // reroll's result is a blind gamble, hidden until they confirm.
                 return (
-                  <div
-                    key={`${c.id}-${i}`}
-                    className={`relative rounded-2xl ${isPicked ? 'ring-2 ring-violet-300/70' : ''}`}
-                  >
+                  <div key={`${c.id}-${i}`} className="relative rounded-2xl">
                     <CreatureCard
                       creature={c}
+                      selected={isPicked}
                       onClick={() => setRerollSlot(isPicked ? null : i)}
                     />
                     {isPicked && <Tag color="violet" text="🎲 REROLL" />}
