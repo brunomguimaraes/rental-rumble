@@ -29,13 +29,14 @@ const ASSET = import.meta.env?.BASE_URL ?? '/';
 // Battle speed is a player preference that should stick across battles and
 // reloads, so it lives in localStorage rather than resetting to 1× each time.
 const SPEED_KEY = 'battle-speed';
-const SPEED_CYCLE = [1, 2, 4, 8] as const;
+// 8× is a dev-only fast-forward; players cycle 1 → 2 → 4.
+const SPEED_CYCLE: readonly number[] = import.meta.env.DEV
+  ? [1, 2, 4, 8]
+  : [1, 2, 4];
 const readStoredSpeed = (): number => {
   if (typeof window === 'undefined') return 1;
   const stored = Number(window.localStorage.getItem(SPEED_KEY));
-  return SPEED_CYCLE.includes(stored as (typeof SPEED_CYCLE)[number])
-    ? stored
-    : 1;
+  return SPEED_CYCLE.includes(stored) ? stored : 1;
 };
 const statusIconUrl = (s: Exclude<StatusKind, null>) =>
   `${ASSET}sprites/status/${s}.png`;
@@ -598,8 +599,7 @@ export function BattleScreen({
               setSpeed((s) => {
                 const next =
                   SPEED_CYCLE[
-                    (SPEED_CYCLE.indexOf(s as (typeof SPEED_CYCLE)[number]) + 1) %
-                      SPEED_CYCLE.length
+                    (SPEED_CYCLE.indexOf(s) + 1) % SPEED_CYCLE.length
                   ];
                 if (typeof window !== 'undefined')
                   window.localStorage.setItem(SPEED_KEY, String(next));
