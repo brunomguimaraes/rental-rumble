@@ -18,13 +18,13 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SHEET = process.env.BG_SHEET || join(root, 'assets/battle-scenes-src.png');
 const outDir = join(root, 'public/sprites/backgrounds');
 
-// Sheet geometry. The source is 1024×681, a 4×4 grid with ~3px white seams.
+// Sheet geometry. The source is 1024×576, a 4×4 grid with thin seams.
 const COLS = 4;
 const ROWS = 4;
 const SHEET_W = 1024;
-const SHEET_H = 681;
+const SHEET_H = 576;
 const CELL_W = SHEET_W / COLS; // 256
-const CELL_H = SHEET_H / ROWS; // ~170.25
+const CELL_H = SHEET_H / ROWS; // 144
 const INSET = 6; // px trimmed off every edge to skip the white gridlines
 const UPSCALE = 4; // nearest-neighbour multiplier for crisp pixel art
 
