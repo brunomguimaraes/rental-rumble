@@ -272,10 +272,12 @@ export function TitleScreen({
       </div>
 
       <p className="mt-6 max-w-md text-[11px] leading-relaxed text-white/30">
-        Rental Rumble is an unofficial fan project and is not affiliated with
-        Nintendo. It does not own or claim any rights to any Nintendo trademark
-        or the Pokémon trademark, and all references to such are used for
-        commentary and informational purposes only.
+        Made by a lifelong Pokémon fan, out of pure love for the games — never
+        for profit. Rental Rumble is an unofficial, non-commercial fan project
+        and is not affiliated with Nintendo. It does not own or claim any rights
+        to any Nintendo trademark or the Pokémon trademark, and all references to
+        such are used with admiration, for commentary and informational purposes
+        only. 💛
       </p>
 
       {showGuide && <BattleGuide onClose={() => setShowGuide(false)} />}
