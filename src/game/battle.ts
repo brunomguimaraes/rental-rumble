@@ -41,6 +41,7 @@ export interface BattleEvent {
     | 'heal'
     | 'statusTick'
     | 'stunned'
+    | 'ability'
     | 'transform'
     | 'faint'
     | 'end';
@@ -103,6 +104,7 @@ export function makeBattler(creature: Creature, statMult = 1): Battler {
     stages: { atk: 0, def: 0, spd: 0 },
     pp,
     healsUsed: 0,
+    loafing: false,
   };
 }
 
@@ -391,6 +393,8 @@ export function simulateBattle(
   ): boolean => {
     const t = sides[targetSide].team[sides[targetSide].active];
     if (t.status !== null) return false;
+    // Vital Spirit: the species is too wired to ever fall asleep.
+    if (kind === 'sleep' && t.creature.ability === 'vital-spirit') return false;
     t.status = kind;
     if (kind === 'stun') t.statusTurns = 3;
     else if (kind === 'burn') t.statusTurns = 4;
@@ -538,6 +542,23 @@ export function simulateBattle(
       }
     }
 
+    // Truant: a powerhouse that can only bring itself to act every other turn.
+    // On a "loafing" turn it does nothing — the drawback that keeps brutes like
+    // Slaking in check despite monstrous stats. The flag is set the previous
+    // turn (just before it chose a move below), so it loafs exactly half the
+    // time. Sits ahead of the status checks so a loaf is a clean wasted turn.
+    if (attacker.creature.ability === 'truant' && attacker.loafing) {
+      attacker.loafing = false;
+      push({
+        kind: 'ability',
+        actor: side,
+        affected: side,
+        name: 'Truant',
+        text: `${attacker.creature.name} is loafing around!`,
+      });
+      return 'continue';
+    }
+
     // Sleep: snooze for a few turns, then wake.
     if (attacker.status === 'sleep') {
       attacker.statusTurns -= 1;
@@ -615,6 +636,11 @@ export function simulateBattle(
         return 'continue';
       }
     }
+
+    // A Truant user is about to act, so it must loaf on its *next* turn. Set
+    // here (not on every early-return above) so only a turn it genuinely acts on
+    // costs it the follow-up loaf.
+    if (attacker.creature.ability === 'truant') attacker.loafing = true;
 
     const move = chooseMove(attacker, defender, me.statMult, foe.statMult, rng);
     // Spend a use of any PP-capped move (consumed on use, even if it later

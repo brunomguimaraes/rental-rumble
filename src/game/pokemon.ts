@@ -4,6 +4,7 @@ import { inBracket } from './gens.js';
 import { RAW_DEX } from './pokedex.gen.js';
 import { EVOLUTIONS } from './evolutions.gen.js';
 import { movesFor } from './moves.js';
+import { abilityForDex } from './abilities.js';
 import { defaultSign, signsByFit } from './zodiac.js';
 import { PORTRAIT_EMOTIONS } from './portraits.gen.js';
 import { SHINY_PORTRAITS, SHINY_SPRITE_IDS } from './shiny.gen.js';
@@ -181,6 +182,7 @@ export const CREATURES: Creature[] = RAW_DEX.map((e) => {
     eligibleSigns: signsByFit(e.stats),
     stats: e.stats,
     moves: movesFor(e.types, e.stats, sign),
+    ability: abilityForDex(e.id),
     pokeball: DEFAULT_BALL,
     shiny: false,
     altColor: false,
