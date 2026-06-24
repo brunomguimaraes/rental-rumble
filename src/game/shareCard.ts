@@ -1,6 +1,6 @@
 import type { Creature, Opponent } from './types.js';
 import { TYPE_COLORS, typeIconUrl, typeLabel } from './typechart.js';
-import { SIGN_INFO } from './zodiac.js';
+import { signIconUrl } from './zodiac.js';
 import { bracketCup, type BracketId } from './gens.js';
 
 // All assets are served from the same origin (public/sprites), so the canvas
@@ -171,17 +171,21 @@ export async function renderShareCard(
   team.forEach((c) => c.types.forEach((t) => typeSet.add(t)));
   const typeList = [...typeSet];
 
-  const [portraits, typeIcons, pokeball, cup, foeArt, foeMinis] = await Promise.all([
+  const signList = [...new Set(team.map((c) => c.sign))];
+
+  const [portraits, typeIcons, signIcons, pokeball, cup, foeArt, foeMinis] = await Promise.all([
     Promise.all(
       team.map(async (c) => (await loadImage(c.portrait)) ?? loadImage(c.sprite)),
     ),
     Promise.all(typeList.map((t) => loadImage(typeIconUrl(t)))),
+    Promise.all(signList.map((s) => loadImage(signIconUrl(s)))),
     loadImage(`${ASSET}sprites/ui/pokeball.png`),
     loadImage(cupSrc),
     fellTo ? loadImage(fellTo.art) : Promise.resolve(null),
     Promise.all(fellToTeam.map((c) => loadImage(c.mini))),
   ]);
   const iconByType = new Map(typeList.map((t, i) => [t, typeIcons[i]]));
+  const iconBySign = new Map(signList.map((s, i) => [s, signIcons[i]]));
 
   // ---- Background ---------------------------------------------------------
   ctx.fillStyle = COLORS.bg;
@@ -242,13 +246,13 @@ export async function renderShareCard(
   ctx.font = `800 54px ${FONT}`;
   if (won) {
     ctx.fillStyle = COLORS.gold;
-    ctx.fillText('👑  CHAMPION!  👑', cx, 312);
+    ctx.fillText('CHAMPION!', cx, 312);
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.font = `600 26px ${FONT}`;
     ctx.fillText(`Ran the full gauntlet — ${total}/${total} cleared`, cx, 352);
   } else {
     ctx.fillStyle = COLORS.rose;
-    ctx.fillText('💀  RUN OVER', cx, 312);
+    ctx.fillText('RUN OVER', cx, 312);
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.font = `600 26px ${FONT}`;
     const foe = fellTo ? `fell to ${fellTo.name}` : 'fell short';
@@ -397,13 +401,6 @@ export async function renderShareCard(
     ctx.strokeStyle = withAlpha(accent, 0.7);
     ctx.stroke();
 
-    // Special tier crown chip
-    if (special) {
-      ctx.font = `700 22px ${FONT}`;
-      ctx.textAlign = 'center';
-      ctx.fillText('⭐', pX + pSize - 6, pY + 24);
-    }
-
     // Name
     ctx.fillStyle = COLORS.ink;
     ctx.font = `800 30px ${FONT}`;
@@ -437,16 +434,17 @@ export async function renderShareCard(
       chipX += chipWidths[t] + 8;
     }
 
-    // Zodiac sign line
-    ctx.fillStyle = COLORS.faint;
-    ctx.font = `600 20px ${FONT}`;
-    ctx.textAlign = 'center';
-    const signLabel = c.sign.charAt(0).toUpperCase() + c.sign.slice(1);
-    ctx.fillText(
-      `${SIGN_INFO[c.sign].glyph} ${signLabel}`,
-      x + tileW / 2,
-      chipY + chipH + 28,
-    );
+    // Zodiac sign — just the glyph sprite, centered (no label).
+    const signIcon = iconBySign.get(c.sign) ?? null;
+    if (signIcon) {
+      const sSize = 26;
+      const sX = x + tileW / 2 - sSize / 2;
+      const sY = chipY + chipH + 16;
+      ctx.save();
+      ctx.globalAlpha = 0.7;
+      ctx.drawImage(signIcon, sX, sY, sSize, sSize);
+      ctx.restore();
+    }
   }
 
   // ---- Footer -------------------------------------------------------------
