@@ -7,7 +7,7 @@ import {
 import { buildChampion, dailyKey } from '../src/game/opponents';
 import { isBracketId, DEFAULT_BRACKET, type BracketId } from '../src/game/gens';
 import {
-  redis,
+  getRedis,
   boardKey,
   boardDataKey,
   type BoardEntryData,
@@ -37,47 +37,62 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const key = boardKey(date, bracket);
   const dataKey = boardDataKey(date, bracket);
 
-  // Earliest wins first: ascending score (= epoch ms) is exactly the order we want.
-  const [flat, total] = await Promise.all([
-    redis.zrange<(string | number)[]>(key, 0, LEADERBOARD_TOP - 1, {
-      withScores: true,
-    }),
-    redis.zcard(key),
-  ]);
+  let entries: LeaderboardEntry[] = [];
+  let total = 0;
 
-  const names: string[] = [];
-  const scores: number[] = [];
-  for (let i = 0; i < flat.length; i += 2) {
-    names.push(String(flat[i]));
-    scores.push(Number(flat[i + 1]));
+  const redis = getRedis();
+  if (redis) {
+    try {
+      // Earliest wins first: ascending score (= epoch ms) is the order we want.
+      const [flat, count] = await Promise.all([
+        redis.zrange<(string | number)[]>(key, 0, LEADERBOARD_TOP - 1, {
+          withScores: true,
+        }),
+        redis.zcard(key),
+      ]);
+      total = count ?? 0;
+
+      const names: string[] = [];
+      const scores: number[] = [];
+      for (let i = 0; i < flat.length; i += 2) {
+        names.push(String(flat[i]));
+        scores.push(Number(flat[i + 1]));
+      }
+
+      const meta =
+        names.length > 0
+          ? await redis.hmget<Record<string, BoardEntryData | string>>(
+              dataKey,
+              ...names,
+            )
+          : {};
+
+      entries = names.map((name, i) => {
+        const rawMeta = meta?.[name];
+        const data: Partial<BoardEntryData> =
+          typeof rawMeta === 'string' ? safeParse(rawMeta) : rawMeta ?? {};
+        return {
+          rank: i + 1,
+          name,
+          at: scores[i],
+          clearedStages: data.clearedStages ?? 0,
+          team: Array.isArray(data.team) ? data.team : [],
+        } satisfies LeaderboardEntry;
+      });
+    } catch (err) {
+      // A Redis hiccup should never take down the whole page — serve an empty
+      // board (champion info still works) and log the real cause for debugging.
+      console.error('[leaderboard] Redis read failed:', err);
+      entries = [];
+      total = 0;
+    }
   }
-
-  const meta =
-    names.length > 0
-      ? await redis.hmget<Record<string, BoardEntryData | string>>(
-          dataKey,
-          ...names,
-        )
-      : {};
-
-  const entries: LeaderboardEntry[] = names.map((name, i) => {
-    const rawMeta = meta?.[name];
-    const data: Partial<BoardEntryData> =
-      typeof rawMeta === 'string' ? safeParse(rawMeta) : rawMeta ?? {};
-    return {
-      rank: i + 1,
-      name,
-      at: scores[i],
-      clearedStages: data.clearedStages ?? 0,
-      team: Array.isArray(data.team) ? data.team : [],
-    } satisfies LeaderboardEntry;
-  });
 
   const body: LeaderboardResponse = {
     date,
     bracket,
     champion: championInfo(date, bracket),
-    total: total ?? 0,
+    total,
     entries,
   };
 
