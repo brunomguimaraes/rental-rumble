@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Creature } from '../game/types';
 import { miniUrl } from '../game/pokemon';
 import { GEN_BRACKETS, bracketById, type BracketId } from '../game/gens';
+import { CupIcon } from './CupIcon';
 import {
   buildSubmission,
   fetchLeaderboard,
@@ -133,12 +134,16 @@ export function Leaderboard({
               onClick={() => setActiveBracket(b.id)}
               aria-pressed={active}
               title={b.label}
-              className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
+              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
                 active
                   ? 'border-white/70 bg-white/10 text-white'
                   : 'border-white/10 bg-white/[0.03] text-white/60 hover:bg-white/[0.06]'
               } ${b.id === runBracket ? 'ring-1 ring-amber-300/40' : ''}`}
             >
+              <CupIcon
+                cup={b.cup}
+                className={`h-4 w-4 ${active ? '' : 'opacity-60 grayscale'}`}
+              />
               {b.tab}
             </button>
           );

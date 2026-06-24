@@ -14,20 +14,25 @@ import {
 import { buildChampion, championSeed, dailyKey } from '../game/opponents';
 import { buildChampionTeam } from '../game/battle';
 import { TypeMarquee } from './TypeMarquee';
+import { CupIcon } from './CupIcon';
 import { MiniSprite } from './MiniSprite';
 import { TrainerSprite } from './TrainerSprite';
 import { Credits } from './Credits';
+import { PrivacyPolicy } from './PrivacyPolicy';
 import { SupportLinks } from './SupportLinks';
 import { BattleGuide } from './BattleGuide';
 
 export function TitleScreen({
   onStart,
+  onViewLadder,
 }: {
   onStart: (
     difficulty: Difficulty,
     bracket: BracketId,
     seed?: string,
   ) => void;
+  /** Open the standalone "today's ladder" page. */
+  onViewLadder: () => void;
 }) {
   // Custom seed feature disabled: letting players paste a seed added UI/UX
   // complexity (extra input, validation, share copy) for little payoff. Runs
@@ -91,12 +96,18 @@ export function TitleScreen({
                 type="button"
                 onClick={() => setBracket(b.id)}
                 aria-pressed={active}
-                className={`rounded-2xl border px-2 py-2.5 text-center transition ${
+                className={`flex flex-col items-center rounded-2xl border px-2 py-2.5 text-center transition ${
                   active
                     ? 'border-white/70 bg-white/10'
                     : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
                 }`}
               >
+                <CupIcon
+                  cup={b.cup}
+                  className={`mb-1 h-7 w-7 transition ${
+                    active ? '' : 'opacity-50 grayscale'
+                  }`}
+                />
                 <div className="text-sm font-bold">{b.label}</div>
                 <div className="text-[11px] text-white/50">{b.tag}</div>
               </button>
@@ -137,7 +148,7 @@ export function TitleScreen({
               </span>
             </div>
           </div>
-          <span className="shrink-0 text-lg">👑</span>
+          <CupIcon bracket={bracket} className="h-6 w-6" />
           <span className="shrink-0 text-white/40">
             {showChampion ? '▲' : '▼'}
           </span>
@@ -232,6 +243,13 @@ export function TitleScreen({
       <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
         <button
           type="button"
+          onClick={onViewLadder}
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/75 transition hover:bg-white/10"
+        >
+          <CupIcon cup="cool" className="h-4 w-4" /> Today’s ladder
+        </button>
+        <button
+          type="button"
           onClick={() => setShowGuide(true)}
           className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/75 transition hover:bg-white/10"
         >
@@ -249,8 +267,16 @@ export function TitleScreen({
 
       <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
         <Credits />
+        <PrivacyPolicy />
         <SupportLinks />
       </div>
+
+      <p className="mt-6 max-w-md text-[11px] leading-relaxed text-white/30">
+        Rental Rumble is an unofficial fan project and is not affiliated with
+        Nintendo. It does not own or claim any rights to any Nintendo trademark
+        or the Pokémon trademark, and all references to such are used for
+        commentary and informational purposes only.
+      </p>
 
       {showGuide && <BattleGuide onClose={() => setShowGuide(false)} />}
     </div>

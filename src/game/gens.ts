@@ -65,6 +65,10 @@ export function genCount(gen: Generation): number {
  */
 export type BracketId = 'kanto' | 'gb' | 'ds' | '3ds' | 'all';
 
+/** Ribbon Cup sprite (in `public/sprites/ui/cup-*.png`) used as each era's
+ *  emblem, replacing the old crown/trophy emojis. */
+export type CupId = 'cool' | 'beauty' | 'cute' | 'clever' | 'tough';
+
 export interface GenBracket {
   id: BracketId;
   /** Headline name shown on the picker tile. */
@@ -75,15 +79,27 @@ export interface GenBracket {
   tab: string;
   /** Generations included in this bracket. */
   gens: Generation[];
+  /** The era's trophy emblem — a Ribbon Cup sprite. Full Dex gets the Cool Cup. */
+  cup: CupId;
 }
 
 export const GEN_BRACKETS: GenBracket[] = [
-  { id: 'kanto', label: 'The Original 151', tag: 'Game Boy · Kanto', tab: '151', gens: [1] },
-  { id: 'gb', label: 'Game Boy Era', tag: 'Kanto + Johto', tab: 'I–II', gens: [1, 2] },
-  { id: 'ds', label: 'DS Golden Age', tag: 'through Sinnoh', tab: 'I–IV', gens: [1, 2, 3, 4] },
-  { id: '3ds', label: '3DS Era', tag: 'through Kalos', tab: 'I–VI', gens: [1, 2, 3, 4, 5, 6] },
-  { id: 'all', label: 'Full Dex', tag: 'Every region · main mode', tab: 'All', gens: GENERATIONS },
+  { id: 'kanto', label: 'The Original 151', tag: 'Game Boy · Kanto', tab: '151', gens: [1], cup: 'tough' },
+  { id: 'gb', label: 'Game Boy Era', tag: 'Kanto + Johto', tab: 'I–II', gens: [1, 2], cup: 'cute' },
+  { id: 'ds', label: 'DS Golden Age', tag: 'through Sinnoh', tab: 'I–IV', gens: [1, 2, 3, 4], cup: 'clever' },
+  { id: '3ds', label: '3DS Era', tag: 'through Kalos', tab: 'I–VI', gens: [1, 2, 3, 4, 5, 6], cup: 'beauty' },
+  { id: 'all', label: 'Full Dex', tag: 'Every region · main mode', tab: 'All', gens: GENERATIONS, cup: 'cool' },
 ];
+
+/** Path to a cup sprite for use in `<img src>` (respects Vite's base URL). */
+export function cupSrc(cup: CupId): string {
+  return `${import.meta.env.BASE_URL}sprites/ui/cup-${cup}.png`;
+}
+
+/** The cup emblem for a bracket id (falls back to the full-dex Cool Cup). */
+export function bracketCup(id: BracketId): CupId {
+  return (BRACKET_BY_ID[id] ?? BRACKET_BY_ID[DEFAULT_BRACKET]).cup;
+}
 
 /** The standard, full-dex main mode — the default selection. */
 export const DEFAULT_BRACKET: BracketId = 'all';
