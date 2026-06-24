@@ -61,9 +61,11 @@ const STATUSES: { name: string; icon: string; desc: string }[] = [
 // The AI's fixed decision order each turn (mirrors chooseMove in battle.ts).
 const AI_PRIORITY: { step: string; desc: string }[] = [
   { step: 'Guaranteed KO', desc: 'If any move (priority first) is forecast to faint the foe, take it.' },
-  { step: 'Heal', desc: 'Below 35% HP, there is a 60% chance to use a sustain move like Recover — but each heal restores less than the last (the first is biggest), and Recover runs out after 5 uses, so two walls can no longer out-heal each other forever.' },
-  { step: 'Set up', desc: 'Above 60% HP and not yet stacked, a 40% chance to buff a stat (Swords Dance, Agility, Iron Defense).' },
-  { step: 'Spread status', desc: 'Against an unafflicted foe, a 35% chance to fish for burn / paralysis / poison / sleep.' },
+  { step: 'Taunt a staller', desc: 'If the foe packs a heal or setup button, a 50% chance to Taunt it — sealing its setup, heals and status moves for a few turns so it has to trade damage instead of fortifying.' },
+  { step: 'Heal', desc: 'Below 35% HP, a 60% chance to use a sustain move like Recover — but each heal restores less than the last (the first is biggest), and Recover runs out after 3 uses, so two walls can no longer out-heal each other forever. Blocked while taunted.' },
+  { step: 'Crack a wall', desc: 'When the foe is still above half HP and the best honest hit barely dents it, a 70% chance to use Super Fang — lopping off half the foe\u2019s current HP, ignoring Defense and bulk entirely.' },
+  { step: 'Set up', desc: 'Above 60% HP and not yet stacked, a 40% chance to buff a stat (Swords Dance, Agility, Iron Defense). Blocked while taunted.' },
+  { step: 'Spread status', desc: 'Against an unafflicted foe, a 35% chance to fish for burn / paralysis / poison / sleep. Blocked while taunted.' },
   { step: 'Best damage', desc: 'Otherwise throw the move with the highest forecast damage vs. this defender (coverage matters).' },
 ];
 
@@ -396,9 +398,18 @@ export function BattleGuide({ onClose }: { onClose: () => void }) {
             and the AI decides which to throw each turn. A pool layers its own
             STAB attacks, element-themed coverage (which shifts with the sign, so
             the same species plays differently run to run), a priority jab for
-            fast attackers, one matching setup move, and{' '}
-            <span className="font-semibold text-white/80">Recover</span> for bulky
-            mons — sustain lives in the moveset now, not the sign.
+            fast attackers, and exactly{' '}
+            <span className="font-semibold text-white/80">one defensive button</span>{' '}
+            for bulky mons — either{' '}
+            <span className="font-semibold text-white/80">Iron Defense</span> (for
+            defence-heavy walls) or{' '}
+            <span className="font-semibold text-white/80">Recover</span> (for
+            HP-heavy ones), never both, so a wall can’t fortify and out-heal at
+            once. Hard-hitting attackers instead pack anti-wall tools —{' '}
+            <span className="font-semibold text-white/80">Super Fang</span>{' '}
+            (DEF-ignoring chip) and{' '}
+            <span className="font-semibold text-white/80">Taunt</span>{' '}
+            (stall-breaker).
           </p>
         </Section>
 
