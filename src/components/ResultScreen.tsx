@@ -4,6 +4,7 @@ import { renderShareBlob } from '../game/shareCard';
 import { dailyKey } from '../game/opponents';
 import type { LeaderboardEntry } from '../game/leaderboard';
 import type { BracketId } from '../game/gens';
+import type { Difficulty } from '../game/run';
 import { Leaderboard } from './Leaderboard';
 import { SupportLinks } from './SupportLinks';
 
@@ -14,6 +15,7 @@ export function ResultScreen({
   seed,
   clearedStages,
   bracket,
+  difficulty,
   lostToTeam = [],
   onPlayAgain,
   onChallenge,
@@ -25,6 +27,8 @@ export function ResultScreen({
   clearedStages: number;
   /** The generation bracket this run was locked to (drives which board it ranks on). */
   bracket: BracketId;
+  /** The mode this run was played on (drives leaderboard rank). */
+  difficulty: Difficulty;
   /** Team of the trainer who ended the run — drawn on the loss share card. */
   lostToTeam?: Creature[];
   onPlayAgain: () => void;
@@ -191,6 +195,7 @@ export function ResultScreen({
         runBracket={bracket}
         canSubmit={won}
         run={{
+          difficulty,
           seed,
           stage: gauntlet.length - 1,
           clearedStages,

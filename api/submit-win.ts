@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
   verifyChampionWin,
+  boardScore,
   type SubmissionPayload,
 } from '../src/game/leaderboard.js';
 import { dailyKey } from '../src/game/opponents.js';
@@ -68,11 +69,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const key = boardKey(date, bracket);
   const dataKey = boardDataKey(date, bracket);
 
+  // Rank by mode first, then time: harder wins outrank easier ones, and the
+  // earliest clear wins each tier. Encoded into a single sortable score.
+  const score = boardScore(verdict.difficulty, now);
+
   try {
-    // First verified win per name sticks (NX = don't overwrite an earlier time).
-    await redis.zadd(key, { nx: true }, { score: now, member: name });
+    // First verified win per name sticks (NX = don't overwrite an earlier one).
+    await redis.zadd(key, { nx: true }, { score, member: name });
 
     const entry: BoardEntryData = {
+      difficulty: verdict.difficulty,
       clearedStages: Number(body.clearedStages) || 0,
       team: verdict.team.map((c) => ({ id: c.id, sign: c.sign })),
       at: now,

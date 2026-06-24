@@ -1,6 +1,7 @@
 import { Redis } from '@upstash/redis';
 import type { SubmissionMon } from '../src/game/leaderboard.js';
 import type { BracketId } from '../src/game/gens.js';
+import type { Difficulty } from '../src/game/run.js';
 
 // Reads UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN from the environment
 // (set them in the Vercel project, or .env.local for `vercel dev`).
@@ -50,6 +51,7 @@ export const boardDataKey = (date: string, bracket: BracketId = 'all') =>
   `lb:${date}${suffix(bracket)}:data`;
 
 export interface BoardEntryData {
+  difficulty: Difficulty; // the mode this win was earned on (drives rank)
   clearedStages: number;
   team: SubmissionMon[]; // species + sign, so the team can be re-fought
   at: number;

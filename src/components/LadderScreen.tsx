@@ -28,7 +28,7 @@ export function LadderScreen({ onBack }: { onBack: () => void }) {
         date={dailyKey()}
         runBracket={DEFAULT_BRACKET}
         canSubmit={false}
-        run={{ seed: '', stage: 0, clearedStages: 0, team: [] }}
+        run={{ difficulty: 'normal', seed: '', stage: 0, clearedStages: 0, team: [] }}
       />
 
       <button

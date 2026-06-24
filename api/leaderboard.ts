@@ -43,21 +43,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const redis = getRedis();
   if (redis) {
     try {
-      // Earliest wins first: ascending score (= epoch ms) is the order we want.
-      const [flat, count] = await Promise.all([
-        redis.zrange<(string | number)[]>(key, 0, LEADERBOARD_TOP - 1, {
-          withScores: true,
-        }),
+      // Best first: the sorted-set score is a composite of difficulty (harder =
+      // better) and clear time (earlier breaks ties), so plain ascending order
+      // already gives the ranking we want. The raw win time lives in the data
+      // hash, since the score is no longer a bare timestamp.
+      const [names, count] = await Promise.all([
+        redis.zrange<string[]>(key, 0, LEADERBOARD_TOP - 1),
         redis.zcard(key),
       ]);
       total = count ?? 0;
-
-      const names: string[] = [];
-      const scores: number[] = [];
-      for (let i = 0; i < flat.length; i += 2) {
-        names.push(String(flat[i]));
-        scores.push(Number(flat[i + 1]));
-      }
 
       const meta =
         names.length > 0
@@ -74,7 +68,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return {
           rank: i + 1,
           name,
-          at: scores[i],
+          // Legacy entries (pre-difficulty) default to the normal mode.
+          difficulty: data.difficulty ?? 'normal',
+          at: Number(data.at) || 0,
           clearedStages: data.clearedStages ?? 0,
           team: Array.isArray(data.team) ? data.team : [],
         } satisfies LeaderboardEntry;

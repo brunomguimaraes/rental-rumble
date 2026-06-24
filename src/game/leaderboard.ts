@@ -14,6 +14,12 @@ import {
   DEFAULT_BRACKET,
   type BracketId,
 } from './gens.js';
+import {
+  DIFFICULTY_RANK,
+  gauntletLength,
+  isDifficulty,
+  type Difficulty,
+} from './run.js';
 
 /**
  * Champion seed for a date string + bracket. Mirrors `championSeed()` in
@@ -50,6 +56,7 @@ export interface SubmissionPayload {
   name: string;
   date: string; // dailyKey, e.g. "2026-06-23"
   bracket: BracketId; // which generation bracket this run was locked to
+  difficulty: Difficulty; // ladder length the run was played on (drives rank)
   seed: string; // run seed
   stage: number; // the Champion's index in the gauntlet
   clearedStages: number;
@@ -60,9 +67,30 @@ export interface SubmissionPayload {
 export interface LeaderboardEntry {
   rank: number; // 1-based
   name: string;
+  difficulty: Difficulty; // the mode this win was earned on
   at: number; // epoch ms of the verified win
   clearedStages: number;
   team: SubmissionMon[]; // species + sign, enough to re-fight the team
+}
+
+/**
+ * Composite sort key for a board entry, stored as the Redis sorted-set score.
+ * The board is read in ascending order (smallest first = rank #1), so:
+ *
+ *   - A higher difficulty subtracts a large, tier-sized offset, pushing harder
+ *     wins ahead of easier ones no matter when they cleared.
+ *   - Within one difficulty, the raw win timestamp breaks the tie, so the
+ *     earliest clear still wins that tier.
+ *
+ * `TIER_SPAN` dwarfs any possible spread of `at` on a single board (entries live
+ * at most ~40 days, ≈3.5e9 ms apart), so difficulty always dominates time. The
+ * resulting magnitude stays well inside IEEE-754's exact-integer range, so the
+ * millisecond timestamp is preserved losslessly.
+ */
+const TIER_SPAN = 1e13;
+
+export function boardScore(difficulty: Difficulty, at: number): number {
+  return at - DIFFICULTY_RANK[difficulty] * TIER_SPAN;
 }
 
 export interface LeaderboardResponse {
@@ -76,7 +104,7 @@ export interface LeaderboardResponse {
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
 export type VerifyResult =
-  | { ok: true; team: Creature[] }
+  | { ok: true; team: Creature[]; difficulty: Difficulty }
   | { ok: false; reason: string };
 
 /**
@@ -94,11 +122,23 @@ export function verifyChampionWin(payload: SubmissionPayload): VerifyResult {
   if (typeof date !== 'string' || !YMD.test(date)) {
     return { ok: false, reason: 'bad date' };
   }
+  if (!isDifficulty(payload.difficulty)) {
+    return { ok: false, reason: 'bad difficulty' };
+  }
+  const difficulty = payload.difficulty;
   if (typeof seed !== 'string' || seed.length === 0 || seed.length > 120) {
     return { ok: false, reason: 'bad seed' };
   }
   if (!Number.isInteger(stage) || stage < 0 || stage > 64) {
     return { ok: false, reason: 'bad stage' };
+  }
+  // The Champion is the last rung, so its index pins the ladder length. A run is
+  // exactly `gauntletLength(difficulty)` long, plus an optional rare bonus
+  // challenger right before the boss (+1). Anything else means the claimed mode
+  // doesn't match the run, so the difficulty label can't be trusted.
+  const expectedLen = gauntletLength(difficulty);
+  if (stage !== expectedLen - 1 && stage !== expectedLen) {
+    return { ok: false, reason: 'stage does not match difficulty' };
   }
   if (!Array.isArray(team) || team.length === 0 || team.length > 6) {
     return { ok: false, reason: 'bad team size' };
@@ -137,7 +177,7 @@ export function verifyChampionWin(payload: SubmissionPayload): VerifyResult {
   if (result.winner !== 'player') {
     return { ok: false, reason: 'simulation did not produce a win' };
   }
-  return { ok: true, team: playerTeam };
+  return { ok: true, team: playerTeam, difficulty };
 }
 
 /**
@@ -160,6 +200,7 @@ export function buildSubmission(args: {
   name: string;
   date: string;
   bracket: BracketId;
+  difficulty: Difficulty;
   seed: string;
   stage: number;
   clearedStages: number;
@@ -169,6 +210,7 @@ export function buildSubmission(args: {
     name: args.name.trim().slice(0, 24),
     date: args.date,
     bracket: args.bracket,
+    difficulty: args.difficulty,
     seed: args.seed,
     stage: args.stage,
     clearedStages: args.clearedStages,

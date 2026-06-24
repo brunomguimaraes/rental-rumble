@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Creature } from '../game/types';
 import { miniUrl } from '../game/pokemon';
 import { GEN_BRACKETS, bracketById, type BracketId } from '../game/gens';
+import { DIFFICULTY_INFO, type Difficulty } from '../game/run';
 import { CupIcon } from './CupIcon';
 import {
   buildSubmission,
@@ -19,6 +20,25 @@ function timeLabel(at: number): string {
 }
 
 const medal = ['🥇', '🥈', '🥉'];
+
+// Colour-coded pill per mode, so a Master win visibly outranks an Easy one.
+const DIFFICULTY_BADGE: Record<Difficulty, string> = {
+  easy: 'border-emerald-300/40 bg-emerald-300/10 text-emerald-200',
+  normal: 'border-sky-300/40 bg-sky-300/10 text-sky-200',
+  hard: 'border-orange-300/40 bg-orange-300/10 text-orange-200',
+  master: 'border-fuchsia-300/40 bg-fuchsia-300/10 text-fuchsia-200',
+};
+
+function DifficultyBadge({ difficulty }: { difficulty: Difficulty }) {
+  return (
+    <span
+      title={`${DIFFICULTY_INFO[difficulty].label} mode`}
+      className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${DIFFICULTY_BADGE[difficulty]}`}
+    >
+      {DIFFICULTY_INFO[difficulty].label}
+    </span>
+  );
+}
 
 /** A single team miniature rendered straight from a National Dex id. */
 function MiniIcon({ dexId }: { dexId: number }) {
@@ -46,7 +66,13 @@ export function Leaderboard({
   runBracket: BracketId;
   /** True for a won run (the server still verifies the bracket's boss). */
   canSubmit: boolean;
-  run: { seed: string; stage: number; clearedStages: number; team: Creature[] };
+  run: {
+    difficulty: Difficulty;
+    seed: string;
+    stage: number;
+    clearedStages: number;
+    team: Creature[];
+  };
   /** Start a just-for-fun exhibition match against a saved team. */
   onChallenge?: (entry: LeaderboardEntry) => void;
 }) {
@@ -160,14 +186,16 @@ export function Leaderboard({
         </summary>
         <ul className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-white/50">
           <li>
-            <span className="text-white/70">It’s a race, not a score.</span>{' '}
-            Rank is purely the order you beat the boss — #1 is the first player
-            to clear today’s Champion, #2 the second, and so on.
+            <span className="text-white/70">Mode comes first.</span> A harder
+            run always outranks an easier one — Master beats Hard beats Normal
+            beats Easy — even if the easier player cleared the boss earlier.
           </li>
           <li>
-            <span className="text-white/70">Team strength doesn’t matter.</span>{' '}
-            How you won, which Pokémon you drafted, and how far you climbed have
-            no effect on rank — only your clear time counts.
+            <span className="text-white/70">
+              Then it’s a race, not a score.
+            </span>{' '}
+            Within the same mode, rank is the order you beat the boss — first
+            clear takes the top slot. Which Pokémon you drafted doesn’t matter.
           </li>
           <li>
             <span className="text-white/70">Every era has its own board.</span>{' '}
@@ -246,6 +274,7 @@ export function Leaderboard({
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
                   {e.name}
                 </span>
+                <DifficultyBadge difficulty={e.difficulty} />
                 <div className="hidden shrink-0 items-center gap-0.5 sm:flex">
                   {e.team.slice(0, 6).map((mon, i) => (
                     <MiniIcon key={i} dexId={Number(mon.id)} />

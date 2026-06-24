@@ -242,6 +242,7 @@ export default function App() {
           team={team}
           seed={seed}
           bracket={bracket}
+          difficulty={difficulty}
           clearedStages={won ? gauntlet.length : stage}
           lostToTeam={lostToTeam}
           onPlayAgain={() => setPhase('title')}

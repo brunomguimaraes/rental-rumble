@@ -19,6 +19,22 @@ export type Difficulty = 'easy' | 'normal' | 'hard' | 'master';
 export const DIFFICULTIES: Difficulty[] = ['easy', 'normal', 'hard', 'master'];
 
 /**
+ * How "good" each difficulty is for ranking. Higher is harder, and a harder win
+ * always outranks an easier one on the leaderboard — even if the easier player
+ * cleared the boss first. Time only breaks ties within the same difficulty.
+ */
+export const DIFFICULTY_RANK: Record<Difficulty, number> = {
+  easy: 0,
+  normal: 1,
+  hard: 2,
+  master: 3,
+};
+
+export function isDifficulty(v: unknown): v is Difficulty {
+  return typeof v === 'string' && (DIFFICULTIES as string[]).includes(v);
+}
+
+/**
  * Shape of the gauntlet ladder per difficulty. The Champion is always a single,
  * fixed daily boss; everything before it scales up with difficulty — more random
  * trainers to warm up on, more gym leaders, and (on the high end) a second Elite.
