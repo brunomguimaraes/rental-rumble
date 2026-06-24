@@ -167,7 +167,7 @@ export function Leaderboard({
     status !== 'done';
 
   return (
-    <div className="mt-8 w-full max-w-sm text-left">
+    <div className="mt-8 w-full max-w-lg text-left">
       <div className="flex items-baseline justify-between">
         <h3 className="text-lg font-black text-white">Today’s first clears</h3>
         {board?.champion && (
@@ -299,7 +299,7 @@ export function Leaderboard({
                 <RankNum rank={e.rank} />
                 <span
                   title={e.name}
-                  className="min-w-0 max-w-[8rem] flex-1 truncate text-sm font-semibold text-white"
+                  className="min-w-[4rem] max-w-[10rem] flex-1 truncate text-sm font-semibold text-white"
                 >
                   {e.name}
                 </span>
@@ -309,7 +309,7 @@ export function Leaderboard({
                     <TeamPortrait key={i} dexId={Number(mon.id)} />
                   ))}
                 </div>
-                <span className="hidden w-12 shrink-0 text-right text-xs tabular-nums text-white/40 sm:block">
+                <span className="hidden shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-white/40 sm:block">
                   {timeLabel(e.at)}
                 </span>
                 {onChallenge && e.team.length > 0 && (

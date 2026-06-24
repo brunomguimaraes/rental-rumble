@@ -5,9 +5,8 @@ import {
   type LeaderboardSummary,
 } from '../game/leaderboard';
 import { buildChampion, dailyKey } from '../game/opponents';
-import { bracketById } from '../game/gens';
+import { bracketById, bracketCup, type CupId } from '../game/gens';
 import { miniUrl } from '../game/pokemon';
-import { TYPE_COLORS } from '../game/typechart';
 import { DIFFICULTY_INFO, type Difficulty } from '../game/run';
 import { CupIcon } from './CupIcon';
 import { TrainerSprite } from './TrainerSprite';
@@ -23,6 +22,19 @@ const DIFFICULTY_PILL: Record<Difficulty, string> = {
   hard: 'border-orange-300/40 bg-orange-300/10 text-orange-200',
   master: 'border-fuchsia-300/40 bg-fuchsia-300/10 text-fuchsia-200',
 };
+
+// Each era's card glows in its Ribbon Cup's contest-condition colour, so flipping
+// through brackets reads as five distinct trophies rather than one type-tinted card.
+const CUP_ACCENT: Record<CupId, string> = {
+  cool: '#ef4444', // red
+  beauty: '#3b82f6', // blue
+  cute: '#ec4899', // pink
+  clever: '#22c55e', // green
+  tough: '#f5c542', // gold
+};
+
+/** The chunky arcade scoreboard font, shared with the ladder's rank numbers. */
+const PIXEL_FONT = "'Press Start 2P', 'Courier New', monospace";
 
 /** A single team miniature rendered straight from a National Dex id. */
 function MiniIcon({ dexId }: { dexId: number }) {
@@ -95,7 +107,9 @@ export function ChampionSpotlight({
   // Deterministic, so we can rebuild the boss (sprite + name + type) client-side
   // for the avatar without shipping art info over the wire.
   const champ = buildChampion(new Date(), slide.bracket);
-  const accent = TYPE_COLORS[champ.type] ?? '#f5c542';
+  // Colour the whole card by the era's trophy, not the boss's type, so each
+  // bracket's win reads as its own distinct prize.
+  const accent = CUP_ACCENT[bracketCup(slide.bracket)] ?? '#f5c542';
   const { leader } = slide;
 
   return (
@@ -107,18 +121,21 @@ export function ChampionSpotlight({
       style={{ borderColor: `${accent}55`, background: `${accent}12` }}
     >
       <div key={idx} className="animate-spotlight-in flex items-center gap-3">
-        <div
-          className="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl"
-          style={{ background: `${accent}1f` }}
-        >
-          <TrainerSprite
-            opponent={champ}
-            animated
-            className="h-14 w-14 animate-floaty"
-          />
+        <div className="relative h-16 w-16 shrink-0">
+          <div
+            className="grid h-16 w-16 place-items-center overflow-hidden rounded-xl"
+            style={{ background: `${accent}1f` }}
+          >
+            <TrainerSprite
+              opponent={champ}
+              animated
+              className="h-14 w-14 animate-floaty"
+            />
+          </div>
+          {/* Sits outside the clipped sprite box so it pops like a sticker. */}
           <CupIcon
             bracket={slide.bracket}
-            className="absolute -bottom-1 -right-1 h-6 w-6 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
+            className="absolute -bottom-2.5 -right-2.5 h-8 w-8 drop-shadow-[0_2px_5px_rgba(0,0,0,0.6)]"
           />
         </div>
 
@@ -126,10 +143,16 @@ export function ChampionSpotlight({
           {leader ? (
             <>
               <div
-                className="text-[10px] font-bold uppercase tracking-widest"
+                className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest"
                 style={{ color: accent }}
               >
-                🥇 Today’s Champion · {meta.tab}
+                <span
+                  className="text-[11px] leading-none text-amber-300"
+                  style={{ fontFamily: PIXEL_FONT }}
+                >
+                  {leader.rank}
+                </span>
+                <span>Today’s Champion · {meta.tab}</span>
               </div>
               <div className="truncate text-lg font-black leading-tight text-white">
                 {leader.name}
