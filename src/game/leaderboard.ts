@@ -134,7 +134,12 @@ export interface LeaderboardEntry {
   id?: string;
   name: string;
   difficulty: Difficulty; // the mode this win was earned on
-  at: number; // epoch ms of the verified win
+  at: number; // sort timestamp (back-dated on throne rows — see `wonAt`)
+  // Epoch ms the win actually happened. Set when it differs from the sort key
+  // `at` (a Throne Challenge back-dates `at` so the new champion sorts to #1);
+  // omitted otherwise, so display falls back to `at`. Always prefer this for
+  // showing a win time: `wonAt ?? at`.
+  wonAt?: number;
   clearedStages: number;
   team: SubmissionMon[]; // species + sign, enough to re-fight the team
   // The relics this run carried (see relics.ts), so a saved team re-fights with

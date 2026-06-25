@@ -135,6 +135,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // Legacy entries (pre-difficulty) default to the normal mode.
           difficulty: data.difficulty ?? 'normal',
           at: Number(data.at) || 0,
+          // The real win time for throne rows (whose `at` is a back-dated sort
+          // key); absent on normal/legacy rows, where the client falls back to `at`.
+          ...(data.wonAt != null ? { wonAt: Number(data.wonAt) } : {}),
           clearedStages: data.clearedStages ?? 0,
           team: Array.isArray(data.team) ? data.team : [],
           ...(Array.isArray(data.relics) ? { relics: data.relics } : {}),

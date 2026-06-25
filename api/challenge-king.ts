@@ -302,7 +302,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ...(Array.isArray(challengerData.relics) && challengerData.relics.length > 0
         ? { relics: challengerData.relics }
         : {}),
+      // `at` is back-dated below the current best Master so this row sorts to #1;
+      // `wonAt` keeps the real time of the takeover so the board shows when the
+      // crown actually changed hands, not the leapfrogged sort value.
       at: newAt,
+      wonAt: Date.now(),
       defeated: kingName,
     };
     await redis.hset(dataKey, { [challengerMember]: updated });

@@ -495,7 +495,7 @@ export function Leaderboard({
                 </div>
                 <EntryRelics relics={e.relics} />
                 <span className="hidden shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-white/40 sm:block">
-                  {timeLabel(e.at)}
+                  {timeLabel(e.wonAt ?? e.at)}
                 </span>
               </li>
             ))}

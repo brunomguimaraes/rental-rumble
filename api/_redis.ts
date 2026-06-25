@@ -64,7 +64,16 @@ export interface BoardEntryData {
   // The run's collected relics (see relics.ts), kept so a Throne Challenge
   // re-fights this team with its run-long passives. Omitted on relic-free rows.
   relics?: RelicId[];
+  // The board's sort timestamp. For a normal clear this is the real win time, but
+  // a Throne Challenge takeover deliberately back-dates it (to `bestMasterAt - 1`)
+  // so the new champion sorts to #1 — see challenge-king.ts. Use `wonAt` for the
+  // *actual* moment of the win when displaying a time.
   at: number;
+  // The real epoch-ms of the win, kept separate from the sort key `at` so a
+  // promoted throne row can display when it was *actually* earned instead of the
+  // back-dated sort value. Omitted on rows where `at` already is the win time
+  // (normal clears / legacy rows) — readers fall back to `at`.
+  wonAt?: number;
   // Set when this slot was taken by dethroning the Master #1 in a Throne
   // Challenge — the name of the champion that was beaten for the crown.
   defeated?: string;
