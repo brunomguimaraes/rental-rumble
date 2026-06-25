@@ -171,13 +171,14 @@ const CHAMP_QUOTES = [
 ];
 
 /**
- * UTC hour at which the daily boss flips. 0 = 00:00 UTC, which is prime-time
- * evening in the Americas (~8pm US Eastern / 9pm Brazil / 5pm US Pacific), so
- * the race to be "first to beat the boss" kicks off when the most players are
- * around. Bump to 1–2 to favour the US West coast's evening instead.
+ * UTC hour at which the daily boss flips. 3 = 03:00 UTC, which is exactly
+ * midnight in Brazil (America/São_Paulo is a fixed UTC-3 — no daylight saving
+ * since 2019), so the boss/board roll over on the stroke of the new day in BRT.
+ * In US terms that's ~10pm–12am Eastern / 7–9pm Pacific. The on-site countdown
+ * (see DailyCountdown) ticks down to this instant.
  * Keep this within 0–11 so the noon-anchored reconstruction below stays correct.
  */
-export const DAILY_RESET_UTC_HOUR = 0;
+export const DAILY_RESET_UTC_HOUR = 3;
 
 /**
  * Global YYYY-MM-DD key for the daily boss. Computed in UTC (shifted by the
@@ -191,6 +192,20 @@ export function dailyKey(d = new Date()): string {
   const m = String(shifted.getUTCMonth() + 1).padStart(2, '0');
   const day = String(shifted.getUTCDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+/**
+ * Epoch ms of the next daily reset — the instant the boss/board flip to a fresh
+ * day, at DAILY_RESET_UTC_HOUR:00 UTC. Drives the on-site countdown. Always
+ * strictly in the future of `d` (rolls to tomorrow once today's reset has passed).
+ */
+export function nextDailyResetMs(d = new Date()): number {
+  const next = new Date(d);
+  next.setUTCHours(DAILY_RESET_UTC_HOUR, 0, 0, 0);
+  if (next.getTime() <= d.getTime()) {
+    next.setUTCDate(next.getUTCDate() + 1);
+  }
+  return next.getTime();
 }
 
 /**

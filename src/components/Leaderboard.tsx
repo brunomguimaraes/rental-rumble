@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Creature, RelicId } from '../game/types';
 import { TeamPortrait } from './TeamPortrait';
+import { DailyCountdown } from './DailyCountdown';
+import { RelicStrip } from './RelicStrip';
+import { itemUrl } from '../game/pokemon';
+import { RELICS } from '../game/relics';
 import { dailyKey } from '../game/opponents';
 import { GEN_BRACKETS, bracketById, type BracketId } from '../game/gens';
 import { DIFFICULTY_INFO, type Difficulty } from '../game/run';
@@ -61,6 +65,34 @@ function DifficultyBadge({ difficulty }: { difficulty: Difficulty }) {
     >
       {DIFFICULTY_INFO[difficulty].label}
     </span>
+  );
+}
+
+/**
+ * The relics a board entry carried, shown as tiny icons after its team — so the
+ * passives that team brings to a Throne Challenge are visible up front. Renders
+ * nothing for a relic-free / legacy row.
+ */
+function EntryRelics({ relics }: { relics?: RelicId[] }) {
+  if (!relics || relics.length === 0) return null;
+  return (
+    <div
+      className="hidden shrink-0 items-center gap-0.5 sm:flex"
+      title={`Relics: ${relics.map((id) => RELICS[id]?.name ?? id).join(', ')}`}
+    >
+      {relics.map((id, i) => {
+        const def = RELICS[id];
+        if (!def) return null;
+        return (
+          <img
+            key={`${id}-${i}`}
+            src={itemUrl(def.icon)}
+            alt={def.name}
+            className="h-4 w-4 object-contain [image-rendering:pixelated]"
+          />
+        );
+      })}
+    </div>
   );
 }
 
@@ -228,6 +260,12 @@ export function Leaderboard({
         )}
       </div>
 
+      {isToday && (
+        <div className="mt-2">
+          <DailyCountdown label="Boss resets in" />
+        </div>
+      )}
+
       {/* Era tabs — browse every bracket's daily board. */}
       <div className="mt-3 flex flex-wrap gap-1.5">
         {GEN_BRACKETS.map((b) => {
@@ -298,7 +336,8 @@ export function Leaderboard({
           </li>
           <li>
             <span className="text-white/70">Fresh boss daily.</span> Everyone
-            faces the same six all day; the board resets at 00:00 UTC.
+            faces the same six all day; the board resets at midnight Brasília
+            time (03:00 UTC), and a live timer counts down to the next boss.
           </li>
         </ul>
       </details>
@@ -395,6 +434,7 @@ export function Leaderboard({
             the Master crown. Beat their team in a one-shot title fight to seize
             the #1 spot — win or lose, you get a single try.
           </p>
+          <RelicStrip relics={king.relics ?? []} className="mt-2" />
           <button
             type="button"
             onClick={() => onChallengeThrone?.(throne, king)}
@@ -453,6 +493,7 @@ export function Leaderboard({
                     <TeamPortrait key={i} mon={mon} />
                   ))}
                 </div>
+                <EntryRelics relics={e.relics} />
                 <span className="hidden shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-white/40 sm:block">
                   {timeLabel(e.at)}
                 </span>
