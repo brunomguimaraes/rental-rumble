@@ -63,6 +63,21 @@ const writeSkipCommitConfirm = (skip: boolean) => {
   else window.localStorage.removeItem(COMMIT_SKIP_KEY);
 };
 
+// Evolving reveals the new ability and can't be undone, so a separate gate makes
+// the player commit *before* the ability is shown — otherwise they could preview
+// each evolution's ability and back out, fishing for the best one. Like the
+// commit gate above, the player can opt out of it, remembered across reloads.
+const EVOLVE_SKIP_KEY = 'recruit-skip-evolve-confirm';
+const readSkipEvolveConfirm = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(EVOLVE_SKIP_KEY) === '1';
+};
+const writeSkipEvolveConfirm = (skip: boolean) => {
+  if (typeof window === 'undefined') return;
+  if (skip) window.localStorage.setItem(EVOLVE_SKIP_KEY, '1');
+  else window.localStorage.removeItem(EVOLVE_SKIP_KEY);
+};
+
 // Per-reward copy for the commit gate, so the confirmation names exactly what
 // the player is locking themselves into before the back-out option disappears.
 const REWARD_META: Record<RewardMode, { emoji: string; title: string; commit: string }> = {
@@ -142,9 +157,16 @@ export function RecruitScreen({
   const [foeIdx, setFoeIdx] = useState<number | null>(null);
   const [recruitSlot, setRecruitSlot] = useState<number | null>(null);
 
-  // Reward 2 — evolution ticket: evolve exactly one of YOUR Pokémon.
+  // Reward 2 — evolution ticket: evolve exactly one of YOUR Pokémon. The pick is
+  // only "done" once committed — until then the slot/target are armed but the
+  // evolved form (and its new ability) stays hidden so the player can't preview
+  // it and back out. `pendingEvolve` is an armed-but-unconfirmed evolution that
+  // the gate is asking about; committing locks the whole team (no switching).
   const [evolveSlot, setEvolveSlot] = useState<number | null>(null);
   const [evolveTarget, setEvolveTarget] = useState<number | null>(null);
+  const [evolveCommitted, setEvolveCommitted] = useState(false);
+  const [pendingEvolve, setPendingEvolve] = useState<{ slot: number; target: number } | null>(null);
+  const [skipEvolveConfirm, setSkipEvolveConfirm] = useState(readSkipEvolveConfirm);
 
   // Reward 2.5 — tweak a move: replace one move on one of YOUR Pokémon with
   // another from the species' legal pool (a deliberate, build-it-yourself pick —
@@ -231,7 +253,9 @@ export function RecruitScreen({
   const anyEvolvable = currentTeam.some((c) => canEvolve(c, bracket));
 
   const recruitDone = foeIdx !== null && recruitSlot !== null;
-  const evolveDone = evolveSlot !== null && evolveTarget !== null;
+  // An evolution only counts once the player has passed the confirm gate — until
+  // then the result (and its ability) is never revealed on the cards.
+  const evolveDone = evolveCommitted && evolveSlot !== null && evolveTarget !== null;
   const moveDone = moveTeamSlot !== null && moveSlotIdx !== null && moveChoice !== null;
   const rerollDone = rerollSlot !== null;
   // A strong special needs an explicit pick; a weak one is locked in by the slot
@@ -268,11 +292,43 @@ export function RecruitScreen({
     setPendingMode(null);
   };
 
+  // Lock in an evolution: reveal the result and freeze the team (no switching to a
+  // different target, no skipping). This is the point of no return.
+  const commitEvolution = (slot: number, target: number) => {
+    setEvolveSlot(slot);
+    setEvolveTarget(target);
+    setEvolveCommitted(true);
+    setPendingEvolve(null);
+  };
+
+  // Arm an evolution. Unless the player has opted out, the confirm gate stands
+  // between here and the commit — so the evolved ability is never previewed.
+  const armEvolution = (slot: number, target: number) => {
+    if (skipEvolveConfirm) commitEvolution(slot, target);
+    else setPendingEvolve({ slot, target });
+  };
+
   const pickTeamForEvolve = (i: number) => {
+    if (evolveCommitted) return; // the team is frozen once an evolution is locked in
     const targets = evolutionTargets(currentTeam[i].dexId, bracket);
     if (targets.length === 0) return;
-    setEvolveSlot(i);
-    setEvolveTarget(targets.length === 1 ? targets[0] : null);
+    // A single-stage line has only one outcome, so tapping it arms the gate
+    // straight away; a branched line first lets the player choose which branch.
+    if (targets.length === 1) {
+      armEvolution(i, targets[0]);
+    } else {
+      setEvolveSlot(i);
+      setEvolveTarget(null);
+    }
+  };
+
+  const confirmEvolve = (dontAskAgain: boolean) => {
+    if (pendingEvolve === null) return;
+    if (dontAskAgain) {
+      setSkipEvolveConfirm(true);
+      writeSkipEvolveConfirm(true);
+    }
+    commitEvolution(pendingEvolve.slot, pendingEvolve.target);
   };
 
   // A reward is only "claimed" once it's fully chosen. Until then — in any mode,
@@ -467,16 +523,19 @@ export function RecruitScreen({
               {currentTeam.map((c, i) => {
                 const evolvable = canEvolve(c, bracket);
                 const isPicked = evolveSlot === i;
-                const shown = evolveDone && isPicked ? evolveCreature(c, evolveTarget) : c;
+                // Only show the evolved form once committed; before that the card
+                // keeps its current shape so the new ability stays a surprise.
+                const isEvolved = evolveDone && isPicked;
+                const shown = isEvolved ? evolveCreature(c, evolveTarget) : c;
                 return (
                   <div key={`${c.id}-${i}`} className="relative rounded-2xl">
                     <CreatureCard
                       creature={shown}
                       selected={isPicked}
-                      disabled={!evolvable}
-                      onClick={evolvable ? () => pickTeamForEvolve(i) : undefined}
+                      disabled={!evolvable || (evolveCommitted && !isPicked)}
+                      onClick={!evolveCommitted && evolvable ? () => pickTeamForEvolve(i) : undefined}
                     />
-                    {evolveDone && isPicked && <Tag color="amber" text="EVOLVED" />}
+                    {isEvolved && <Tag color="amber" text="EVOLVED" />}
                     {!evolvable && <Tag color="slate" text="MAX" />}
                   </div>
                 );
@@ -484,27 +543,31 @@ export function RecruitScreen({
             </div>
           </div>
 
-          {/* Branched lines: let the player choose which evolution to take. */}
-          {evolveSlot !== null && evolutionTargets(currentTeam[evolveSlot].dexId, bracket).length > 1 && (
-            <div className="mt-7">
-              <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
-                Choose an evolution for {currentTeam[evolveSlot].name}
-              </h3>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                {evolutionTargets(currentTeam[evolveSlot].dexId, bracket).map((dexId) => {
-                  const preview = evolveCreature(currentTeam[evolveSlot], dexId);
-                  return (
-                    <CreatureCard
-                      key={dexId}
-                      creature={preview}
-                      selected={evolveTarget === dexId}
-                      onClick={() => setEvolveTarget(dexId)}
-                    />
-                  );
-                })}
+          {/* Branched lines: choose which evolution to take. The species, types and
+              stats are shown (you need them to pick a branch) but the resulting
+              ability stays hidden until you commit — so you can't fish for it. */}
+          {evolveSlot !== null &&
+            !evolveCommitted &&
+            evolutionTargets(currentTeam[evolveSlot].dexId, bracket).length > 1 && (
+              <div className="mt-7">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
+                  Choose an evolution for {currentTeam[evolveSlot].name}
+                </h3>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                  {evolutionTargets(currentTeam[evolveSlot].dexId, bracket).map((dexId) => {
+                    const preview = evolveCreature(currentTeam[evolveSlot], dexId);
+                    return (
+                      <CreatureCard
+                        key={dexId}
+                        creature={preview}
+                        hideAbility
+                        onClick={() => armEvolution(evolveSlot, dexId)}
+                      />
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </>
       )}
 
@@ -776,6 +839,15 @@ export function RecruitScreen({
         />
       )}
 
+      {pendingEvolve !== null && (
+        <EvolveConfirmModal
+          name={currentTeam[pendingEvolve.slot].name}
+          targetName={evolveCreature(currentTeam[pendingEvolve.slot], pendingEvolve.target).name}
+          onCancel={() => setPendingEvolve(null)}
+          onConfirm={confirmEvolve}
+        />
+      )}
+
       {rolling && mode === 'reroll' && rerollSlot !== null && (
         <SignRollReveal
           creature={currentTeam[rerollSlot]}
@@ -857,6 +929,80 @@ function CommitChoiceModal({
             className="rounded-full bg-white px-6 py-2.5 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
           >
             Choose this →
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// Confirm gate for an individual evolution. Evolving reveals the new ability and
+// can't be undone, so this stands between the pick and the reveal — the player
+// commits blind, which stops them previewing each evolution's ability and backing
+// out to fish for the best one. Opt-out is remembered across runs.
+function EvolveConfirmModal({
+  name,
+  targetName,
+  onCancel,
+  onConfirm,
+}: {
+  name: string;
+  targetName: string;
+  onCancel: () => void;
+  onConfirm: (dontAskAgain: boolean) => void;
+}) {
+  const [dontAskAgain, setDontAskAgain] = useState(false);
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-md rounded-3xl border border-white/10 bg-[#0c0c14] p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-center">
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full border border-white/15 bg-white/5 text-2xl">
+            🎟️
+          </div>
+          <h3 className="mt-3 text-xl font-black text-white">Evolve {name}?</h3>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-white/65">
+            {name} will evolve into <span className="font-bold text-white">{targetName}</span>.
+          </p>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-amber-300/25 bg-amber-300/[0.06] px-4 py-3 text-center">
+          <p className="text-xs font-semibold text-amber-200/90">
+            The ability it gains stays hidden until it's done — and evolving can't
+            be undone, so commit before you see it.
+          </p>
+        </div>
+
+        <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 text-sm text-white/55 transition hover:text-white/80">
+          <input
+            type="checkbox"
+            checked={dontAskAgain}
+            onChange={(e) => setDontAskAgain(e.target.checked)}
+            className="h-4 w-4 cursor-pointer accent-emerald-400"
+          />
+          Don't ask again for evolutions
+        </label>
+
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-full border border-white/15 px-5 py-2.5 text-sm font-bold text-white/80 transition hover:bg-white/10"
+          >
+            Go back
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(dontAskAgain)}
+            className="rounded-full bg-white px-6 py-2.5 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
+          >
+            Evolve →
           </button>
         </div>
       </div>

@@ -156,12 +156,17 @@ export function CreatureCard({
   creature,
   selected = false,
   disabled = false,
+  hideAbility = false,
   onClick,
   onReroll,
 }: {
   creature: Creature;
   selected?: boolean;
   disabled?: boolean;
+  // Conceal the ability behind a "revealed after you evolve" placeholder. Used on
+  // evolution previews so the player can't shop branches by their resulting
+  // ability and back out — the new ability only shows once they've committed.
+  hideAbility?: boolean;
   onClick?: () => void;
   onReroll?: () => void;
 }) {
@@ -380,7 +385,19 @@ export function CreatureCard({
             Moves
           </button>
         </div>
-        {ability ? (
+        {hideAbility ? (
+          // Ability concealed until the evolution is committed — same footprint as
+          // a real ability tag so the previewed card matches its evolved height.
+          <div
+            title="Revealed once you commit to the evolution"
+            className="mt-1.5 flex w-full items-center gap-1 rounded-md border border-amber-300/25 bg-amber-300/[0.07] px-1.5 py-1 text-left"
+          >
+            <span className="shrink-0 text-[10px] text-amber-300">✦</span>
+            <span className="truncate text-[10px] font-bold text-amber-200/70">
+              ??? — revealed after you evolve
+            </span>
+          </div>
+        ) : ability ? (
           <AbilityTag
             ability={{
               name: ability.name,
