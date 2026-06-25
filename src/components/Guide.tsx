@@ -41,25 +41,40 @@ function NavItem({
 function GuideBody({
   slug,
   onSelect,
+  variant,
 }: {
   slug: string;
   onSelect: (slug: string) => void;
+  /**
+   * `page` lets the document scroll on mobile (the desktop pane still scrolls
+   * internally); `modal` keeps everything inside the dialog's own scroller.
+   */
+  variant: 'page' | 'modal';
 }) {
   const doc = findDoc(slug) ?? GUIDE_DOCS[0];
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isModal = variant === 'modal';
 
-  // Snap back to the top whenever the reader switches docs.
+  // Snap back to the top whenever the reader switches docs. The desktop pane and
+  // the modal scroll their own content box; the mobile full page flows with the
+  // document, so reset the window there instead.
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
-  }, [slug]);
+    if (!isModal) window.scrollTo({ top: 0 });
+  }, [slug, isModal]);
 
   if (!doc) return null;
   const Content = doc.Content;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-      {/* Mobile: horizontal scrollable chips */}
-      <nav className="flex gap-1.5 overflow-x-auto border-b border-white/10 px-3 py-2 md:hidden">
+      {/* Mobile: horizontal scrollable chips. On the full page they stick to the
+          top of the viewport so docs stay switchable while the page scrolls. */}
+      <nav
+        className={`flex gap-1.5 overflow-x-auto border-b border-white/10 bg-[#15151c] px-3 py-2 md:hidden ${
+          isModal ? '' : 'sticky top-0 z-10'
+        }`}
+      >
         {GUIDE_DOCS.map((d) => (
           <NavItem
             key={d.slug}
@@ -85,8 +100,15 @@ function GuideBody({
         ))}
       </nav>
 
-      {/* Content */}
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8">
+      {/* Content. The desktop pane and the modal scroll internally; the mobile
+          full page flows naturally so it never gets trapped in a dead inner
+          scroll container (the bug that broke this page on phones). */}
+      <div
+        ref={scrollRef}
+        className={`min-h-0 flex-1 px-5 py-6 sm:px-8 md:overflow-y-auto ${
+          isModal ? 'overflow-y-auto' : ''
+        }`}
+      >
         <article className="mx-auto max-w-2xl">
           {doc.summary && (
             <p className="mb-4 text-xs text-white/45">{doc.summary}</p>
@@ -143,7 +165,7 @@ export function GuideScreen({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-5xl flex-col px-3 py-4 sm:px-5 sm:py-6">
+    <div className="mx-auto flex min-h-[100dvh] max-w-5xl flex-col px-3 py-4 sm:px-5 sm:py-6 md:h-[100dvh]">
       <header className="mb-3 flex items-center gap-3">
         <button
           type="button"
@@ -159,8 +181,10 @@ export function GuideScreen({ onBack }: { onBack: () => void }) {
           </p>
         </div>
       </header>
-      <div className="flex min-h-0 flex-1 overflow-hidden rounded-3xl border border-white/10 bg-[#15151c]">
-        <GuideBody slug={slug} onSelect={select} />
+      {/* Mobile lets the document scroll (overflow-visible so the card grows with
+          its content); desktop pins the height and scrolls the content pane. */}
+      <div className="flex min-h-0 flex-1 overflow-visible rounded-3xl border border-white/10 bg-[#15151c] md:overflow-hidden">
+        <GuideBody slug={slug} onSelect={select} variant="page" />
       </div>
     </div>
   );
@@ -201,7 +225,7 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
             ✕
           </button>
         </div>
-        <GuideBody slug={slug} onSelect={setSlug} />
+        <GuideBody slug={slug} onSelect={setSlug} variant="modal" />
       </div>
     </div>
   );
