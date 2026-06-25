@@ -292,6 +292,18 @@ export const NEW_ABILITIES: Record<string, NewAbilityDef> = {
     description: 'It shields the brood \u2014 Normal-type allies take less damage.',
     devDescription: 'Normal-type teammates take 0.92\u00d7 damage.',
   },
+  deluge: {
+    id: 'deluge' as AbilityId,
+    name: 'Deluge',
+    description: 'A primordial sea \u2014 its Water moves crash through resistances and hit harder.',
+    devDescription: 'Its Water moves deal 1.1\u00d7 damage and ignore type resistances.',
+  },
+  magma: {
+    id: 'magma' as AbilityId,
+    name: 'Magma',
+    description: 'A scorched land \u2014 its Ground moves bull through resistances and hit harder.',
+    devDescription: 'Its Ground moves deal 1.1\u00d7 damage and ignore type resistances.',
+  },
   diviner: {
     id: 'diviner' as AbilityId,
     name: 'Diviner',

@@ -421,6 +421,8 @@ export type AbilityId =
   | 'psi-network'
   | 'wraith-choir'
   | 'den-mother'
+  | 'deluge'
+  | 'magma'
   | 'diviner'
   | 'fortune'
   | 'treasure-hound'

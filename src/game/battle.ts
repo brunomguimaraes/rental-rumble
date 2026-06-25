@@ -385,6 +385,18 @@ function typeMult(move: Move, defender: Battler, attacker?: Battler): number {
     const rest = defender.creature.types.filter((t) => t !== 'ghost');
     return rest.length > 0 ? effectiveness(move.type, rest) : 1;
   }
+  // Deluge / Magma: a legendary's Water / Ground moves bull straight through a
+  // resisted matchup, landing at full effectiveness (the +10% rides on top in
+  // extraAttackDamageMult — the same shape as Sheer Cold for Ice).
+  if (
+    base > 0 &&
+    base < 1 &&
+    attacker &&
+    ((attacker.creature.ability === 'deluge' && move.type === 'water') ||
+      (attacker.creature.ability === 'magma' && move.type === 'ground'))
+  ) {
+    return abilityTypeMult(move, defender, 1);
+  }
   return abilityTypeMult(move, defender, base);
 }
 

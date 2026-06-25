@@ -211,6 +211,8 @@ export function extraAttackDamageMult(
 
   // --- Gen I signatures (attacker-side) ---
   if (a === 'roaring-flame' && move.type === 'fire' && attacker.hp > attacker.maxHp / 2) m *= 1.5;
+  if (a === 'deluge' && move.type === 'water') m *= 1.1;
+  if (a === 'magma' && move.type === 'ground') m *= 1.1;
   if (a === 'cannoneer' && defender.stages.def > 0) m *= 1 + 0.12 * Math.min(defender.stages.def, 3);
   if (a === 'giant-slayer' && defender.maxHp > attacker.maxHp) m *= 1.2;
   if (a === 'momentum' && move.power > 0) m *= 1 + 0.06 * Math.min(attacker.actedTurns, 5);
