@@ -161,8 +161,8 @@ export const LINE_SIGNATURES: Record<number, Move> = {
   46: mk('Sporing Seizure', 'grass', 85, 1, { kind: 'stun', chance: 0.3 }, 'physical'),
   // Venonat line (final: Venomoth) — scatters a cloud of toxic scale-powder from beating wings
   48: mk('Noxious Wingdust', 'poison', 85, 1, { kind: 'poison', chance: 0.4 }, 'energy'),
-  // Meowth line (final: Perrserker; branch: Persian/normal) — a berserk viking cat's iron cleave
-  52: mk('Plunder Cleave', 'steel', 100, 1),
+  // Meowth line — Meowth/Persian's nimble snatch-and-scratch (steel Perrserker keyed at 863).
+  52: mk('Coin Fury', 'normal', 90, 1, { kind: 'stage', stat: 'def', delta: -1, chance: 0.3, target: 'foe' }, 'physical'),
   // Psyduck line (final: Golduck) — a mystic riptide laced with mind-fogging psychic current
   54: mk('Esper Undertow', 'water', 90, 1, { kind: 'confuse', chance: 0.3 }),
   // Mankey line (final: Annihilape) — boundless rage made flesh, tearing the user as it strikes
@@ -285,8 +285,8 @@ export const LINE_SIGNATURES: Record<number, Move> = {
   213: mk('Putrid Vintage', 'poison', 55, 1, { kind: 'poison', chance: 1 }, 'energy'),
   // Heracross — it digs in its heels and hurls the foe with a reckless, world-shaking horn gore.
   214: mk('Goliath Gore', 'bug', 115, 0.9, { kind: 'recoil', fraction: 1/4 }),
-  // Sneasel line (branched; final shown: Sneasler) — a cliff-leaping pounce raking with venomous talons.
-  215: mk('Venomtalon Pounce', 'fighting', 110, 0.95, { kind: 'poison', chance: 0.3 }),
+  // Sneasel line — Sneasel/Weavile's dark-ice claw flurry (fighting/poison Sneasler keyed at 903).
+  215: mk('Nightfall Reaver', 'dark', 110, 1, undefined, 'physical'),
   // Teddiursa line (final: Ursaluna) — under the blood moon it goes berserk, smashing the earth heedless of harm.
   216: mk('Crimsonmoon Crush', 'ground', 120, 0.9, { kind: 'recoil', fraction: 1/3 }),
   // Slugma line (final: Magcargo) — molten 1800-degree lava sluices from its shell in a searing flow.
@@ -497,8 +497,8 @@ export const LINE_SIGNATURES: Record<number, Move> = {
   408: mk('Skullbreaker Charge', 'rock', 120, 0.95, { kind: 'recoil', fraction: 1/3 }),
   // Shieldon line (final: Bastiodon) — the living fortress answers with a shield-bash quake.
   410: mk('Rampart Slam', 'steel', 90, 1, { kind: 'stun', chance: 0.3 }),
-  // Burmy line (branched; final here: Mothim) — moonlit wings scatter a haze of scales.
-  412: mk('Duskwing Flurry', 'flying', 90),
+  // Burmy line — Burmy/Wormadam's cloak-spun scale burst (flying Mothim keyed at 414).
+  412: mk('Mantle Spores', 'bug', 90, 1, undefined, 'energy'),
   // Combee line (final: Vespiquen) — the hive-queen looses a vengeful stinging swarm.
   415: mk('Regent\'s Swarm', 'bug', 95, 1, { kind: 'poison', chance: 0.3 }),
   // Pachirisu (standalone) — charged cheek-fur snaps a stinging jolt.
@@ -901,8 +901,8 @@ export const LINE_SIGNATURES: Record<number, Move> = {
   787: mk('Thornhide Charge', 'grass', 120, 0.9, { kind: 'recoil', fraction: 1/4 }, 'physical'),
   // Tapu Fini — a disorienting tide of guardian mist sweeps the foe under.
   788: mk('Mistshroud Tide', 'water', 110, 0.95, { kind: 'confuse', chance: 0.2 }),
-  // Cosmog line (final: Lunala) — channels the full moon into an annihilating eclipse-beam that drains its caster.
-  789: { ...mk('Eclipse Requiem', 'ghost', 135, 0.9, undefined, 'energy'), selfStage: { stat: 'eatk', delta: -1 } },
+  // Cosmog line — the nebula's nascent starlight (Solgaleo keyed at 791, Lunala at 792).
+  789: mk('Starlit Genesis', 'psychic', 90, 1, undefined, 'energy'),
   // Nihilego — floods the foe with a parasitic neurotoxin that lingers.
   793: mk('Beguiling Venom', 'poison', 120, 0.9, { kind: 'poison', chance: 0.3 }, 'energy'),
   // Buzzwole — plunges its swollen proboscis in and gorges on the foe's lifeblood.
@@ -1177,4 +1177,28 @@ export const LINE_SIGNATURES: Record<number, Move> = {
   1024: mk('Prismatic Starfall', 'normal', 110, 0.95, undefined, 'energy'),
   // Pecharunt — binding peach-rot chains that always leave the foe poisoned.
   1025: mk('Peachrot Bindings', 'poison', 95, 1, { kind: 'poison', chance: 1 }, 'energy'),
+
+  // ===================== BRANCHED-LINE PER-BRANCH OVERRIDES =====================
+  // Keyed at the diverging branch TIP so each final form gets a type-matched
+  // signature instead of inheriting a sibling's; the shared base/pre-evos keep the
+  // line's root entry above. (signatureMoveFor: nearest ancestor-or-self wins.)
+
+  // Eevee's eeveelutions (Eevee itself keeps the Normal "Adaptive Surge").
+  134: mk('Mistral Deluge', 'water', 110, 1), // Vaporeon
+  135: mk('Voltaic Bristle', 'electric', 110, 1, { kind: 'stun', chance: 0.3 }), // Jolteon
+  136: mk('Cinder Maul', 'fire', 115, 1, { kind: 'burn', chance: 0.3 }, 'physical'), // Flareon
+  196: mk('Lucent Foretell', 'psychic', 110, 1), // Espeon
+  197: mk('Moonlit Hex', 'dark', 90, 1, { kind: 'stage', stat: 'eatk', delta: -1, chance: 1, target: 'foe' }), // Umbreon
+  470: mk('Verdant Razor', 'grass', 115, 1, undefined, 'physical'), // Leafeon
+  471: mk('Rime Lattice', 'ice', 110, 1, { kind: 'frostbite', chance: 0.3 }), // Glaceon
+  700: mk('Ribbon Reverie', 'fairy', 110, 1, { kind: 'stage', stat: 'eatk', delta: -1, chance: 0.3, target: 'foe' }), // Sylveon
+
+  // Other diverging branch tips (the sibling kept the line's base move/type above).
+  863: mk('Plunder Cleave', 'steel', 110, 0.95, undefined, 'physical'), // Perrserker (vs Normal Persian)
+  903: mk('Venomtalon Pounce', 'fighting', 110, 0.95, { kind: 'poison', chance: 0.3 }, 'physical'), // Sneasler (vs Dark/Ice Weavile)
+  414: mk('Duskwing Flurry', 'flying', 100, 0.95, { kind: 'flinch', chance: 0.3 }, 'energy'), // Mothim (vs Bug Wormadam)
+  791: mk('Daybreak Sunsteel', 'steel', 130, 0.95, undefined, 'physical'), // Solgaleo (vs Psychic base / Ghost Lunala)
+  792: { ...mk('Eclipse Requiem', 'ghost', 130, 0.95, undefined, 'energy'), selfStage: { stat: 'eatk', delta: -1 } }, // Lunala
+  // Gardevoir is a special attacker where its Gallade sibling is physical.
+  282: mk('Aria of Reverie', 'fairy', 115, 1, undefined, 'energy'), // Gardevoir (Gallade keeps the physical base)
 };
