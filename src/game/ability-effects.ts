@@ -115,6 +115,25 @@ export function applyRosterAbilities(team: Battler[]): void {
       for (const b of team) b.teamFactor *= 1.06;
     }
   }
+  if (has('cocoon-guard')) {
+    for (const b of team) b.damageTakenMult *= 0.95;
+  }
+  // --- Gen I type commanders ---
+  if (has('stone-council')) {
+    for (const b of team) if (b.creature.types.includes('rock')) b.damageTakenMult *= 0.9;
+  }
+  if (has('den-mother')) {
+    for (const b of team) if (b.creature.types.includes('normal')) b.damageTakenMult *= 0.92;
+  }
+  if (has('earth-warden')) {
+    for (const b of team) if (b.creature.types.includes('ground')) b.teamFactor *= 1.08;
+  }
+  if (has('permafrost')) {
+    for (const b of team) if (b.creature.types.includes('ice')) b.damageDealtMult *= 1.1;
+  }
+  if (has('toxic-crown')) {
+    for (const b of team) if (b.creature.types.includes('poison')) b.damageDealtMult *= 1.1;
+  }
 }
 
 export function slowStartStatMult(b: Battler): number {
@@ -190,6 +209,29 @@ export function extraAttackDamageMult(
     m *= 1.1;
   }
 
+  // --- Gen I signatures (attacker-side) ---
+  if (a === 'roaring-flame' && move.type === 'fire' && attacker.hp > attacker.maxHp / 2) m *= 1.5;
+  if (a === 'cannoneer' && defender.stages.def > 0) m *= 1 + 0.12 * Math.min(defender.stages.def, 3);
+  if (a === 'giant-slayer' && defender.maxHp > attacker.maxHp) m *= 1.2;
+  if (a === 'momentum' && move.power > 0) m *= 1 + 0.06 * Math.min(attacker.actedTurns, 5);
+  if (a === 'cheek-pouch' && !attacker.cheekPouchUsed && move.type === 'electric') m *= 1.8;
+  if (a === 'corrosion' && defender.status === 'poison') m *= 1.1;
+  if (attacker.avengeName !== null && attacker.avengeName === defender.creature.name) m *= 1.2;
+  if (
+    attacker.creature.types.includes('psychic') &&
+    moveCategory(move) === 'energy' &&
+    team.some((b) => b.creature.ability === 'psi-network')
+  ) {
+    m *= 1.1;
+  }
+  if (
+    attacker.creature.types.includes('ghost') &&
+    defender.status !== null &&
+    team.some((b) => b.creature.ability === 'wraith-choir')
+  ) {
+    m *= 1.12;
+  }
+
   if (move.effect?.kind === 'recoil' && a === 'reckless') m *= 1.25;
 
   return m * attacker.damageDealtMult;
@@ -210,6 +252,12 @@ export function extraDefendDamageMult(defender: Battler, move: Move, typeEff: nu
     if (cat === 'physical') m *= 0.75;
     if (cat === 'energy') m *= 1.2;
   }
+  // Counterweight: the more it braces (raised Defense), the less a hit lands.
+  if (d === 'counterweight' && defender.stages.def > 0) {
+    m *= 1 - 0.08 * Math.min(defender.stages.def, 3);
+  }
+  // Jinx: a hexed battler takes extra damage until the curse wears off.
+  if (defender.hexTurns > 0) m *= 1.1;
   return m * defender.damageTakenMult;
 }
 
@@ -232,6 +280,8 @@ export function effectiveAccuracy(attacker: Battler, defender: Battler, move: Mo
   ) {
     return 1;
   }
+  // Tempest: a living storm — its own attacks simply never miss.
+  if (attacker.creature.ability === 'tempest') return 1;
   let acc = move.accuracy;
   if (attacker.creature.ability === 'hustle' && move.power > 0) acc *= 0.8;
   if (attacker.creature.ability === 'compound-eyes') acc *= 1.15;
@@ -268,6 +318,7 @@ export function statusEffectChanceMult(
   let m = 1;
   if (defender.statusSusceptMult > 1) m *= defender.statusSusceptMult;
   if (attacker.creature.ability === 'trickster' && kind === 'confuse') m *= 1.5;
+  if (attacker.creature.ability === 'wild-card') m *= 1.3;
   if (defender.creature.ability === 'shield-dust') m *= 0.5;
   return m;
 }
@@ -285,6 +336,7 @@ export function applyEntryAbilities(
   applyStage: (side: 'player' | 'foe', stat: StageStat, delta: number, who?: 'self' | 'opponent') => void,
   applyConfuse: (side: 'player' | 'foe') => boolean,
   pushAbility: (name: string, text: string, actor: 'player' | 'foe', affected: 'player' | 'foe') => void,
+  rng: { chance: (p: number) => boolean; int: (lo: number, hi: number) => number },
 ): void {
   const a = b.creature.ability;
   const oppSide = side === 'player' ? 'foe' : 'player';
@@ -328,6 +380,45 @@ export function applyEntryAbilities(
     pushAbility('Sky Lord', `${b.creature.name} soared in with sharp reflexes!`, side, side);
     applyStage(side, 'spd', 1, 'self');
   }
+  // --- Gen I entry signatures ---
+  if (a === 'tailwind') {
+    pushAbility('Tailwind', `${b.creature.name} rode in on a tailwind!`, side, side);
+    applyStage(side, 'spd', 1, 'self');
+  }
+  if (a === 'latent-power') {
+    const s = b.creature.stats;
+    const cand: [StageStat, number][] = [
+      ['atk', s.atk], ['eatk', s.eatk], ['def', s.def], ['edef', s.edef], ['spd', s.spd],
+    ];
+    let best = cand[0];
+    for (const c of cand) if (c[1] > best[1]) best = c;
+    pushAbility('Latent Power', `${b.creature.name}'s latent power surfaced!`, side, side);
+    applyStage(side, best[0], 1, 'self');
+  }
+  if (a === 'transform') {
+    const s = b.creature.stats;
+    const off: StageStat = s.eatk > s.atk ? 'eatk' : 'atk';
+    pushAbility('Transform', `${b.creature.name} reshaped into a fighter!`, side, side);
+    applyStage(side, off, 2, 'self');
+    applyStage(side, 'spd', 1, 'self');
+  }
+  if (
+    a === 'lullaby' &&
+    opp.hp > 0 &&
+    opp.status === null &&
+    opp.creature.ability !== 'vital-spirit' &&
+    rng.chance(0.35)
+  ) {
+    opp.status = 'sleep';
+    opp.statusTurns = rng.int(1, 3);
+    pushAbility('Lullaby', `${b.creature.name}'s lullaby lulled ${opp.creature.name} to sleep!`, side, oppSide);
+  }
+  if (a === 'jinx' && opp.hp > 0) {
+    opp.statusSusceptMult = 1.25;
+    opp.statusSuspectTurns = 3;
+    opp.hexTurns = 3;
+    pushAbility('Jinx', `${b.creature.name} hexed ${opp.creature.name}!`, side, oppSide);
+  }
 }
 
 /** Faint passives — returns torchPass turns for incoming ally. */
@@ -358,6 +449,7 @@ export function applyFaintAbilities(
     attacker.pp[koMoveName] = Math.max(0, (attacker.pp[koMoveName] ?? 0) - 2);
   }
   if (a === 'revenge-cry') applyStage(side, 'def', 2);
+  if (a === 'avenger' && attacker) incoming.avengeName = attacker.creature.name;
   if (a === 'torch-pass') torchPassTurns = 3;
   if (a === 'burden-bearer' && attacker && attacker.hp > 0) {
     const chip = Math.max(1, Math.floor(attacker.maxHp * 0.15));
@@ -415,6 +507,20 @@ export function applyContactAbilities(
   if (d === 'perish-body') {
     defender.perishCountdown = 3;
     attacker.perishCountdown = 3;
+  }
+}
+
+/**
+ * Backlash — the energy-attack counterpart to Rough Skin / Iron Barbs. Those
+ * punish physical *contact*; this punishes a special hit, so bulky special
+ * sponges (jellies, psychics, electric eels) get a retaliation niche of their
+ * own. Called from battle.ts after an energy move connects, mirroring the
+ * contact-ability site; the caller handles any resulting faint.
+ */
+export function applyEnergyStruckAbilities(defender: Battler, attacker: Battler, move: Move): void {
+  if (defender.creature.ability === 'backlash' && moveCategory(move) === 'energy') {
+    const chip = Math.max(1, Math.floor(attacker.maxHp / 8));
+    attacker.hp = Math.max(0, attacker.hp - chip);
   }
 }
 

@@ -323,6 +323,8 @@ export type AbilityId =
   | 'poison-point'
   | 'regenerator'
   | 'rough-skin'
+  | 'backlash'
+  | 'renewal'
   | 'stamina'
   | 'multiscale'
   | 'solid-rock'
@@ -383,6 +385,42 @@ export type AbilityId =
   | 'grass-warden'
   | 'volt-squad'
   | 'pack-alpha'
+  | 'cocoon-guard'
+  // --- Gen I signature pass ---
+  | 'roaring-flame'
+  | 'shell-shield'
+  | 'cheek-pouch'
+  | 'cannoneer'
+  | 'counterweight'
+  | 'first-strike'
+  | 'momentum'
+  | 'giant-slayer'
+  | 'analytic'
+  | 'wild-card'
+  | 'riposte'
+  | 'tailwind'
+  | 'latent-power'
+  | 'tempest'
+  | 'overmind'
+  | 'genome'
+  | 'verdant'
+  | 'vampiric'
+  | 'transfusion'
+  | 'gluttony'
+  | 'lullaby'
+  | 'corrosion'
+  | 'jinx'
+  | 'transform'
+  | 'magic-bounce'
+  | 'avenger'
+  | 'phoenix'
+  | 'stone-council'
+  | 'earth-warden'
+  | 'permafrost'
+  | 'toxic-crown'
+  | 'psi-network'
+  | 'wraith-choir'
+  | 'den-mother'
   | 'diviner'
   | 'fortune'
   | 'treasure-hound'
@@ -652,6 +690,20 @@ export interface Battler {
   torchPassTurns: number;
   statusSusceptMult: number;
   statusSuspectTurns: number;
+  // Per-battle one-shot ability state (Gen I signatures): each fires once then
+  // latches used for the rest of the fight.
+  shellShieldUsed: boolean; // Shell Shield: the first hit has been blunted
+  cheekPouchUsed: boolean; // Cheek Pouch: the stored Electric charge has fired
+  riposteUsed: boolean; // Riposte: the one reflected physical hit has triggered
+  gluttonyUsed: boolean; // Gluttony: the one big panic-heal has been eaten
+  phoenixUsed: boolean; // Phoenix: the one fatal-blow survival has been spent
+  // Jinx: while >0, this battler takes extra damage (set on a foe by an entering
+  // Jinx user, counts down each end of turn).
+  hexTurns: number;
+  // Avenger: the name of the foe that downed this battler's predecessor; while it
+  // is the active target, this battler hits it harder. Null once there's nothing
+  // to avenge.
+  avengeName: string | null;
   abilityPassive: AbilityPassiveFlags;
   // The team's collected relic effects, baked on at send-out so every active
   // member of a side carries the same run-long passives (identity mods for a

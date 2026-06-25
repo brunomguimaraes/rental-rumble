@@ -88,6 +88,7 @@ const PMD_HEIGHT = 84;
 // than a snappy log so the animations read; the 2× toggle speeds it back up.
 const DELAY: Record<BattleEvent['kind'], number> = {
   sendout: 450,
+  withdraw: 700,
   move: 900,
   miss: 850,
   hit: 820,

@@ -617,9 +617,18 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   651: ['overgrow'], // Quilladin
   652: ['overgrow'], // Chesnaught
 
+  // --- Cocoon Guard: the Harden cocoons shield the whole team -------------
+  // Defense-dominant transitional shells. Their signature turns "Harden" into a
+  // team passive — every ally takes a little less damage while a cocoon rides
+  // along — so even a throwaway in-between stage carries real identity.
+  11: ['cocoon-guard', 'sturdy', 'shed-skin'], // Metapod — Cocoon Guard, Sturdy or Shed Skin
+  14: ['cocoon-guard', 'swarm', 'shed-skin'], // Kakuna — Cocoon Guard, Swarm or Shed Skin
+  266: ['cocoon-guard', 'sturdy', 'shed-skin'], // Silcoon — Cocoon Guard, Sturdy or Shed Skin
+  268: ['cocoon-guard', 'sturdy', 'shed-skin'], // Cascoon — Cocoon Guard, Sturdy or Shed Skin
+  665: ['cocoon-guard', 'sturdy', 'shed-skin'], // Spewpa — Cocoon Guard, Sturdy or Shed Skin
+
   // --- Swarm: Bug attackers' pinch boost ----------------------------------
   13: ['swarm', 'poison-point'], // Weedle — Swarm or Poison Point
-  14: ['swarm', 'shed-skin'], // Kakuna — Swarm or Shed Skin
   15: ['swarm', 'poison-point', 'hive-queen'], // Beedrill — Swarm, Poison Point or Hive Queen
   165: ['swarm', 'early-bird'], // Ledyba — Swarm or Early Bird
   166: ['swarm', 'early-bird'], // Ledian — Swarm or Early Bird
@@ -991,6 +1000,160 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
 };
 
 /**
+ * The gen-by-gen SIGNATURE PASS: every species gets at least one unique, on-theme
+ * passive so no mon is left on a purely generic pool. The signature leads the list
+ * (so it's the canonical default) and a couple of fitting generic options trail it,
+ * still rollable. This table OVERRIDES SPECIES_ABILITIES entirely for any id it
+ * lists — for these species, edit *here*, not in the table above. Rolled out one
+ * generation at a time; un-passed species still fall back to the curated/derived
+ * pools.
+ */
+export const SIGNATURES: Record<number, AbilityId[]> = {
+  // ===== Gen I — Kanto =====
+  // Starters & cradle bugs
+  1: ['verdant', 'overgrow'], // Bulbasaur
+  2: ['verdant', 'overgrow'], // Ivysaur
+  3: ['grass-warden', 'overgrow'], // Venusaur — promote its team-heal to signature
+  4: ['roaring-flame', 'blaze'], // Charmander
+  5: ['roaring-flame', 'blaze'], // Charmeleon
+  6: ['dragonlord', 'flame-emperor', 'blaze', 'flare-boost'], // Charizard — the dragon by form
+  7: ['shell-shield', 'torrent'], // Squirtle
+  8: ['shell-shield', 'torrent'], // Wartortle
+  9: ['shell-shield', 'cannoneer', 'torrent'], // Blastoise
+  10: ['verdant', 'shield-dust'], // Caterpie — munches leaves to mend
+  12: ['lullaby', 'tinted-lens', 'compound-eyes'], // Butterfree — sleep powder
+  13: ['corrosion', 'swarm'], // Weedle
+  15: ['hive-queen', 'corrosion', 'swarm', 'poison-point'], // Beedrill
+  // Birds & early routes
+  16: ['tailwind', 'big-pecks', 'early-bird'], // Pidgey
+  17: ['tailwind', 'big-pecks', 'early-bird'], // Pidgeotto
+  18: ['sky-lord', 'big-pecks', 'early-bird', 'gale-force'], // Pidgeot
+  19: ['giant-slayer', 'scrappy', 'quick-feet'], // Rattata
+  20: ['giant-slayer', 'scrappy', 'quick-feet'], // Raticate
+  21: ['first-strike', 'scrappy'], // Spearow
+  22: ['first-strike', 'scrappy'], // Fearow
+  23: ['corrosion', 'intimidate'], // Ekans
+  24: ['corrosion', 'intimidate'], // Arbok
+  25: ['cheek-pouch', 'static', 'motor-drive'], // Pikachu
+  26: ['cheek-pouch', 'static', 'volt-fury'], // Raichu
+  27: ['counterweight', 'sturdy'], // Sandshrew
+  28: ['counterweight', 'sturdy', 'rough-skin'], // Sandslash
+  29: ['toxic-crown', 'poison-point'], // Nidoran♀
+  30: ['toxic-crown', 'poison-point'], // Nidorina
+  31: ['toxic-crown', 'earth-warden', 'poison-point', 'sheer-force'], // Nidoqueen
+  32: ['toxic-crown', 'poison-point'], // Nidoran♂
+  33: ['toxic-crown', 'poison-point'], // Nidorino
+  34: ['toxic-crown', 'earth-warden', 'poison-point', 'sheer-force'], // Nidoking
+  35: ['renewal', 'magic-guard', 'unaware'], // Clefairy — Moonlight
+  36: ['renewal', 'magic-guard', 'unaware'], // Clefable
+  37: ['jinx', 'flash-fire', 'magic-guard'], // Vulpix — the cursed fox
+  38: ['jinx', 'flash-fire', 'magic-guard'], // Ninetales
+  39: ['lullaby', 'thick-fat'], // Jigglypuff — Sing
+  40: ['lullaby', 'den-mother', 'thick-fat'], // Wigglytuff
+  // Caves, woods & water
+  41: ['vampiric', 'scout', 'inner-focus', 'quick-feet'], // Zubat
+  42: ['vampiric', 'scout', 'inner-focus', 'quick-feet'], // Golbat
+  43: ['corrosion', 'overgrow'], // Oddish
+  44: ['corrosion', 'overgrow'], // Gloom
+  45: ['corrosion', 'lullaby', 'overgrow'], // Vileplume
+  46: ['vampiric', 'dry-skin'], // Paras
+  47: ['vampiric', 'dry-skin', 'effect-spore'], // Parasect
+  48: ['wild-card', 'tinted-lens'], // Venonat
+  49: ['wild-card', 'tinted-lens', 'shield-dust'], // Venomoth
+  50: ['earth-warden', 'sturdy'], // Diglett
+  51: ['earth-warden', 'sturdy', 'sand-rush'], // Dugtrio
+  54: ['wild-card', 'own-tempo'], // Psyduck — the headache
+  55: ['wild-card', 'own-tempo'], // Golduck
+  56: ['momentum', 'anger-point', 'vital-spirit'], // Mankey
+  58: ['avenger', 'intimidate', 'flash-fire'], // Growlithe — loyal hound
+  60: ['riposte', 'water-absorb'], // Poliwag
+  61: ['riposte', 'water-absorb'], // Poliwhirl
+  62: ['riposte', 'rebel-spirit', 'water-absorb'], // Poliwrath
+  63: ['psi-network', 'magic-guard'], // Abra
+  64: ['psi-network', 'overload', 'magic-guard'], // Kadabra
+  65: ['psi-network', 'overload', 'magic-guard'], // Alakazam
+  66: ['pack-alpha', 'guts', 'steadfast'], // Machop
+  67: ['pack-alpha', 'guts', 'steadfast'], // Machoke
+  69: ['vampiric', 'overgrow'], // Bellsprout
+  70: ['vampiric', 'overgrow'], // Weepinbell
+  71: ['vampiric', 'corrosion', 'overgrow'], // Victreebel
+  72: ['backlash', 'clear-body', 'liquid-ooze'], // Tentacool — the jelly
+  73: ['backlash', 'toxic-crown', 'clear-body', 'liquid-ooze'], // Tentacruel
+  74: ['stone-council', 'sturdy', 'solid-rock'], // Geodude
+  75: ['stone-council', 'sturdy', 'solid-rock'], // Graveler
+  76: ['stone-council', 'sturdy', 'solid-rock'], // Golem
+  77: ['momentum', 'flash-fire', 'flame-body'], // Ponyta
+  78: ['momentum', 'flash-fire', 'flame-body'], // Rapidash
+  79: ['analytic', 'regenerator', 'own-tempo'], // Slowpoke
+  80: ['analytic', 'regenerator', 'own-tempo'], // Slowbro
+  81: ['iron-marshal', 'sturdy'], // Magnemite
+  82: ['iron-marshal', 'sturdy'], // Magneton
+  83: ['first-strike', 'bargain', 'last-stand', 'inner-focus'], // Farfetch'd — leek crit
+  84: ['momentum', 'early-bird'], // Doduo
+  85: ['momentum', 'early-bird'], // Dodrio
+  86: ['permafrost', 'thick-fat', 'water-absorb'], // Seel
+  87: ['permafrost', 'thick-fat', 'water-absorb'], // Dewgong
+  88: ['corrosion', 'poison-point'], // Grimer
+  89: ['corrosion', 'toxic-crown', 'toxic-boost', 'poison-point'], // Muk
+  90: ['counterweight', 'battle-armor', 'sturdy'], // Shellder
+  91: ['counterweight', 'permafrost', 'battle-armor', 'sturdy'], // Cloyster
+  92: ['wraith-choir', 'levitate', 'liquid-ooze'], // Gastly
+  93: ['wraith-choir', 'levitate', 'liquid-ooze'], // Haunter
+  94: ['wraith-choir', 'eerie-aura', 'cursed-body', 'levitate', 'liquid-ooze'], // Gengar
+  95: ['stone-council', 'counterweight', 'sturdy'], // Onix
+  96: ['lullaby', 'magic-guard'], // Drowzee — Hypnosis
+  97: ['lullaby', 'magic-guard'], // Hypno
+  98: ['cannoneer', 'hyper-cutter', 'anger-point'], // Krabby
+  99: ['cannoneer', 'hyper-cutter', 'anger-point'], // Kingler
+  102: ['verdant', 'psi-network'], // Exeggcute
+  103: ['verdant', 'psi-network', 'overgrow'], // Exeggutor
+  105: ['legacy', 'avenger', 'battle-armor'], // Marowak — bone-club vengeance
+  106: ['first-strike', 'limber', 'steadfast', 'long-reach'], // Hitmonlee
+  107: ['riposte', 'technician', 'inner-focus'], // Hitmonchan — the counter-puncher
+  108: ['wild-card', 'own-tempo', 'thick-fat'], // Lickitung
+  109: ['corrosion', 'levitate', 'liquid-ooze'], // Koffing
+  110: ['corrosion', 'levitate', 'liquid-ooze'], // Weezing
+  111: ['momentum', 'stone-council', 'solid-rock', 'sturdy'], // Rhyhorn
+  112: ['momentum', 'stone-council', 'solid-rock', 'sturdy'], // Rhydon
+  113: ['renewal', 'rally', 'curator', 'parting-gift', 'regenerator'], // Chansey — the egg nurse
+  114: ['verdant', 'regenerator', 'overgrow'], // Tangela
+  115: ['den-mother', 'scrappy'], // Kangaskhan — parent & child
+  116: ['tide-matriarch', 'sniper'], // Horsea
+  117: ['tide-matriarch', 'sniper'], // Seadra
+  118: ['first-strike', 'water-veil', 'sniper'], // Goldeen — horn drill
+  119: ['first-strike', 'water-veil', 'sniper'], // Seaking
+  120: ['renewal', 'natural-cure'], // Staryu — Recover
+  121: ['renewal', 'psi-network', 'natural-cure'], // Starmie
+  122: ['magic-bounce', 'filter', 'magic-guard'], // Mr. Mime — the barrier
+  123: ['first-strike', 'technician', 'steadfast'], // Scyther
+  124: ['lullaby', 'sheer-cold'], // Jynx — Lovely Kiss
+  125: ['wild-card', 'static', 'vital-spirit'], // Electabuzz
+  126: ['roaring-flame', 'flame-body', 'vital-spirit'], // Magmar
+  127: ['giant-slayer', 'hyper-cutter', 'moxie'], // Pinsir
+  128: ['opening-act', 'momentum', 'intimidate', 'anger-point'], // Tauros — the stampede
+  129: ['latent-power'], // Magikarp — hidden potential
+  131: ['transfusion', 'permafrost', 'thick-fat', 'multiscale'], // Lapras — the ferry
+  132: ['transform'], // Ditto
+  133: ['latent-power', 'adaptability'], // Eevee — evolutionary potential
+  136: ['roaring-flame', 'flash-fire', 'guts'], // Flareon
+  137: ['download', 'analytic', 'adaptability'], // Porygon
+  138: ['vampiric', 'stone-council', 'sturdy'], // Omanyte
+  139: ['vampiric', 'stone-council', 'sturdy'], // Omastar
+  140: ['first-strike', 'battle-armor', 'sturdy'], // Kabuto
+  141: ['first-strike', 'battle-armor', 'sniper'], // Kabutops
+  142: ['first-strike', 'sky-lord', 'glass-cannon', 'sniper'], // Aerodactyl
+  143: ['gluttony', 'den-mother', 'thick-fat', 'immunity'], // Snorlax
+  144: ['permafrost', 'sheer-cold', 'pressure'], // Articuno
+  145: ['tempest', 'volt-fury', 'static', 'pressure'], // Zapdos
+  146: ['phoenix', 'flame-emperor', 'flash-fire'], // Moltres
+  147: ['renewal', 'marvel-scale', 'shed-skin'], // Dratini — mystic recovery
+  148: ['renewal', 'marvel-scale', 'shed-skin'], // Dragonair
+  149: ['dragonlord', 'marvel-scale', 'multiscale'], // Dragonite — the true dragon
+  150: ['overmind', 'psi-network', 'pressure'], // Mewtwo
+  151: ['genome', 'latent-power', 'adaptability'], // Mew — every blueprint
+};
+
+/**
  * Per-type ability flavour, ordered best-fit-first. The [0] entry is a type's
  * "signature" passive (and becomes a derived species' canonical default); the
  * rest round out its pool. Mixes the classic type passives with our own riffs so
@@ -1074,7 +1237,7 @@ function derivedAbilities(dexId: number): AbilityId[] {
  * else falls back to the type/stat derivation, so every Pokémon has a pool.
  */
 export function abilitiesForDex(dexId: number): AbilityId[] {
-  return SPECIES_ABILITIES[dexId] ?? derivedAbilities(dexId);
+  return SIGNATURES[dexId] ?? SPECIES_ABILITIES[dexId] ?? derivedAbilities(dexId);
 }
 
 /**

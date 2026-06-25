@@ -24,6 +24,7 @@ import { rollOpponentBall } from './balls.js';
 import { famousTeamCreatures } from './specials.js';
 import {
   applyContactAbilities,
+  applyEnergyStruckAbilities,
   applyEntryAbilities,
   applyFaintAbilities,
   applyRosterAbilities,
@@ -63,6 +64,7 @@ export interface TransformInfo {
 export interface BattleEvent {
   kind:
     | 'sendout'
+    | 'withdraw'
     | 'move'
     | 'miss'
     | 'hit'
@@ -160,6 +162,13 @@ export function makeBattler(
     torchPassTurns: 0,
     statusSusceptMult: 1,
     statusSuspectTurns: 0,
+    shellShieldUsed: false,
+    cheekPouchUsed: false,
+    riposteUsed: false,
+    gluttonyUsed: false,
+    phoenixUsed: false,
+    hexTurns: 0,
+    avengeName: null,
     abilityPassive: defaultAbilityPassive(),
     mods,
   };
@@ -169,6 +178,13 @@ export function makeBattler(
   if (ab === 'oblivious') battler.abilityPassive.immuneTaunt = true;
   if (ab === 'white-smoke') battler.abilityPassive.whiteSmoke = true;
   if (ab === 'filter-down') battler.abilityPassive.filterDown = true;
+  // Overmind / Magic Bounce both lock out stat drops (the Clear Body machinery).
+  if (ab === 'overmind' || ab === 'magic-bounce') battler.abilityPassive.clearBody = true;
+  // Vampiric bakes innate lifesteal on — clone mods so the run-wide relic object
+  // (shared across the side) isn't mutated for its teammates.
+  if (ab === 'vampiric') {
+    battler.mods = { ...mods, lifesteal: Math.max(mods.lifesteal, 0.125) };
+  }
   return battler;
 }
 
@@ -202,7 +218,10 @@ function stageMult(stage: number): number {
 // amplified by 25% (its boosts bite harder). Drops and the neutral 1× are left
 // alone — and the trade-off (burn/poison hurting more) is paid at end of turn.
 function overloadStage(b: Battler, m: number): number {
-  return b.creature.ability === 'overload' && m > 1 ? 1 + (m - 1) * 1.25 : m;
+  // Overload and Overmind both run their boosts 25% hotter (Overmind without the
+  // burn/poison downside Overload pays at end of turn).
+  const amped = b.creature.ability === 'overload' || b.creature.ability === 'overmind';
+  return amped && m > 1 ? 1 + (m - 1) * 1.25 : m;
 }
 
 // Which battle stage a species is best at — used by Legacy to hand the right
@@ -323,7 +342,8 @@ function effectiveSpd(b: Battler, statMult: number): number {
 }
 
 function hasStab(b: Battler, move: Move): boolean {
-  return b.creature.types.includes(move.type);
+  // Genome (Mew) carries every blueprint, so every move it throws reads as same-type.
+  return b.creature.ability === 'genome' || b.creature.types.includes(move.type);
 }
 
 // Same-type attack bonus. Normally 1.5×; Adaptability doubles it to 2×, turning
@@ -468,6 +488,80 @@ function foeMoveFocus(difficulty: Difficulty | undefined): number {
   if (difficulty === 'master') return AI_FOCUS_PERFECT;
   if (difficulty === 'easy') return AI_FOCUS_SLOPPY;
   return AI_FOCUS_DEFAULT;
+}
+
+/**
+ * How good a matchup `me` has against `foe`, as a single per-turn trade number:
+ * the share of the foe's health our best honest hit removes, minus the share of
+ * our own health the foe's best hit removes. Both halves are KO-aware estimates
+ * (see estimateDamage/planAttack) normalised by max HP, so the metric is
+ * comparable across mons of different bulk — a positive score means we out-trade
+ * the foe, negative means we're losing the exchange. Drives both the smart
+ * faint-replacement pick and the voluntary-switch decision. Status/setup plays
+ * are ignored; it's a pure damage-race read, which is the honest worst case the
+ * AI should plan around.
+ */
+function matchupScore(
+  me: Battler,
+  foe: Battler,
+  meMult: number,
+  foeMult: number,
+): number {
+  const myDmg = planAttack(me, foe, meMult, foeMult).dmg;
+  const foeDmg = planAttack(foe, me, foeMult, meMult).dmg;
+  return myDmg / foe.maxHp - foeDmg / me.maxHp;
+}
+
+/**
+ * The swap behaviour a side plays with, derived from its move-pick `focus` so
+ * switching scales on the same difficulty dial as everything else (the player's
+ * team and normal/hard foes share AI_FOCUS_DEFAULT; Easy is sloppy, Master is
+ * perfect). Three tiers:
+ *   - Easy: dull — sends out the next mon in line on a faint and never bails out
+ *     of a bad matchup voluntarily.
+ *   - Normal / Hard / the player's own team: competent — replaces a fainted mon
+ *     with its best answer to the foe, and will spend a turn pivoting out of a
+ *     clearly losing matchup, but only twice a battle and only into a mon that
+ *     actually wins the trade.
+ *   - Master: sharp — a deeper switch budget and a lower bar to pivot.
+ */
+interface SwitchTuning {
+  /** Pick the best matchup on a faint (vs. plain roster order). */
+  smartReplace: boolean;
+  /** Voluntary mid-battle switches allowed this whole battle. */
+  maxSwitches: number;
+  /** Only pivot when our matchupScore is below this (we're clearly losing). */
+  triggerThreshold: number;
+  /** And only when a bench mon beats our score by at least this margin. */
+  improveThreshold: number;
+}
+
+function switchTuning(focus: number): SwitchTuning {
+  // Master: perfect movers also pivot decisively.
+  if (!Number.isFinite(focus)) {
+    return {
+      smartReplace: true,
+      maxSwitches: 3,
+      triggerThreshold: -0.1,
+      improveThreshold: 0.3,
+    };
+  }
+  // Easy: dull — next-in-line replacement, no voluntary switching.
+  if (focus <= AI_FOCUS_SLOPPY) {
+    return {
+      smartReplace: false,
+      maxSwitches: 0,
+      triggerThreshold: -Infinity,
+      improveThreshold: Infinity,
+    };
+  }
+  // Normal / Hard, and the player's own team: competent but sparing.
+  return {
+    smartReplace: true,
+    maxSwitches: 2,
+    triggerThreshold: -0.2,
+    improveThreshold: 0.4,
+  };
 }
 
 /**
@@ -745,6 +839,10 @@ function damageRoll(
   if (attacker.creature.ability === 'sheer-force') {
     abil *= 1.3;
   }
+  // Analytic: striking after the foe has committed lets it pick the blow apart.
+  if (attacker.creature.ability === 'analytic' && !movedFirst && move.power > 0) {
+    abil *= 1.3;
+  }
   // Solid Rock: a rugged frame cushions a super-effective blow to 0.75×.
   // (handled in extraDefendDamageMult; multiscale below is separate.)
   // Multiscale: untouched and at full HP, a protective veil halves the first hit.
@@ -755,6 +853,10 @@ function damageRoll(
   // Draw the crit regardless so the RNG stream stays identical; Battle Armor then
   // simply seals it shut.
   let crit = rng.chance(critChance(attacker, defender));
+  // First Strike: its opening attack of the battle always finds the mark.
+  if (attacker.creature.ability === 'first-strike' && attacker.actedTurns === 0 && move.power > 0) {
+    crit = true;
+  }
   if (defender.creature.ability === 'battle-armor') crit = false;
   const critMult = crit ? critDamageMult(attacker) : 1;
   // Team relics (Wise Glasses, Life Orb, the type boosters) lift the whole hit.
@@ -812,6 +914,13 @@ export function simulateBattle(
     player: AI_FOCUS_DEFAULT,
     foe: foeMoveFocus(opts.difficulty),
   };
+  // Each side's remaining voluntary mid-battle switches, scaled by its focus
+  // (see switchTuning). Spent down in takeTurn; the cap is what keeps a pivot war
+  // from stalling out the battle.
+  const switchBudget: Record<Side, number> = {
+    player: switchTuning(moveFocus.player).maxSwitches,
+    foe: switchTuning(moveFocus.foe).maxSwitches,
+  };
 
   const sides: Record<Side, SideState> = {
     player: {
@@ -849,10 +958,15 @@ export function simulateBattle(
   ): boolean => {
     const t = sides[targetSide].team[sides[targetSide].active];
     if (t.status !== null) return false;
+    // Magic Bounce: a shimmering barrier often deflects an affliction outright.
+    if (t.creature.ability === 'magic-bounce' && rng.chance(0.5)) return false;
     // Status-ward abilities: each shrugs off one affliction outright.
     const ability = t.creature.ability;
+    // Corrosion: the source's venom is so virulent it poisons even the immune.
+    const source = sides[otherSide(targetSide)].team[sides[otherSide(targetSide)].active];
+    const corrosivePoison = kind === 'poison' && source?.creature.ability === 'corrosion';
     if (kind === 'sleep' && ability === 'vital-spirit') return false; // too wired to doze
-    if (kind === 'poison' && ability === 'immunity') return false; // clean constitution
+    if (kind === 'poison' && ability === 'immunity' && !corrosivePoison) return false; // clean constitution
     if (kind === 'burn' && ability === 'water-veil') return false; // moist sheen
     if (kind === 'stun' && ability === 'limber') return false; // too supple to seize up
     t.status = kind;
@@ -1040,6 +1154,7 @@ export function simulateBattle(
             text,
           });
         },
+        rng,
       );
     }
   };
@@ -1047,6 +1162,72 @@ export function simulateBattle(
   // The opponent leads off, then you answer — the classic battle-start beat.
   sendOut('foe', 0);
   sendOut('player', 0);
+
+  // Who to send out next. A competent side (see switchTuning) answers with its
+  // best matchup against the foe's current active; a sloppy (Easy) side just
+  // grabs the next able body in party order, the classic-games default. Returns
+  // -1 only when the whole party is down.
+  const chooseReplacement = (side: Side): number => {
+    const s = sides[side];
+    const tuning = switchTuning(moveFocus[side]);
+    const fallback = aliveIndex(s);
+    if (fallback === -1 || !tuning.smartReplace) return fallback;
+    const oppSide = otherSide(side);
+    const foeActive = sides[oppSide].team[sides[oppSide].active];
+    let best = fallback;
+    let bestScore = -Infinity;
+    for (let i = 0; i < s.team.length; i++) {
+      if (s.team[i].hp <= 0) continue;
+      const score = matchupScore(
+        s.team[i],
+        foeActive,
+        s.statMult,
+        sides[oppSide].statMult,
+      );
+      if (score > bestScore) {
+        bestScore = score;
+        best = i;
+      }
+    }
+    return best;
+  };
+
+  // Decide whether to spend the turn pivoting instead of acting. Returns the
+  // bench index to switch to, or -1 to stand and fight. Fires only when we have
+  // switch budget left, can't just KO the foe this turn, our current matchup is
+  // clearly losing (matchupScore below the side's trigger), and a benched mon
+  // both beats that score by a clear margin AND actually wins its own trade
+  // (positive score) — so we never burn a turn pivoting into another losing spot
+  // or ping-pong back and forth. The incoming mon eats the foe's hit this turn,
+  // the cost that keeps the pivot honest.
+  const planSwitch = (side: Side): number => {
+    const tuning = switchTuning(moveFocus[side]);
+    if (switchBudget[side] <= 0) return -1;
+    const s = sides[side];
+    const oppSide = otherSide(side);
+    const foeActive = sides[oppSide].team[sides[oppSide].active];
+    const active = s.team[s.active];
+    const oppMult = sides[oppSide].statMult;
+    // Never bail when we can close out the foe right now.
+    const myPlan = planAttack(active, foeActive, s.statMult, oppMult);
+    if (myPlan.dmg > 0 && myPlan.dmg >= foeActive.hp) return -1;
+    const activeScore = matchupScore(active, foeActive, s.statMult, oppMult);
+    if (activeScore >= tuning.triggerThreshold) return -1;
+    let best = -1;
+    let bestScore = activeScore;
+    for (let i = 0; i < s.team.length; i++) {
+      if (i === s.active || s.team[i].hp <= 0) continue;
+      const score = matchupScore(s.team[i], foeActive, s.statMult, oppMult);
+      if (score > bestScore) {
+        bestScore = score;
+        best = i;
+      }
+    }
+    if (best === -1) return -1;
+    if (bestScore - activeScore < tuning.improveThreshold) return -1;
+    if (bestScore <= 0) return -1;
+    return best;
+  };
 
   const handleFaint = (side: Side, killer?: Battler, koMove?: string): boolean => {
     const s = sides[side];
@@ -1065,7 +1246,7 @@ export function simulateBattle(
       text: `${side === 'player' ? '' : 'Foe '}${b.creature.name} fainted!`,
     });
     const fainted = b;
-    const next = aliveIndex(s);
+    const next = chooseReplacement(side);
     if (next === -1) return false;
     sendOut(side, next);
 
@@ -1272,6 +1453,27 @@ export function simulateBattle(
       }
     }
 
+    // Voluntary pivot: bail out of a clearly losing matchup into a better bench
+    // answer (see planSwitch). It costs the whole turn — the incoming mon takes
+    // the foe's hit — and draws from a small per-battle budget, so it reads as a
+    // real tactical switch rather than free tempo. Sits after the can-it-act
+    // gating above, so switching is this turn's action, not a way to dodge sleep.
+    const swapTo = planSwitch(side);
+    if (swapTo !== -1) {
+      switchBudget[side] -= 1;
+      push({
+        kind: 'withdraw',
+        actor: side,
+        affected: side,
+        text:
+          side === 'player'
+            ? `${attacker.creature.name}, come back!`
+            : `Foe withdrew ${attacker.creature.name}!`,
+      });
+      sendOut(side, swapTo);
+      return 'continue';
+    }
+
     // A Truant user is about to act, so it must loaf on its *next* turn. Set
     // here (not on every early-return above) so only a turn it genuinely acts on
     // costs it the follow-up loaf.
@@ -1312,7 +1514,8 @@ export function simulateBattle(
     // restores HEAL_DECAY as much as the last, so two healers can't trade
     // near-full Recovers into a stalemate (see Battler.healsUsed / HEAL_DECAY).
     if (move.effect?.kind === 'heal') {
-      const amount = move.effect.amount * HEAL_DECAY ** attacker.healsUsed;
+      const renewal = attacker.creature.ability === 'renewal' ? 1.5 : 1;
+      const amount = move.effect.amount * renewal * HEAL_DECAY ** attacker.healsUsed;
       attacker.healsUsed += 1;
       const heal = Math.floor(attacker.maxHp * amount);
       attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal);
@@ -1566,20 +1769,42 @@ export function simulateBattle(
     // single HP instead of fainting. A one-time safety net (it must be at full
     // HP for it to kick in), not a permanent wall.
     const hpBefore = defender.hp;
+    // Shell Shield: the first damaging blow each battle is halved before anything
+    // else weighs in (so the survive-checks below see the softened hit).
+    let incoming = damage;
+    let shellHeld = false;
+    if (
+      defender.creature.ability === 'shell-shield' &&
+      !defender.shellShieldUsed &&
+      incoming > 0
+    ) {
+      defender.shellShieldUsed = true;
+      shellHeld = true;
+      incoming = Math.max(1, Math.floor(incoming / 2));
+    }
     const plotHold =
       defender.creature.ability === 'plot-armor' &&
       !defender.plotArmorUsed &&
       defender.hp > defender.maxHp / 2 &&
-      damage >= defender.hp;
+      incoming >= defender.hp;
     const sturdyHold =
       defender.creature.ability === 'sturdy' &&
       defender.hp === defender.maxHp &&
-      damage >= defender.hp;
-    let dealt = damage;
+      incoming >= defender.hp;
+    // Phoenix: the first fatal blow each battle leaves it clinging to 1 HP, from
+    // any health (unlike Sturdy/Plot Armor, which need a healthy starting point).
+    const phoenixHold =
+      defender.creature.ability === 'phoenix' &&
+      !defender.phoenixUsed &&
+      incoming >= defender.hp;
+    let dealt = incoming;
     if (plotHold) {
       defender.plotArmorUsed = true;
       dealt = defender.hp - 1;
     } else if (sturdyHold) {
+      dealt = defender.hp - 1;
+    } else if (phoenixHold) {
+      defender.phoenixUsed = true;
       dealt = defender.hp - 1;
     }
     defender.hp -= dealt;
@@ -1611,6 +1836,43 @@ export function simulateBattle(
         affected: otherSide(side),
         name: 'Plot Armor',
         text: `${defender.creature.name}'s Plot Armor kept it standing!`,
+      });
+    }
+    if (shellHeld) {
+      push({
+        kind: 'ability',
+        actor: dSide,
+        affected: dSide,
+        name: 'Shell Shield',
+        text: `${defender.creature.name} tucked into its shell and blunted the blow!`,
+      });
+    }
+    if (phoenixHold) {
+      push({
+        kind: 'ability',
+        actor: dSide,
+        affected: dSide,
+        name: 'Phoenix',
+        text: `${defender.creature.name} rose from the ashes and clung on!`,
+      });
+    }
+    // Gluttony: the first time it's worn to half HP or below, it stuffs itself.
+    if (
+      defender.creature.ability === 'gluttony' &&
+      !defender.gluttonyUsed &&
+      hpBefore > defender.maxHp / 2 &&
+      defender.hp > 0 &&
+      defender.hp <= defender.maxHp / 2
+    ) {
+      defender.gluttonyUsed = true;
+      defender.hp = Math.min(defender.maxHp, defender.hp + Math.floor(defender.maxHp * 0.33));
+      push({
+        kind: 'ability',
+        actor: dSide,
+        affected: dSide,
+        name: 'Gluttony',
+        text: `${defender.creature.name} stuffed itself and bounced back!`,
+        ...snapshot(dSide),
       });
     }
     if (
@@ -1779,6 +2041,42 @@ export function simulateBattle(
       }
     }
 
+    // Backlash: an energy (special) hit recoils on a reactive-hide defender —
+    // the special-attack twin of Rough Skin / Iron Barbs above.
+    if (dealt > 0 && attacker.hp > 0 && moveCategory(move) === 'energy') {
+      applyEnergyStruckAbilities(defender, attacker, move);
+      if (attacker.hp <= 0) {
+        const survives = handleFaint(side);
+        if (!survives) return otherSide(side);
+        return 'continue';
+      }
+    }
+
+    // Riposte: the first contact blow of the battle is turned back on the attacker.
+    if (
+      dealt > 0 &&
+      attacker.hp > 0 &&
+      defender.creature.ability === 'riposte' &&
+      !defender.riposteUsed &&
+      isContactHit(attacker, move)
+    ) {
+      defender.riposteUsed = true;
+      const back = Math.max(1, Math.floor(dealt * 0.5));
+      attacker.hp = Math.max(0, attacker.hp - back);
+      push({
+        kind: 'ability',
+        actor: dSide,
+        affected: dSide,
+        name: 'Riposte',
+        text: `${defender.creature.name} turned the blow back on ${attacker.creature.name}!`,
+      });
+      if (attacker.hp <= 0) {
+        const survives = handleFaint(side);
+        if (!survives) return otherSide(side);
+        return 'continue';
+      }
+    }
+
     // Stamina: every blow it weathers makes it dig in, hardening its Defense a
     // stage — the longer it stays in, the harder it is to break through.
     if (defender.creature.ability === 'stamina' && dealt > 0) {
@@ -1886,6 +2184,18 @@ export function simulateBattle(
     if (dealt > 0) {
       attacker.actedTurns += 1;
       if (attacker.creature.ability === 'opening-act') attacker.openingActUsed = true;
+      // Cheek Pouch: spend the stored charge once an Electric move has connected.
+      if (attacker.creature.ability === 'cheek-pouch' && move.type === 'electric') {
+        attacker.cheekPouchUsed = true;
+      }
+      // Tempest: its Electric strikes crackle with a chance to paralyze.
+      if (
+        attacker.creature.ability === 'tempest' &&
+        move.type === 'electric' &&
+        rng.chance(0.2)
+      ) {
+        applyStatus(otherSide(side), 'stun');
+      }
     }
 
     return 'continue';
@@ -1944,6 +2254,7 @@ export function simulateBattle(
       b.statusSuspectTurns -= 1;
       if (b.statusSuspectTurns <= 0) b.statusSusceptMult = 1;
     }
+    if (b.hexTurns > 0) b.hexTurns -= 1; // Jinx curse wears off
     if (b.perishCountdown > 0) {
       const chip = Math.max(1, Math.floor(b.maxHp / 3));
       b.hp -= chip;
@@ -2102,6 +2413,39 @@ export function simulateBattle(
         text: `${b.creature.name} regenerated some health!`,
         ...snapshot(side),
       });
+    }
+
+    // Verdant: it drinks in light, mending a little each turn.
+    if (b.creature.ability === 'verdant' && b.hp > 0 && b.hp < b.maxHp) {
+      const heal = Math.max(1, Math.floor(b.maxHp / 16));
+      b.hp = Math.min(b.maxHp, b.hp + heal);
+      push({
+        kind: 'ability',
+        actor: side,
+        affected: side,
+        name: 'Verdant',
+        text: `${b.creature.name} drank in the light.`,
+        ...snapshot(side),
+      });
+    }
+
+    // Transfusion: it channels a sliver of vitality to its most wounded ally.
+    if (b.creature.ability === 'transfusion' && b.hp > 0) {
+      let target: Battler | null = null;
+      for (const ally of sides[side].team) {
+        if (ally === b || ally.hp <= 0 || ally.hp >= ally.maxHp) continue;
+        if (!target || ally.maxHp - ally.hp > target.maxHp - target.hp) target = ally;
+      }
+      if (target) {
+        target.hp = Math.min(target.maxHp, target.hp + Math.max(1, Math.floor(target.maxHp / 16)));
+        push({
+          kind: 'ability',
+          actor: side,
+          affected: side,
+          name: 'Transfusion',
+          text: `${b.creature.name} shared its vitality with ${target.creature.name}.`,
+        });
+      }
     }
 
     // Leftovers (a relic): the active member nibbles back a sliver of HP each
