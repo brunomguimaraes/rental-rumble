@@ -167,6 +167,10 @@ export function RecruitScreen({
   const [evolveCommitted, setEvolveCommitted] = useState(false);
   const [pendingEvolve, setPendingEvolve] = useState<{ slot: number; target: number } | null>(null);
   const [skipEvolveConfirm, setSkipEvolveConfirm] = useState(readSkipEvolveConfirm);
+  // Committing an evolution plays a full-screen evolution reveal — the sibling of
+  // the sign/ability slot-machine reveals — so the locked-in result lands with a
+  // flourish (and a clear way out) instead of silently flipping the card.
+  const [revealEvolve, setRevealEvolve] = useState(false);
 
   // Reward 2.5 — tweak a move: replace one move on one of YOUR Pokémon with
   // another from the species' legal pool (a deliberate, build-it-yourself pick —
@@ -299,6 +303,9 @@ export function RecruitScreen({
     setEvolveTarget(target);
     setEvolveCommitted(true);
     setPendingEvolve(null);
+    // The reveal mounts in the same commit as the inline card flip, so it covers
+    // the board before the evolved form (and its new ability) can be glimpsed.
+    setRevealEvolve(true);
   };
 
   // Arm an evolution. Unless the player has opted out, the confirm gate stands
@@ -863,6 +870,14 @@ export function RecruitScreen({
           onDone={() => onConfirm(resultTeam)}
         />
       )}
+
+      {revealEvolve && evolveSlot !== null && evolveTarget !== null && (
+        <EvolveReveal
+          from={currentTeam[evolveSlot]}
+          to={evolveCreature(currentTeam[evolveSlot], evolveTarget)}
+          onDone={() => onConfirm(resultTeam)}
+        />
+      )}
     </div>
   );
 }
@@ -1221,6 +1236,153 @@ function AbilityRollReveal({
         ) : (
           <p className="animate-pulse text-lg font-black uppercase tracking-[0.3em] text-white/70">
             Rerolling…
+          </p>
+        )}
+      </div>
+
+      {settled && (
+        <button
+          type="button"
+          onClick={onDone}
+          className="rounded-full bg-white px-8 py-3 text-base font-bold text-black transition-transform hover:scale-105 active:scale-95"
+        >
+          Continue →
+        </button>
+      )}
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * Evolution reveal — the evolve reward's answer to SignRollReveal /
+ * AbilityRollReveal. The committed result is already fixed upstream, so this is
+ * pure theatre: the portrait flickers between the old and new forms, glowing
+ * brighter and faster (ease-*in*, opposite of the slot machines' ease-out) until
+ * a white burst resolves onto the evolved Pokémon — then the new form and the
+ * ability it gained (kept hidden until this moment) are revealed, with a clear
+ * way out instead of leaving the player stranded on the board.
+ */
+function EvolveReveal({
+  from,
+  to,
+  onDone,
+}: {
+  from: Creature;
+  to: Creature;
+  onDone: () => void;
+}) {
+  // 'spin' flickers between the two forms; 'flash' is the white burst that masks
+  // the swap onto the evolved form; 'done' settles with the reveal.
+  const [phase, setPhase] = useState<'spin' | 'flash' | 'done'>('spin');
+  const [showEvolved, setShowEvolved] = useState(false);
+  // 0→1 over the spin, driving the swelling glow and the wash toward white.
+  const [intensity, setIntensity] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    let tick = 0;
+    const TICKS = 18;
+    const spin = () => {
+      if (cancelled) return;
+      tick += 1;
+      setIntensity(tick / TICKS);
+      if (tick >= TICKS) {
+        // Snap to the evolved form behind a full white burst, then resolve.
+        setShowEvolved(true);
+        setPhase('flash');
+        timer = setTimeout(() => {
+          if (!cancelled) setPhase('done');
+        }, 380);
+        return;
+      }
+      setShowEvolved((v) => !v);
+      // Ease-in: the flicker accelerates as the evolution nears.
+      timer = setTimeout(spin, Math.max(60, 300 - tick * 16));
+    };
+    timer = setTimeout(spin, 360);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, []);
+
+  const settled = phase === 'done';
+  const current = showEvolved ? to : from;
+  const ability = to.ability ? abilityInfo(to.ability) : null;
+  const gainedAbility = ability !== null && to.ability !== from.ability;
+  // Warm gold for the settled glow, mirroring the EVOLVED tag's amber.
+  const glow = 'rgba(255,221,148,0.7)';
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-black/85 p-6 text-center backdrop-blur-md">
+      <div className="flex min-h-[1.5rem] items-center">
+        {!settled && (
+          <p className="animate-pulse text-sm font-bold text-white/70">
+            {from.name} is evolving…
+          </p>
+        )}
+      </div>
+
+      <div
+        className="relative grid h-44 w-44 place-items-center overflow-hidden rounded-full border-2 transition-all duration-300"
+        style={{
+          borderColor: glow,
+          boxShadow: settled
+            ? `0 0 60px 12px ${glow}`
+            : `0 0 ${12 + intensity * 44}px ${2 + intensity * 9}px rgba(255,255,255,${0.12 + intensity * 0.5})`,
+          transform: settled ? 'scale(1.08)' : 'scale(1)',
+        }}
+      >
+        <img
+          src={current.portrait}
+          alt=""
+          onError={(e) => {
+            const img = e.currentTarget;
+            if (img.src !== current.sprite) img.src = current.sprite;
+          }}
+          className="h-24 w-24 rounded-2xl object-cover"
+          style={{
+            filter: settled ? 'none' : `brightness(${1 + intensity * 1.9})`,
+            transform: settled ? 'scale(1)' : `scale(${1 + intensity * 0.06})`,
+          }}
+        />
+        {/* Climactic white burst — instant up (no transition), slow fade out — so
+            the swap onto the evolved form happens fully hidden behind the flash. */}
+        <div
+          className={`pointer-events-none absolute inset-0 bg-white ${
+            phase === 'flash' ? '' : 'transition-opacity duration-500'
+          }`}
+          style={{ opacity: phase === 'flash' ? 1 : 0 }}
+        />
+      </div>
+
+      <div className="flex min-h-[7rem] flex-col items-center justify-center">
+        {settled ? (
+          <>
+            <p
+              className="text-xs font-black uppercase tracking-[0.2em]"
+              style={{ color: glow }}
+            >
+              Evolved
+            </p>
+            <h3 className="mt-1 text-3xl font-black text-white">
+              {from.name} → {to.name}
+            </h3>
+            {ability && (
+              <p className="mt-2 max-w-xs text-sm text-white/65">
+                <span className="font-bold text-amber-200">
+                  {gainedAbility ? 'New ability: ' : 'Ability: '}
+                </span>
+                <span className="font-bold text-white">{ability.name}</span> —{' '}
+                {abilityDescription(ability.id, import.meta.env.DEV)}
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="animate-pulse text-lg font-black uppercase tracking-[0.3em] text-white/70">
+            Evolving…
           </p>
         )}
       </div>
