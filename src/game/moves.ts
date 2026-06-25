@@ -59,31 +59,43 @@ export function moveCategoryLabel(move: Move): string {
 /**
  * A short, human-readable summary of a move's secondary effect — used by the
  * moveset UI (see MovesModal). Pure-status moves (chance 1) read as a verb
- * ("Burns"), on-hit riders carry their odds ("30% burn").
+ * ("Burns the foe"), on-hit riders carry their odds ("30% to burn the foe").
+ * Every label names whom it hits — the foe for an affliction/debuff, the user
+ * for a self-heal or recoil — so "30% to paralyze the foe" can't be misread as a
+ * self-inflicted status. (The engine applies all status riders to the foe; the
+ * self/foe split for stat-stage riders is carried by their `target`.)
  */
 export function moveEffectLabel(effect: MoveEffect): string {
   const pct = (c: number) => `${Math.round(c * 100)}%`;
   switch (effect.kind) {
     case 'burn':
-      return effect.chance >= 1 ? 'Burns the foe' : `${pct(effect.chance)} burn`;
+      return effect.chance >= 1 ? 'Burns the foe' : `${pct(effect.chance)} to burn the foe`;
     case 'stun':
-      return effect.chance >= 1 ? 'Paralyzes the foe' : `${pct(effect.chance)} paralyze`;
+      return effect.chance >= 1
+        ? 'Paralyzes the foe'
+        : `${pct(effect.chance)} to paralyze the foe`;
     case 'poison':
-      return effect.chance >= 1 ? 'Badly poisons the foe' : `${pct(effect.chance)} poison`;
+      return effect.chance >= 1
+        ? 'Badly poisons the foe'
+        : `${pct(effect.chance)} to badly poison the foe`;
     case 'sleep':
-      return effect.chance >= 1 ? 'Puts the foe to sleep' : `${pct(effect.chance)} sleep`;
+      return effect.chance >= 1
+        ? 'Puts the foe to sleep'
+        : `${pct(effect.chance)} to put the foe to sleep`;
     case 'frostbite':
-      return effect.chance >= 1 ? 'Frostbites the foe' : `${pct(effect.chance)} frostbite`;
+      return effect.chance >= 1
+        ? 'Frostbites the foe'
+        : `${pct(effect.chance)} to frostbite the foe`;
     case 'confuse':
-      return effect.chance >= 1 ? 'Confuses the foe' : `${pct(effect.chance)} confuse`;
+      return effect.chance >= 1 ? 'Confuses the foe' : `${pct(effect.chance)} to confuse the foe`;
     case 'heal':
-      return `Heals up to ${Math.round(effect.amount * 100)}% HP (less each repeat)`;
+      return `Heals the user up to ${Math.round(effect.amount * 100)}% HP (less each repeat)`;
     case 'lifesteal':
-      return `Drains ${Math.round(effect.fraction * 100)}% of damage`;
+      return `Heals the user for ${Math.round(effect.fraction * 100)}% of damage dealt`;
     case 'fracdamage':
-      return `Cuts ${Math.round(effect.fraction * 100)}% of current HP (ignores DEF)`;
+      return `Cuts ${Math.round(effect.fraction * 100)}% of the foe’s current HP (ignores DEF)`;
     case 'taunt':
-      return 'Seals setup & heals for a few turns';
+      return 'Seals the foe’s setup & heals for a few turns';
     case 'weight':
       return 'Weighs the foe down — a heavy Speed cut';
     case 'blind':
@@ -91,11 +103,11 @@ export function moveEffectLabel(effect: MoveEffect): string {
     case 'disarm':
       return 'Seals the foe’s strongest move for a few turns';
     case 'recoil':
-      return `Recoils ${Math.round(effect.fraction * 100)}% of damage dealt`;
+      return `Costs the user ${Math.round(effect.fraction * 100)}% of damage dealt as recoil`;
     case 'flinch':
       return effect.chance >= 1
         ? 'Makes the foe flinch (if it moves first)'
-        : `${pct(effect.chance)} flinch (if faster)`;
+        : `${pct(effect.chance)} to flinch the foe (if faster)`;
     case 'stage': {
       const sign = effect.delta > 0 ? '+' : '';
       const who = effect.target === 'self' ? 'own' : "foe's";
@@ -152,7 +164,7 @@ const TYPE_KITS: Record<PokemonType, TypeKit> = {
   normal: {
     physical: {
       safe: [mk('Body Slam', 'normal', 85, 1, { kind: 'stun', chance: 0.3 })],
-      nuke: mk('Double-Edge', 'normal', 120, 1, { kind: 'recoil', fraction: 1 / 3 }),
+      nuke: mk('Double-Edge', 'normal', 120, 1, { kind: 'recoil', fraction: 1 / 4 }),
     },
     energy: {
       safe: [mk('Hyper Voice', 'normal', 90, 1, undefined, 'energy')],
@@ -165,7 +177,7 @@ const TYPE_KITS: Record<PokemonType, TypeKit> = {
         mk('Fire Punch', 'fire', 75, 1, { kind: 'burn', chance: 0.1 }, 'physical'),
         mk('Fire Fang', 'fire', 65, 0.95, { kind: 'burn', chance: 0.1 }, 'physical'),
       ],
-      nuke: mk('Flare Blitz', 'fire', 120, 1, { kind: 'recoil', fraction: 1 / 3 }, 'physical'),
+      nuke: mk('Flare Blitz', 'fire', 120, 1, { kind: 'recoil', fraction: 1 / 4 }, 'physical'),
     },
     energy: {
       safe: [
@@ -182,7 +194,7 @@ const TYPE_KITS: Record<PokemonType, TypeKit> = {
         mk('Waterfall', 'water', 80, 1, { kind: 'flinch', chance: 0.2 }, 'physical'),
         mk('Aqua Tail', 'water', 85, 0.9, undefined, 'physical'),
       ],
-      nuke: mk('Wave Crash', 'water', 120, 1, { kind: 'recoil', fraction: 1 / 3 }, 'physical'),
+      nuke: mk('Wave Crash', 'water', 120, 1, { kind: 'recoil', fraction: 1 / 4 }, 'physical'),
     },
     energy: {
       safe: [mk('Surf', 'water', 90, 1), mk('Scald', 'water', 80, 1, { kind: 'burn', chance: 0.3 })],
@@ -212,7 +224,7 @@ const TYPE_KITS: Record<PokemonType, TypeKit> = {
         mk('Seed Bomb', 'grass', 80, 1, undefined, 'physical'),
         mk('Leaf Blade', 'grass', 80, 1, undefined, 'physical'),
       ],
-      nuke: mk('Wood Hammer', 'grass', 120, 1, { kind: 'recoil', fraction: 1 / 3 }, 'physical'),
+      nuke: mk('Wood Hammer', 'grass', 120, 1, { kind: 'recoil', fraction: 1 / 4 }, 'physical'),
     },
     energy: {
       safe: [
@@ -288,7 +300,7 @@ const TYPE_KITS: Record<PokemonType, TypeKit> = {
         mk('Acrobatics', 'flying', 75, 1, undefined, 'physical'),
         mk('Drill Peck', 'flying', 80, 1, undefined, 'physical'),
       ],
-      nuke: mk('Brave Bird', 'flying', 120, 1, { kind: 'recoil', fraction: 1 / 3 }, 'physical'),
+      nuke: mk('Brave Bird', 'flying', 120, 1, { kind: 'recoil', fraction: 1 / 4 }, 'physical'),
     },
     energy: {
       safe: [mk('Air Slash', 'flying', 75, 0.95, { kind: 'flinch', chance: 0.3 }, 'energy')],
@@ -335,7 +347,7 @@ const TYPE_KITS: Record<PokemonType, TypeKit> = {
         mk('Rock Slide', 'rock', 75, 0.9, { kind: 'flinch', chance: 0.3 }),
         mk('Stone Edge', 'rock', 100, 0.8),
       ],
-      nuke: mk('Head Smash', 'rock', 130, 0.85, { kind: 'recoil', fraction: 1 / 2 }),
+      nuke: mk('Head Smash', 'rock', 130, 0.85, { kind: 'recoil', fraction: 1 / 3 }),
     },
     energy: {
       safe: [

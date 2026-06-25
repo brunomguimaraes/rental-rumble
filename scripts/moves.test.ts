@@ -180,9 +180,9 @@ console.log('\n[4] Recoil & flinch — labels and distribution');
 {
   // Labels read cleanly for the two new effect kinds.
   const recoil: MoveEffect = { kind: 'recoil', fraction: 1 / 3 };
-  check('recoil label reads as a self-damage rider', moveEffectLabel(recoil) === 'Recoils 33% of damage dealt');
+  check('recoil label reads as a self-damage rider', moveEffectLabel(recoil) === 'Costs the user 33% of damage dealt as recoil');
   const flinch: MoveEffect = { kind: 'flinch', chance: 0.3 };
-  check('flinch label notes the speed requirement', moveEffectLabel(flinch) === '30% flinch (if faster)');
+  check('flinch label notes the speed requirement', moveEffectLabel(flinch) === '30% to flinch the foe (if faster)');
 
   // A hard-hitting, non-bulky attacker of a recoil-capable type packs the nuke.
   const recklessFire = movesFor(['fire'], stats(70, 110, 60, 100), 'aries');
