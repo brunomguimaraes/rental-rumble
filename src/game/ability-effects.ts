@@ -421,6 +421,11 @@ export function applyEntryAbilities(
     opp.hexTurns = 3;
     pushAbility('Jinx', `${b.creature.name} hexed ${opp.creature.name}!`, side, oppSide);
   }
+  if (a === 'ruin' && opp.hp > 0) {
+    pushAbility('Ruin', `${b.creature.name}'s ruinous aura saps ${opp.creature.name}!`, side, oppSide);
+    applyStage(oppSide, 'atk', -1, 'opponent');
+    applyStage(oppSide, 'eatk', -1, 'opponent');
+  }
 }
 
 /** Faint passives — returns torchPass turns for incoming ally. */

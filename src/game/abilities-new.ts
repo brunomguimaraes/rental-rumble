@@ -304,6 +304,12 @@ export const NEW_ABILITIES: Record<string, NewAbilityDef> = {
     description: 'A scorched land \u2014 its Ground moves bull through resistances and hit harder.',
     devDescription: 'Its Ground moves deal 1.1\u00d7 damage and ignore type resistances.',
   },
+  ruin: {
+    id: 'ruin' as AbilityId,
+    name: 'Ruin',
+    description: 'An ominous aura saps the foe on sight, dulling both its attacks.',
+    devDescription: 'On entry, lowers the foe\u2019s Attack and Sp. Attack one stage each.',
+  },
   diviner: {
     id: 'diviner' as AbilityId,
     name: 'Diviner',

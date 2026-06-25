@@ -423,6 +423,7 @@ export type AbilityId =
   | 'den-mother'
   | 'deluge'
   | 'magma'
+  | 'ruin'
   | 'diviner'
   | 'fortune'
   | 'treasure-hound'
