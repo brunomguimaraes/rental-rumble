@@ -18,6 +18,8 @@ type MdxModule = {
     order?: number;
     icon?: string;
     summary?: string;
+    /** Hide this page (and its sidebar entry) outside dev builds. */
+    dev?: boolean;
   };
 };
 
@@ -28,6 +30,7 @@ type MdxModule = {
 const modules = import.meta.glob<MdxModule>('./pages/*.mdx', { eager: true });
 
 export const GUIDE_DOCS: GuideDoc[] = Object.entries(modules)
+  .filter(([, mod]) => !mod.frontmatter?.dev || import.meta.env.DEV)
   .map(([path, mod]) => {
     const fileSlug = path.split('/').pop()!.replace(/\.mdx$/, '');
     const fm = mod.frontmatter ?? {};

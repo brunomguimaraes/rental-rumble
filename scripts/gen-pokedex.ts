@@ -64,15 +64,13 @@ async function main() {
       p.pokemon_v2_pokemonstats.find((s) => s.pokemon_v2_stat.name === n)
         ?.base_stat ?? 0;
     const hp = stat('hp');
-    const attack = stat('attack');
-    const defense = stat('defense');
-    const spa = stat('special-attack');
-    const spdef = stat('special-defense');
+    // Physical / Energy split: PokeAPI's attack/defense become the physical
+    // pair, special-attack/special-defense become the energy pair.
+    const atk = stat('attack');
+    const def = stat('defense');
+    const eatk = stat('special-attack');
+    const edef = stat('special-defense');
     const speed = stat('speed');
-
-    // Collapse phys/special into a single atk/def for the simple engine.
-    const atk = Math.round((attack + spa) / 2);
-    const def = Math.round((defense + spdef) / 2);
 
     const isLeg = p.pokemon_v2_pokemonspecy?.is_legendary ?? false;
     const isMyth = p.pokemon_v2_pokemonspecy?.is_mythical ?? false;
@@ -89,7 +87,7 @@ async function main() {
     out.push(
       `  { id: ${p.id}, name: ${JSON.stringify(
         title(p.name),
-      )}, types: ${JSON.stringify(types)}, stats: { hp: ${hp}, atk: ${atk}, def: ${def}, spd: ${speed} }, tier: ${JSON.stringify(
+      )}, types: ${JSON.stringify(types)}, stats: { hp: ${hp}, atk: ${atk}, eatk: ${eatk}, def: ${def}, edef: ${edef}, spd: ${speed} }, tier: ${JSON.stringify(
         tier,
       )} },`,
     );

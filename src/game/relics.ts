@@ -94,9 +94,10 @@ export const RELICS: Record<RelicId, RelicDef> = {
     name: 'Assault Vest',
     icon: 'assaultvest',
     rarity: 'common',
-    description: `Raises the whole team's Defense (×${STAT_BOOST.def}).`,
+    description: `Raises the whole team's Physical & Energy Defense (×${STAT_BOOST.def}).`,
     apply: (m) => {
       m.defMult *= STAT_BOOST.def;
+      m.edefMult *= STAT_BOOST.def;
     },
   },
   quickclaw: {
@@ -182,7 +183,9 @@ export function isRelicId(v: unknown): v is RelicId {
 export function identityMods(): RelicMods {
   return {
     atkMult: 1,
+    eatkMult: 1,
     defMult: 1,
+    edefMult: 1,
     spdMult: 1,
     allDmgMult: 1,
     dmgMult: {},

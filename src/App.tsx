@@ -24,6 +24,7 @@ import {
   buildFamousTeam,
   simulateBattle,
   TIER_STAT_MULT,
+  championFoeStatMult,
   PLAYER_STAT_MULT,
   type BattleResult,
 } from './game/battle';
@@ -48,6 +49,12 @@ const GuideScreen = lazy(() =>
   import('./components/Guide').then((m) => ({ default: m.GuideScreen })),
 );
 
+// The Pokédex browses the full creature list (with portraits); lazy-load it so
+// it stays out of the title screen's initial download.
+const PokedexScreen = lazy(() =>
+  import('./components/PokedexScreen').then((m) => ({ default: m.PokedexScreen })),
+);
+
 /** Quiet placeholder shown while a lazy screen's chunk is fetched. */
 function ScreenFallback() {
   return (
@@ -66,6 +73,7 @@ type Phase =
   | 'ladder'
   | 'history'
   | 'guide'
+  | 'dex'
   | 'draft'
   | 'map'
   | 'battle'
@@ -174,7 +182,12 @@ export default function App() {
             );
       const result = simulateBattle(team, foeTeam, battleSeed, {
         playerStatMult: PLAYER_STAT_MULT,
-        foeStatMult: TIER_STAT_MULT[opponent.tier] ?? 1,
+        // The daily boss carries a hidden, difficulty-scaled stat passive on top
+        // of its Champion tier edge; every other rung uses the bare tier mult.
+        foeStatMult:
+          opponent.tier === 'champion'
+            ? championFoeStatMult(difficulty)
+            : TIER_STAT_MULT[opponent.tier] ?? 1,
         difficulty,
         playerRelics: relics,
       });
@@ -289,11 +302,15 @@ export default function App() {
           onViewLadder={() => setPhase('ladder')}
           onViewHistory={() => setPhase('history')}
           onViewGuide={() => setPhase('guide')}
+          onViewDex={() => setPhase('dex')}
         />
       );
 
     case 'ladder':
       return <LadderScreen onBack={() => setPhase('title')} />;
+
+    case 'dex':
+      return <PokedexScreen onBack={() => setPhase('title')} />;
 
     case 'history':
       return <HistoryScreen onBack={() => setPhase('title')} />;

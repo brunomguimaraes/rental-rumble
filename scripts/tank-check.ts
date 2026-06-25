@@ -16,8 +16,9 @@ import type { Creature } from '../src/game/types';
 const N = 400;
 const PLAYER_MULT = 1.13;
 
-const bst = (c: Creature) => c.stats.hp + c.stats.atk + c.stats.def + c.stats.spd;
-const bulk = (c: Creature) => c.stats.hp + c.stats.def;
+const bst = (c: Creature) =>
+  c.stats.hp + c.stats.atk + c.stats.eatk + c.stats.def + c.stats.edef + c.stats.spd;
+const bulk = (c: Creature) => c.stats.hp + Math.max(c.stats.def, c.stats.edef);
 
 // Top-6 by a scoring function.
 const draft = (pool: Creature[], score: (c: Creature) => number) =>

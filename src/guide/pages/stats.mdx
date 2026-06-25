@@ -1,19 +1,25 @@
 ---
-title: The four stats
+title: The six stats
 slug: stats
 order: 2
 icon: 📊
-summary: What HP, Attack, Defense and Speed each do.
+summary: HP, the Physical/Energy attack & defense pairs, and Speed.
 ---
 
 import { StatGrid } from '../widgets';
 
-# The four stats
+# The six stats
 
-Every Pokémon is described by four numbers. They are the foundation everything
+Every Pokémon is described by six numbers. They are the foundation everything
 else — signs, moves, status — pushes and pulls on.
 
 <StatGrid />
+
+Damage is **split into two channels**. Every move is either *Physical* or
+*Energy* (or a no-damage *Status* move): a physical move pits the attacker's
+**Physical Attack** against the defender's **Physical Defense**, while an energy
+move pits **Energy Attack** against **Energy Defense**. So a wall that shrugs off
+punches can still crumble to beams — bring the right kind of hit.
 
 All fights run at **Level 50**, so these are the only stats that matter; there's
 no experience, no levelling and no held items beyond the run-wide relics.

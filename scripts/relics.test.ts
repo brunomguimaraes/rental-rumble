@@ -26,8 +26,9 @@ import {
   buildSubmission,
   type SubmissionMon,
 } from '../src/game/leaderboard.js';
-import { buildChampionTeam, TIER_STAT_MULT } from '../src/game/battle.js';
+import { buildChampionTeam, championFoeStatMult } from '../src/game/battle.js';
 import { CREATURES, CREATURES_BY_ID } from '../src/game/pokemon.js';
+import { nextDailyResetMs } from '../src/game/opponents.js';
 import type { Creature, RelicId } from '../src/game/types.js';
 
 let passed = 0;
@@ -144,7 +145,8 @@ console.log('\n[3] Client/server re-sim parity (verifyChampionWin)');
   const foeTeam = buildChampionTeam(`champion:${date}`, 6, CREATURES);
   const clientSim = simulateBattle(team, foeTeam, `${seed}#${stage}`, {
     playerStatMult: PLAYER_STAT_MULT,
-    foeStatMult: TIER_STAT_MULT.champion ?? 1,
+    // Match the boss's hidden difficulty passive the verifier now applies.
+    foeStatMult: championFoeStatMult('master'),
     difficulty: 'master',
     playerRelics: relics,
   });
@@ -229,6 +231,24 @@ console.log('\n[7] registry integrity');
   check('every RelicId has a def whose id matches its key', ALL_RELICS.every((id) => RELICS[id].id === id));
   check('every relic art filename is lowercased', ALL_RELICS.every((id) => RELICS[id].icon === RELICS[id].icon.toLowerCase()));
   check('CREATURES_BY_ID is wired (sanity)', !!CREATURES_BY_ID['6']);
+}
+
+console.log('\n[8] Boss difficulty passive + daily reset');
+{
+  const easy = championFoeStatMult('easy');
+  const normal = championFoeStatMult('normal');
+  const hard = championFoeStatMult('hard');
+  const master = championFoeStatMult('master');
+  check('easy handicaps the boss below normal', easy < normal);
+  check('hard/master toughen the boss above normal', hard > normal && master > hard);
+  check('master is the bare champion edge x1.25', approx(master, normal * 1.25));
+
+  const now = Date.UTC(2026, 5, 25, 10, 0, 0); // 10:00 UTC, past the 03:00 reset
+  const next = nextDailyResetMs(new Date(now));
+  check('next reset is strictly in the future', next > now);
+  check('reset lands on the configured UTC hour (03:00 = midnight BRT)', new Date(next).getUTCHours() === 3);
+  const before = Date.UTC(2026, 5, 25, 2, 0, 0); // 02:00 UTC, before the 03:00 reset
+  check('a pre-reset time resets later the same day', nextDailyResetMs(new Date(before)) === Date.UTC(2026, 5, 25, 3, 0, 0));
 }
 
 console.log(`\n${failed === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${passed} passed, ${failed} failed\n`);

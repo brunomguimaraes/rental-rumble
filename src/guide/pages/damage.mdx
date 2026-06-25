@@ -4,6 +4,7 @@ slug: damage
 order: 6
 icon: 🧮
 summary: The exact math, for the curious.
+dev: true
 ---
 
 # The damage formula
@@ -12,11 +13,13 @@ Every Pokémon fights at **Level 50**, so the stat lines simplify to:
 
 ```text
 HP  = base + 60
-Atk/Def/Spd = (base + 5) × sign × stage
+stat = (base + 5) × sign × stage    (for each attack/defense/speed stat)
 stage(+n) = (2+n)/2     stage(−n) = 2/(2+n)
 ```
 
-A single hit then resolves as:
+Each move is **Physical** or **Energy**. A physical move uses the attacker's
+Physical Attack against the defender's Physical Defense; an energy move uses the
+Energy pair. Call the chosen pair `Atk`/`Def`. A single hit then resolves as:
 
 ```text
 raw = (22 × power × Atk/Def) / 50 + 2

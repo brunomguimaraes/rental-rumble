@@ -26,6 +26,7 @@ import {
   type SignTier,
 } from '../game/zodiac';
 import {
+  abilityDescription,
   abilityInfo,
   abilitiesForDex,
   hasAbilityChoice,
@@ -587,7 +588,9 @@ export function RecruitScreen({
                             </span>
                           )}
                         </div>
-                        <p className="mt-1 text-xs text-white/55">{info.description}</p>
+                        <p className="mt-1 text-xs text-white/55">
+                          {abilityDescription(id, import.meta.env.DEV)}
+                        </p>
                       </button>
                     );
                   })}
@@ -933,7 +936,9 @@ function AbilityRollReveal({
               New ability
             </p>
             <h3 className="mt-1 text-3xl font-black text-white">{info.name}</h3>
-            <p className="mt-1 max-w-xs text-sm text-white/60">{info.description}</p>
+            <p className="mt-1 max-w-xs text-sm text-white/60">
+              {abilityDescription(info.id, import.meta.env.DEV)}
+            </p>
           </>
         ) : (
           <p className="animate-pulse text-lg font-black uppercase tracking-[0.3em] text-white/70">
@@ -1084,7 +1089,7 @@ function RecruitPreview({ creatures }: { creatures: Creature[] }) {
                 <SignChip sign={c.sign} />
                 {ability && (
                   <span
-                    title={ability.description}
+                    title={abilityDescription(ability.id, import.meta.env.DEV)}
                     className="inline-flex min-w-0 items-center gap-1 rounded-md border border-amber-300/25 bg-amber-300/[0.07] px-1.5 py-0.5 text-[10px] font-semibold text-amber-200/90"
                   >
                     <span className="shrink-0 text-[9px] text-amber-300">✦</span>

@@ -17,7 +17,7 @@ import { effectiveness } from './typechart.js';
 import { RNG } from './rng.js';
 import { CREATURES, withSign, withAbility, SHINY_STAT_MULT } from './pokemon.js';
 import { rollAbility } from './abilities.js';
-import { attackAnimFor, HEAL_DECAY, TAUNT_TURNS } from './moves.js';
+import { attackAnimFor, moveCategory, HEAL_DECAY, TAUNT_TURNS } from './moves.js';
 import { SIGN_SPREAD, rollSign, bestRareSign } from './zodiac.js';
 import { rollOpponentBall } from './balls.js';
 import { famousTeamCreatures } from './specials.js';
@@ -112,7 +112,7 @@ export function makeBattler(
     typeLock: null,
     flinched: false,
     taunted: 0,
-    stages: { atk: 0, def: 0, spd: 0 },
+    stages: { atk: 0, eatk: 0, def: 0, edef: 0, spd: 0 },
     pp,
     healsUsed: 0,
     loafing: false,
@@ -156,57 +156,100 @@ function overloadStage(b: Battler, m: number): number {
   return b.creature.ability === 'overload' && m > 1 ? 1 + (m - 1) * 1.25 : m;
 }
 
-// Which of the three battle stages a species is best at — used by Legacy to hand
-// the right boost down to its successor. Ties prefer Attack, then Defense.
-function dominantStage(stats: { atk: number; def: number; spd: number }): StageStat {
-  const { atk, def, spd } = stats;
-  if (atk >= def && atk >= spd) return 'atk';
-  if (def >= spd) return 'def';
-  return 'spd';
+// Which battle stage a species is best at — used by Legacy to hand the right
+// boost down to its successor. Considers both halves of the Physical/Energy
+// split plus Speed; ties resolve in declaration order (physical first).
+function dominantStage(stats: {
+  atk: number;
+  eatk: number;
+  def: number;
+  edef: number;
+  spd: number;
+}): StageStat {
+  const order: StageStat[] = ['atk', 'eatk', 'def', 'edef', 'spd'];
+  let best: StageStat = 'atk';
+  let bestVal = -Infinity;
+  for (const k of order) {
+    if (stats[k] > bestVal) {
+      bestVal = stats[k];
+      best = k;
+    }
+  }
+  return best;
 }
 
+// Which offence stage an "Attack-boosting" ability should pump. Physical and
+// energy attackers both deserve the payoff, so the boost follows the channel the
+// mon actually hits with (its higher base attack); ties favour the physical side.
+function offenseStage(c: { stats: { atk: number; eatk: number } }): StageStat {
+  return c.stats.eatk > c.stats.atk ? 'eatk' : 'atk';
+}
+
+// The attacking move's category picks which offence stat is brought to bear: a
+// physical move leans on Physical Attack (atk), an energy move on Energy Attack
+// (eatk). Each draws its own sign spread, stat stage and relic multiplier.
 // `ignoreStage` blanks out the stat-stage multiplier — used when the *other*
 // battler has Unaware and so pays no mind to this one's buffs/drops.
-function effectiveAtk(b: Battler, statMult: number, ignoreStage = false): number {
+function effectiveAtk(
+  b: Battler,
+  statMult: number,
+  ignoreStage = false,
+  category: 'physical' | 'energy' = 'physical',
+): number {
   const spread = SIGN_SPREAD[b.creature.sign];
   const mult = statMult * shinyMult(b.creature);
+  const energy = category === 'energy';
+  const base = energy ? b.creature.stats.eatk : b.creature.stats.atk;
+  const spreadVal = energy ? spread.eatk : spread.atk;
+  const stageKey: StageStat = energy ? 'eatk' : 'atk';
+  const relicMult = energy ? b.mods.eatkMult : b.mods.atkMult;
   // Guts: a status condition that would normally hamper it instead fires it up,
-  // boosting Attack by half while burned / poisoned / paralyzed / asleep.
+  // boosting its attacks by half while burned / poisoned / paralyzed / asleep.
   const guts = b.status !== null && b.creature.ability === 'guts' ? 1.5 : 1;
-  const stage = ignoreStage ? 1 : overloadStage(b, stageMult(b.stages.atk));
-  // Hustle muscles every blow for 1.5× Attack (paid back in shakier accuracy);
-  // Defeatist loses heart once at half HP or less, halving its Attack until it
+  const stage = ignoreStage ? 1 : overloadStage(b, stageMult(b.stages[stageKey]));
+  // Hustle muscles every blow for 1.5× (paid back in shakier accuracy);
+  // Defeatist loses heart once at half HP or less, halving its offence until it
   // climbs back above the line.
   let abil = 1;
   if (b.creature.ability === 'hustle') abil *= 1.5;
   if (b.creature.ability === 'defeatist' && b.hp * 2 <= b.maxHp) abil *= 0.5;
   return Math.floor(
-    otherStat(b.creature.stats.atk) *
-      spread.atk *
+    otherStat(base) *
+      spreadVal *
       mult *
       stage *
       guts *
       abil *
       b.teamFactor *
-      b.mods.atkMult,
+      relicMult,
   );
 }
-function effectiveDef(b: Battler, statMult: number, ignoreStage = false): number {
+function effectiveDef(
+  b: Battler,
+  statMult: number,
+  ignoreStage = false,
+  category: 'physical' | 'energy' = 'physical',
+): number {
   const spread = SIGN_SPREAD[b.creature.sign];
   const mult = statMult * shinyMult(b.creature);
+  const energy = category === 'energy';
+  const base = energy ? b.creature.stats.edef : b.creature.stats.def;
+  const spreadVal = energy ? spread.edef : spread.def;
+  const stageKey: StageStat = energy ? 'edef' : 'def';
+  const relicMult = energy ? b.mods.edefMult : b.mods.defMult;
   // Marvel Scale: a status condition that would normally be a liability instead
-  // toughens its hide, raising Defense by half — the defensive mirror of Guts.
+  // toughens its hide, raising its guard by half — the defensive mirror of Guts.
   const marvel =
     b.status !== null && b.creature.ability === 'marvel-scale' ? 1.5 : 1;
-  const stage = ignoreStage ? 1 : overloadStage(b, stageMult(b.stages.def));
+  const stage = ignoreStage ? 1 : overloadStage(b, stageMult(b.stages[stageKey]));
   return Math.floor(
-    otherStat(b.creature.stats.def) *
-      spread.def *
+    otherStat(base) *
+      spreadVal *
       mult *
       stage *
       marvel *
       b.teamFactor *
-      b.mods.defMult,
+      relicMult,
   );
 }
 function effectiveSpd(b: Battler, statMult: number): number {
@@ -347,8 +390,9 @@ function estimateDamage(
   if (move.power <= 0) return 0;
   const mult = typeMult(move, defender);
   if (mult === 0) return 0;
-  const atk = effectiveAtk(attacker, atkStatMult);
-  const def = effectiveDef(defender, defStatMult);
+  const cat = moveCategory(move) === 'energy' ? 'energy' : 'physical';
+  const atk = effectiveAtk(attacker, atkStatMult, false, cat);
+  const def = effectiveDef(defender, defStatMult, false, cat);
   const base = (2 * LEVEL) / 5 + 2;
   const raw = (base * move.power * (atk / def)) / 50 + 2;
   const stab = hasStab(attacker, move) ? stabMult(attacker) : 1;
@@ -410,13 +454,42 @@ function foeMoveFocus(difficulty: Difficulty | undefined): number {
 }
 
 /**
+ * How much the AI should *discount* a move because of the self-cost it carries
+ * (a negative `selfStage`). Returns a 0–1 factor applied to the move's estimated
+ * damage when ranking options, so the AI stops short of spamming a move that
+ * cannibalises its own stats turn after turn.
+ *
+ * The big one is an Attack-tax (e.g. Draco Meteor): since the engine resolves
+ * every hit off Attack, the factor is the share of offence that *survives* the
+ * drop (via the stage curve), so once Attack is already crashed the move looks as
+ * weak to the AI as it has actually become. Speed/Defense self-costs don't sap
+ * our damage, so they get only a gentle nudge. No self-cost → 1 (no change).
+ */
+function selfCostFactor(attacker: Battler, move: Move): number {
+  const ss = move.selfStage;
+  if (!ss || ss.delta >= 0) return 1;
+  if (ss.stat === 'atk') {
+    // Worth swinging on a fresh Attack (a light haircut so it still opens with
+    // the nuke), but every stage already spent scales the move down in lockstep
+    // with the offence it's bleeding — so the AI fires it, then leans on its
+    // other moves while Attack sits in the gutter instead of re-crashing it.
+    return Math.min(1, 0.85 * stageMult(attacker.stages.atk));
+  }
+  // A Speed or Defense tax is real but doesn't blunt this hit — weigh it lightly
+  // so the move stays worth throwing, just not back-to-back forever.
+  const per = ss.stat === 'spd' ? 0.93 : 0.97;
+  return per ** Math.abs(ss.delta);
+}
+
+/**
  * Pick a damaging move, optionally with a bit of randomness instead of always
  * locking onto the single best one. Each damaging move is weighted by its
- * estimated damage raised to `focus`, so strong moves stay heavily favored while
- * weaker ones still get thrown now and then. A non-finite `focus` means perfect
- * play: it returns the precomputed best move (`fallback`) outright. Status/setup/
- * heal decisions and guaranteed-KO handling live in chooseMove; this only varies
- * the honest hit.
+ * estimated damage — discounted by any self-cost it carries (see selfCostFactor)
+ * — raised to `focus`, so strong moves stay heavily favored while weaker ones
+ * still get thrown now and then. A non-finite `focus` means perfect play: it
+ * takes the single highest-value (cost-aware) move outright. Status/setup/heal
+ * decisions and guaranteed-KO handling live in chooseMove; this only varies the
+ * honest hit.
  */
 function pickDamagingMove(
   attacker: Battler,
@@ -427,11 +500,10 @@ function pickDamagingMove(
   fallback: Move,
   rng: RNG,
 ): Move {
-  // Perfect play: the best damaging move is already in `fallback` (plan.move).
-  if (!Number.isFinite(focus)) return fallback;
-
   const options: { move: Move; weight: number }[] = [];
   let total = 0;
+  let bestMove: Move | null = null;
+  let bestValue = -1;
   for (const mv of attacker.creature.moves) {
     if (mv.power <= 0 || isLocked(attacker, mv)) continue;
     const d = estimateDamage(attacker, defender, mv, atkStatMult, defStatMult);
@@ -443,11 +515,20 @@ function pickDamagingMove(
       const recoil = Math.floor(d * mv.effect.fraction);
       if (recoil >= attacker.hp && d < defender.hp) continue;
     }
-    const weight = focus <= 0 ? 1 : d ** focus;
+    // Rank by self-cost-aware value, not raw damage, so a stat-cannibalising nuke
+    // slides down the list as its drawback bites.
+    const value = d * selfCostFactor(attacker, mv);
+    if (value > bestValue) {
+      bestValue = value;
+      bestMove = mv;
+    }
+    const weight = focus <= 0 ? 1 : value ** focus;
     options.push({ move: mv, weight });
     total += weight;
   }
   if (options.length === 0) return fallback;
+  // Perfect play: take the single highest-value (cost-aware) move outright.
+  if (!Number.isFinite(focus)) return bestMove ?? fallback;
   if (options.length === 1) return options[0].move;
 
   let roll = rng.range(0, total);
@@ -624,9 +705,12 @@ function damageRoll(
   const mult = typeMult(move, defender, attacker);
   if (mult === 0) return { damage: 0, mult: 0, crit: false };
 
+  // Physical moves trade Physical Attack vs Physical Defense; energy moves trade
+  // Energy Attack vs Energy Defense.
+  const cat = moveCategory(move) === 'energy' ? 'energy' : 'physical';
   // Unaware: each side that has it tunes out the *other's* stat stages.
-  const atk = effectiveAtk(attacker, atkStatMult, defender.creature.ability === 'unaware');
-  const def = effectiveDef(defender, defStatMult, attacker.creature.ability === 'unaware');
+  const atk = effectiveAtk(attacker, atkStatMult, defender.creature.ability === 'unaware', cat);
+  const def = effectiveDef(defender, defStatMult, attacker.creature.ability === 'unaware', cat);
   const base = (2 * LEVEL) / 5 + 2;
   const raw = (base * move.power * (atk / def)) / 50 + 2;
   const stab = hasStab(attacker, move) ? stabMult(attacker) : 1;
@@ -673,8 +757,10 @@ const STATUS_LABEL: Record<Exclude<StatusKind, null>, string> = {
 };
 
 const STAGE_LABEL: Record<StageStat, string> = {
-  atk: 'Attack',
-  def: 'Defense',
+  atk: 'Physical Attack',
+  eatk: 'Energy Attack',
+  def: 'Physical Defense',
+  edef: 'Energy Defense',
   spd: 'Speed',
 };
 
@@ -868,7 +954,7 @@ export function simulateBattle(
         name: 'Defiant',
         text: `${b.creature.name}'s Defiant flared up!`,
       });
-      applyStage(ownerSide, 'atk', 2);
+      applyStage(ownerSide, offenseStage(b.creature), 2);
     }
   };
 
@@ -968,7 +1054,7 @@ export function simulateBattle(
         name: 'Rally',
         text: `${fainted.creature.name} rallied ${incoming.creature.name} on its way down!`,
       });
-      applyStage(side, 'atk', 1);
+      applyStage(side, offenseStage(incoming.creature), 1);
       applyStage(side, 'spd', 1);
     }
     return true;
@@ -1365,7 +1451,7 @@ export function simulateBattle(
         name: 'Sap Sipper',
         text: `${defender.creature.name} grazed on ${move.name}!`,
       });
-      applyStage(dSide, 'atk', 1);
+      applyStage(dSide, offenseStage(defender.creature), 1);
       return 'continue';
     }
     if (move.type === 'fire' && defAbility === 'flash-fire') {
@@ -1568,11 +1654,12 @@ export function simulateBattle(
           return 'continue';
         }
       }
-      // Moxie: emboldened by the knockout, the attacker's Attack rises a stage —
-      // letting a sweeper build momentum as it cuts through the foe's team. (No
-      // point once the battle's already won, so only while the fight continues.)
+      // Moxie: emboldened by the knockout, the attacker's offence rises a stage —
+      // letting a sweeper build momentum as it cuts through the foe's team. The
+      // boost follows whichever attack the mon leans on, so energy sweepers snowball
+      // too. (No point once the battle's already won, so only while it continues.)
       if (survives && attacker.hp > 0 && attacker.creature.ability === 'moxie') {
-        applyStage(side, 'atk', 1);
+        applyStage(side, offenseStage(attacker.creature), 1);
       }
       if (!survives) return side;
       return 'continue';
@@ -1965,13 +2052,38 @@ export const TIER_STAT_MULT: Record<string, number> = {
   champion: 1.1,
 };
 
+/**
+ * The daily boss's hidden, difficulty-scaled "passive" — never shown to players.
+ * It's a flat stat handicap/boost layered on top of the Champion's base tier edge
+ * (TIER_STAT_MULT.champion): Easy weakens the boss, Normal leaves it bare, and
+ * Hard / Master toughen it by +10% / +25%. Applied identically on the client run
+ * loop and the server's leaderboard re-sim (see championFoeStatMult), so a win
+ * reproduces on both. Only the Champion carries it; every other rung is unchanged.
+ */
+export const CHAMPION_DIFFICULTY_MULT: Record<Difficulty, number> = {
+  easy: 0.9, // a handicap — the boss fights with weaker stats
+  normal: 1, // the bare daily Champion
+  hard: 1.1, // +10%
+  master: 1.25, // +25%
+};
+
+/**
+ * The boss's effective foe stat multiplier for a run difficulty: its base
+ * Champion tier edge times the hidden difficulty passive above. Use this for the
+ * Champion fight on both client and server so the verified re-sim matches.
+ */
+export function championFoeStatMult(difficulty: Difficulty): number {
+  return (TIER_STAT_MULT.champion ?? 1) * CHAMPION_DIFFICULTY_MULT[difficulty];
+}
+
 // "Hero" edge so a well-drafted (and well-recruited) team can realistically run
 // the gauntlet. Shared by the client run loop and the server-side leaderboard
 // verifier so a win reproduces identically on both. See scripts/sim-check.ts.
 export const PLAYER_STAT_MULT = 1.13;
 
 function bst(c: Creature): number {
-  return c.stats.hp + c.stats.atk + c.stats.def + c.stats.spd;
+  const s = c.stats;
+  return s.hp + s.atk + s.eatk + s.def + s.edef + s.spd;
 }
 
 // Gym/Elite trainers draw from non-legendary/mythical Pokémon (heavy hitters

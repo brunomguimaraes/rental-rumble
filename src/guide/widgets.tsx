@@ -18,7 +18,7 @@ import {
   signIconUrl,
   signLabel,
 } from '../game/zodiac';
-import { ABILITIES } from '../game/abilities';
+import { ABILITIES, abilityDescription } from '../game/abilities';
 
 const ASSET = import.meta.env?.BASE_URL ?? '/';
 const statusIconUrl = (icon: string) => `${ASSET}sprites/status/${icon}.png`;
@@ -31,8 +31,26 @@ const statusIconUrl = (icon: string) => `${ASSET}sprites/status/${icon}.png`;
 
 const STAT_BLURB: { key: string; label: string; desc: string }[] = [
   { key: 'HP', label: 'HP', desc: 'How much damage it can take before fainting.' },
-  { key: 'ATK', label: 'Attack', desc: 'Scales the damage its moves deal.' },
-  { key: 'DEF', label: 'Defense', desc: 'Cuts the damage it takes from hits.' },
+  {
+    key: 'P.ATK',
+    label: 'Physical Attack',
+    desc: 'Scales the damage its physical moves (punches, slams, bites) deal.',
+  },
+  {
+    key: 'E.ATK',
+    label: 'Energy Attack',
+    desc: 'Scales the damage its energy moves (beams, blasts, auras) deal.',
+  },
+  {
+    key: 'P.DEF',
+    label: 'Physical Defense',
+    desc: 'Cuts the damage it takes from physical moves.',
+  },
+  {
+    key: 'E.DEF',
+    label: 'Energy Defense',
+    desc: 'Cuts the damage it takes from energy moves.',
+  },
   { key: 'SPD', label: 'Speed', desc: 'Decides who moves first each turn.' },
 ];
 
@@ -136,7 +154,7 @@ export function AbilityList() {
           <div className="min-w-0">
             <div className="text-xs font-bold">{a.name}</div>
             <div className="mt-0.5 text-[11px] leading-snug text-white/55">
-              {a.description}
+              {abilityDescription(a.id, import.meta.env.DEV)}
             </div>
           </div>
         </div>
@@ -250,6 +268,17 @@ export function ZodiacTable() {
               <span className="text-[10px] text-white/50">{info.blurb}</span>
             </div>
             <table className="w-full border-collapse text-left text-[11px]">
+              <thead>
+                <tr className="text-[8px] uppercase tracking-wide text-white/35">
+                  <th className="px-2 py-1 text-left font-semibold">Sign</th>
+                  <th className="w-8 px-0.5 py-1 text-center font-semibold">HP</th>
+                  <th className="w-8 px-0.5 py-1 text-center font-semibold">P.Atk</th>
+                  <th className="w-8 px-0.5 py-1 text-center font-semibold">E.Atk</th>
+                  <th className="w-8 px-0.5 py-1 text-center font-semibold">P.Def</th>
+                  <th className="w-8 px-0.5 py-1 text-center font-semibold">E.Def</th>
+                  <th className="w-8 px-0.5 py-1 text-center font-semibold">Spd</th>
+                </tr>
+              </thead>
               <tbody>
                 {signs.map((sign) => {
                   const sp = SIGN_SPREAD[sign];
@@ -271,16 +300,22 @@ export function ZodiacTable() {
                           {SIGN_INFO[sign].tagline}
                         </div>
                       </td>
-                      <td className={`w-9 px-1 py-1.5 text-center tabular-nums ${pctClass(sp.hp)}`}>
+                      <td className={`w-8 px-0.5 py-1.5 text-center tabular-nums ${pctClass(sp.hp)}`}>
                         {pct(sp.hp)}
                       </td>
-                      <td className={`w-9 px-1 py-1.5 text-center tabular-nums ${pctClass(sp.atk)}`}>
+                      <td className={`w-8 px-0.5 py-1.5 text-center tabular-nums ${pctClass(sp.atk)}`}>
                         {pct(sp.atk)}
                       </td>
-                      <td className={`w-9 px-1 py-1.5 text-center tabular-nums ${pctClass(sp.def)}`}>
+                      <td className={`w-8 px-0.5 py-1.5 text-center tabular-nums ${pctClass(sp.eatk)}`}>
+                        {pct(sp.eatk)}
+                      </td>
+                      <td className={`w-8 px-0.5 py-1.5 text-center tabular-nums ${pctClass(sp.def)}`}>
                         {pct(sp.def)}
                       </td>
-                      <td className={`w-9 px-1 py-1.5 text-center tabular-nums ${pctClass(sp.spd)}`}>
+                      <td className={`w-8 px-0.5 py-1.5 text-center tabular-nums ${pctClass(sp.edef)}`}>
+                        {pct(sp.edef)}
+                      </td>
+                      <td className={`w-8 px-0.5 py-1.5 text-center tabular-nums ${pctClass(sp.spd)}`}>
                         {pct(sp.spd)}
                       </td>
                     </tr>

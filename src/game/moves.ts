@@ -3,6 +3,7 @@ import type {
   AttackAnim,
   BaseStats,
   Move,
+  MoveCategory,
   MoveEffect,
   PokemonType,
   Sign,
@@ -12,9 +13,44 @@ import { SIGN_INFO, type Element } from './zodiac.js';
 
 const STAT_LABEL: Record<StageStat, string> = {
   atk: 'ATK',
+  eatk: 'E.ATK',
   def: 'DEF',
+  edef: 'E.DEF',
   spd: 'SPD',
 };
+
+// The types whose attacks default to the ENERGY half of the split (special-style
+// elemental blasts, beams and auras). Everything else defaults to PHYSICAL. A
+// move can override this per-entry via Move.category — see moveCategory().
+const ENERGY_TYPES = new Set<PokemonType>([
+  'fire',
+  'water',
+  'grass',
+  'electric',
+  'ice',
+  'psychic',
+  'dark',
+  'dragon',
+  'fairy',
+]);
+
+/**
+ * Resolve a move's damage category, honouring an explicit `category` override and
+ * otherwise deriving it: power-0 moves are `status`, energy-typed attacks are
+ * `energy`, the rest are `physical`. Centralised so the battle engine and the UI
+ * agree without every move having to spell its category out.
+ */
+export function moveCategory(move: Move): MoveCategory {
+  if (move.category) return move.category;
+  if (move.power === 0) return 'status';
+  return ENERGY_TYPES.has(move.type) ? 'energy' : 'physical';
+}
+
+/** Human-readable label for a move's damage category. */
+export function moveCategoryLabel(move: Move): string {
+  const c = moveCategory(move);
+  return c === 'physical' ? 'Physical' : c === 'energy' ? 'Energy' : 'Status';
+}
 
 /**
  * A short, human-readable summary of a move's secondary effect — used by the
@@ -70,14 +106,15 @@ const mk = (
   power: number,
   accuracy = 1,
   effect?: Move['effect'],
-): Move => ({ name, type, power, accuracy, effect });
+  category?: MoveCategory,
+): Move => ({ name, type, power, accuracy, effect, category });
 
 // Each type provides a reliable STAB attack plus a utility/coverage move
 // (often carrying an effect). Real move names, lightly tuned power/accuracy.
 const TYPE_MOVES: Record<PokemonType, [Move, Move]> = {
   normal: [
     mk('Body Slam', 'normal', 85, 1, { kind: 'stun', chance: 0.3 }),
-    mk('Hyper Voice', 'normal', 90, 1),
+    mk('Hyper Voice', 'normal', 90, 1, undefined, 'energy'),
   ],
   fire: [
     mk('Flamethrower', 'fire', 90, 1, { kind: 'burn', chance: 0.1 }),
@@ -97,7 +134,7 @@ const TYPE_MOVES: Record<PokemonType, [Move, Move]> = {
   ],
   ice: [
     mk('Ice Beam', 'ice', 90, 1, { kind: 'stun', chance: 0.1 }),
-    mk('Icicle Crash', 'ice', 85, 0.9, { kind: 'stun', chance: 0.3 }),
+    mk('Icicle Crash', 'ice', 85, 0.9, { kind: 'stun', chance: 0.3 }, 'physical'),
   ],
   fighting: [
     // Close Combat lowers the user's own Defense as it connects.
@@ -111,23 +148,23 @@ const TYPE_MOVES: Record<PokemonType, [Move, Move]> = {
     mk('Drain Punch', 'fighting', 75, 1, { kind: 'lifesteal', fraction: 0.5 }),
   ],
   poison: [
-    mk('Sludge Bomb', 'poison', 90, 1, { kind: 'poison', chance: 0.3 }),
+    mk('Sludge Bomb', 'poison', 90, 1, { kind: 'poison', chance: 0.3 }, 'energy'),
     mk('Toxic', 'poison', 0, 0.9, { kind: 'poison', chance: 1 }),
   ],
   ground: [
     mk('Earthquake', 'ground', 100, 1),
-    mk('Earth Power', 'ground', 90, 1),
+    mk('Earth Power', 'ground', 90, 1, undefined, 'energy'),
   ],
   flying: [
-    mk('Hurricane', 'flying', 100, 0.8, { kind: 'stun', chance: 0.2 }),
-    mk('Air Slash', 'flying', 75, 0.95, { kind: 'flinch', chance: 0.3 }),
+    mk('Hurricane', 'flying', 100, 0.8, { kind: 'stun', chance: 0.2 }, 'energy'),
+    mk('Air Slash', 'flying', 75, 0.95, { kind: 'flinch', chance: 0.3 }, 'energy'),
   ],
   psychic: [
     mk('Psychic', 'psychic', 90, 1),
     mk('Hypnosis', 'psychic', 0, 0.75, { kind: 'sleep', chance: 1 }),
   ],
   bug: [
-    mk('Bug Buzz', 'bug', 90, 1),
+    mk('Bug Buzz', 'bug', 90, 1, undefined, 'energy'),
     mk('Leech Life', 'bug', 80, 1, { kind: 'lifesteal', fraction: 0.5 }),
   ],
   rock: [
@@ -135,27 +172,34 @@ const TYPE_MOVES: Record<PokemonType, [Move, Move]> = {
     mk('Rock Slide', 'rock', 75, 0.9, { kind: 'flinch', chance: 0.3 }),
   ],
   ghost: [
-    mk('Shadow Ball', 'ghost', 90, 1),
+    mk('Shadow Ball', 'ghost', 90, 1, undefined, 'energy'),
     mk('Shadow Claw', 'ghost', 70, 1),
   ],
   dragon: [
     mk('Dragon Pulse', 'dragon', 85, 1),
-    mk('Dragon Claw', 'dragon', 80, 1),
+    mk('Dragon Claw', 'dragon', 80, 1, undefined, 'physical'),
   ],
   dark: [
     mk('Dark Pulse', 'dark', 80, 1, { kind: 'confuse', chance: 0.2 }),
-    // Crunch has a chance to drop the target's Defense.
-    mk('Crunch', 'dark', 80, 1, {
-      kind: 'stage',
-      stat: 'def',
-      delta: -1,
-      chance: 0.3,
-      target: 'foe',
-    }),
+    // Crunch has a chance to drop the target's Physical Defense.
+    mk(
+      'Crunch',
+      'dark',
+      80,
+      1,
+      {
+        kind: 'stage',
+        stat: 'def',
+        delta: -1,
+        chance: 0.3,
+        target: 'foe',
+      },
+      'physical',
+    ),
   ],
   steel: [
     mk('Iron Head', 'steel', 80, 1, { kind: 'flinch', chance: 0.3 }),
-    mk('Flash Cannon', 'steel', 80, 1),
+    mk('Flash Cannon', 'steel', 80, 1, undefined, 'energy'),
   ],
   fairy: [
     mk('Moonblast', 'fairy', 95, 1),
@@ -214,10 +258,11 @@ export const TAUNT_TURNS = 3;
 // just sticks to their reliable STAB.
 const RECOIL_NUKES: Partial<Record<PokemonType, Move>> = {
   normal: mk('Double-Edge', 'normal', 120, 1, { kind: 'recoil', fraction: 1 / 3 }),
-  fire: mk('Flare Blitz', 'fire', 120, 1, { kind: 'recoil', fraction: 1 / 3 }),
-  water: mk('Wave Crash', 'water', 120, 1, { kind: 'recoil', fraction: 1 / 3 }),
-  electric: mk('Wild Charge', 'electric', 90, 1, { kind: 'recoil', fraction: 1 / 4 }),
-  grass: mk('Wood Hammer', 'grass', 120, 1, { kind: 'recoil', fraction: 1 / 3 }),
+  // These are body-checks and charges — physical, even on energy-typed elements.
+  fire: mk('Flare Blitz', 'fire', 120, 1, { kind: 'recoil', fraction: 1 / 3 }, 'physical'),
+  water: mk('Wave Crash', 'water', 120, 1, { kind: 'recoil', fraction: 1 / 3 }, 'physical'),
+  electric: mk('Wild Charge', 'electric', 90, 1, { kind: 'recoil', fraction: 1 / 4 }, 'physical'),
+  grass: mk('Wood Hammer', 'grass', 120, 1, { kind: 'recoil', fraction: 1 / 3 }, 'physical'),
   flying: mk('Brave Bird', 'flying', 120, 1, { kind: 'recoil', fraction: 1 / 3 }),
   rock: mk('Head Smash', 'rock', 130, 0.85, { kind: 'recoil', fraction: 1 / 2 }),
 };
@@ -237,7 +282,7 @@ const SIGNATURE_MOVES: Record<number, Move> = {
   // Rapidash — a headlong blazing charge: it almost always sears the foe, but
   // running this hot costs the horse its own footing (a stage of Speed each use).
   78: {
-    ...mk('Searing Gallop', 'fire', 100, 1, { kind: 'burn', chance: 0.5 }),
+    ...mk('Searing Gallop', 'fire', 100, 1, { kind: 'burn', chance: 0.5 }, 'physical'),
     selfStage: { stat: 'spd', delta: -1 },
   },
 
@@ -251,14 +296,14 @@ const SIGNATURE_MOVES: Record<number, Move> = {
   // Salamence — a meteor swarm called down from on high: devastating, but the
   // strain of pulling it off saps the dragon's own Attack two stages.
   373: {
-    ...mk('Draco Meteor', 'dragon', 130, 0.95),
+    ...mk('Draco Meteor', 'dragon', 130, 0.95, undefined, 'physical'),
     selfStage: { stat: 'atk', delta: -2 },
   },
 
   // Gengar — a creeping shadow that smothers the foe in toxin: middling power,
   // but it ALWAYS leaves the target badly poisoned, so a fast Gengar can stamp
   // a clock on something and then dance around it.
-  94: mk('Shadow Smother', 'ghost', 90, 1, { kind: 'poison', chance: 1 }),
+  94: mk('Shadow Smother', 'ghost', 90, 1, { kind: 'poison', chance: 1 }, 'energy'),
 
   // Machamp — a wild, telegraphed haymaker: it can whiff (low accuracy), but on
   // contact it ALWAYS leaves the foe reeling in confusion.
@@ -267,7 +312,7 @@ const SIGNATURE_MOVES: Record<number, Move> = {
   // Gyarados — a thrashing, all-out assault that hits like a truck but leaves the
   // serpent's own guard wide open (a stage of Defense each use).
   130: {
-    ...mk('Thrash', 'water', 130, 1),
+    ...mk('Thrash', 'water', 130, 1, undefined, 'physical'),
     selfStage: { stat: 'def', delta: -1 },
   },
 
@@ -280,6 +325,27 @@ const SIGNATURE_MOVES: Record<number, Move> = {
     chance: 1,
     target: 'foe',
   }),
+
+  // Alakazam — its mind overloads into a single psionic detonation: enormous
+  // power, but the spent psyche can't fire again right away, so it has to lean on
+  // coverage for a turn or two while the focus rebuilds (Psychic lockout).
+  65: { ...mk('Psycho Boost', 'psychic', 140, 0.9), lockTurns: 2 },
+
+  // Aggron — hurls its whole steel-clad bulk at the foe: a colossal slam that
+  // ALWAYS bowls the target over, dropping its Speed so the ponderous Aggron can
+  // still get the jump next time.
+  306: mk('Heavy Slam', 'steel', 130, 1, {
+    kind: 'stage',
+    stat: 'spd',
+    delta: -1,
+    chance: 1,
+    target: 'foe',
+  }),
+
+  // Crobat — a vampiric flurry of fangs that drains deep, healing the bat for a
+  // hefty share of the damage dealt (far more than an ordinary drain move) so it
+  // can stay airborne and pressuring far longer than its frame suggests.
+  169: mk('Vampire Fang', 'poison', 95, 1, { kind: 'lifesteal', fraction: 0.75 }),
 };
 
 /** A short note for a move's self-cost riders (selfStage / lockTurns), or null. */
@@ -317,6 +383,34 @@ const IRON_DEFENSE = mk('Iron Defense', 'steel', 0, 1, {
   kind: 'stage',
   stat: 'def',
   delta: 2,
+  chance: 1,
+  target: 'self',
+});
+// Energy-side mirrors of Swords Dance / Iron Defense: Nasty Plot pumps Energy
+// Attack, Amnesia fortifies Energy Defense. Handed to energy-leaning attackers
+// and energy-warding walls so the Physical/Energy split has setup on both axes.
+const NASTY_PLOT = mk('Nasty Plot', 'dark', 0, 1, {
+  kind: 'stage',
+  stat: 'eatk',
+  delta: 2,
+  chance: 1,
+  target: 'self',
+});
+const AMNESIA = mk('Amnesia', 'psychic', 0, 1, {
+  kind: 'stage',
+  stat: 'edef',
+  delta: 2,
+  chance: 1,
+  target: 'self',
+});
+// Calm Mind: the energy counterpart to Bulk Up — raises Energy Attack and
+// Energy Defense together, so a special attacker can snowball offence and bulk.
+const CALM_MIND = mk('Calm Mind', 'psychic', 0, 1, {
+  kind: 'multistage',
+  stages: [
+    { stat: 'eatk', delta: 1 },
+    { stat: 'edef', delta: 1 },
+  ],
   chance: 1,
   target: 'self',
 });
@@ -397,9 +491,22 @@ const ELEMENT_COVERAGE: Record<Element, PokemonType[]> = {
 // to match their outsized stats.
 const CELESTIAL_COVERAGE: PokemonType[] = ['fighting', 'ice', 'rock', 'ground'];
 
+/** A mon's best offensive stat (Physical or Energy Attack) and whether it leans
+ *  energy. Used to route setup/coverage to the right half of the split. */
+function bestOffense(s: BaseStats): number {
+  return Math.max(s.atk, s.eatk);
+}
+function isEnergyAttacker(s: BaseStats): boolean {
+  return s.eatk > s.atk;
+}
+/** A mon's better guard (Physical or Energy Defense). */
+function bestGuard(s: BaseStats): number {
+  return Math.max(s.def, s.edef);
+}
+
 /** Bulky enough to justify a sustain/defensive button (Recover, Iron Defense). */
 function isBulky(s: BaseStats): boolean {
-  return s.hp + s.def >= 170;
+  return s.hp + bestGuard(s) >= 170;
 }
 
 // Contact moves — punches, claws, bites, body checks and dashes — play a melee
@@ -425,10 +532,12 @@ const CONTACT_MOVES = new Set([
   'Wood Hammer',
   'Brave Bird',
   'Head Smash',
-  // Signature melee — a galloping body-check, a haymaker, a thrashing assault.
+  // Signature melee — a galloping body-check, a haymaker, a thrashing assault,
+  // a vampiric flurry of fangs.
   'Searing Gallop',
   'Dynamic Punch',
   'Thrash',
+  'Vampire Fang',
 ]);
 
 // Heavy, ground-shaking AoE moves play a big "Swing" slam.
@@ -437,8 +546,9 @@ const HEAVY_MOVES = new Set([
   'Stone Edge',
   'Rock Slide',
   'Icicle Crash',
-  // Tyranitar's signature avalanche lands as a heavy slam.
+  // Tyranitar's signature avalanche, Aggron's whole-body slam — heavy impacts.
   'Sandstorm Slam',
+  'Heavy Slam',
 ]);
 
 // Aura / sound / mind-burst specials play "SpAttack" (a stationary special cast)
@@ -456,8 +566,10 @@ const SPECIAL_MOVES = new Set([
   'Blast Burn',
   'Frenzy Plant',
   'Draco Meteor',
-  // Gengar's smothering shadow wells up in place rather than firing outward.
+  // Gengar's smothering shadow wells up in place rather than firing outward;
+  // Alakazam's psionic detonation bursts from the mind.
   'Shadow Smother',
+  'Psycho Boost',
 ]);
 
 /**
@@ -547,11 +659,12 @@ export function movesFor(
     if (!types.includes(t)) add(TYPE_MOVES[t][0]);
   }
 
-  // 2b) Reckless recoil nuke: a hard-hitting, non-bulky attacker reaches for a
-  //     STAB recoil move where its typing owns one — a high-risk finisher that
-  //     spends the user's HP for premium power (see RECOIL_NUKES). Added high so
-  //     a crowded pool can't crowd it out, and capped at one (the first matching
-  //     STAB type) so the rest of the kit stays varied.
+  // 2b) Reckless recoil nuke: a hard-hitting, non-bulky PHYSICAL attacker reaches
+  //     for a STAB recoil move where its typing owns one — a high-risk finisher
+  //     that spends the user's HP for premium power (see RECOIL_NUKES). Recoil
+  //     nukes are body-checks (physical), so they're gated on Physical Attack.
+  //     Added high so a crowded pool can't crowd it out, and capped at one (the
+  //     first matching STAB type) so the rest of the kit stays varied.
   if (!isBulky(stats) && stats.atk >= 95) {
     for (const t of types) {
       const nuke = RECOIL_NUKES[t];
@@ -563,9 +676,9 @@ export function movesFor(
   }
 
   // 3) Anti-wall counterplay for offensive mons — the answer TO bulk, so walls
-  //    themselves never get it. Hard hitters carry Super Fang (DEF-ignoring
-  //    chip); fast mons carry Taunt (stall-breaker).
-  if (!isBulky(stats) && stats.atk >= 85) add(SUPER_FANG);
+  //    themselves never get it. Hard hitters (either offence) carry Super Fang
+  //    (DEF-ignoring chip); fast mons carry Taunt (stall-breaker).
+  if (!isBulky(stats) && bestOffense(stats) >= 85) add(SUPER_FANG);
   if (!isBulky(stats) && stats.spd >= 90) add(TAUNT);
 
   // 4) Priority for fast, hard-hitting attackers — and for Technician mons,
@@ -574,34 +687,45 @@ export function movesFor(
 
   // 5) Exactly one setup/sustain button. Type-flavored dual-stat setups take
   //    precedence for the attackers that fit them (Dragon Dance for fast, hard-
-  //    hitting Dragons; Bulk Up for Fighters), then the single-stat setups, then
-  //    a pure wall's fortify/heal. Never Iron Defense + Recover together.
-  if (stats.atk >= 90 && types.includes('dragon')) {
+  //    hitting physical Dragons; Bulk Up for physical Fighters), then a single-
+  //    stat offence setup matched to the mon's stronger attack (Swords Dance for
+  //    physical, Nasty Plot for energy), then a pure wall's fortify/heal. Never
+  //    two setup buttons together.
+  const off = bestOffense(stats);
+  const energyAtk = isEnergyAttacker(stats);
+  if (off >= 90 && types.includes('dragon') && !energyAtk) {
     add(DRAGON_DANCE);
     if (isBulky(stats)) add(RECOVER);
-  } else if (stats.atk >= 90 && types.includes('fighting')) {
+  } else if (off >= 90 && types.includes('fighting') && !energyAtk) {
     add(BULK_UP);
     if (isBulky(stats)) add(RECOVER);
-  } else if (stats.atk >= 100) {
-    add(SWORDS_DANCE);
+  } else if (off >= 90 && types.includes('psychic') && energyAtk) {
+    add(CALM_MIND); // an energy psychic snowballs offence + special bulk
+    if (isBulky(stats)) add(RECOVER);
+  } else if (off >= 100) {
+    add(energyAtk ? NASTY_PLOT : SWORDS_DANCE);
     if (isBulky(stats)) add(RECOVER); // bulky attacker may still pack sustain
   } else if (stats.spd >= 100) {
     add(AGILITY);
     if (isBulky(stats)) add(RECOVER);
   } else if (isBulky(stats)) {
-    // Pure wall: fortify if defence-dominant, otherwise heal. One or the other.
-    if (stats.def >= stats.hp) add(IRON_DEFENSE);
-    else add(RECOVER);
+    // Pure wall: fortify if defence-dominant, otherwise heal. Fortify the half
+    // it's already better at (Iron Defense for physical, Amnesia for energy).
+    if (bestGuard(stats) >= stats.hp) {
+      add(stats.edef > stats.def ? AMNESIA : IRON_DEFENSE);
+    } else {
+      add(RECOVER);
+    }
   }
 
   // 5b) One support/disruption move — thematic where the typing fits, otherwise
   //     stat-based — capped at a single pick so attacks aren't crowded out. The
   //     battle AI decides when to actually throw these (see chooseMove).
-  if (types.includes('fairy') && stats.def >= stats.atk) {
+  if (types.includes('fairy') && bestGuard(stats) >= off) {
     add(CHARM); // defensive Fairy saps the foe's Attack
   } else if (types.includes('ghost')) {
     add(CONFUSE_RAY); // Ghosts disrupt with confusion
-  } else if (isBulky(stats) && stats.atk >= 90) {
+  } else if (isBulky(stats) && off >= 90) {
     add(SCREECH); // bulky attacker melts a wall's Defense
   } else if (isBulky(stats) && stats.spd <= 70) {
     add(SCARY_FACE); // slow wall flips the speed tier

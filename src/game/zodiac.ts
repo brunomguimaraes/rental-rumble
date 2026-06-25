@@ -39,7 +39,8 @@ export function signSummary(sign: Sign): string {
       : `${info.tier} celestial sign`;
   return (
     `${signLabel(sign)} — ${subtitle}\n` +
-    `HP ${tilt(sp.hp)}   ATK ${tilt(sp.atk)}   DEF ${tilt(sp.def)}   SPD ${tilt(sp.spd)}\n` +
+    `HP ${tilt(sp.hp)}   ATK ${tilt(sp.atk)}   E.ATK ${tilt(sp.eatk)}\n` +
+    `DEF ${tilt(sp.def)}   E.DEF ${tilt(sp.edef)}   SPD ${tilt(sp.spd)}\n` +
     info.tagline
   );
 }
@@ -104,38 +105,43 @@ export const ELEMENT_INFO: Record<
 
 export interface SignSpread {
   hp: number;
-  atk: number;
-  def: number;
+  atk: number; // Physical Attack
+  eatk: number; // Energy Attack
+  def: number; // Physical Defense
+  edef: number; // Energy Defense
   spd: number;
 }
 
-// Nature/EV-style tilts applied on top of base stats. Kept gentle (≈0.84–1.14)
+// Nature/EV-style tilts applied on top of base stats. Kept gentle (≈0.84–1.16)
 // so the sign flavours a Pokémon without swinging balance wildly. Within an
-// element the three signs share a direction but differ by modality.
+// element the three signs share a broad direction (fire = offense, earth = bulk,
+// air = speed, water = sustain) but the modality also leans the mon toward the
+// PHYSICAL or ENERGY half of the split — so a sign is now an identity on both
+// axes (e.g. Aries is a physical rusher, Sagittarius an energy skirmisher).
 export const SIGN_SPREAD: Record<Sign, SignSpread> = {
   // Fire — offense.
-  aries: { hp: 0.92, atk: 1.1, def: 0.88, spd: 1.12 }, // cardinal: glass-cannon rusher
-  leo: { hp: 1.0, atk: 1.14, def: 0.96, spd: 0.98 }, // fixed: proud heavy hitter
-  sagittarius: { hp: 0.94, atk: 1.06, def: 0.92, spd: 1.1 }, // mutable: ranged skirmisher
+  aries: { hp: 0.92, atk: 1.14, eatk: 0.96, def: 0.88, edef: 0.9, spd: 1.12 }, // cardinal: physical glass-cannon rusher
+  leo: { hp: 1.02, atk: 1.14, eatk: 0.98, def: 0.98, edef: 0.96, spd: 0.96 }, // fixed: proud physical heavy hitter
+  sagittarius: { hp: 0.94, atk: 0.96, eatk: 1.14, def: 0.9, edef: 0.92, spd: 1.1 }, // mutable: ranged energy skirmisher
   // Earth — bulk.
-  capricorn: { hp: 1.08, atk: 0.94, def: 1.12, spd: 0.9 }, // cardinal: wall that pushes
-  taurus: { hp: 1.14, atk: 0.92, def: 1.14, spd: 0.84 }, // fixed: immovable
-  virgo: { hp: 1.04, atk: 0.98, def: 1.08, spd: 0.94 }, // mutable: efficient bulk
+  capricorn: { hp: 1.06, atk: 1.02, eatk: 0.92, def: 1.14, edef: 1.02, spd: 0.9 }, // cardinal: physical wall that pushes
+  taurus: { hp: 1.12, atk: 1.02, eatk: 0.86, def: 1.16, edef: 1.0, spd: 0.86 }, // fixed: immovable physical wall
+  virgo: { hp: 1.04, atk: 0.9, eatk: 1.0, def: 1.02, edef: 1.14, spd: 0.94 }, // mutable: efficient energy-warding bulk
   // Air — speed / balance.
-  libra: { hp: 1.02, atk: 1.0, def: 1.02, spd: 1.04 }, // cardinal: perfectly balanced
-  aquarius: { hp: 1.0, atk: 0.98, def: 1.02, spd: 1.1 }, // fixed: slippery control
-  gemini: { hp: 0.94, atk: 1.04, def: 0.9, spd: 1.14 }, // mutable: quick & versatile
+  libra: { hp: 1.0, atk: 1.0, eatk: 1.0, def: 1.02, edef: 1.02, spd: 1.05 }, // cardinal: perfectly balanced
+  aquarius: { hp: 1.0, atk: 0.9, eatk: 1.08, def: 1.0, edef: 1.04, spd: 1.1 }, // fixed: slippery energy control
+  gemini: { hp: 0.94, atk: 1.08, eatk: 0.96, def: 0.92, edef: 0.94, spd: 1.14 }, // mutable: quick physical skirmisher
   // Water — sustain.
-  cancer: { hp: 1.12, atk: 0.94, def: 1.06, spd: 0.92 }, // cardinal: protective
-  scorpio: { hp: 0.96, atk: 1.1, def: 0.94, spd: 1.04 }, // fixed: venomous striker
-  pisces: { hp: 1.06, atk: 0.98, def: 1.02, spd: 1.0 }, // mutable: dreamy all-rounder
+  cancer: { hp: 1.12, atk: 0.94, eatk: 0.96, def: 1.08, edef: 1.08, spd: 0.9 }, // cardinal: protective mixed wall
+  scorpio: { hp: 0.98, atk: 1.12, eatk: 0.96, def: 0.96, edef: 0.98, spd: 1.04 }, // fixed: venomous physical striker
+  pisces: { hp: 1.06, atk: 0.92, eatk: 1.06, def: 1.02, edef: 1.04, spd: 0.98 }, // mutable: dreamy energy all-rounder
   // Rare celestial wanderers — big, lopsided boosts with at most a slight dip.
-  orion: { hp: 1.06, atk: 1.26, def: 0.98, spd: 1.2 }, // the Hunter: overwhelming offense
-  cetus: { hp: 1.3, atk: 1.08, def: 1.24, spd: 0.92 }, // the Sea Monster: monstrous bulk
-  aquila: { hp: 1.0, atk: 1.16, def: 0.96, spd: 1.32 }, // the Eagle: blinding speed
-  serpens: { hp: 1.14, atk: 1.18, def: 1.12, spd: 1.16 }, // the Serpent: strong all-rounder
+  orion: { hp: 1.06, atk: 1.24, eatk: 1.2, def: 0.98, edef: 0.98, spd: 1.2 }, // the Hunter: overwhelming offense
+  cetus: { hp: 1.3, atk: 1.06, eatk: 1.06, def: 1.24, edef: 1.24, spd: 0.92 }, // the Sea Monster: monstrous bulk
+  aquila: { hp: 1.0, atk: 1.14, eatk: 1.14, def: 0.96, edef: 0.96, spd: 1.34 }, // the Eagle: blinding speed
+  serpens: { hp: 1.14, atk: 1.16, eatk: 1.16, def: 1.12, edef: 1.12, spd: 1.16 }, // the Serpent: strong all-rounder
   // Mythic — a flat blessing across the board.
-  abhijit: { hp: 1.5, atk: 1.5, def: 1.5, spd: 1.5 },
+  abhijit: { hp: 1.5, atk: 1.5, eatk: 1.5, def: 1.5, edef: 1.5, spd: 1.5 },
 };
 
 export interface SignMeta {
@@ -182,7 +188,9 @@ export function signFit(sign: Sign, s: BaseStats): number {
   return (
     (sp.hp - 1) * s.hp +
     (sp.atk - 1) * s.atk +
+    (sp.eatk - 1) * s.eatk +
     (sp.def - 1) * s.def +
+    (sp.edef - 1) * s.edef +
     (sp.spd - 1) * s.spd
   );
 }
@@ -205,9 +213,23 @@ export function defaultSign(s: BaseStats): Sign {
  * flat, well-rounded line gets the all-around Serpens.
  */
 export function bestRareSign(s: BaseStats): Sign {
-  const mean = (s.hp + s.atk + s.def + s.spd) / 4;
-  const dev = { hp: s.hp - mean, atk: s.atk - mean, def: s.def - mean, spd: s.spd - mean };
-  const spread = Math.max(Math.abs(dev.hp), Math.abs(dev.atk), Math.abs(dev.def), Math.abs(dev.spd));
+  const mean = (s.hp + s.atk + s.eatk + s.def + s.edef + s.spd) / 6;
+  const dev = {
+    hp: s.hp - mean,
+    atk: s.atk - mean,
+    eatk: s.eatk - mean,
+    def: s.def - mean,
+    edef: s.edef - mean,
+    spd: s.spd - mean,
+  };
+  const spread = Math.max(
+    Math.abs(dev.hp),
+    Math.abs(dev.atk),
+    Math.abs(dev.eatk),
+    Math.abs(dev.def),
+    Math.abs(dev.edef),
+    Math.abs(dev.spd),
+  );
   if (spread < 12) return 'serpens';
 
   const shaped: Sign[] = ['orion', 'aquila', 'cetus'];
@@ -218,7 +240,9 @@ export function bestRareSign(s: BaseStats): Sign {
     const score =
       dev.hp * (sp.hp - 1) +
       dev.atk * (sp.atk - 1) +
+      dev.eatk * (sp.eatk - 1) +
       dev.def * (sp.def - 1) +
+      dev.edef * (sp.edef - 1) +
       dev.spd * (sp.spd - 1);
     if (score > bestScore) {
       bestScore = score;

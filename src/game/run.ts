@@ -20,7 +20,7 @@ import { RNG } from './rng.js';
  * per gauntlet), so finding one feels lucky rather than impossible. A shiny is a
  * gentle, flat stat upgrade (see SHINY_STAT_MULT) — never a build-warper.
  */
-export const SHINY_CHANCE = 1 / 120;
+export const SHINY_CHANCE = 1 / 500;
 
 /**
  * Odds a freshly-drafted Pokémon shows up in a fan-made alternate colour — a

@@ -20,8 +20,22 @@ export type PokemonType =
 
 export type StatusKind = 'burn' | 'stun' | 'poison' | 'sleep' | null;
 
-/** A stat a stage modifier can tilt during battle (HP is never staged). */
-export type StageStat = 'atk' | 'def' | 'spd';
+/**
+ * How a move resolves its damage. The split mirrors the real games but with our
+ * own naming: a `physical` move pits the attacker's Physical Attack against the
+ * defender's Physical Defense, an `energy` move pits Energy Attack against Energy
+ * Defense, and a `status` move deals no direct damage. A move that omits its
+ * category falls back to a type-based default (see moveCategory in moves.ts).
+ */
+export type MoveCategory = 'physical' | 'energy' | 'status';
+
+/**
+ * A stat a stage modifier can tilt during battle (HP is never staged). Covers
+ * both offence pairs (Physical/Energy Attack) and both guard pairs
+ * (Physical/Energy Defense) plus Speed, so setup moves and abilities can target
+ * the right half of the split.
+ */
+export type StageStat = 'atk' | 'eatk' | 'def' | 'edef' | 'spd';
 
 export type MoveEffect =
   | { kind: 'burn'; chance: number }
@@ -75,6 +89,11 @@ export interface Move {
   name: string;
   type: PokemonType;
   power: number; // 0 for pure-status / heal / setup moves
+  // Physical / Energy / Status. Optional: when omitted the engine derives it from
+  // the move's type (the classic offensive split) via moveCategory(). Set only on
+  // moves that buck their type's default (a physical Dragon Claw, an energy Earth
+  // Power, …). A status move's category is irrelevant to damage.
+  category?: MoveCategory;
   accuracy: number; // 0..1
   priority?: number; // >0 moves before slower foes regardless of Speed (default 0)
   // Power Points: how many times this move may be used in a battle. `undefined`
@@ -98,9 +117,11 @@ export interface Move {
 
 export interface BaseStats {
   hp: number;
-  atk: number;
-  def: number;
-  spd: number;
+  atk: number; // Physical Attack
+  eatk: number; // Energy Attack
+  def: number; // Physical Defense
+  edef: number; // Energy Defense
+  spd: number; // Speed
 }
 
 /**
@@ -378,8 +399,10 @@ export type RelicId =
  * an ordinary fight is unaffected.
  */
 export interface RelicMods {
-  atkMult: number; // Attack multiplier (Muscle Band)
-  defMult: number; // Defense multiplier (Assault Vest)
+  atkMult: number; // Physical Attack multiplier (Muscle Band)
+  eatkMult: number; // Energy Attack multiplier
+  defMult: number; // Physical Defense multiplier (Assault Vest)
+  edefMult: number; // Energy Defense multiplier (Assault Vest)
   spdMult: number; // Speed multiplier (Quick Claw)
   allDmgMult: number; // flat multiplier on all damage dealt (Wise Glasses, Life Orb)
   // Per-type damage multipliers, stacked onto allDmgMult for matching move types
@@ -460,7 +483,9 @@ export interface Battler {
   // throw a pure-status move — it must attack. A volatile that ticks down each
   // round (see endOfTurnStatus) and breaks the fortify-and-heal wall loop.
   taunted: number;
-  stages: { atk: number; def: number; spd: number }; // -6..+6 battle buffs/debuffs
+  // -6..+6 battle buffs/debuffs, one slot per staged stat (both attack and both
+  // defense halves of the Physical/Energy split, plus Speed).
+  stages: { atk: number; eatk: number; def: number; edef: number; spd: number };
   // Remaining uses for any move that carries a `pp` cap (keyed by move name).
   // Moves without a cap are absent here and may be used freely.
   pp: Record<string, number>;

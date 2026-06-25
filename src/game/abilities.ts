@@ -30,8 +30,19 @@ import { RAW_DEX } from './pokedex.gen.js';
 export interface AbilityDef {
   id: AbilityId;
   name: string;
-  /** One-line, player-facing explanation (used on cards and in the guide). */
+  /**
+   * One-line, player-facing explanation (used on cards and in the guide). This
+   * deliberately omits hard numbers (multipliers, percentages, exact stages) —
+   * players get the gist, not the tuning. The precise figures live in
+   * `devDescription`.
+   */
   description: string;
+  /**
+   * The exact-numbers version, shown only in dev builds (see
+   * `abilityDescription`). Present only on abilities whose player copy hides a
+   * number; everything else reads the same in both modes.
+   */
+  devDescription?: string;
 }
 
 export const ABILITIES: Record<AbilityId, AbilityDef> = {
@@ -61,12 +72,15 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
     id: 'guts',
     name: 'Guts',
     description:
+      'Powers through a status condition, hitting noticeably harder while burned, poisoned or paralyzed.',
+    devDescription:
       'Powers through a status condition, hitting 1.5× harder while burned, poisoned or paralyzed.',
   },
   adaptability: {
     id: 'adaptability',
     name: 'Adaptability',
-    description: 'Its same-type attacks hit even harder — STAB is doubled to 2×.',
+    description: 'Its same-type attacks hit even harder — its STAB bonus is doubled.',
+    devDescription: 'Its same-type attacks hit even harder — STAB is doubled to 2×.',
   },
   intimidate: {
     id: 'intimidate',
@@ -78,6 +92,8 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
     id: 'sturdy',
     name: 'Sturdy',
     description:
+      'If at full health, it endures any hit that would knock it out, hanging on by a thread.',
+    devDescription:
       'If at full health, it endures any hit that would knock it out, hanging on with 1 HP.',
   },
   levitate: {
@@ -99,27 +115,37 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
   technician: {
     id: 'technician',
     name: 'Technician',
-    description: 'Masters its weaker moves — any attack of 60 power or less hits 1.5× harder.',
+    description: 'Masters its weaker moves — its weaker attacks hit noticeably harder.',
+    devDescription: 'Masters its weaker moves — any attack of 60 power or less hits 1.5× harder.',
   },
   blaze: {
     id: 'blaze',
     name: 'Blaze',
-    description: 'Cornered and below a third of its HP, its Fire-type moves flare to 1.5× power.',
+    description: 'Cornered and below a third of its HP, its Fire-type moves flare with extra power.',
+    devDescription:
+      'Cornered and below a third of its HP, its Fire-type moves flare to 1.5× power.',
   },
   torrent: {
     id: 'torrent',
     name: 'Torrent',
-    description: 'Cornered and below a third of its HP, its Water-type moves surge to 1.5× power.',
+    description:
+      'Cornered and below a third of its HP, its Water-type moves surge with extra power.',
+    devDescription:
+      'Cornered and below a third of its HP, its Water-type moves surge to 1.5× power.',
   },
   overgrow: {
     id: 'overgrow',
     name: 'Overgrow',
-    description: 'Cornered and below a third of its HP, its Grass-type moves bloom to 1.5× power.',
+    description:
+      'Cornered and below a third of its HP, its Grass-type moves bloom with extra power.',
+    devDescription:
+      'Cornered and below a third of its HP, its Grass-type moves bloom to 1.5× power.',
   },
   swarm: {
     id: 'swarm',
     name: 'Swarm',
-    description: 'Cornered and below a third of its HP, its Bug-type moves swarm to 1.5× power.',
+    description: 'Cornered and below a third of its HP, its Bug-type moves swarm with extra power.',
+    devDescription: 'Cornered and below a third of its HP, its Bug-type moves swarm to 1.5× power.',
   },
   static: {
     id: 'static',
@@ -159,7 +185,8 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
   'solid-rock': {
     id: 'solid-rock',
     name: 'Solid Rock',
-    description: 'A rugged frame blunts super-effective hits, taking only 0.75× from them.',
+    description: 'A rugged frame blunts super-effective hits, taking noticeably less from them.',
+    devDescription: 'A rugged frame blunts super-effective hits, taking only 0.75× from them.',
   },
   'tinted-lens': {
     id: 'tinted-lens',
@@ -199,12 +226,16 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
   sniper: {
     id: 'sniper',
     name: 'Sniper',
-    description: 'Takes deadly aim — its critical hits strike for 2.25× instead of the usual 1.5×.',
+    description: 'Takes deadly aim — its critical hits strike for even more than usual.',
+    devDescription:
+      'Takes deadly aim — its critical hits strike for 2.25× instead of the usual 1.5×.',
   },
   'sheer-force': {
     id: 'sheer-force',
     name: 'Sheer Force',
-    description: 'Hits with raw power for 30% more damage, but its moves\u2019 added effects never trigger.',
+    description: 'Hits with raw power for extra damage, but its moves\u2019 added effects never trigger.',
+    devDescription:
+      'Hits with raw power for 30% more damage, but its moves\u2019 added effects never trigger.',
   },
   'shed-skin': {
     id: 'shed-skin',
@@ -239,7 +270,9 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
   'flash-fire': {
     id: 'flash-fire',
     name: 'Flash Fire',
-    description: 'Fire can\u2019t touch it; once doused in flame, its own Fire moves burn 1.5\u00d7 hotter.',
+    description: 'Fire can\u2019t touch it; once doused in flame, its own Fire moves burn hotter.',
+    devDescription:
+      'Fire can\u2019t touch it; once doused in flame, its own Fire moves burn 1.5\u00d7 hotter.',
   },
   'sap-sipper': {
     id: 'sap-sipper',
@@ -254,7 +287,8 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
   'dry-skin': {
     id: 'dry-skin',
     name: 'Dry Skin',
-    description: 'A porous hide: Water heals it, but Fire bites for 1.25\u00d7 the damage.',
+    description: 'A porous hide: Water heals it, but Fire bites for extra damage.',
+    devDescription: 'A porous hide: Water heals it, but Fire bites for 1.25\u00d7 the damage.',
   },
   heatproof: {
     id: 'heatproof',
@@ -329,7 +363,9 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
   hustle: {
     id: 'hustle',
     name: 'Hustle',
-    description: 'Throws its whole body into each blow for 1.5\u00d7 Attack, at the cost of shakier accuracy (0.8\u00d7).',
+    description: 'Throws its whole body into each blow for more Attack, at the cost of shakier accuracy.',
+    devDescription:
+      'Throws its whole body into each blow for 1.5\u00d7 Attack, at the cost of shakier accuracy (0.8\u00d7).',
   },
   defeatist: {
     id: 'defeatist',
@@ -359,32 +395,44 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
   overload: {
     id: 'overload',
     name: 'Overload',
-    description: 'Runs hot: the stat boosts it gains are 25% stronger, but burn and poison gnaw at it 50% harder.',
+    description: 'Runs hot: the stat boosts it gains are stronger, but burn and poison gnaw at it harder.',
+    devDescription:
+      'Runs hot: the stat boosts it gains are 25% stronger, but burn and poison gnaw at it 50% harder.',
   },
   'glass-cannon': {
     id: 'glass-cannon',
     name: 'Glass Cannon',
-    description: 'All offence, no guard — it deals 1.3\u00d7 damage but takes 1.2\u00d7 from every hit in return.',
+    description: 'All offence, no guard — it deals extra damage but takes more from every hit in return.',
+    devDescription:
+      'All offence, no guard — it deals 1.3\u00d7 damage but takes 1.2\u00d7 from every hit in return.',
   },
   'last-stand': {
     id: 'last-stand',
     name: 'Last Stand',
-    description: 'The more wounded it is, the harder it fights — its damage climbs toward 1.5\u00d7 as its HP empties.',
+    description: 'The more wounded it is, the harder it fights — its damage climbs as its HP empties.',
+    devDescription:
+      'The more wounded it is, the harder it fights — its damage climbs toward 1.5\u00d7 as its HP empties.',
   },
   legacy: {
     id: 'legacy',
     name: 'Legacy',
-    description: 'When it faints, it passes on its strength — the next ally enters with a sharp +2 to the stat it was best at.',
+    description: 'When it faints, it passes on its strength — the next ally enters with a sharp boost to the stat it was best at.',
+    devDescription:
+      'When it faints, it passes on its strength — the next ally enters with a sharp +2 to the stat it was best at.',
   },
   rally: {
     id: 'rally',
     name: 'Rally',
-    description: 'Its fall rallies the team — the next ally charges out fired up, with +1 Attack and +1 Speed.',
+    description: 'Its fall rallies the team — the next ally charges out fired up, with raised Attack and Speed.',
+    devDescription:
+      'Its fall rallies the team — the next ally charges out fired up, with +1 Attack and +1 Speed.',
   },
   'glory-hog': {
     id: 'glory-hog',
     name: 'Glory Hog',
-    description: 'A spotlight-stealing star: it fights at 1.15\u00d7 its stats, but hogs the glory, dragging the rest of its team to 0.9\u00d7.',
+    description: 'A spotlight-stealing star: it fights above its stats, but hogs the glory, dragging the rest of its team below theirs.',
+    devDescription:
+      'A spotlight-stealing star: it fights at 1.15\u00d7 its stats, but hogs the glory, dragging the rest of its team to 0.9\u00d7.',
   },
 };
 
@@ -892,13 +940,17 @@ const TYPE_ABILITIES: Record<PokemonType, AbilityId[]> = {
   fairy: ['magic-guard', 'clear-body', 'unaware'],
 };
 
-/** A stat-flavoured pool keyed to a species' single biggest base stat. */
+/** A stat-flavoured pool keyed to a species' single biggest base stat. The
+ *  Physical/Energy split collapses back to "offence" (best of the two attacks)
+ *  and "bulk" (best of the two defenses) so the flavour stays type-agnostic. */
 function statFlavor(stats: BaseStats): AbilityId[] {
-  const { hp, atk, def, spd } = stats;
-  const max = Math.max(hp, atk, def, spd);
-  if (atk === max) return ['moxie', 'sheer-force', 'guts'];
+  const { hp, atk, eatk, def, edef, spd } = stats;
+  const offense = Math.max(atk, eatk);
+  const bulk = Math.max(def, edef);
+  const max = Math.max(hp, offense, bulk, spd);
+  if (offense === max) return ['moxie', 'sheer-force', 'guts'];
   if (spd === max) return ['speed-boost', 'quick-feet', 'sniper'];
-  if (def === max) return ['stamina', 'battle-armor', 'sturdy'];
+  if (bulk === max) return ['stamina', 'battle-armor', 'sturdy'];
   return ['regenerator', 'thick-fat', 'shed-skin']; // HP-dominant (or tie → HP)
 }
 
@@ -999,4 +1051,16 @@ export function rerollAbility(
 /** Display metadata for an ability id. */
 export function abilityInfo(id: AbilityId): AbilityDef {
   return ABILITIES[id];
+}
+
+/**
+ * The description to actually render. Players get the number-free `description`;
+ * dev builds get the precise `devDescription` (where one exists) so tuning is
+ * still inspectable. Callers pass `import.meta.env.DEV` for `dev` — kept as an
+ * explicit arg so this module stays free of Vite-only globals (it's shared with
+ * the server re-sim).
+ */
+export function abilityDescription(id: AbilityId, dev = false): string {
+  const def = ABILITIES[id];
+  return dev && def.devDescription ? def.devDescription : def.description;
 }

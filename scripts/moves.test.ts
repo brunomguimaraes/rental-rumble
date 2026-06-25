@@ -9,7 +9,7 @@
  */
 import { moveEffectLabel, moveSelfNote, movesFor, MOVE_SLOTS } from '../src/game/moves.js';
 import { CREATURES, CREATURES_BY_ID } from '../src/game/pokemon.js';
-import type { BaseStats, Move, MoveEffect, PokemonType } from '../src/game/types.js';
+import type { BaseStats, Move, MoveEffect } from '../src/game/types.js';
 
 let passed = 0;
 let failed = 0;
@@ -34,10 +34,22 @@ const SETUP_BUTTONS = new Set([
 // The support/disruption layer (movesFor grants at most ONE of these per mon).
 const SUPPORT_MOVES = new Set(['Charm', 'Screech', 'Scary Face', 'Confuse Ray']);
 
-const stats = (hp: number, atk: number, def: number, spd: number): BaseStats => ({
+// Keeps the legacy (hp, atk, def, spd) call shape used throughout this test;
+// Energy Attack/Defense default to mirror the physical pair, so these fixtures
+// read as balanced mons unless a test cares about the split.
+const stats = (
+  hp: number,
+  atk: number,
+  def: number,
+  spd: number,
+  eatk: number = atk,
+  edef: number = def,
+): BaseStats => ({
   hp,
   atk,
+  eatk,
   def,
+  edef,
   spd,
 });
 const has = (moves: Move[], name: string) => moves.some((m) => m.name === name);
@@ -241,6 +253,25 @@ console.log('\n[5] Signature moves — custom riders land on the right species')
   check('Tyranitar carries Sandstorm Slam (always shreds foe Defense)', (() => {
     const m = sig('248', 'Sandstorm Slam');
     return !!m && m.effect?.kind === 'stage' && m.effect.target === 'foe' && m.effect.delta < 0 && m.effect.chance >= 1;
+  })());
+  check('Alakazam carries Psycho Boost (huge Psychic nuke with a lockout)', (() => {
+    const m = sig('65', 'Psycho Boost');
+    return !!m && m.type === 'psychic' && m.power >= 130 && (m.lockTurns ?? 0) > 0;
+  })());
+  check('Aggron carries Heavy Slam (always slows the foe)', (() => {
+    const m = sig('306', 'Heavy Slam');
+    return (
+      !!m &&
+      m.effect?.kind === 'stage' &&
+      m.effect.stat === 'spd' &&
+      m.effect.target === 'foe' &&
+      m.effect.delta < 0 &&
+      m.effect.chance >= 1
+    );
+  })());
+  check('Crobat carries Vampire Fang (drains more than an ordinary leech)', (() => {
+    const m = sig('169', 'Vampire Fang');
+    return !!m && m.effect?.kind === 'lifesteal' && m.effect.fraction > 0.5;
   })());
 
   // Every shipped signature with a lockout also leaves its owner a fallback, or

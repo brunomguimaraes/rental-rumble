@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { Creature, Move } from '../game/types';
-import { moveEffectLabel, moveSelfNote } from '../game/moves';
+import { moveCategory, moveEffectLabel, moveSelfNote } from '../game/moves';
 import { TYPE_COLORS, typeIconUrl, typeLabel } from '../game/typechart';
 
 /**
@@ -79,9 +79,12 @@ export function MovesModal({
   );
 }
 
+const CATEGORY_LABEL = { physical: 'Physical', energy: 'Energy', status: 'Status' } as const;
+
 function MoveRow({ move, stab }: { move: Move; stab: boolean }) {
   const color = TYPE_COLORS[move.type];
   const isStatus = move.power === 0;
+  const category = moveCategory(move);
   const selfNote = moveSelfNote(move);
   return (
     <li
@@ -108,6 +111,7 @@ function MoveRow({ move, stab }: { move: Move; stab: boolean }) {
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-white/55">
           <span style={{ color }}>{typeLabel(move.type)}</span>
+          <span className="text-white/40">· {CATEGORY_LABEL[category]}</span>
           {move.effect && (
             <span className="text-emerald-300/90">· {moveEffectLabel(move.effect)}</span>
           )}

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Creature, SpecialTier } from '../game/types';
 import { SHINY_STAT_MULT } from '../game/pokemon';
-import { abilityInfo } from '../game/abilities';
+import { abilityDescription, abilityInfo } from '../game/abilities';
 import { TYPE_COLORS } from '../game/typechart';
 import {
   SIGN_INFO,
@@ -54,7 +54,7 @@ function StatBar({
             }${Math.round((mult - 1) * 100)}%)`
       }
     >
-      <span className="w-6 shrink-0 text-[10px] uppercase tracking-wider text-white/45 sm:w-7">
+      <span className="w-9 shrink-0 text-[10px] uppercase tracking-wider text-white/45 sm:w-10">
         {label}
       </span>
       <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/10">
@@ -321,8 +321,10 @@ export function CreatureCard({
       </div>
       <div className="mt-2 space-y-1">
         <StatBar label="HP" value={creature.stats.hp} mult={spread.hp * shinyMult} />
-        <StatBar label="ATK" value={creature.stats.atk} mult={spread.atk * shinyMult} />
-        <StatBar label="DEF" value={creature.stats.def} mult={spread.def * shinyMult} />
+        <StatBar label="P.ATK" value={creature.stats.atk} mult={spread.atk * shinyMult} />
+        <StatBar label="E.ATK" value={creature.stats.eatk} mult={spread.eatk * shinyMult} />
+        <StatBar label="P.DEF" value={creature.stats.def} mult={spread.def * shinyMult} />
+        <StatBar label="E.DEF" value={creature.stats.edef} mult={spread.edef * shinyMult} />
         <StatBar label="SPD" value={creature.stats.spd} mult={spread.spd * shinyMult} />
       </div>
 
@@ -367,7 +369,12 @@ export function CreatureCard({
           </button>
         </div>
         {ability ? (
-          <AbilityTag ability={ability} />
+          <AbilityTag
+            ability={{
+              name: ability.name,
+              description: abilityDescription(ability.id, import.meta.env.DEV),
+            }}
+          />
         ) : (
           // Reserve the ability row's exact footprint so cards stay the same
           // height whether or not the species has an ability — otherwise the

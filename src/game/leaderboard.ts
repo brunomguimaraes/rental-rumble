@@ -20,7 +20,7 @@ import { ALL_SIGNS } from './zodiac.js';
 import {
   buildChampionTeam,
   simulateBattle,
-  TIER_STAT_MULT,
+  championFoeStatMult,
   PLAYER_STAT_MULT,
 } from './battle.js';
 import {
@@ -341,9 +341,10 @@ export function verifyChampionWin(payload: SubmissionPayload): VerifyResult {
   const relics = sanitizeRelics(payload.relics);
   const result = simulateBattle(playerTeam, foeTeam, `${seed}#${stage}`, {
     playerStatMult: PLAYER_STAT_MULT,
-    foeStatMult: TIER_STAT_MULT.champion ?? 1,
-    // Must match the client's Champion fight: on Master the foe plays perfectly,
-    // on Easy it plays sloppily, so verification has to use the same difficulty.
+    // The boss's hidden, difficulty-scaled passive must match the client's
+    // Champion fight, so verification rebuilds it from the same difficulty (which
+    // also drives the foe's move-pick focus: perfect on Master, sloppy on Easy).
+    foeStatMult: championFoeStatMult(difficulty),
     difficulty,
     playerRelics: relics,
   });
