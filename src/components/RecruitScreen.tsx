@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AbilityId, Creature, Sign } from '../game/types';
+import type { AbilityId, Creature, Move, Sign } from '../game/types';
 import type { BracketId } from '../game/gens';
 import {
   canEvolve,
@@ -8,11 +8,18 @@ import {
   evolveCreature,
   withSign,
   withAbility,
+  withMoveOverride,
   asShiny,
   canBeShiny,
   withRandomPortrait,
   sameFamily,
 } from '../game/pokemon';
+import {
+  candidateMovesFor,
+  moveCategoryLabel,
+  moveEffectLabel,
+  moveSelfNote,
+} from '../game/moves';
 import {
   rerollSign,
   rerollRareSign,
@@ -38,7 +45,7 @@ import { RNG } from '../game/rng';
 import { CreatureCard } from './CreatureCard';
 import { CupIcon } from './CupIcon';
 
-type Mode = 'choose' | 'recruit' | 'evolve' | 'reroll' | 'ability';
+type Mode = 'choose' | 'recruit' | 'evolve' | 'move' | 'reroll' | 'ability';
 type RewardMode = Exclude<Mode, 'choose'>;
 
 // Picking a reward type is a commitment — once chosen the player can't switch to
@@ -68,6 +75,11 @@ const REWARD_META: Record<RewardMode, { emoji: string; title: string; commit: st
     emoji: '🎟️',
     title: 'Evolution Ticket',
     commit: 'You\'ll evolve one of your team into its next stage.',
+  },
+  move: {
+    emoji: '📝',
+    title: 'Tweak a Move',
+    commit: 'You\'ll swap one move on one of your team for another it can learn.',
   },
   reroll: {
     emoji: '🎲',
@@ -133,6 +145,13 @@ export function RecruitScreen({
   // Reward 2 — evolution ticket: evolve exactly one of YOUR Pokémon.
   const [evolveSlot, setEvolveSlot] = useState<number | null>(null);
   const [evolveTarget, setEvolveTarget] = useState<number | null>(null);
+
+  // Reward 2.5 — tweak a move: replace one move on one of YOUR Pokémon with
+  // another from the species' legal pool (a deliberate, build-it-yourself pick —
+  // no gamble). Three steps: which Pokémon, which move slot, the replacement.
+  const [moveTeamSlot, setMoveTeamSlot] = useState<number | null>(null);
+  const [moveSlotIdx, setMoveSlotIdx] = useState<number | null>(null);
+  const [moveChoice, setMoveChoice] = useState<Move | null>(null);
 
   // Reward 3 — sign reroll: gamble one of YOUR Pokémon's signs. The outcome is
   // pinned to a run+stage seed, so the *rarity* of the result is fixed before the
@@ -213,6 +232,7 @@ export function RecruitScreen({
 
   const recruitDone = foeIdx !== null && recruitSlot !== null;
   const evolveDone = evolveSlot !== null && evolveTarget !== null;
+  const moveDone = moveTeamSlot !== null && moveSlotIdx !== null && moveChoice !== null;
   const rerollDone = rerollSlot !== null;
   // A strong special needs an explicit pick; a weak one is locked in by the slot
   // alone (the result is a blind gamble revealed on confirm).
@@ -223,6 +243,8 @@ export function RecruitScreen({
   const resultTeam = currentTeam.map((c, i) => {
     if (mode === 'recruit' && recruitDone && i === recruitSlot) return defeatedView[foeIdx];
     if (mode === 'evolve' && evolveDone && i === evolveSlot) return evolveCreature(c, evolveTarget);
+    if (mode === 'move' && moveDone && i === moveTeamSlot)
+      return withMoveOverride(c, moveSlotIdx, moveChoice);
     if (mode === 'reroll' && rerollDone && i === rerollSlot) return withSign(c, rerolledSignFor(i));
     if (mode === 'ability' && abilityDone && i === abilitySlot)
       return withAbility(c, abilityResultFor(i));
@@ -256,8 +278,17 @@ export function RecruitScreen({
   // A reward is only "claimed" once it's fully chosen. Until then — in any mode,
   // including after you've stepped into recruit/evolve — the player can still
   // skip outright and move on with their current team.
-  const rewardChosen = recruitDone || evolveDone || rerollDone || abilityDone;
+  const rewardChosen = recruitDone || evolveDone || moveDone || rerollDone || abilityDone;
   const continueLabel = rewardChosen ? nextLabel : 'Skip reward';
+
+  // Pick (or move) which team member gets the move tweak, resetting the slot &
+  // replacement choice so each new target starts from a clean pick.
+  const pickTeamForMove = (i: number) => {
+    const next = moveTeamSlot === i ? null : i;
+    setMoveTeamSlot(next);
+    setMoveSlotIdx(null);
+    setMoveChoice(null);
+  };
 
   return (
     <div className="mx-auto max-w-6xl px-3 py-6 pb-28 sm:px-4 sm:py-8 sm:pb-28">
@@ -273,18 +304,20 @@ export function RecruitScreen({
               ? 'Pick one of their Pokémon, then tap a slot on your team to swap it in.'
               : mode === 'evolve'
                 ? 'Spend your Evolution Ticket on one of your team — pick a Pokémon to evolve.'
-                : mode === 'reroll'
-                  ? 'Pick one of your team to reroll its sign — fate decides the rest.'
-                  : rerollStrong
-                    ? 'Pick a Pokémon, then choose its new ability from its pool.'
-                    : 'Pick one of your team to reroll its ability — fate decides the rest.'}
+                : mode === 'move'
+                  ? 'Pick a Pokémon, the move to drop, then the new move it learns instead.'
+                  : mode === 'reroll'
+                    ? 'Pick one of your team to reroll its sign — fate decides the rest.'
+                    : rerollStrong
+                      ? 'Pick a Pokémon, then choose its new ability from its pool.'
+                      : 'Pick one of your team to reroll its ability — fate decides the rest.'}
         </p>
       </div>
 
       {/* Step 1 — choose your reward */}
       {mode === 'choose' && (
         <div
-          className={`mt-8 grid gap-4 sm:grid-cols-2 ${allowSignReroll ? 'lg:grid-cols-4' : ''}`}
+          className={`mt-8 grid gap-4 sm:grid-cols-2 ${allowSignReroll ? 'lg:grid-cols-5' : 'lg:grid-cols-3'}`}
         >
           <RewardOption
             emoji="🔄"
@@ -308,6 +341,13 @@ export function RecruitScreen({
             }
             disabled={!anyEvolvable}
             onClick={() => anyEvolvable && chooseReward('evolve')}
+          />
+          <RewardOption
+            emoji="📝"
+            title="Tweak a Move"
+            desc="Swap one move on any of your team for another it can learn — fine-tune your build."
+            preview={<PreviewRow creatures={currentTeam} />}
+            onClick={() => chooseReward('move')}
           />
           {allowSignReroll && (
             <RewardOption
@@ -464,6 +504,97 @@ export function RecruitScreen({
                 })}
               </div>
             </div>
+          )}
+        </>
+      )}
+
+      {/* Step 2b.5 — tweak a move */}
+      {mode === 'move' && (
+        <>
+          <RewardHeader label="Tweak a Move" />
+
+          <div className="mt-5">
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
+              Your team
+              <span className="ml-2 text-white/35">
+                {moveTeamSlot === null
+                  ? 'tap a Pokémon to tweak'
+                  : 'tap another to switch which Pokémon'}
+              </span>
+            </h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {currentTeam.map((c, i) => {
+                const isPicked = moveTeamSlot === i;
+                const shown = moveDone && isPicked ? resultTeam[i] : c;
+                return (
+                  <div key={`${c.id}-${i}`} className="relative rounded-2xl">
+                    <CreatureCard
+                      creature={shown}
+                      selected={isPicked}
+                      onClick={() => pickTeamForMove(i)}
+                    />
+                    {moveDone && isPicked && <Tag color="emerald" text="📝 TWEAKED" />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Pick which move to drop. */}
+          {moveTeamSlot !== null && (
+            <div className="mt-7">
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
+                {currentTeam[moveTeamSlot].name}'s moves
+                <span className="ml-2 text-white/35">tap the move to replace</span>
+              </h3>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                {currentTeam[moveTeamSlot].moves.map((m, idx) => (
+                  <MoveChip
+                    key={`${m.name}-${idx}`}
+                    move={m}
+                    selected={moveSlotIdx === idx}
+                    onClick={() => {
+                      setMoveSlotIdx(idx);
+                      setMoveChoice(null);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pick the replacement from the species' legal pool. */}
+          {moveTeamSlot !== null && moveSlotIdx !== null && (
+            <div className="mt-7">
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
+                Choose a new move for {currentTeam[moveTeamSlot].name}
+              </h3>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                {candidateMovesFor(
+                  currentTeam[moveTeamSlot].types,
+                  currentTeam[moveTeamSlot].dexId,
+                )
+                  .filter(
+                    (m) => !currentTeam[moveTeamSlot].moves.some((x) => x.name === m.name),
+                  )
+                  .map((m) => (
+                    <MoveChip
+                      key={m.name}
+                      move={m}
+                      selected={moveChoice?.name === m.name}
+                      onClick={() => setMoveChoice(m)}
+                    />
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {moveDone && (
+            <p className="mt-5 text-center text-sm text-white/60">
+              <span className="font-bold text-white">{currentTeam[moveTeamSlot].name}</span>{' '}
+              forgets <span className="text-rose-300">{currentTeam[moveTeamSlot].moves[moveSlotIdx].name}</span>{' '}
+              and learns <span className="text-emerald-300">{moveChoice.name}</span>.
+            </p>
           )}
         </>
       )}
@@ -1016,6 +1147,46 @@ function PreviewRow({ creatures }: { creatures: Creature[] }) {
         />
       ))}
     </div>
+  );
+}
+
+// A tappable move card for the "Tweak a Move" reward — names the move, its
+// damage category & power, its type, and any secondary effect or self-cost rider
+// so the player can weigh a swap the same way the moveset modal presents it.
+function MoveChip({
+  move,
+  selected,
+  onClick,
+}: {
+  move: Move;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const effect = move.effect ? moveEffectLabel(move.effect) : null;
+  const self = moveSelfNote(move);
+  const typeName = move.type.charAt(0).toUpperCase() + move.type.slice(1);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-2xl border p-3 text-left transition-all ${
+        selected
+          ? 'border-emerald-300/60 bg-emerald-300/[0.1]'
+          : 'border-white/10 bg-white/[0.03] hover:border-white/30 hover:bg-white/[0.07]'
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-sm font-bold text-white">{move.name}</span>
+        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/40">
+          {move.power > 0 ? `${moveCategoryLabel(move)} · ${move.power}` : moveCategoryLabel(move)}
+        </span>
+      </div>
+      <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-white/40">
+        {typeName}
+      </div>
+      {effect && <p className="mt-1 text-xs text-sky-200/80">{effect}</p>}
+      {self && <p className="mt-0.5 text-xs text-amber-200/80">{self}</p>}
+    </button>
   );
 }
 

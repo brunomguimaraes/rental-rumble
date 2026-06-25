@@ -89,6 +89,18 @@ export interface SubmissionMon {
   // legacy payload falls back to the default and a forged one can't smuggle in
   // an ability the species can't actually have. Trusted like `sign`/`shiny`.
   ability?: AbilityId;
+  // The rolled Physical/Energy build (mixed attackers only). Re-applied on
+  // rebuild ONLY when the species is genuinely mixed (canRollBuild), so a forged
+  // payload can't reshape a lopsided mon's stats. Omitted on legacy payloads /
+  // single-lean species. Drives both the stat spread and the moveset bias, so
+  // the server's re-sim reproduces the exact fight.
+  build?: Build;
+  // Player move tweaks earned post-battle: each {slot, name} swaps the move in
+  // that slot for `name`. Validated on rebuild against the species' legal pool
+  // (candidateMovesFor) and the resolved Move registry, so a forged payload can't
+  // splice in an illegal or overpowered move. Omitted when the slot ran a stock
+  // moveset.
+  moves?: { slot: number; name: string }[];
 }
 
 /** What the client POSTs after taking the crown. */
@@ -251,14 +263,64 @@ function applyCosmetic(built: Creature, mon: SubmissionMon): Creature {
  */
 export function monToRecord(c: Creature): SubmissionMon {
   const emotion = portraitEmotionFromUrl(c.portrait);
+  const moveTweaks = c.moveOverrides
+    ? Object.entries(c.moveOverrides).map(([slot, move]) => ({
+        slot: Number(slot),
+        name: move.name,
+      }))
+    : [];
   return {
     id: c.id,
     sign: c.sign,
     ...(c.shiny ? { shiny: true } : {}),
     ...(c.altColor ? { altColor: true } : {}),
     ...(c.ability ? { ability: c.ability } : {}),
+    ...(c.build ? { build: c.build } : {}),
+    ...(moveTweaks.length ? { moves: moveTweaks } : {}),
     ...(emotion && emotion !== 'Normal' ? { emotion } : {}),
   };
+}
+
+/**
+ * Layer a slot's claimed offensive build + earned move tweaks onto a creature
+ * that's already had its sign & ability applied. The build is honoured only for
+ * genuinely mixed species (canRollBuild) and each move tweak only for a move in
+ * the species' legal pool (candidateMovesFor) — so a forged payload can neither
+ * reshape a lopsided mon's stats nor splice in an illegal move. `strict`
+ * (verification) surfaces a rejection `reason` on any illegal claim; a lenient
+ * rebuild (challenge/display) silently drops the bad claim and keeps the stock
+ * value. The build is applied before the tweaks so the tweaks sit on the
+ * build-biased pool.
+ */
+function applyBuildAndMoves(
+  built: Creature,
+  base: Creature,
+  mon: SubmissionMon,
+  strict: boolean,
+): { creature: Creature; reason?: string } {
+  let c = built;
+  if (mon.build !== undefined) {
+    const valid = mon.build === 'physical' || mon.build === 'energy';
+    if (!valid || !canRollBuild(base.stats)) {
+      if (strict) return { creature: c, reason: `disallowed build for ${mon.id}` };
+    } else {
+      c = withBuild(c, mon.build);
+    }
+  }
+  if (Array.isArray(mon.moves)) {
+    const legal = new Set(candidateMovesFor(base.types, base.dexId).map((m) => m.name));
+    for (const tweak of mon.moves) {
+      const name = tweak && typeof tweak.name === 'string' ? tweak.name : '';
+      const move = name ? moveByName(name) : undefined;
+      const slot = Number.isInteger(tweak?.slot) ? (tweak.slot as number) : -1;
+      if (!move || !legal.has(name) || slot < 0 || slot >= c.moves.length) {
+        if (strict) return { creature: c, reason: `bad move tweak for ${mon.id}` };
+        continue;
+      }
+      c = withMoveOverride(c, slot, move);
+    }
+  }
+  return { creature: c };
 }
 
 /**
@@ -329,7 +391,9 @@ export function verifyChampionWin(payload: SubmissionPayload): VerifyResult {
       }
       built = withAbility(built, mon.ability);
     }
-    playerTeam.push(applyCosmetic(built, mon));
+    const applied = applyBuildAndMoves(built, base, mon, true);
+    if (applied.reason) return { ok: false, reason: applied.reason };
+    playerTeam.push(applyCosmetic(applied.creature, mon));
   }
 
   // The daily boss for this bracket: same team for everyone, built from the
@@ -374,7 +438,8 @@ export function teamFromMons(mons: SubmissionMon[]): Creature[] {
     if (mon.ability !== undefined && isAbilityOption(base.dexId, mon.ability)) {
       built = withAbility(built, mon.ability);
     }
-    team.push(applyCosmetic(built, mon));
+    const applied = applyBuildAndMoves(built, base, mon, false);
+    team.push(applyCosmetic(applied.creature, mon));
   }
   return team;
 }

@@ -7,8 +7,24 @@
  *
  *   npx --yes tsx scripts/moves.test.ts
  */
-import { moveEffectLabel, moveSelfNote, movesFor, MOVE_SLOTS } from '../src/game/moves.js';
-import { CREATURES, CREATURES_BY_ID } from '../src/game/pokemon.js';
+import {
+  moveEffectLabel,
+  moveSelfNote,
+  movesFor,
+  MOVE_SLOTS,
+  moveCategory,
+  canRollBuild,
+  redistributeForBuild,
+  candidateMovesFor,
+  moveByName,
+} from '../src/game/moves.js';
+import {
+  CREATURES,
+  CREATURES_BY_ID,
+  withBuild,
+  withMoveOverride,
+} from '../src/game/pokemon.js';
+import { monToRecord, teamFromMons } from '../src/game/leaderboard.js';
 import type { BaseStats, Move, MoveEffect } from '../src/game/types.js';
 
 let passed = 0;
@@ -282,6 +298,91 @@ console.log('\n[5] Signature moves — custom riders land on the right species')
     if (locker && !c.moves.some((m) => m.type !== locker.type && m.power > 0)) lockSoftlocks++;
   }
   check('no lockout move can softlock its owner', lockSoftlocks === 0);
+}
+
+console.log('\n[6] Physical/Energy builds — eligibility, redistribution, move floor');
+{
+  // Eligibility: genuinely mixed attackers can roll a build; lopsided ones can't.
+  const starmie = CREATURES_BY_ID['121']; // 100/100-ish mixed
+  const machamp = CREATURES_BY_ID['68']; // 130/65 — clearly physical
+  const alakazam = CREATURES_BY_ID['65']; // 50/135 — clearly energy
+  check('a mixed attacker is build-eligible', !!starmie && canRollBuild(starmie.stats));
+  check('a lopsided physical attacker is NOT build-eligible', !!machamp && !canRollBuild(machamp.stats));
+  check('a lopsided energy attacker is NOT build-eligible', !!alakazam && !canRollBuild(alakazam.stats));
+
+  // Redistribution is budget-neutral and decisive in the chosen direction.
+  if (starmie) {
+    const phys = redistributeForBuild(starmie.stats, 'physical');
+    const enr = redistributeForBuild(starmie.stats, 'energy');
+    check('physical build makes Physical Attack the higher stat', phys.atk > phys.eatk);
+    check('energy build makes Energy Attack the higher stat', enr.eatk > enr.atk);
+    const before = starmie.stats.atk + starmie.stats.eatk;
+    check(
+      'redistribution conserves the offensive budget (±1 rounding)',
+      Math.abs(phys.atk + phys.eatk - before) <= 1 && Math.abs(enr.atk + enr.eatk - before) <= 1,
+    );
+    check('redistribution leaves HP/DEF/SPD untouched', phys.hp === starmie.stats.hp && phys.spd === starmie.stats.spd && phys.def === starmie.stats.def);
+  }
+
+  // The move floor: a physical build always carries ≥30% physical attacks, even
+  // for an energy-typed species (Starmie is Water/Psychic — both energy types).
+  const floor = Math.ceil(MOVE_SLOTS * 0.3);
+  if (starmie) {
+    const physMon = withBuild(starmie, 'physical');
+    const physAttacks = physMon.moves.filter((m) => m.power > 0 && moveCategory(m) === 'physical').length;
+    check(
+      `physical build of an energy-typed mon still gets ≥${floor} physical moves`,
+      physAttacks >= floor,
+    );
+    const enrMon = withBuild(starmie, 'energy');
+    const enrAttacks = enrMon.moves.filter((m) => m.power > 0 && moveCategory(m) === 'energy').length;
+    check(`energy build keeps ≥${floor} energy moves`, enrAttacks >= floor);
+    check('the two builds produce different stat lines', physMon.stats.atk !== enrMon.stats.atk);
+  }
+
+  // withBuild is a no-op on a lopsided species (its stats can't be reshaped).
+  if (machamp) {
+    const forced = withBuild(machamp, 'energy');
+    check('withBuild on a lopsided mon leaves its stats untouched', forced.stats.atk === machamp.stats.atk && forced.build === undefined);
+  }
+}
+
+console.log('\n[7] Move tweaks + serialization round-trip');
+{
+  const starmie = CREATURES_BY_ID['121'];
+  if (starmie) {
+    // candidateMovesFor is stable and never offers a move the registry can't
+    // resolve (so a stored name always rebuilds to a real Move).
+    const cands = candidateMovesFor(starmie.types, starmie.dexId);
+    check('candidate pool is non-empty', cands.length > 0);
+    check('every candidate resolves via the move registry', cands.every((m) => moveByName(m.name)?.name === m.name));
+
+    // A built + move-tweaked mon survives monToRecord → teamFromMons byte-for-byte
+    // (stats, build and the swapped move all reconstruct identically).
+    const built = withBuild(starmie, 'physical');
+    const swapIn = cands.find((m) => !built.moves.some((x) => x.name === m.name))!;
+    const tweaked = withMoveOverride(built, 2, swapIn);
+    const [rebuilt] = teamFromMons([monToRecord(tweaked)]);
+    check('rebuilt mon keeps the rolled build', rebuilt.build === 'physical');
+    check('rebuilt mon keeps the redistributed stats', rebuilt.stats.atk === tweaked.stats.atk && rebuilt.stats.eatk === tweaked.stats.eatk);
+    check('rebuilt mon keeps the swapped move in its slot', rebuilt.moves[2]?.name === swapIn.name);
+    check(
+      'rebuilt moveset matches the played one exactly',
+      rebuilt.moves.map((m) => m.name).join(',') === tweaked.moves.map((m) => m.name).join(','),
+    );
+
+    // Anti-cheat: a forged illegal move name is dropped on the lenient rebuild.
+    const forged = monToRecord(tweaked);
+    forged.moves = [{ slot: 0, name: 'Definitely Not A Real Move' }];
+    const [forgedRebuilt] = teamFromMons([forged]);
+    check('a forged/illegal move tweak is dropped on rebuild', forgedRebuilt.moves[0]?.name === built.moves[0]?.name);
+
+    // Anti-cheat: a build claimed on a lopsided species is ignored on rebuild.
+    const fakeBuild = monToRecord(CREATURES_BY_ID['68']); // Machamp
+    fakeBuild.build = 'energy';
+    const [machampRebuilt] = teamFromMons([fakeBuild]);
+    check('a build forged onto a lopsided mon is ignored', machampRebuilt.stats.atk === CREATURES_BY_ID['68'].stats.atk);
+  }
 }
 
 console.log(`\n${failed === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${passed} passed, ${failed} failed\n`);

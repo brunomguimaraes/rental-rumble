@@ -2,6 +2,7 @@ import type {
   AbilityId,
   AttackAnim,
   BaseStats,
+  Build,
   Move,
   MoveCategory,
   MoveEffect,
@@ -755,7 +756,7 @@ export function movesFor(
   // offensive category, so a physical-statted mon of energy typing (or a rolled
   // physical build) still gets physical moves to swing — and vice-versa. Most
   // mons clear this on STAB alone; it only fires on cross-category builds.
-  ensureCategoryFloor(pool, stats, types, dexId, hasTechnician);
+  ensureCategoryFloor(pool, stats, dexId, hasTechnician);
 
   return pool;
 }
@@ -797,7 +798,6 @@ const ENERGY_FILLER: Move[] = [
 function ensureCategoryFloor(
   pool: Move[],
   stats: BaseStats,
-  types: PokemonType[],
   dexId: number | undefined,
   hasTechnician: boolean,
 ): void {
@@ -949,10 +949,12 @@ export function applyMoveOverrides(
   return out;
 }
 
-/** Smallest gap (as a fraction of the higher stat) by which Physical and Energy
- *  Attack may differ for a species to still count as a genuinely *mixed*
- *  attacker — and so roll a Physical/Energy build (see canRollBuild). */
-const MIXED_BUILD_TOLERANCE = 0.8;
+/** Smallest ratio (lower attack ÷ higher attack) for a species to still count as
+ *  a genuinely *mixed* attacker — and so roll a Physical/Energy build (see
+ *  canRollBuild). At 0.75, a mon whose weaker attack is within a quarter of its
+ *  stronger one is "mixed" (e.g. Starmie's 75/100); anything more lopsided keeps
+ *  its fixed natural lean. */
+const MIXED_BUILD_TOLERANCE = 0.75;
 /** A mixed mon must also actually hit hard enough for the choice to matter. */
 const MIXED_BUILD_MIN_ATTACK = 70;
 /** How far a chosen build tilts the two attack stats around their shared mean

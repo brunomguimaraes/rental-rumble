@@ -452,14 +452,14 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   289: ['truant'], // Slaking
 
   // --- Moxie: KO-snowball sweepers ---------------------------------------
-  198: ['moxie', 'inner-focus'], // Murkrow — Moxie or Inner Focus
+  198: ['moxie', 'inner-focus', 'super-luck'], // Murkrow — Moxie, Inner Focus or Super Luck
   214: ['guts', 'moxie', 'swarm'], // Heracross — Guts, Moxie or Swarm
-  262: ['intimidate', 'moxie'], // Mightyena — Intimidate or Moxie
+  262: ['intimidate', 'moxie', 'menace', 'shadow-rush'], // Mightyena — Intimidate, Moxie, Menace or Shadow Rush
   373: ['intimidate', 'moxie'], // Salamence — Intimidate or Moxie
-  430: ['moxie', 'inner-focus'], // Honchkrow — Moxie or Inner Focus
+  430: ['moxie', 'inner-focus', 'super-luck'], // Honchkrow — Moxie, Inner Focus or Super Luck
   551: ['moxie', 'intimidate'], // Sandile — Moxie or Intimidate
   552: ['moxie', 'intimidate'], // Krokorok — Moxie or Intimidate
-  553: ['moxie', 'intimidate', 'anger-point'], // Krookodile — Moxie, Intimidate or Anger Point
+  553: ['moxie', 'intimidate', 'anger-point', 'shadow-cabinet', 'menace'], // Krookodile — Moxie, Intimidate, Anger Point, Shadow Cabinet or Menace
   559: ['moxie', 'intimidate', 'shed-skin'], // Scraggy — Moxie, Intimidate or Shed Skin
   560: ['moxie', 'intimidate', 'shed-skin'], // Scrafty — Moxie, Intimidate or Shed Skin
 
@@ -470,28 +470,28 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   257: ['speed-boost', 'blaze'], // Blaziken — Speed Boost or Blaze
   291: ['speed-boost', 'technician'], // Ninjask — Speed Boost or Technician
   318: ['guts', 'speed-boost', 'rough-skin'], // Carvanha — Guts, Speed Boost or Rough Skin
-  319: ['guts', 'speed-boost', 'rough-skin'], // Sharpedo — Guts, Speed Boost or Rough Skin
+  319: ['guts', 'speed-boost', 'rough-skin', 'predator'], // Sharpedo — Guts, Speed Boost, Rough Skin or Predator
   469: ['speed-boost', 'tinted-lens'], // Yanmega — Speed Boost or Tinted Lens
 
   // --- Guts: status-loving brawlers --------------------------------------
   66: ['guts', 'steadfast'], // Machop — Guts or Steadfast
   67: ['guts', 'steadfast'], // Machoke — Guts or Steadfast
-  68: ['guts', 'steadfast', 'sheer-force'], // Machamp — Guts, Steadfast or Sheer Force
-  136: ['flash-fire', 'guts'], // Flareon — Flash Fire or Guts
+  68: ['guts', 'steadfast', 'sheer-force', 'pack-alpha', 'veteran', 'no-guard'], // Machamp — Guts, Steadfast, Sheer Force, Pack Alpha, Veteran or No Guard
+  136: ['flash-fire', 'guts', 'flare-boost'], // Flareon — Flash Fire, Guts or Flare Boost
   217: ['guts', 'quick-feet'], // Ursaring — Guts or Quick Feet
   901: ['guts', 'quick-feet'], // Ursaluna — Guts or Quick Feet
   276: ['guts', 'scrappy'], // Taillow — Guts or Scrappy
   277: ['guts', 'scrappy'], // Swellow — Guts or Scrappy
   296: ['guts', 'thick-fat'], // Makuhita — Guts or Thick Fat
-  297: ['guts', 'thick-fat', 'sheer-force'], // Hariyama — Guts, Thick Fat or Sheer Force
+  297: ['guts', 'thick-fat', 'sheer-force', 'pack-alpha', 'rebel-spirit'], // Hariyama — Guts, Thick Fat, Sheer Force, Pack Alpha or Rebel Spirit
   532: ['guts', 'sheer-force'], // Timburr — Guts or Sheer Force
   533: ['guts', 'sheer-force'], // Gurdurr — Guts or Sheer Force
-  534: ['guts', 'sheer-force'], // Conkeldurr — Guts or Sheer Force
+  534: ['guts', 'sheer-force', 'pack-alpha'], // Conkeldurr — Guts, Sheer Force or Pack Alpha
 
   // --- Adaptability: doubled-STAB nukes ----------------------------------
   341: ['adaptability', 'anger-shell'], // Corphish — Adaptability or Anger Shell
   342: ['adaptability', 'anger-shell'], // Crawdaunt — Adaptability or Anger Shell
-  474: ['adaptability', 'overload'], // Porygon-Z — Adaptability or Overload (overclocked)
+  474: ['adaptability', 'overload', 'download', 'showboat'], // Porygon-Z — Adaptability, Overload, Download or Showboat
   550: ['adaptability', 'moxie'], // Basculin — Adaptability or Moxie (relentlessly aggressive)
   902: ['adaptability', 'moxie'], // Basculegion (keeps Basculin's pool on evolution)
   690: ['adaptability', 'poison-point'], // Skrelp — Adaptability or Poison Point
@@ -499,12 +499,12 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
 
   // --- Intimidate: entry-control bruisers ---------------------------------
   58: ['intimidate', 'flash-fire'], // Growlithe — Intimidate or Flash Fire
-  59: ['intimidate', 'flash-fire'], // Arcanine — Intimidate or Flash Fire
-  128: ['intimidate', 'anger-point'], // Tauros — Intimidate or Anger Point
-  130: ['intimidate', 'moxie'], // Gyarados — Intimidate or Moxie
+  59: ['intimidate', 'flash-fire', 'flame-emperor', 'second-wind'], // Arcanine — Intimidate, Flash Fire, Flame Emperor or Second Wind
+  128: ['intimidate', 'anger-point', 'opening-act'], // Tauros — Intimidate, Anger Point or Opening Act
+  130: ['intimidate', 'moxie', 'predator', 'daunt', 'menace'], // Gyarados — Intimidate, Moxie, Predator, Daunt or Menace
   303: ['intimidate', 'hyper-cutter'], // Mawile — Intimidate or Hyper Cutter
-  398: ['intimidate', 'defiant'], // Staraptor — Intimidate or Defiant
-  405: ['intimidate', 'static'], // Luxray — Intimidate or Static
+  398: ['intimidate', 'defiant', 'sky-lord', 'opening-act', 'reckless'], // Staraptor — Intimidate, Defiant, Sky Lord, Opening Act or Reckless
+  405: ['intimidate', 'static', 'volt-squad'], // Luxray — Intimidate, Static or Volt Squad
 
   // --- Sturdy: refuses to go down in one hit ------------------------------
   74: ['sturdy', 'solid-rock'], // Geodude — Sturdy or Solid Rock
@@ -523,21 +523,21 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   // --- Levitate: immune to Ground moves -----------------------------------
   92: ['levitate', 'liquid-ooze'], // Gastly — Levitate or Liquid Ooze (a body of poison gas)
   93: ['levitate', 'liquid-ooze'], // Haunter — Levitate or Liquid Ooze
-  94: ['levitate', 'liquid-ooze'], // Gengar — Levitate or Liquid Ooze
+  94: ['levitate', 'liquid-ooze', 'eerie-aura', 'cursed-body', 'opportunist'], // Gengar — Levitate, Liquid Ooze, Eerie Aura, Cursed Body or Opportunist
   109: ['levitate', 'liquid-ooze'], // Koffing — Levitate or Liquid Ooze
   110: ['levitate', 'liquid-ooze'], // Weezing — Levitate or Liquid Ooze
-  200: ['levitate', 'magic-guard'], // Misdreavus — Levitate or Magic Guard
+  200: ['levitate', 'magic-guard', 'eerie-aura'], // Misdreavus — Levitate, Magic Guard or Eerie Aura
   201: ['levitate'], // Unown (a cipher — kept deliberately minimal)
   329: ['levitate', 'sheer-force'], // Vibrava — Levitate or Sheer Force
-  330: ['levitate', 'sheer-force'], // Flygon — Levitate or Sheer Force
+  330: ['levitate', 'sheer-force', 'sand-rush'], // Flygon — Levitate, Sheer Force or Sand Rush
   343: ['levitate', 'sturdy'], // Baltoy — Levitate or Sturdy (ancient clay)
   344: ['levitate', 'sturdy'], // Claydol — Levitate or Sturdy
-  429: ['levitate', 'magic-guard'], // Mismagius — Levitate or Magic Guard
+  429: ['levitate', 'magic-guard', 'eerie-aura'], // Mismagius — Levitate, Magic Guard or Eerie Aura
   436: ['levitate', 'heatproof'], // Bronzor — Levitate or Heatproof
-  437: ['levitate', 'heatproof'], // Bronzong — Levitate or Heatproof
+  437: ['levitate', 'heatproof', 'gravity'], // Bronzong — Levitate, Heatproof or Gravity
   602: ['levitate', 'volt-absorb'], // Tynamo — Levitate or Volt Absorb
   603: ['levitate', 'volt-absorb'], // Eelektrik — Levitate or Volt Absorb
-  604: ['levitate', 'volt-absorb'], // Eelektross — Levitate or Volt Absorb
+  604: ['levitate', 'volt-absorb', 'volt-squad'], // Eelektross — Levitate, Volt Absorb or Volt Squad
 
   // --- Thick Fat: shrugs off Fire & Ice -----------------------------------
   143: ['thick-fat', 'immunity'], // Snorlax — Thick Fat or Immunity
@@ -553,26 +553,26 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   147: ['marvel-scale', 'shed-skin'], // Dratini — Marvel Scale or Shed Skin
   148: ['marvel-scale', 'shed-skin'], // Dragonair — Marvel Scale or Shed Skin
   149: ['marvel-scale', 'multiscale'], // Dragonite — Marvel Scale or Multiscale
-  350: ['marvel-scale', 'water-veil'], // Milotic — Marvel Scale or Water Veil
+  350: ['marvel-scale', 'water-veil', 'tide-matriarch'], // Milotic — Marvel Scale, Water Veil or Tide Matriarch
 
   // --- Pickup: scavenges rarer relics at item events ----------------------
-  52: ['pickup', 'technician'], // Meowth — Pickup or Technician
+  52: ['pickup', 'technician', 'fortune'], // Meowth — Pickup, Technician or Fortune
 
   // --- Technician: weak moves punch above their weight --------------------
-  53: ['technician', 'limber', 'pickup'], // Persian — Technician, Limber or Pickup
+  53: ['technician', 'limber', 'pickup', 'fortune', 'fur-coat'], // Persian — Technician, Limber, Pickup, Fortune or Fur Coat
   107: ['technician', 'inner-focus'], // Hitmonchan — Technician or Inner Focus
-  212: ['swarm', 'technician'], // Scizor — Swarm or Technician
-  215: ['technician', 'inner-focus'], // Sneasel — Technician or Inner Focus
-  461: ['technician', 'inner-focus'], // Weavile — Technician or Inner Focus
+  212: ['swarm', 'technician', 'steel-heart', 'iron-barbs'], // Scizor — Swarm, Technician, Steel Heart or Iron Barbs
+  215: ['technician', 'inner-focus', 'finisher'], // Sneasel — Technician, Inner Focus or Finisher
+  461: ['technician', 'inner-focus', 'shadow-cabinet', 'shadow-rush', 'finisher'], // Weavile — Technician, Inner Focus, Shadow Cabinet, Shadow Rush or Finisher
   903: ['technician', 'poison-point'], // Sneasler — Technician or Poison Point
 
   // --- Blaze: Fire starters' pinch boost ----------------------------------
   4: ['blaze'], // Charmander
   5: ['blaze'], // Charmeleon
-  6: ['blaze', 'dragonlord'], // Charizard — Blaze or Dragonlord (a fire lizard that rallies true dragons)
+  6: ['blaze', 'dragonlord', 'flame-emperor', 'flare-boost'], // Charizard — Blaze, Dragonlord, Flame Emperor or Flare Boost
   155: ['blaze'], // Cyndaquil
   156: ['blaze'], // Quilava
-  157: ['blaze'], // Typhlosion
+  157: ['blaze', 'flame-emperor'], // Typhlosion — Blaze or Flame Emperor
   390: ['blaze'], // Chimchar
   391: ['blaze'], // Monferno
   392: ['blaze'], // Infernape
@@ -598,12 +598,12 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   503: ['torrent'], // Samurott
   656: ['torrent'], // Froakie
   657: ['torrent'], // Frogadier
-  658: ['torrent'], // Greninja
+  658: ['torrent', 'tide-matriarch'], // Greninja — Torrent or Tide Matriarch
 
   // --- Overgrow: Grass starters' pinch boost ------------------------------
   1: ['overgrow'], // Bulbasaur
   2: ['overgrow'], // Ivysaur
-  3: ['overgrow'], // Venusaur
+  3: ['overgrow', 'grass-warden'], // Venusaur — Overgrow or Grass Warden
   152: ['overgrow'], // Chikorita
   153: ['overgrow'], // Bayleef
   154: ['overgrow'], // Meganium
@@ -620,35 +620,35 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   // --- Swarm: Bug attackers' pinch boost ----------------------------------
   13: ['swarm', 'poison-point'], // Weedle — Swarm or Poison Point
   14: ['swarm', 'shed-skin'], // Kakuna — Swarm or Shed Skin
-  15: ['swarm', 'poison-point'], // Beedrill — Swarm or Poison Point
+  15: ['swarm', 'poison-point', 'hive-queen'], // Beedrill — Swarm, Poison Point or Hive Queen
   165: ['swarm', 'early-bird'], // Ledyba — Swarm or Early Bird
   166: ['swarm', 'early-bird'], // Ledian — Swarm or Early Bird
   167: ['swarm', 'sniper'], // Spinarak — Swarm or Sniper
-  168: ['swarm', 'sniper'], // Ariados — Swarm or Sniper
+  168: ['swarm', 'sniper', 'sticky'], // Ariados — Swarm, Sniper or Sticky
   267: ['swarm', 'tinted-lens'], // Beautifly — Swarm or Tinted Lens
   540: ['swarm', 'overgrow'], // Sewaddle — Swarm or Overgrow
   541: ['swarm', 'overgrow'], // Swadloon — Swarm or Overgrow
-  542: ['swarm', 'overgrow'], // Leavanny — Swarm or Overgrow
+  542: ['swarm', 'overgrow', 'hive-queen'], // Leavanny — Swarm, Overgrow or Hive Queen
 
   // --- Static: paralyzes a careless attacker ------------------------------
   25: ['static', 'motor-drive'], // Pikachu — Static or Motor Drive
-  26: ['static', 'motor-drive'], // Raichu — Static or Motor Drive
+  26: ['static', 'motor-drive', 'volt-fury'], // Raichu — Static, Motor Drive or Volt Fury
   172: ['static', 'motor-drive'], // Pichu — Static or Motor Drive
   125: ['static', 'vital-spirit'], // Electabuzz — Static or Vital Spirit
   239: ['static', 'vital-spirit'], // Elekid — Static or Vital Spirit
-  466: ['motor-drive', 'static'], // Electivire — Motor Drive or Static
+  466: ['motor-drive', 'static', 'volt-fury'], // Electivire — Motor Drive, Static or Volt Fury
   309: ['static', 'quick-feet'], // Electrike — Static or Quick Feet
-  310: ['static', 'intimidate'], // Manectric — Static or Intimidate
+  310: ['static', 'intimidate', 'volt-fury'], // Manectric — Static, Intimidate or Volt Fury
   587: ['static', 'motor-drive'], // Emolga — Static or Motor Drive
 
   // --- Flame Body: burns a careless attacker ------------------------------
   126: ['flame-body', 'vital-spirit'], // Magmar — Flame Body or Vital Spirit
   240: ['flame-body', 'vital-spirit'], // Magby — Flame Body or Vital Spirit
-  467: ['flame-body', 'vital-spirit'], // Magmortar — Flame Body or Vital Spirit
+  467: ['flame-body', 'vital-spirit', 'torch-pass'], // Magmortar — Flame Body, Vital Spirit or Torch Pass
   218: ['flame-body', 'flash-fire'], // Slugma — Flame Body or Flash Fire
   219: ['flame-body', 'weak-armor'], // Magcargo — Flame Body or Weak Armor
   636: ['flame-body', 'swarm'], // Larvesta — Flame Body or Swarm
-  637: ['flame-body', 'swarm'], // Volcarona — Flame Body or Swarm
+  637: ['flame-body', 'swarm', 'flame-emperor', 'torch-pass'], // Volcarona — Flame Body, Swarm, Flame Emperor or Torch Pass
 
   // --- Poison Point: poisons a careless attacker --------------------------
   29: ['poison-point', 'sheer-force'], // Nidoran♀ — Poison Point or Sheer Force
@@ -659,9 +659,9 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   34: ['poison-point', 'sheer-force'], // Nidoking — Poison Point or Sheer Force
   211: ['poison-point', 'intimidate'], // Qwilfish — Poison Point or Intimidate
   904: ['poison-point', 'intimidate'], // Overqwil (keeps Qwilfish's pool on evolution)
-  315: ['poison-point', 'overgrow'], // Roselia — Poison Point or Overgrow
+  315: ['poison-point', 'overgrow', 'natural-cure'], // Roselia — Poison Point, Overgrow or Natural Cure
   406: ['poison-point', 'overgrow'], // Budew — Poison Point or Overgrow
-  407: ['poison-point', 'overgrow'], // Roserade — Poison Point or Overgrow
+  407: ['poison-point', 'overgrow', 'grass-warden', 'thorn-wreath'], // Roserade — Poison Point, Overgrow, Grass Warden or Thorn Wreath
 
   // --- Regenerator: slow self-mending attrition ---------------------------
   79: ['regenerator', 'own-tempo'], // Slowpoke — Regenerator or Own Tempo
@@ -677,42 +677,42 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   28: ['sturdy', 'rough-skin'], // Sandslash — Sturdy or Rough Skin
   443: ['rough-skin', 'sturdy'], // Gible — Rough Skin or Sturdy
   444: ['rough-skin', 'sturdy'], // Gabite — Rough Skin or Sturdy
-  445: ['rough-skin', 'sturdy'], // Garchomp — Rough Skin or Sturdy
+  445: ['rough-skin', 'sturdy', 'sand-rush', 'predator'], // Garchomp — Rough Skin, Sturdy, Sand Rush or Predator
   621: ['rough-skin', 'stamina'], // Druddigon — Rough Skin or Stamina
 
   // --- Stamina: digs in harder with every hit -----------------------------
   304: ['stamina', 'sturdy'], // Aron — Stamina or Sturdy
   305: ['stamina', 'sturdy'], // Lairon — Stamina or Sturdy
-  306: ['stamina', 'sturdy'], // Aggron — Stamina or Sturdy
-  324: ['stamina', 'thick-fat'], // Torkoal — Stamina or Thick Fat
+  306: ['stamina', 'sturdy', 'iron-marshal', 'veteran', 'burden-bearer'], // Aggron — Stamina, Sturdy, Iron Marshal, Veteran or Burden Bearer
+  324: ['stamina', 'thick-fat', 'white-smoke'], // Torkoal — Stamina, Thick Fat or White Smoke
   410: ['sturdy', 'stamina'], // Shieldon — Sturdy or Stamina
-  411: ['sturdy', 'stamina'], // Bastiodon — Sturdy or Stamina
+  411: ['sturdy', 'stamina', 'filter-down'], // Bastiodon — Sturdy, Stamina or Filter Down
 
   // --- Multiscale: full-HP veil softens the first blow --------------------
-  131: ['thick-fat', 'multiscale'], // Lapras — Thick Fat or Multiscale
+  131: ['thick-fat', 'multiscale', 'hydration'], // Lapras — Thick Fat, Multiscale or Hydration
   248: ['multiscale', 'intimidate'], // Tyranitar — Multiscale or Intimidate
 
   // --- Solid Rock: blunts super-effective hits ----------------------------
-  464: ['solid-rock', 'sturdy'], // Rhyperior — Solid Rock or Sturdy
+  464: ['solid-rock', 'sturdy', 'veteran', 'heavy-hitter'], // Rhyperior — Solid Rock, Sturdy, Veteran or Heavy Hitter
   323: ['solid-rock', 'thick-fat'], // Camerupt — Solid Rock or Thick Fat
   112: ['solid-rock', 'sturdy'], // Rhydon — Solid Rock or Sturdy
   111: ['solid-rock', 'sturdy'], // Rhyhorn — Solid Rock or Sturdy
 
   // --- Tinted Lens: doubles its resisted hits -----------------------------
-  12: ['tinted-lens', 'swarm'], // Butterfree — Tinted Lens or Swarm
-  49: ['tinted-lens', 'poison-point'], // Venomoth — Tinted Lens or Poison Point
+  12: ['tinted-lens', 'swarm', 'compound-eyes', 'shield-dust'], // Butterfree — Tinted Lens, Swarm, Compound Eyes or Shield Dust
+  49: ['tinted-lens', 'poison-point', 'shield-dust', 'compound-eyes'], // Venomoth — Tinted Lens, Poison Point, Shield Dust or Compound Eyes
 
   // --- Battle Armor: seals out critical hits ------------------------------
   140: ['battle-armor', 'sturdy'], // Kabuto — Battle Armor or Sturdy
   141: ['battle-armor', 'sniper'], // Kabutops — Battle Armor or Sniper
   347: ['battle-armor', 'swarm'], // Anorith — Battle Armor or Swarm
-  348: ['battle-armor', 'sturdy'], // Armaldo — Battle Armor or Sturdy
+  348: ['battle-armor', 'sturdy', 'filter-down'], // Armaldo — Battle Armor, Sturdy or Filter Down
   104: ['legacy', 'battle-armor'], // Cubone — Legacy (its mother's memory) or Battle Armor
   105: ['legacy', 'battle-armor'], // Marowak — Legacy or Battle Armor
 
   // --- Quick Feet: status fuels its Speed ---------------------------------
-  263: ['quick-feet', 'guts'], // Zigzagoon — Quick Feet or Guts
-  264: ['quick-feet', 'guts'], // Linoone — Quick Feet or Guts
+  263: ['quick-feet', 'guts', 'treasure-hound'], // Zigzagoon — Quick Feet, Guts or Treasure Hound
+  264: ['quick-feet', 'guts', 'treasure-hound'], // Linoone — Quick Feet, Guts or Treasure Hound
 
   // --- Magic Guard: shrugs off chip damage --------------------------------
   35: ['magic-guard', 'unaware'], // Clefairy — Magic Guard or Unaware
@@ -721,7 +721,7 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   561: ['magic-guard', 'levitate'], // Sigilyph — Magic Guard or Levitate
 
   // --- Poison Heal: thrives while poisoned --------------------------------
-  286: ['poison-heal', 'technician'], // Breloom — Poison Heal or Technician
+  286: ['poison-heal', 'technician', 'effect-spore', 'toxic-boost'], // Breloom — Poison Heal, Technician, Effect Spore or Toxic Boost
   472: ['poison-heal', 'intimidate'], // Gliscor — Poison Heal or Intimidate
 
   // --- Clear Body: unshakeable, immune to stat drops ----------------------
@@ -729,18 +729,18 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   73: ['clear-body', 'poison-point', 'liquid-ooze'], // Tentacruel — Clear Body, Poison Point or Liquid Ooze
   374: ['clear-body', 'heatproof'], // Beldum — Clear Body or Heatproof
   375: ['clear-body', 'heatproof'], // Metang — Clear Body or Heatproof
-  376: ['clear-body', 'heatproof'], // Metagross — Clear Body or Heatproof
+  376: ['clear-body', 'heatproof', 'iron-marshal', 'steel-heart'], // Metagross — Clear Body, Heatproof, Iron Marshal or Steel Heart
 
   // --- Defiant: an enemy debuff spikes its Attack -------------------------
-  509: ['defiant', 'limber'], // Purrloin — Defiant or Limber
-  510: ['defiant', 'glory-hog'], // Liepard — Defiant or Glory Hog (a treacherous diva)
+  509: ['defiant', 'limber', 'unburden'], // Purrloin — Defiant, Limber or Unburden
+  510: ['defiant', 'glory-hog', 'prankster', 'opportunist', 'underdog'], // Liepard — Defiant, Glory Hog, Prankster, Opportunist or Underdog
   624: ['defiant', 'inner-focus'], // Pawniard — Defiant or Inner Focus
-  625: ['defiant', 'inner-focus'], // Bisharp — Defiant or Inner Focus
+  625: ['defiant', 'inner-focus', 'iron-marshal', 'steel-heart'], // Bisharp — Defiant, Inner Focus, Iron Marshal or Steel Heart
   627: ['defiant', 'sturdy'], // Rufflet — Defiant or Sturdy
-  628: ['defiant', 'sturdy'], // Braviary — Defiant or Sturdy
+  628: ['defiant', 'sturdy', 'gale-force', 'second-wind'], // Braviary — Defiant, Sturdy, Gale Force or Second Wind
 
   // --- Water Absorb: soaks up Water and heals --------------------------------
-  134: ['water-absorb', 'water-veil'], // Vaporeon — Water Absorb or Water Veil
+  134: ['water-absorb', 'water-veil', 'tide-matriarch', 'hydration'], // Vaporeon — Water Absorb, Water Veil, Tide Matriarch or Hydration
   86: ['thick-fat', 'water-absorb'], // Seel — Thick Fat or Water Absorb
   87: ['thick-fat', 'water-absorb'], // Dewgong — Thick Fat or Water Absorb
   194: ['water-absorb', 'unaware'], // Wooper — Water Absorb or Unaware
@@ -767,23 +767,23 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   228: ['flash-fire', 'early-bird'], // Houndour — Flash Fire or Early Bird
   229: ['flash-fire', 'early-bird'], // Houndoom — Flash Fire or Early Bird
   607: ['flash-fire', 'levitate'], // Litwick — Flash Fire or Levitate
-  608: ['flash-fire', 'levitate'], // Lampent — Flash Fire or Levitate
-  609: ['flash-fire', 'levitate'], // Chandelure — Flash Fire or Levitate
+  608: ['flash-fire', 'levitate', 'soul-battery'], // Lampent — Flash Fire, Levitate or Soul Battery
+  609: ['flash-fire', 'levitate', 'soul-battery', 'flare-boost'], // Chandelure — Flash Fire, Levitate, Soul Battery or Flare Boost
 
   // --- Sap Sipper: grazes on Grass attacks for an Attack boost ---------------
   184: ['sap-sipper', 'thick-fat'], // Azumarill — Sap Sipper or Thick Fat
   241: ['sap-sipper', 'thick-fat'], // Miltank — Sap Sipper or Thick Fat
   585: ['sap-sipper', 'overgrow'], // Deerling — Sap Sipper or Overgrow
   586: ['sap-sipper', 'overgrow'], // Sawsbuck — Sap Sipper or Overgrow
-  626: ['sap-sipper', 'guts'], // Bouffalant — Sap Sipper or Guts
+  626: ['sap-sipper', 'guts', 'reckless'], // Bouffalant — Sap Sipper, Guts or Reckless
   672: ['sap-sipper', 'overgrow'], // Skiddo — Sap Sipper or Overgrow
   673: ['sap-sipper', 'overgrow'], // Gogoat — Sap Sipper or Overgrow
 
   // --- Dry Skin: Water mends it, Fire sears it -------------------------------
   46: ['dry-skin', 'poison-point'], // Paras — Dry Skin or Poison Point
-  47: ['dry-skin', 'poison-point'], // Parasect — Dry Skin or Poison Point
+  47: ['dry-skin', 'poison-point', 'effect-spore'], // Parasect — Dry Skin, Poison Point or Effect Spore
   453: ['dry-skin', 'poison-point'], // Croagunk — Dry Skin or Poison Point
-  454: ['dry-skin', 'poison-point'], // Toxicroak — Dry Skin or Poison Point
+  454: ['dry-skin', 'poison-point', 'toxic-boost', 'opportunist'], // Toxicroak — Dry Skin, Poison Point, Toxic Boost or Opportunist
 
   // --- Immunity: a clean constitution, never poisoned ------------------------
   335: ['immunity', 'quick-feet'], // Zangoose — Immunity or Quick Feet
@@ -795,13 +795,13 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   321: ['water-veil', 'thick-fat'], // Wailord — Water Veil or Thick Fat
 
   // --- Limber: too supple to be paralyzed ------------------------------------
-  106: ['limber', 'steadfast'], // Hitmonlee — Limber or Steadfast
+  106: ['limber', 'steadfast', 'long-reach'], // Hitmonlee — Limber, Steadfast or Long Reach
   132: ['limber'], // Ditto (a transforming blob — kept singular)
 
   // --- Own Tempo: marches to its own beat, never confused --------------------
   108: ['own-tempo', 'thick-fat'], // Lickitung — Own Tempo or Thick Fat
   463: ['own-tempo', 'thick-fat'], // Lickilicky — Own Tempo or Thick Fat
-  235: ['own-tempo', 'technician'], // Smeargle — Own Tempo or Technician
+  235: ['own-tempo', 'technician', 'moody'], // Smeargle — Own Tempo, Technician or Moody
   327: ['own-tempo', 'contrary'], // Spinda — Own Tempo or Contrary
 
   // --- Contrary: the foe's debuffs only feed it ------------------------------
@@ -809,7 +809,7 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   687: ['contrary', 'own-tempo'], // Malamar — Contrary or Own Tempo
 
   // --- Simple: every stat shift it takes is doubled --------------------------
-  399: ['simple', 'unaware'], // Bidoof — Simple or Unaware
+  399: ['moody', 'simple', 'unaware'], // Bidoof — Moody, Simple or Unaware
   400: ['simple', 'unaware'], // Bibarel — Simple or Unaware
   322: ['simple', 'solid-rock'], // Numel — Simple or Solid Rock
   527: ['unaware', 'simple'], // Woobat — Unaware or Simple
@@ -817,16 +817,16 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
 
   // --- Anger Point: a crit tips it into a full rage --------------------------
   56: ['anger-point', 'vital-spirit'], // Mankey — Anger Point or Vital Spirit
-  57: ['anger-point', 'vital-spirit'], // Primeape — Anger Point or Vital Spirit
+  57: ['anger-point', 'vital-spirit', 'revenge-cry', 'swagger-king'], // Primeape — Anger Point, Vital Spirit, Revenge Cry or Swagger King
   98: ['hyper-cutter', 'anger-point'], // Krabby — Hyper Cutter or Anger Point
   99: ['hyper-cutter', 'anger-point'], // Kingler — Hyper Cutter or Anger Point
 
   // --- Justified: its honor flares against Dark attacks ----------------------
-  448: ['justified', 'inner-focus'], // Lucario — Justified or Inner Focus
+  448: ['justified', 'inner-focus', 'pack-alpha', 'rival'], // Lucario — Justified, Inner Focus, Pack Alpha or Rival
   475: ['justified', 'steadfast'], // Gallade — Justified or Steadfast
 
   // --- Disguise: a costume eats the first hit --------------------------------
-  778: ['disguise'], // Mimikyu
+  778: ['disguise', 'plot-armor', 'trickster'], // Mimikyu — Disguise, Plot Armor or Trickster
 
   // --- Battle Armor / Shell Armor: a sealed shell wards off crits ------------
   // Cloyster's spiked shell is armour, not blubber — Shell Armor, not Thick Fat.
@@ -841,20 +841,20 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   // --- Big Pecks: a puffed-out chest guards its Defense ----------------------
   16: ['big-pecks', 'early-bird'], // Pidgey — Big Pecks or Early Bird
   17: ['big-pecks', 'early-bird'], // Pidgeotto — Big Pecks or Early Bird
-  18: ['big-pecks', 'early-bird'], // Pidgeot — Big Pecks or Early Bird
+  18: ['big-pecks', 'early-bird', 'sky-lord', 'gale-force'], // Pidgeot — Big Pecks, Early Bird, Sky Lord or Gale Force
   580: ['big-pecks', 'water-absorb'], // Ducklett — Big Pecks or Water Absorb
   581: ['big-pecks', 'water-absorb'], // Swanna — Big Pecks or Water Absorb
   661: ['big-pecks', 'early-bird'], // Fletchling — Big Pecks or Early Bird
 
   // --- Inner Focus: unshakeable, never flinches, ignores Intimidate ----------
-  41: ['inner-focus', 'quick-feet'], // Zubat — Inner Focus or Quick Feet
-  42: ['inner-focus', 'quick-feet'], // Golbat — Inner Focus or Quick Feet
-  169: ['inner-focus', 'quick-feet'], // Crobat — Inner Focus or Quick Feet
+  41: ['inner-focus', 'quick-feet', 'scout', 'screech'], // Zubat — Inner Focus, Quick Feet, Scout or Screech
+  42: ['inner-focus', 'quick-feet', 'scout', 'screech'], // Golbat — Inner Focus, Quick Feet, Scout or Screech
+  169: ['inner-focus', 'quick-feet', 'scout', 'gale-force'], // Crobat — Inner Focus, Quick Feet, Scout or Gale Force
   447: ['inner-focus', 'steadfast'], // Riolu — Inner Focus or Steadfast
 
   // --- Steadfast: every flinch only quickens its resolve ---------------------
   123: ['technician', 'steadfast'], // Scyther — Technician or Steadfast
-  359: ['sniper', 'steadfast'], // Absol — Sniper or Steadfast
+  359: ['sniper', 'steadfast', 'fortune', 'shadow-rush', 'super-luck', 'pressure'], // Absol — Sniper, Steadfast, Fortune, Shadow Rush, Super Luck or Pressure
 
   // --- Hustle: raw power bought with shakier aim -----------------------------
   554: ['hustle', 'sheer-force'], // Darumaka — Hustle or Sheer Force
@@ -862,14 +862,14 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   632: ['hustle', 'swarm'], // Durant — Hustle or Swarm
   633: ['hustle', 'sheer-force'], // Deino — Hustle or Sheer Force
   634: ['hustle', 'sheer-force'], // Zweilous — Hustle or Sheer Force
-  635: ['levitate', 'sheer-force'], // Hydreigon — Levitate or Sheer Force
+  635: ['levitate', 'sheer-force', 'shadow-rush', 'predator'], // Hydreigon — Levitate, Sheer Force, Shadow Rush or Predator
 
   // --- Defeatist: loses heart once worn down ---------------------------------
   566: ['defeatist'], // Archen
-  567: ['defeatist'], // Archeops
+  567: ['defeatist', 'slow-start'], // Archeops — Defeatist or Slow Start
 
   // --- Weak Armor: a hit cracks its plating but lightens its step -------------
-  227: ['sturdy', 'weak-armor'], // Skarmory — Sturdy or Weak Armor
+  227: ['sturdy', 'weak-armor', 'iron-barbs'], // Skarmory — Sturdy, Weak Armor or Iron Barbs
   557: ['sturdy', 'anger-shell'], // Dwebble — Sturdy or Anger Shell
   558: ['sturdy', 'anger-shell'], // Crustle — Sturdy or Anger Shell
 
@@ -879,41 +879,115 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   434: ['aftermath', 'poison-point'], // Stunky — Aftermath or Poison Point
   435: ['aftermath', 'poison-point'], // Skuntank — Aftermath or Poison Point
   425: ['aftermath', 'levitate'], // Drifloon — Aftermath or Levitate
-  426: ['aftermath', 'levitate'], // Drifblim — Aftermath or Levitate
+  426: ['aftermath', 'levitate', 'unburden'], // Drifblim — Aftermath, Levitate or Unburden
 
   // --- Liquid Ooze: drainers choke on its toxic fluids -----------------------
   316: ['liquid-ooze', 'thick-fat'], // Gulpin — Liquid Ooze or Thick Fat
-  317: ['liquid-ooze', 'thick-fat'], // Swalot — Liquid Ooze or Thick Fat
+  317: ['liquid-ooze', 'thick-fat', 'sticky'], // Swalot — Liquid Ooze, Thick Fat or Sticky
 
   // --- Overload: runs hot — bigger boosts, but burn/poison bite harder -------
   64: ['magic-guard', 'overload'], // Kadabra — Magic Guard or Overload
   65: ['magic-guard', 'overload'], // Alakazam — Magic Guard or Overload
-  181: ['static', 'overload'], // Ampharos — Static or Overload
+  181: ['static', 'overload', 'volt-squad', 'volt-fury'], // Ampharos — Static, Overload, Volt Squad or Volt Fury
 
   // --- Glass Cannon: all offence, paper-thin guard ---------------------------
   142: ['glass-cannon', 'sniper'], // Aerodactyl — Glass Cannon or Sniper
   408: ['glass-cannon', 'sheer-force'], // Cranidos — Glass Cannon or Sheer Force
-  409: ['glass-cannon', 'sheer-force'], // Rampardos — Glass Cannon or Sheer Force
+  409: ['glass-cannon', 'sheer-force', 'heavy-hitter'], // Rampardos — Glass Cannon, Sheer Force or Heavy Hitter
 
   // --- Last Stand: it fights hardest with its back to the wall ----------------
-  83: ['last-stand', 'inner-focus'], // Farfetch'd — Last Stand or Inner Focus
-  538: ['guts', 'last-stand'], // Throh — Guts or Last Stand
-  539: ['inner-focus', 'last-stand'], // Sawk — Inner Focus or Last Stand
+  83: ['last-stand', 'inner-focus', 'bargain', 'long-reach'], // Farfetch'd — Last Stand, Inner Focus, Bargain or Long Reach
+  538: ['guts', 'last-stand', 'underdog'], // Throh — Guts, Last Stand or Underdog
+  539: ['inner-focus', 'last-stand', 'underdog'], // Sawk — Inner Focus, Last Stand or Underdog
 
   // --- Legacy: a fallen mon passes its strength to its successor --------------
   355: ['levitate', 'legacy'], // Duskull — Levitate or Legacy (a lingering spirit)
   356: ['levitate', 'legacy'], // Dusclops — Levitate or Legacy
-  477: ['levitate', 'legacy'], // Dusknoir — Levitate or Legacy
+  477: ['levitate', 'legacy', 'soul-battery', 'pressure'], // Dusknoir — Levitate, Legacy, Soul Battery or Pressure
 
   // --- Rally: a supportive heart fires up the next ally in --------------------
-  113: ['rally', 'regenerator'], // Chansey — Rally or Regenerator
-  242: ['rally', 'regenerator'], // Blissey — Rally or Regenerator
-  531: ['regenerator', 'rally'], // Audino — Regenerator or Rally
+  113: ['rally', 'regenerator', 'curator', 'parting-gift', 'natural-cure'], // Chansey — Rally, Regenerator, Curator, Parting Gift or Natural Cure
+  242: ['rally', 'regenerator', 'curator', 'parting-gift', 'natural-cure'], // Blissey — Rally, Regenerator, Curator, Parting Gift or Natural Cure
+  531: ['regenerator', 'rally', 'curator', 'parting-gift', 'pacifist'], // Audino — Regenerator, Rally, Curator, Parting Gift or Pacifist
+
+  // --- Team commanders & run helpers (expanded roster) -------------------------
+  164: ['scout', 'inner-focus'], // Noctowl — Scout or Inner Focus
+  178: ['diviner', 'early-bird'], // Xatu — Diviner or Early Bird
+  196: ['diviner', 'magic-guard'], // Espeon — Diviner or Magic Guard
+  197: ['shadow-cabinet', 'inner-focus'], // Umbreon — Shadow Cabinet or Inner Focus
+  225: ['bargain', 'vital-spirit'], // Delibird — Bargain or Vital Spirit
+  282: ['fairy-court', 'magic-guard', 'diviner'], // Gardevoir — Fairy Court, Magic Guard or Diviner
+  468: ['fairy-court', 'magic-guard'], // Togekiss — Fairy Court or Magic Guard
+  700: ['fairy-court', 'magic-guard'], // Sylveon — Fairy Court or Magic Guard
+  417: ['bargain', 'static'], // Pachirisu — Bargain or Static
+  416: ['hive-queen', 'pressure'], // Vespiquen — Hive Queen or Pressure
+  505: ['scout', 'inner-focus'], // Watchog — Scout or Inner Focus
+  598: ['grass-warden', 'iron-barbs', 'sturdy'], // Ferrothorn — Grass Warden, Iron Barbs or Sturdy
+  663: ['blaze', 'flame-body', 'flame-emperor', 'sky-lord'], // Talonflame — Blaze, Flame Body, Flame Emperor or Sky Lord
+  820: ['treasure-hound', 'pickup'], // Greedent — Treasure Hound or Pickup
+
+  // --- Iconic & signature passives -------------------------------------------
+  292: ['wonder-guard'], // Shedinja — Wonder Guard (iconic)
+  352: ['color-change'], // Kecleon — Color Change (iconic)
+  486: ['slow-start'], // Regigigas — Slow Start (iconic)
+  442: ['pressure', 'gravity', 'eerie-aura'], // Spiritomb — Pressure, Gravity or Eerie Aura
+  302: ['prankster', 'stall', 'super-luck'], // Sableye — Prankster, Stall or Super Luck
+  547: ['prankster', 'contrary'], // Whimsicott — Prankster or Contrary
+  479: ['trickster', 'levitate'], // Rotom — Trickster or Levitate
+  137: ['download', 'adaptability'], // Porygon — Download or Adaptability
+  233: ['download', 'adaptability'], // Porygon2 — Download or Adaptability
+  202: ['oblivious', 'pacifist', 'burden-bearer'], // Wobbuffet — Oblivious, Pacifist or Burden Bearer
+
+  // --- On faint (expanded) ---------------------------------------------------
+  758: ['toxic-boost', 'opportunist'], // Salazzle — Toxic Boost or Opportunist
+  295: ['revenge-cry', 'scrappy'], // Exploud — Revenge Cry or Scrappy
+  354: ['grudge', 'cursed-body'], // Banette — Grudge or Cursed Body
+  764: ['parting-gift', 'natural-cure'], // Comfey — Parting Gift or Natural Cure
+
+  // --- Entry (expanded) ------------------------------------------------------
+  862: ['swagger-king', 'defiant'], // Obstagoon — Swagger King or Defiant
+
+  // --- Pinch offence (expanded) ----------------------------------------------
+  478: ['snow-cloak', 'cursed-body'], // Froslass — Snow Cloak or Cursed Body
+  362: ['sheer-cold', 'inner-focus'], // Glalie — Sheer Cold or Inner Focus
+  144: ['sheer-cold', 'pressure'], // Articuno — Sheer Cold or Pressure
+  530: ['sand-rush', 'rough-skin'], // Excadrill — Sand Rush or Rough Skin
+  334: ['filter', 'natural-cure'], // Altaria — Filter or Natural Cure
+  617: ['heavy-hitter', 'moxie'], // Haxorus — Heavy Hitter or Moxie
+  571: ['rival', 'defiant'], // Zoroark — Rival or Defiant
+  706: ['rebel-spirit', 'gale-force', 'long-reach'], // Hawlucha — Rebel Spirit, Gale Force or Long Reach
+  887: ['predator', 'cursed-body'], // Dragapult — Predator or Cursed Body
+  894: ['volt-fury', 'motor-drive'], // Regieleki — Volt Fury or Motor Drive
+
+  // --- Defensive (expanded) ----------------------------------------------------
+  748: ['filter', 'pressure'], // Toxapex — Filter or Pressure
+  759: ['fur-coat', 'pickup'], // Stufful — Fur Coat or Pickup
+  724: ['long-reach', 'overgrow'], // Decidueye — Long Reach or Overgrow
+  786: ['long-reach', 'overgrow'], // Dhelmise — Long Reach or Overgrow
+  631: ['white-smoke', 'flash-fire'], // Heatmor — White Smoke or Flash Fire
+  537: ['hydration', 'water-absorb'], // Seismitoad — Hydration or Water Absorb
+
+  // --- Contact (expanded) ----------------------------------------------------
+  591: ['effect-spore', 'regenerator'], // Amoonguss — Effect Spore or Regenerator
+  596: ['sticky', 'compound-eyes'], // Galvantula — Sticky or Compound Eyes
+  867: ['perish-body', 'sturdy'], // Runerigus — Perish Body or Sturdy
+  864: ['perish-body', 'cursed-body'], // Cursola — Perish Body or Cursed Body
+  681: ['stall', 'no-guard'], // Aegislash — Stall or No Guard
+
+  // --- Status & misc (expanded) ----------------------------------------------
+  622: ['unburden', 'hydration'], // Accelgor — Unburden or Hydration
+  89: ['toxic-boost', 'poison-point'], // Muk — Toxic Boost or Poison Point
+  332: ['thorn-wreath', 'rough-skin'], // Cacturne — Thorn Wreath or Rough Skin
+  205: ['iron-barbs', 'sturdy'], // Forretress — Iron Barbs or Sturdy
+  232: ['heavy-hitter', 'sand-rush', 'sturdy'], // Donphan — Heavy Hitter, Sand Rush or Sturdy
+  145: ['static', 'pressure', 'volt-fury'], // Zapdos — Static, Pressure or Volt Fury
+  601: ['no-guard', 'clear-body'], // Klinklang — No Guard or Clear Body
+  269: ['shield-dust', 'compound-eyes'], // Dustox — Shield Dust or Compound Eyes
 
   // --- Glory Hog: a selfish star that hogs the team's strength ----------------
   431: ['glory-hog', 'limber'], // Glameow — Glory Hog or Limber
   432: ['glory-hog', 'thick-fat'], // Purugly — Glory Hog or Thick Fat
-  668: ['moxie', 'glory-hog'], // Pyroar — Moxie or Glory Hog (the proud lion)
+  668: ['moxie', 'glory-hog', 'showboat'], // Pyroar — Moxie, Glory Hog or Showboat (the proud lion)
 };
 
 /**
