@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import type { Creature, PokemonType } from '../game/types';
 import { CREATURES } from '../game/pokemon';
 import { abilitiesForDex, abilityInfo } from '../game/abilities';
+import { candidateMovesFor } from '../game/moves';
+import { MoveRow } from './MovesModal';
 import {
   ALL_TYPES,
   TYPE_COLORS,
@@ -94,16 +96,43 @@ function DexTile({ creature, onSelect }: { creature: Creature; onSelect: () => v
 }
 
 /** Full detail for a single species: portrait, base stats, abilities, signs. */
-function DexDetail({ creature, onClose }: { creature: Creature; onClose: () => void }) {
+function DexDetail({
+  creature,
+  onClose,
+  onPrev,
+  onNext,
+  hasPrev,
+  hasNext,
+}: {
+  creature: Creature;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  hasPrev: boolean;
+  hasNext: boolean;
+}) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft' && hasPrev) {
+        e.preventDefault();
+        onPrev();
+      }
+      if (e.key === 'ArrowRight' && hasNext) {
+        e.preventDefault();
+        onNext();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, onPrev, onNext, hasPrev, hasNext]);
 
   const abilities = abilitiesForDex(creature.dexId).map(abilityInfo);
+  const possibleMoves = useMemo(
+    () => candidateMovesFor(creature.types, creature.dexId),
+    [creature.types, creature.dexId],
+  );
+  const ownTypes = useMemo(() => new Set(creature.types), [creature.types]);
   const accent = creature.tier !== 'normal' ? GOLD : TYPE_COLORS[creature.types[0]];
 
   return createPortal(
@@ -111,6 +140,32 @@ function DexDetail({ creature, onClose }: { creature: Creature; onClose: () => v
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
+      {hasPrev && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPrev();
+          }}
+          aria-label="Previous Pokémon"
+          className="absolute left-2 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-black/50 text-lg text-white/85 transition hover:border-white/50 hover:bg-black/70 sm:left-4 sm:h-12 sm:w-12"
+        >
+          ←
+        </button>
+      )}
+      {hasNext && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onNext();
+          }}
+          aria-label="Next Pokémon"
+          className="absolute right-2 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-black/50 text-lg text-white/85 transition hover:border-white/50 hover:bg-black/70 sm:right-4 sm:h-12 sm:w-12"
+        >
+          →
+        </button>
+      )}
       <div
         className="flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0c0c14] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -185,6 +240,24 @@ function DexDetail({ creature, onClose }: { creature: Creature; onClose: () => v
           </section>
 
           <section>
+            <div className="mb-1.5 flex items-center justify-between">
+              <h4 className="text-[11px] font-bold uppercase tracking-widest text-white/45">
+                Possible moves
+              </h4>
+              <span className="text-[10px] text-white/40">{possibleMoves.length} total</span>
+            </div>
+            <ul className="flex flex-col gap-2">
+              {possibleMoves.map((move) => (
+                <MoveRow key={move.name} move={move} stab={ownTypes.has(move.type)} />
+              ))}
+            </ul>
+            <p className="mt-1.5 text-[10px] leading-snug text-white/35">
+              Every move this species can roll or swap into after battle — its actual kit
+              depends on sign, stats, and build.
+            </p>
+          </section>
+
+          <section>
             <h4 className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-white/45">
               Sign fit <span className="font-medium normal-case text-white/35">(best-fit first)</span>
             </h4>
@@ -218,7 +291,7 @@ export function PokedexScreen({ onBack }: { onBack: () => void }) {
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<PokemonType | null>(null);
   const [visible, setVisible] = useState(PAGE);
-  const [selected, setSelected] = useState<Creature | null>(null);
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -237,7 +310,21 @@ export function PokedexScreen({ onBack }: { onBack: () => void }) {
   // Reset the reveal window whenever the result set changes.
   useEffect(() => {
     setVisible(PAGE);
+    setSelectedIdx(null);
   }, [query, typeFilter]);
+
+  const goPrev = () => {
+    setSelectedIdx((idx) => (idx !== null && idx > 0 ? idx - 1 : idx));
+  };
+
+  const goNext = () => {
+    setSelectedIdx((idx) => {
+      if (idx === null || idx >= filtered.length - 1) return idx;
+      const next = idx + 1;
+      if (next >= visible) setVisible(next + 1);
+      return next;
+    });
+  };
 
   const shown = filtered.slice(0, visible);
 
@@ -254,7 +341,7 @@ export function PokedexScreen({ onBack }: { onBack: () => void }) {
         <div>
           <h1 className="text-lg font-black leading-tight">Pokédex</h1>
           <p className="text-[11px] text-white/40">
-            Every species in play — its base stats, the abilities it can roll, and which signs suit it.
+            Every species in play — base stats, abilities, possible moves, and sign fit.
           </p>
         </div>
       </header>
@@ -302,8 +389,8 @@ export function PokedexScreen({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7">
-        {shown.map((c) => (
-          <DexTile key={c.id} creature={c} onSelect={() => setSelected(c)} />
+        {shown.map((c, idx) => (
+          <DexTile key={c.id} creature={c} onSelect={() => setSelectedIdx(idx)} />
         ))}
       </div>
 
@@ -323,7 +410,16 @@ export function PokedexScreen({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
-      {selected && <DexDetail creature={selected} onClose={() => setSelected(null)} />}
+      {selectedIdx !== null && filtered[selectedIdx] && (
+        <DexDetail
+          creature={filtered[selectedIdx]}
+          onClose={() => setSelectedIdx(null)}
+          onPrev={goPrev}
+          onNext={goNext}
+          hasPrev={selectedIdx > 0}
+          hasNext={selectedIdx < filtered.length - 1}
+        />
+      )}
     </div>
   );
 }

@@ -342,6 +342,18 @@ export function CreatureCard({
               />
               <span className="truncate">{signLabel(creature.sign)}</span>
             </span>
+            {creature.build && (
+              <span
+                title={`${creature.build === 'physical' ? 'Physical' : 'Energy'} build — this mixed attacker's stats were rolled to favour ${creature.build === 'physical' ? 'Physical' : 'Energy'} Attack, and its moves lean that way`}
+                className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${
+                  creature.build === 'physical'
+                    ? 'border-rose-400/35 bg-rose-400/10 text-rose-200/90'
+                    : 'border-sky-400/35 bg-sky-400/10 text-sky-200/90'
+                }`}
+              >
+                {creature.build === 'physical' ? '🗡 Physical' : '✦ Energy'}
+              </span>
+            )}
             {shiny && (
               <span
                 title={`Shiny — every stat boosted ×${SHINY_STAT_MULT}`}

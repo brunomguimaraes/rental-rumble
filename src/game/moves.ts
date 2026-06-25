@@ -221,15 +221,15 @@ const QUICK_ATTACK: Move = {
 // sufficiently bulky Pokémon can pack (see movesFor). Capped at HEAL_PP uses so
 // two bulky walls (e.g. Chansey) can't out-heal each other into an endless
 // stalemate — once the heals dry up, the fight is decided on damage.
-export const HEAL_PP = 3;
+export const HEAL_PP = 2;
 // Diminishing returns on repeated self-heals within a single battle: every
 // Recover after the first restores HEAL_DECAY as much as the previous one
 // (heal #n = amount * HEAL_DECAY^(n-1)). The first heal still bites for the
 // full amount, but a healer-vs-healer war decays fast instead of stalling —
 // applied in battle.ts where the heal is resolved (see Battler.healsUsed).
-export const HEAL_DECAY = 0.5;
+export const HEAL_DECAY = 0.4;
 const RECOVER: Move = {
-  ...mk('Recover', 'normal', 0, 1, { kind: 'heal', amount: 0.3 }),
+  ...mk('Recover', 'normal', 0, 1, { kind: 'heal', amount: 0.25 }),
   pp: HEAL_PP,
 };
 
@@ -959,7 +959,7 @@ const MIXED_BUILD_TOLERANCE = 0.75;
 const MIXED_BUILD_MIN_ATTACK = 70;
 /** How far a chosen build tilts the two attack stats around their shared mean
  *  (±12%): budget-neutral, but a clear, usable lean (a 100/100 → 112/88). */
-const BUILD_SPREAD = 0.12;
+const BUILD_SPREAD = 0.1;
 
 /**
  * Whether a species is a genuinely *mixed* attacker — its Physical and Energy

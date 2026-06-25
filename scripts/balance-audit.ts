@@ -14,6 +14,7 @@ import {
 } from '../src/game/battle';
 import { rollPool } from '../src/game/run';
 import { defaultSign, SIGN_SPREAD, ZODIAC_SIGNS } from '../src/game/zodiac';
+import { canRollBuild } from '../src/game/moves';
 import type { Creature, Sign } from '../src/game/types';
 
 const N = Number(process.env.SIM_N) || 2000;
@@ -46,6 +47,7 @@ type GauntletResult = {
 function runSweep(
   label: string,
   pick: (pool: Creature[]) => Creature[],
+  fitSigns = true,
 ): GauntletResult {
   const stageWins: number[] = [];
   const stageLosses: number[] = [];
@@ -58,7 +60,7 @@ function runSweep(
   for (let i = 0; i < N; i++) {
     const seed = `audit-${label}-${i}`;
     const gauntlet = buildGauntlet(seed);
-    const team = bestFit(pick(rollPool(seed)));
+    const team = fitSigns ? bestFit(pick(rollPool(seed))) : pick(rollPool(seed));
     let alive = true;
     for (let s = 0; s < gauntlet.length && alive; s++) {
       const opp = gauntlet[s];
@@ -194,6 +196,44 @@ for (const { sign, clears } of signScores) {
     `  ${sign.padEnd(12)} ${pct(clears, subN)}%  (Σtilt ${totalMult.toFixed(2)}, Δavg ${delta >= 0 ? '+' : ''}${(delta / subN * 100).toFixed(1)}pp)`,
   );
 }
+
+// Physical/Energy channel + rolled-sign variance (mirrors sim-check.ts).
+console.log('\nOffense channel (best-fit signs, top-BST within each leaning):');
+const isPhysical = (c: Creature) => c.stats.atk >= c.stats.eatk;
+const isEnergy = (c: Creature) => c.stats.eatk > c.stats.atk;
+const draftLeaning = (pool: Creature[], lean: (c: Creature) => boolean) => {
+  const byBst = [...pool].sort((a, b) => bst(b) - bst(a));
+  const leaning = byBst.filter(lean);
+  const filler = byBst.filter((c) => !lean(c));
+  return [...leaning, ...filler].slice(0, 6);
+};
+for (const [label, lean] of [
+  ['physical', isPhysical],
+  ['energy', isEnergy],
+] as const) {
+  const r = runSweep(label, (p) => draftLeaning(p, lean));
+  printSweep(label, r);
+}
+
+console.log('\nSign assignment mode (BST draft):');
+const rolled = runSweep('asRolled signs', (p) => draft(p, bst), false);
+printSweep('asRolled signs', rolled);
+
+// Build-roll prevalence on mixed attackers in a typical draft pool.
+let mixedPool = 0;
+let mixedRolled = 0;
+for (let i = 0; i < 500; i++) {
+  for (const c of rollPool(`build-prev-${i}`)) {
+    const base = CREATURES.find((x) => x.id === c.id)!;
+    if (!canRollBuild(base.stats)) continue;
+    mixedPool++;
+    if (c.build) mixedRolled++;
+  }
+}
+console.log(
+  `\nBuild roll: ${pct(mixedRolled, mixedPool)}% of mixed-eligible pool entries carry a build ` +
+    `(${mixedRolled}/${mixedPool} across 500 pools).`,
+);
 
 // Spread sanity: BST-weighted average tilt each sign applies across the dex.
 console.log('\nDex-weighted sign tilt (how much each sign amplifies the average mon):');

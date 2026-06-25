@@ -56,6 +56,16 @@ export function MovesModal({
                 {creature.moves.length === 1 ? '' : 's'} — the AI picks the best each
                 turn
               </p>
+              {creature.build && (
+                <p
+                  className={`mt-0.5 text-[11px] font-semibold ${
+                    creature.build === 'physical' ? 'text-rose-200/80' : 'text-sky-200/80'
+                  }`}
+                >
+                  {creature.build === 'physical' ? '🗡 Physical build' : '✦ Energy build'} — favours{' '}
+                  {creature.build === 'physical' ? 'Physical' : 'Energy'} Attack
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -70,7 +80,12 @@ export function MovesModal({
 
         <ul className="mt-4 flex flex-col gap-2 overflow-y-auto pr-1">
           {creature.moves.map((move, i) => (
-            <MoveRow key={`${move.name}-${i}`} move={move} stab={own.has(move.type)} />
+            <MoveRow
+              key={`${move.name}-${i}`}
+              move={move}
+              stab={own.has(move.type)}
+              tweaked={creature.moveOverrides ? i in creature.moveOverrides : false}
+            />
           ))}
         </ul>
       </div>
@@ -81,14 +96,14 @@ export function MovesModal({
 
 const CATEGORY_LABEL = { physical: 'Physical', energy: 'Energy', status: 'Status' } as const;
 
-function MoveRow({ move, stab }: { move: Move; stab: boolean }) {
+export function MoveRow({ move, stab, tweaked }: { move: Move; stab: boolean; tweaked?: boolean }) {
   const color = TYPE_COLORS[move.type];
   const isStatus = move.power === 0;
   const category = moveCategory(move);
   const selfNote = moveSelfNote(move);
   return (
     <li
-      className="flex items-center gap-3 rounded-2xl border p-2.5"
+      className="flex items-center gap-2 rounded-2xl border p-2 sm:gap-3 sm:p-2.5"
       style={{ borderColor: `${color}40`, background: `${color}12` }}
     >
       <span
@@ -105,6 +120,11 @@ function MoveRow({ move, stab }: { move: Move; stab: boolean }) {
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
           <span className="text-sm font-bold">{move.name}</span>
+          {tweaked && (
+            <span className="rounded-full border border-emerald-300/40 bg-emerald-300/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-200">
+              Tweaked
+            </span>
+          )}
           {stab && <Tag>STAB</Tag>}
           {move.priority ? <Tag>Priority</Tag> : null}
           {move.pp ? <Tag>{move.pp} PP</Tag> : null}
@@ -121,14 +141,14 @@ function MoveRow({ move, stab }: { move: Move; stab: boolean }) {
       </div>
 
       <div className="shrink-0 text-right">
-        <div className="text-sm font-bold tabular-nums">
+        <div className="text-xs font-bold tabular-nums sm:text-sm">
           {isStatus ? '—' : move.power}
         </div>
-        <div className="text-[9px] uppercase tracking-wider text-white/40">
+        <div className="text-[8px] uppercase tracking-wider text-white/40 sm:text-[9px]">
           {isStatus ? 'Status' : 'Power'}
         </div>
       </div>
-      <div className="w-9 shrink-0 text-right">
+      <div className="hidden w-9 shrink-0 text-right sm:block">
         <div className="text-sm font-bold tabular-nums">
           {Math.round(move.accuracy * 100)}%
         </div>

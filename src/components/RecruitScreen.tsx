@@ -317,7 +317,7 @@ export function RecruitScreen({
       {/* Step 1 — choose your reward */}
       {mode === 'choose' && (
         <div
-          className={`mt-8 grid gap-4 sm:grid-cols-2 ${allowSignReroll ? 'lg:grid-cols-5' : 'lg:grid-cols-3'}`}
+          className={`mt-8 grid gap-4 sm:grid-cols-2 ${allowSignReroll ? 'md:grid-cols-3 xl:grid-cols-5' : 'md:grid-cols-3'}`}
         >
           <RewardOption
             emoji="🔄"

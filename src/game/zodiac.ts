@@ -122,8 +122,8 @@ export interface SignSpread {
 export const SIGN_SPREAD: Record<Sign, SignSpread> = {
   // Fire — offense.
   aries: { hp: 0.92, atk: 1.15, eatk: 0.96, def: 0.88, edef: 0.9, spd: 1.13 }, // cardinal: physical glass-cannon rusher
-  leo: { hp: 1.02, atk: 1.14, eatk: 0.98, def: 0.98, edef: 0.96, spd: 0.96 }, // fixed: proud physical heavy hitter
-  sagittarius: { hp: 0.94, atk: 0.96, eatk: 1.15, def: 0.9, edef: 0.92, spd: 1.11 }, // mutable: ranged energy skirmisher
+  leo: { hp: 1.0, atk: 1.06, eatk: 0.98, def: 0.98, edef: 0.96, spd: 0.96 }, // fixed: proud physical heavy hitter
+  sagittarius: { hp: 0.96, atk: 0.96, eatk: 1.12, def: 0.92, edef: 0.94, spd: 1.1 }, // mutable: ranged energy skirmisher
   // Earth — bulk.
   capricorn: { hp: 1.06, atk: 1.02, eatk: 0.92, def: 1.14, edef: 1.02, spd: 0.9 }, // cardinal: physical wall that pushes
   taurus: { hp: 1.12, atk: 1.02, eatk: 0.86, def: 1.16, edef: 1.0, spd: 0.86 }, // fixed: immovable physical wall
@@ -131,7 +131,7 @@ export const SIGN_SPREAD: Record<Sign, SignSpread> = {
   // Air — speed / balance.
   libra: { hp: 1.0, atk: 1.0, eatk: 1.0, def: 1.01, edef: 1.01, spd: 1.03 }, // cardinal: perfectly balanced
   aquarius: { hp: 1.0, atk: 0.9, eatk: 1.06, def: 1.0, edef: 1.02, spd: 1.08 }, // fixed: slippery energy control
-  gemini: { hp: 0.94, atk: 1.09, eatk: 0.96, def: 0.92, edef: 0.94, spd: 1.15 }, // mutable: quick physical skirmisher
+  gemini: { hp: 0.96, atk: 1.08, eatk: 0.96, def: 0.94, edef: 0.96, spd: 1.13 }, // mutable: quick physical skirmisher (less glass, still fastest common sign)
   // Water — sustain.
   cancer: { hp: 1.1, atk: 0.94, eatk: 0.96, def: 1.08, edef: 1.08, spd: 0.9 }, // cardinal: protective mixed wall
   scorpio: { hp: 0.98, atk: 1.12, eatk: 0.96, def: 0.96, edef: 0.98, spd: 1.04 }, // fixed: venomous physical striker
