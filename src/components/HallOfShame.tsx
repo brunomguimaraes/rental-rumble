@@ -57,21 +57,28 @@ function DifficultyBadge({ difficulty }: { difficulty: Difficulty }) {
 }
 
 /**
- * The Hall of Shame — shown on the Run Over screen after a defeat. The loss is
- * enshrined automatically on mount (the only optional part is the name: leave it
- * blank and a goofy gag alias is minted for you). A localStorage marker keyed to
- * the run makes the auto-submit idempotent, so reloads and React's double-mount
- * never spawn a duplicate flop.
+ * The Hall of Shame — the leaderboard's mischievous twin.
+ *
+ * Two modes, driven by whether a `run` is passed:
+ *  - **Enshrine** (Run Over screen): given the lost run, the defeat is recorded
+ *    automatically on mount (the only optional part is the name: leave it blank
+ *    and a goofy gag alias is minted for you), with an optional rename. A
+ *    localStorage marker keyed to the run makes the auto-submit idempotent, so
+ *    reloads and React's double-mount never spawn a duplicate flop.
+ *  - **Read-only** (title-screen view): no `run`, so nothing is written — it
+ *    just shows today's wall of flops.
  */
 export function HallOfShame({
   date,
   seed,
   run,
+  onRenamed,
 }: {
   date: string;
   /** The run seed — seeds the deterministic gag name so a reload shows the same. */
-  seed: string;
-  run: {
+  seed?: string;
+  /** The lost run to enshrine. Omit for a read-only view of the board. */
+  run?: {
     bracket: BracketId;
     difficulty: Difficulty;
     clearedStages: number;
@@ -82,6 +89,8 @@ export function HallOfShame({
     /** That trainer's roster, drawn as tiny "who beat you" portraits. */
     fellToTeam?: Creature[];
   };
+  /** Called after a successful rename — used to return to the title screen. */
+  onRenamed?: () => void;
 }) {
   const isToday = date === dailyKey();
   const [board, setBoard] = useState<ShameResponse | null>(null);
@@ -117,6 +126,12 @@ export function HallOfShame({
   useEffect(() => {
     if (didRunRef.current) return;
     didRunRef.current = true;
+
+    // Read-only view (no run to enshrine): just show today's board.
+    if (!run || !seed) {
+      refresh(true);
+      return;
+    }
 
     const doneKey = `hos-done-${date}-${seed}-${run.clearedStages}`;
     const prior = localStorage.getItem(doneKey);
@@ -161,7 +176,7 @@ export function HallOfShame({
   // so it never spawns a duplicate). Persisted for the next run.
   const rename = async () => {
     const trimmed = nameInput.trim();
-    if (!trimmed || !myEid || renaming) return;
+    if (!trimmed || !myEid || !run || renaming) return;
     localStorage.setItem('lb-name', trimmed);
     setRenaming(true);
     const result = await submitLoss(
@@ -177,11 +192,18 @@ export function HallOfShame({
         eid: myEid,
       }),
     );
-    setRenaming(false);
     if (result.ok) {
+      // Name saved — bow out to the title screen rather than lingering on the
+      // board (the rename is the last thing anyone does on the Run Over screen).
+      if (onRenamed) {
+        onRenamed();
+        return;
+      }
+      setRenaming(false);
       setWasGag(false);
       refresh(true);
     } else {
+      setRenaming(false);
       setError(result.error ?? 'Could not rename your entry.');
     }
   };
@@ -286,7 +308,7 @@ export function HallOfShame({
       )}
       <p className="mt-2 text-[11px] text-white/35">
         Every defeat is logged here — ranked by how few you cleared. Wear it with
-        pride. ({bracketById(run.bracket).tag})
+        pride.{run ? ` (${bracketById(run.bracket).tag})` : ''}
       </p>
     </div>
   );

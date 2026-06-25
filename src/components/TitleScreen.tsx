@@ -37,6 +37,7 @@ import {
 export function TitleScreen({
   onStart,
   onViewLadder,
+  onViewShame,
   onViewHistory,
   onViewGuide,
   onViewDex,
@@ -48,6 +49,8 @@ export function TitleScreen({
   ) => void | Promise<void>;
   /** Open the standalone "today's ladder" page. */
   onViewLadder: () => void;
+  /** Open the standalone "hall of shame" page (today's biggest flops). */
+  onViewShame: () => void;
   /** Open the past-days "hall of champions" page. */
   onViewHistory: () => void;
   /** Open the standalone "how battles work" guide page. */
@@ -351,6 +354,13 @@ export function TitleScreen({
           className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/[0.05] px-5 py-2.5 text-sm font-semibold text-white/90 transition hover:bg-white/10"
         >
           <CupIcon cup="tough" className="h-4 w-4" /> Hall of Champions
+        </button>
+        <button
+          type="button"
+          onClick={onViewShame}
+          className="inline-flex items-center gap-1.5 rounded-full border border-rose-300/30 bg-rose-300/[0.06] px-5 py-2.5 text-sm font-semibold text-rose-200 transition hover:bg-rose-300/10"
+        >
+          💀 Hall of Shame
         </button>
       </div>
 

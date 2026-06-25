@@ -40,6 +40,7 @@ import { RecruitScreen } from './components/RecruitScreen';
 import { ResultScreen } from './components/ResultScreen';
 import { ThroneResultScreen } from './components/ThroneResultScreen';
 import { LadderScreen } from './components/LadderScreen';
+import { ShameScreen } from './components/ShameScreen';
 import { HistoryScreen } from './components/HistoryScreen';
 import { hashIsGuide } from './guide/hash';
 import { DevPanel } from './components/DevPanel';
@@ -72,6 +73,7 @@ function ScreenFallback() {
 type Phase =
   | 'title'
   | 'ladder'
+  | 'shame'
   | 'history'
   | 'guide'
   | 'dex'
@@ -302,6 +304,7 @@ export default function App() {
         <TitleScreen
           onStart={startRun}
           onViewLadder={() => setPhase('ladder')}
+          onViewShame={() => setPhase('shame')}
           onViewHistory={() => setPhase('history')}
           onViewGuide={() => setPhase('guide')}
           onViewDex={() => setPhase('dex')}
@@ -310,6 +313,9 @@ export default function App() {
 
     case 'ladder':
       return <LadderScreen onBack={() => setPhase('title')} />;
+
+    case 'shame':
+      return <ShameScreen onBack={() => setPhase('title')} />;
 
     case 'dex':
       return <PokedexScreen onBack={() => setPhase('title')} />;

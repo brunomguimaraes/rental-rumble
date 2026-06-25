@@ -231,6 +231,7 @@ export function ResultScreen({
             fellTo: fellTo?.name ?? 'the unknown',
             fellToTeam: lostToTeam,
           }}
+          onRenamed={onPlayAgain}
         />
       )}
 
