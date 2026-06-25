@@ -67,11 +67,13 @@ function GuideBody({
   const Content = doc.Content;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col md:flex-row">
       {/* Mobile: horizontal scrollable chips. On the full page they stick to the
-          top of the viewport so docs stay switchable while the page scrolls. */}
+          top of the viewport so docs stay switchable while the page scrolls.
+          `min-w-0` lets the row actually scroll instead of stretching its flex
+          parent to the non-wrapping chips' width. */}
       <nav
-        className={`flex gap-1.5 overflow-x-auto border-b border-white/10 bg-[#15151c] px-3 py-2 md:hidden ${
+        className={`flex min-w-0 gap-1.5 overflow-x-auto border-b border-white/10 bg-[#15151c] px-3 py-2 md:hidden ${
           isModal ? '' : 'sticky top-0 z-10'
         }`}
       >
@@ -105,7 +107,7 @@ function GuideBody({
           scroll container (the bug that broke this page on phones). */}
       <div
         ref={scrollRef}
-        className={`min-h-0 flex-1 px-5 py-6 sm:px-8 md:overflow-y-auto ${
+        className={`min-h-0 min-w-0 flex-1 px-5 py-6 sm:px-8 md:overflow-y-auto ${
           isModal ? 'overflow-y-auto' : ''
         }`}
       >
