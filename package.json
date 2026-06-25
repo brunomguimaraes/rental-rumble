@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test": "tsx scripts/throne.test.ts && tsx scripts/moves.test.ts && tsx scripts/relics.test.ts",
+    "test": "tsx scripts/throne.test.ts && tsx scripts/moves.test.ts && tsx scripts/relics.test.ts && tsx scripts/species-lock.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

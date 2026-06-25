@@ -1,5 +1,6 @@
 import type { BaseStats, Sign } from './types.js';
 import type { RNG } from './rng.js';
+import { celestialOddsScale } from './ability-effects.js';
 
 // Sprites are served locally from public/sprites/zodiac (see scripts/build-zodiac.py).
 const ASSET = import.meta.env?.BASE_URL ?? '/';
@@ -120,19 +121,19 @@ export interface SignSpread {
 // axes (e.g. Aries is a physical rusher, Sagittarius an energy skirmisher).
 export const SIGN_SPREAD: Record<Sign, SignSpread> = {
   // Fire — offense.
-  aries: { hp: 0.92, atk: 1.14, eatk: 0.96, def: 0.88, edef: 0.9, spd: 1.12 }, // cardinal: physical glass-cannon rusher
+  aries: { hp: 0.92, atk: 1.15, eatk: 0.96, def: 0.88, edef: 0.9, spd: 1.13 }, // cardinal: physical glass-cannon rusher
   leo: { hp: 1.02, atk: 1.14, eatk: 0.98, def: 0.98, edef: 0.96, spd: 0.96 }, // fixed: proud physical heavy hitter
-  sagittarius: { hp: 0.94, atk: 0.96, eatk: 1.14, def: 0.9, edef: 0.92, spd: 1.1 }, // mutable: ranged energy skirmisher
+  sagittarius: { hp: 0.94, atk: 0.96, eatk: 1.15, def: 0.9, edef: 0.92, spd: 1.11 }, // mutable: ranged energy skirmisher
   // Earth — bulk.
   capricorn: { hp: 1.06, atk: 1.02, eatk: 0.92, def: 1.14, edef: 1.02, spd: 0.9 }, // cardinal: physical wall that pushes
   taurus: { hp: 1.12, atk: 1.02, eatk: 0.86, def: 1.16, edef: 1.0, spd: 0.86 }, // fixed: immovable physical wall
   virgo: { hp: 1.04, atk: 0.9, eatk: 1.0, def: 1.02, edef: 1.14, spd: 0.94 }, // mutable: efficient energy-warding bulk
   // Air — speed / balance.
-  libra: { hp: 1.0, atk: 1.0, eatk: 1.0, def: 1.02, edef: 1.02, spd: 1.05 }, // cardinal: perfectly balanced
-  aquarius: { hp: 1.0, atk: 0.9, eatk: 1.08, def: 1.0, edef: 1.04, spd: 1.1 }, // fixed: slippery energy control
-  gemini: { hp: 0.94, atk: 1.08, eatk: 0.96, def: 0.92, edef: 0.94, spd: 1.14 }, // mutable: quick physical skirmisher
+  libra: { hp: 1.0, atk: 1.0, eatk: 1.0, def: 1.01, edef: 1.01, spd: 1.03 }, // cardinal: perfectly balanced
+  aquarius: { hp: 1.0, atk: 0.9, eatk: 1.06, def: 1.0, edef: 1.02, spd: 1.08 }, // fixed: slippery energy control
+  gemini: { hp: 0.94, atk: 1.09, eatk: 0.96, def: 0.92, edef: 0.94, spd: 1.15 }, // mutable: quick physical skirmisher
   // Water — sustain.
-  cancer: { hp: 1.12, atk: 0.94, eatk: 0.96, def: 1.08, edef: 1.08, spd: 0.9 }, // cardinal: protective mixed wall
+  cancer: { hp: 1.1, atk: 0.94, eatk: 0.96, def: 1.08, edef: 1.08, spd: 0.9 }, // cardinal: protective mixed wall
   scorpio: { hp: 0.98, atk: 1.12, eatk: 0.96, def: 0.96, edef: 0.98, spd: 1.04 }, // fixed: venomous physical striker
   pisces: { hp: 1.06, atk: 0.92, eatk: 1.06, def: 1.02, edef: 1.04, spd: 0.98 }, // mutable: dreamy energy all-rounder
   // Rare celestial wanderers — big, lopsided boosts with at most a slight dip.
@@ -262,10 +263,16 @@ export function bestRareSign(s: BaseStats): Sign {
  * `oddsScale` scales the celestial odds: 1 for a regular player's draft, 0.5
  * for opponents (who hit the rare signs at half a player's rate).
  */
-export function rollSign(s: BaseStats, rng: RNG, oddsScale = 1): Sign {
+export function rollSign(
+  s: BaseStats,
+  rng: RNG,
+  oddsScale = 1,
+  team?: readonly { ability?: import('./types.js').AbilityId }[],
+): Sign {
+  const scale = celestialOddsScale(team, oddsScale);
   const gate = rng.next();
-  if (gate < MYTHIC_ODDS * oddsScale) return 'abhijit';
-  if (gate < (MYTHIC_ODDS + RARE_ODDS) * oddsScale) return bestRareSign(s);
+  if (gate < MYTHIC_ODDS * scale) return 'abhijit';
+  if (gate < (MYTHIC_ODDS + RARE_ODDS) * scale) return bestRareSign(s);
   return rollCommonSign(s, rng);
 }
 

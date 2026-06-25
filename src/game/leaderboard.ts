@@ -1,9 +1,11 @@
-import type { AbilityId, Creature, RelicId, Sign } from './types.js';
+import type { AbilityId, Build, Creature, RelicId, Sign } from './types.js';
 import { sanitizeRelics } from './relics.js';
 import {
   CREATURES_BY_ID,
   withSign,
   withAbility,
+  withBuild,
+  withMoveOverride,
   asShiny,
   asAltColor,
   canBeAltColor,
@@ -16,6 +18,7 @@ import {
   portraitEmotionFromUrl,
 } from './pokemon.js';
 import { isAbilityOption } from './abilities.js';
+import { canRollBuild, candidateMovesFor, moveByName } from './moves.js';
 import { ALL_SIGNS } from './zodiac.js';
 import {
   buildChampionTeam,

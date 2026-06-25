@@ -141,7 +141,7 @@ export default function App() {
   // never part of the gauntlet array, so the ladder length & Champion index are
   // untouched). Pinned to the seed so the run stays reproducible.
   const itemEvents = useMemo(
-    () => itemEventStages(seed, difficulty, gauntlet.length),
+    () => itemEventStages(seed, difficulty, gauntlet.length, team),
     [seed, difficulty, gauntlet.length],
   );
 
@@ -190,6 +190,7 @@ export default function App() {
             : TIER_STAT_MULT[opponent.tier] ?? 1,
         difficulty,
         playerRelics: relics,
+        foeTier: opponent.tier,
       });
       return { foeTeam, result };
     },

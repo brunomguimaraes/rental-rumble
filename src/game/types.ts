@@ -30,6 +30,17 @@ export type StatusKind = 'burn' | 'stun' | 'poison' | 'sleep' | null;
 export type MoveCategory = 'physical' | 'energy' | 'status';
 
 /**
+ * The offensive "build" a Pokémon is drafted with. Most species lean clearly to
+ * one side of the Physical/Energy split, but the genuinely *mixed* attackers
+ * (Physical and Energy Attack within a hair of each other — see canRollBuild)
+ * roll one of these at draft time, which redistributes their two attack stats so
+ * the chosen side is decisively higher (budget-neutral) and biases their moveset
+ * to match. It's the same kind of rolled identity as the zodiac sign, so it
+ * round-trips through the leaderboard payload and the server re-sim.
+ */
+export type Build = 'physical' | 'energy';
+
+/**
  * A stat a stage modifier can tilt during battle (HP is never staged). Covers
  * both offence pairs (Physical/Energy Attack) and both guard pairs
  * (Physical/Energy Defense) plus Speed, so setup moves and abilities can target
@@ -282,6 +293,13 @@ export type SpecialTier = 'normal' | 'legendary' | 'mythical';
  *                    fired up, with +1 Attack and +1 Speed.
  * - `glory-hog`    — a spotlight-stealing star: it fights at 1.15× its stats, but
  *                    hogs everything, dragging the rest of its team to 0.9×.
+ * - `dragonlord`   — a born commander of dragons: every Dragon-type teammate
+ *                    (the lord itself needn't be one) fights at 1.1× its
+ *                    Attack, Defense and Speed. A build-around team buff — worth
+ *                    nothing without dragons to rally.
+ * - `pickup`       — a scavenger's nose for treasure: while it's on the team,
+ *                    item events lean toward rarer relics (rare ×1.5, legendary
+ *                    ×2). A run-wide economy buff — useless in battle itself.
  */
 export type AbilityId =
   | 'truant'
@@ -352,7 +370,89 @@ export type AbilityId =
   | 'last-stand'
   | 'legacy'
   | 'rally'
-  | 'glory-hog';
+  | 'glory-hog'
+  | 'dragonlord'
+  | 'pickup'
+  | 'flame-emperor'
+  | 'tide-matriarch'
+  | 'iron-marshal'
+  | 'fairy-court'
+  | 'shadow-cabinet'
+  | 'hive-queen'
+  | 'sky-lord'
+  | 'grass-warden'
+  | 'volt-squad'
+  | 'pack-alpha'
+  | 'diviner'
+  | 'fortune'
+  | 'treasure-hound'
+  | 'curator'
+  | 'scout'
+  | 'veteran'
+  | 'bargain'
+  | 'thorn-wreath'
+  | 'parting-gift'
+  | 'soul-battery'
+  | 'grudge'
+  | 'revenge-cry'
+  | 'torch-pass'
+  | 'burden-bearer'
+  | 'daunt'
+  | 'screech'
+  | 'eerie-aura'
+  | 'swagger-king'
+  | 'download'
+  | 'menace'
+  | 'gale-force'
+  | 'sand-rush'
+  | 'snow-cloak'
+  | 'volt-fury'
+  | 'shadow-rush'
+  | 'steel-heart'
+  | 'fairy-wrath'
+  | 'rebel-spirit'
+  | 'heavy-hitter'
+  | 'finisher'
+  | 'opportunist'
+  | 'showboat'
+  | 'underdog'
+  | 'rival'
+  | 'predator'
+  | 'opening-act'
+  | 'slow-start'
+  | 'reckless'
+  | 'prankster'
+  | 'sheer-cold'
+  | 'filter'
+  | 'fur-coat'
+  | 'filter-down'
+  | 'natural-cure'
+  | 'hydration'
+  | 'second-wind'
+  | 'plot-armor'
+  | 'shield-dust'
+  | 'white-smoke'
+  | 'long-reach'
+  | 'effect-spore'
+  | 'sticky'
+  | 'cursed-body'
+  | 'perish-body'
+  | 'iron-barbs'
+  | 'toxic-boost'
+  | 'flare-boost'
+  | 'unburden'
+  | 'pacifist'
+  | 'stall'
+  | 'pressure'
+  | 'super-luck'
+  | 'compound-eyes'
+  | 'no-guard'
+  | 'oblivious'
+  | 'wonder-guard'
+  | 'gravity'
+  | 'trickster'
+  | 'moody'
+  | 'color-change';
 
 /**
  * A team-wide passive "relic" the player collects from item events across a run
@@ -443,6 +543,24 @@ export interface Creature {
    * abilities.ts for the registry.
    */
   ability?: AbilityId;
+  /**
+   * The rolled offensive build (Physical/Energy), present only on genuinely
+   * mixed-attacker species (see canRollBuild). When set, the creature's `stats`
+   * already carry the redistributed attack spread and its moveset is biased to
+   * the chosen side. Absent on clearly-lopsided species, which have no choice to
+   * make. Round-trips like `sign`/`ability`.
+   */
+  build?: Build;
+  /**
+   * Player-applied move tweaks earned as a post-battle reward: a map from move
+   * slot index to the replacement Move chosen from the species' legal pool (see
+   * candidateMovesFor). Re-applied after every moveset derivation (sign/build
+   * change), so a tweak sticks even when the underlying pool is recomputed. The
+   * leaderboard payload stores these as {slot, name} pairs, re-validated against
+   * the legal pool on the server so a forged payload can't smuggle in an illegal
+   * move.
+   */
+  moveOverrides?: Record<number, Move>;
   pokeball: string; // cosmetic ball id this Pokémon is sent out in (see balls.ts)
   /**
    * A rare shiny: an alternate colouration with a small, flat all-stat blessing
@@ -460,6 +578,17 @@ export interface Creature {
    * Mutually exclusive with `shiny` (a mon is at most one special colouring).
    */
   altColor: boolean;
+}
+
+/** Passive flags baked onto a battler from roster-wide or species abilities. */
+export interface AbilityPassiveFlags {
+  clearBody: boolean;
+  ignoreIntimidate: boolean;
+  whiteSmoke: boolean;
+  filterDown: boolean;
+  immuneTaunt: boolean;
+  longReach: boolean;
+  noGuard: boolean;
 }
 
 /** A creature as it exists during a battle (with live HP & status). */
@@ -509,6 +638,24 @@ export interface Battler {
   // Ability (Glory Hog: the star itself runs at 1.15×, its teammates at 0.9×).
   // Fixed when the teams are built and 1 for any side without such an Ability.
   teamFactor: number;
+  // Ability-driven damage multipliers baked at fight start (team commanders, etc.).
+  damageDealtMult: number;
+  damageTakenMult: number;
+  // Per-battle ability state.
+  actedTurns: number;
+  openingActUsed: boolean;
+  secondWindUsed: boolean;
+  plotArmorUsed: boolean;
+  unburdenUsed: boolean;
+  hydrationCounter: number;
+  colorResistType: PokemonType | null;
+  sealedMoveName: string | null;
+  sealedTurns: number;
+  perishCountdown: number;
+  torchPassTurns: number;
+  statusSusceptMult: number;
+  statusSuspectTurns: number;
+  abilityPassive: AbilityPassiveFlags;
   // The team's collected relic effects, baked on at send-out so every active
   // member of a side carries the same run-long passives (identity mods for a
   // relic-free side, so ordinary fights are unaffected). See relics.ts.

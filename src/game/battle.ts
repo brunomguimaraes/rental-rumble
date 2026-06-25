@@ -3,6 +3,7 @@ import type {
   Battler,
   Creature,
   Move,
+  OpponentTier,
   PokemonType,
   RelicId,
   RelicMods,
@@ -16,13 +17,38 @@ import { identityMods, relicMods, relicDamageMult } from './relics.js';
 import { effectiveness } from './typechart.js';
 import { RNG } from './rng.js';
 import { CREATURES, withSign, withAbility, SHINY_STAT_MULT } from './pokemon.js';
-import { rollAbility } from './abilities.js';
+import { rollAbility, teamHasAbility } from './abilities.js';
 import { attackAnimFor, moveCategory, HEAL_DECAY, TAUNT_TURNS } from './moves.js';
 import { SIGN_SPREAD, rollSign, bestRareSign } from './zodiac.js';
 import { rollOpponentBall } from './balls.js';
 import { famousTeamCreatures } from './specials.js';
+import {
+  applyContactAbilities,
+  applyEntryAbilities,
+  applyFaintAbilities,
+  applyRosterAbilities,
+  abilityTypeMult,
+  critChance,
+  critDamageMult,
+  defaultAbilityPassive,
+  effectiveAccuracy,
+  extraAttackDamageMult,
+  extraDefendDamageMult,
+  flareBoostEnergyMult,
+  gravityDamageMult,
+  movePriority,
+  slowStartStatMult,
+  veteranStatMult,
+  MOODY_STATS,
+  isContactHit,
+} from './ability-effects.js';
 
 const LEVEL = 50;
+
+// Striking first rewards Speed in combat: a small damage bump when the attacker
+// moves before the defender this turn (priority moves still count — they earned
+// the first strike). Kept modest so bulk teams aren't invalidated.
+const MOMENTUM_MULT = 1.07;
 
 /** Identity an active Pokémon morphs into (Ditto's Transform). */
 export interface TransformInfo {
@@ -101,7 +127,7 @@ export function makeBattler(
   for (const mv of creature.moves) {
     if (mv.pp !== undefined) pp[mv.name] = mv.pp;
   }
-  return {
+  const battler: Battler = {
     creature,
     maxHp,
     hp: maxHp,
@@ -119,8 +145,31 @@ export function makeBattler(
     flashFire: false,
     disguiseBusted: false,
     teamFactor: 1,
+    damageDealtMult: 1,
+    damageTakenMult: 1,
+    actedTurns: 0,
+    openingActUsed: false,
+    secondWindUsed: false,
+    plotArmorUsed: false,
+    unburdenUsed: false,
+    hydrationCounter: 0,
+    colorResistType: null,
+    sealedMoveName: null,
+    sealedTurns: 0,
+    perishCountdown: 0,
+    torchPassTurns: 0,
+    statusSusceptMult: 1,
+    statusSuspectTurns: 0,
+    abilityPassive: defaultAbilityPassive(),
     mods,
   };
+  const ab = creature.ability;
+  if (ab === 'no-guard') battler.abilityPassive.noGuard = true;
+  if (ab === 'long-reach') battler.abilityPassive.longReach = true;
+  if (ab === 'oblivious') battler.abilityPassive.immuneTaunt = true;
+  if (ab === 'white-smoke') battler.abilityPassive.whiteSmoke = true;
+  if (ab === 'filter-down') battler.abilityPassive.filterDown = true;
+  return battler;
 }
 
 /** True if `attacker` may still use `move` this battle (respects PP caps). */
@@ -213,6 +262,8 @@ function effectiveAtk(
   let abil = 1;
   if (b.creature.ability === 'hustle') abil *= 1.5;
   if (b.creature.ability === 'defeatist' && b.hp * 2 <= b.maxHp) abil *= 0.5;
+  abil *= slowStartStatMult(b);
+  if (energy) abil *= flareBoostEnergyMult(b);
   return Math.floor(
     otherStat(base) *
       spreadVal *
@@ -248,6 +299,7 @@ function effectiveDef(
       mult *
       stage *
       marvel *
+      slowStartStatMult(b) *
       b.teamFactor *
       relicMult,
   );
@@ -313,55 +365,18 @@ function typeMult(move: Move, defender: Battler, attacker?: Battler): number {
     const rest = defender.creature.types.filter((t) => t !== 'ghost');
     return rest.length > 0 ? effectiveness(move.type, rest) : 1;
   }
-  return base;
+  return abilityTypeMult(move, defender, base);
 }
 
-// Flat damage multiplier from the ATTACKER's ability for a given move:
-//   - the starter pinch boosts (Blaze/Torrent/Overgrow/Swarm) rally a matching
-//     STAB type to 1.5× once HP is at or below a third, and
-//   - Technician wrings 1.5× out of any move of 60 power or less.
-// Returns 1 for a mon without a damage-shaping ability, so ordinary fights are
-// byte-identical.
-function attackAbilityMult(attacker: Battler, move: Move): number {
-  let m = 1;
-  const ability = attacker.creature.ability;
-  if (attacker.hp <= attacker.maxHp / 3) {
-    if (
-      (ability === 'blaze' && move.type === 'fire') ||
-      (ability === 'torrent' && move.type === 'water') ||
-      (ability === 'overgrow' && move.type === 'grass') ||
-      (ability === 'swarm' && move.type === 'bug')
-    ) {
-      m *= 1.5;
-    }
-  }
-  if (ability === 'technician' && move.power > 0 && move.power <= 60) m *= 1.5;
-  // Flash Fire: once it has soaked a Fire move, its own flames roar 1.5× hotter.
-  if (ability === 'flash-fire' && attacker.flashFire && move.type === 'fire') m *= 1.5;
-  // Glass Cannon: throws everything into offence for a flat 1.3× (the matching
-  // 1.2× it takes on defence lives in defendAbilityMult).
-  if (ability === 'glass-cannon') m *= 1.3;
-  // Last Stand: the more wounded it is, the harder it swings — scaling smoothly
-  // from 1× at full HP up to 1.5× as it nears its last breath.
-  if (ability === 'last-stand') m *= 1 + 0.5 * (1 - attacker.hp / attacker.maxHp);
-  return m;
+// Flat damage multiplier from the ATTACKER's ability for a given move — see
+// extraAttackDamageMult in ability-effects.ts for the full set.
+function attackAbilityMult(attacker: Battler, defender: Battler, move: Move, team: Battler[]): number {
+  return extraAttackDamageMult(attacker, defender, move, team);
 }
 
-// Flat damage multiplier from the DEFENDER's ability:
-//   - Thick Fat's blubber halves the sting of Fire and Ice attacks,
-//   - Heatproof's insulation halves Fire damage,
-//   - Dry Skin's porous hide drinks Water (handled as a heal elsewhere) but
-//     dries out under Fire, taking 1.25× from it, and
-//   - Glass Cannon's lack of any guard means it takes 1.2× from everything.
-// 1 otherwise.
-function defendAbilityMult(defender: Battler, move: Move): number {
-  const ability = defender.creature.ability;
-  let m = 1;
-  if (ability === 'thick-fat' && (move.type === 'fire' || move.type === 'ice')) m *= 0.5;
-  if (ability === 'heatproof' && move.type === 'fire') m *= 0.5;
-  if (ability === 'dry-skin' && move.type === 'fire') m *= 1.25;
-  if (ability === 'glass-cannon') m *= 1.2;
-  return m;
+// Flat damage multiplier from the DEFENDER's ability — see extraDefendDamageMult.
+function defendAbilityMult(defender: Battler, move: Move, typeEff: number): number {
+  return extraDefendDamageMult(defender, move, typeEff);
 }
 
 interface SideState {
@@ -396,7 +411,9 @@ function estimateDamage(
   const base = (2 * LEVEL) / 5 + 2;
   const raw = (base * move.power * (atk / def)) / 50 + 2;
   const stab = hasStab(attacker, move) ? stabMult(attacker) : 1;
-  const abil = attackAbilityMult(attacker, move) * defendAbilityMult(defender, move);
+  const abil =
+    attackAbilityMult(attacker, defender, move, [attacker]) *
+    defendAbilityMult(defender, move, mult);
   const relic = relicDamageMult(attacker.mods, move.type);
   return raw * stab * mult * abil * relic * 0.925 * move.accuracy;
 }
@@ -701,6 +718,8 @@ function damageRoll(
   atkStatMult: number,
   defStatMult: number,
   rng: RNG,
+  atkTeam: Battler[],
+  movedFirst = false,
 ): { damage: number; mult: number; crit: boolean } {
   const mult = typeMult(move, defender, attacker);
   if (mult === 0) return { damage: 0, mult: 0, crit: false };
@@ -714,7 +733,8 @@ function damageRoll(
   const base = (2 * LEVEL) / 5 + 2;
   const raw = (base * move.power * (atk / def)) / 50 + 2;
   const stab = hasStab(attacker, move) ? stabMult(attacker) : 1;
-  let abil = attackAbilityMult(attacker, move) * defendAbilityMult(defender, move);
+  let abil =
+    attackAbilityMult(attacker, defender, move, atkTeam) * defendAbilityMult(defender, move, mult);
   // Tinted Lens: lenses sharpen a resisted hit, doubling it so a "not very
   // effective" attack lands at full strength instead.
   if (attacker.creature.ability === 'tinted-lens' && mult > 0 && mult < 1) {
@@ -726,25 +746,24 @@ function damageRoll(
     abil *= 1.3;
   }
   // Solid Rock: a rugged frame cushions a super-effective blow to 0.75×.
-  if (defender.creature.ability === 'solid-rock' && mult > 1) {
-    abil *= 0.75;
-  }
+  // (handled in extraDefendDamageMult; multiscale below is separate.)
   // Multiscale: untouched and at full HP, a protective veil halves the first hit.
   if (defender.creature.ability === 'multiscale' && defender.hp >= defender.maxHp) {
     abil *= 0.5;
   }
+  abil *= gravityDamageMult([attacker, defender]);
   // Draw the crit regardless so the RNG stream stays identical; Battle Armor then
   // simply seals it shut.
-  let crit = rng.chance(0.0625);
+  let crit = rng.chance(critChance(attacker, defender));
   if (defender.creature.ability === 'battle-armor') crit = false;
-  // Sniper lines up the shot: a landed crit bites for 2.25× rather than 1.5×.
-  const critMult = crit ? (attacker.creature.ability === 'sniper' ? 2.25 : 1.5) : 1;
+  const critMult = crit ? critDamageMult(attacker) : 1;
   // Team relics (Wise Glasses, Life Orb, the type boosters) lift the whole hit.
   const relic = relicDamageMult(attacker.mods, move.type);
   const variance = rng.range(0.85, 1);
+  const momentum = movedFirst && move.power > 0 ? MOMENTUM_MULT : 1;
   const damage = Math.max(
     1,
-    Math.floor(raw * stab * mult * abil * critMult * relic * variance),
+    Math.floor(raw * stab * mult * abil * critMult * relic * momentum * variance),
   );
   return { damage, mult, crit };
 }
@@ -778,6 +797,8 @@ export function simulateBattle(
     // both sides bring their own collected relics. Absent = a relic-free side.
     playerRelics?: readonly RelicId[];
     foeRelics?: readonly RelicId[];
+    /** Opponent tier for Veteran ability (+5% player stats vs gym+). */
+    foeTier?: OpponentTier;
   } = {},
 ): BattleResult {
   const rng = new RNG(seed);
@@ -805,18 +826,15 @@ export function simulateBattle(
     },
   };
 
-  // Glory Hog: a roster-wide trade-off resolved up front. If a side fields a
-  // Glory Hog, the star itself runs hot (1.15× its stats) while it hogs the
-  // team's strength, dragging every teammate down to 0.9×. Baked into teamFactor
-  // so it colours each member's effective Attack/Defense/Speed wherever they're
-  // active — present from the first turn, regardless of who's fainted or benched.
+  // Roster-wide Abilities resolved up front (see ability-effects.ts).
   for (const side of ['player', 'foe'] as Side[]) {
-    const team = sides[side].team;
-    if (team.some((b) => b.creature.ability === 'glory-hog')) {
-      for (const b of team) {
-        b.teamFactor = b.creature.ability === 'glory-hog' ? 1.15 : 0.9;
-      }
-    }
+    applyRosterAbilities(sides[side].team);
+  }
+
+  const veteranMult =
+    opts.foeTier ? veteranStatMult(playerTeam, opts.foeTier) : 1;
+  if (veteranMult !== 1) {
+    sides.player.statMult *= veteranMult;
   }
 
   const events: BattleEvent[] = [];
@@ -852,6 +870,10 @@ export function simulateBattle(
       status: kind,
       text: `${t.creature.name} ${STATUS_LABEL[kind]}!`,
     });
+    if (t.creature.ability === 'unburden' && !t.unburdenUsed) {
+      t.unburdenUsed = true;
+      applyStage(targetSide, 'spd', 2);
+    }
     return true;
   };
 
@@ -886,11 +908,29 @@ export function simulateBattle(
     // the *effective* delta first so Clear Body / Defiant judge what truly lands —
     // a Contrary mon's "drop" is really a boost, so neither of them fires.
     let delta = rawDelta;
+    if (source === 'self' && delta > 0) {
+      const oppSide = otherSide(ownerSide);
+      const oppActive = sides[oppSide].team[sides[oppSide].active];
+      if (oppActive.creature.ability === 'white-smoke' || oppActive.abilityPassive.whiteSmoke) {
+        push({
+          kind: 'ability',
+          actor: oppSide,
+          affected: ownerSide,
+          name: 'White Smoke',
+          text: `${oppActive.creature.name}'s White Smoke blocks the stat rise!`,
+        });
+        return;
+      }
+      if (oppActive.creature.ability === 'filter-down' || oppActive.abilityPassive.filterDown) {
+        delta = Math.max(0, delta - 1);
+        if (delta === 0) return;
+      }
+    }
     if (ability === 'contrary') delta = -delta;
     else if (ability === 'simple') delta *= 2;
     const enemyDrop = source === 'opponent' && delta < 0;
     // Clear Body: keeps its cool — an opponent simply cannot lower its stats.
-    if (enemyDrop && ability === 'clear-body') {
+    if (enemyDrop && (ability === 'clear-body' || b.abilityPassive.clearBody)) {
       push({
         kind: 'ability',
         actor: ownerSide,
@@ -981,34 +1021,26 @@ export function simulateBattle(
           : `Foe sent out ${b.creature.name}!`,
       ...snapshot(side),
     });
-    // Intimidate: striding in, it cows whoever's across from it and saps a stage
-    // of Attack — a defensive tempo-swing that re-triggers on every send-out, so
-    // a fresh Intimidate body softens the foe each time it enters.
-    if (b.creature.ability === 'intimidate') {
-      const opp = otherSide(side);
-      const t = sides[opp].team[sides[opp].active];
-      if (t.hp > 0) {
-        // Inner Focus: too composed to be cowed — it ignores the Intimidate
-        // outright (and the Attack drop never lands).
-        if (t.creature.ability === 'inner-focus') {
+    const opp = otherSide(side);
+    const t = sides[opp].team[sides[opp].active];
+    if (t.hp > 0) {
+      applyEntryAbilities(
+        side,
+        b,
+        t,
+        sides[side].team.map((x) => x.creature),
+        (s, stat, delta, who) => applyStage(s, stat, delta, who === 'opponent' ? 'opponent' : 'self'),
+        (s) => applyConfuse(s),
+        (name, text, actor, affected) => {
           push({
             kind: 'ability',
-            actor: opp,
-            affected: opp,
-            name: 'Inner Focus',
-            text: `${t.creature.name}'s Inner Focus shrugged off the intimidation!`,
+            actor,
+            affected,
+            name,
+            text,
           });
-        } else {
-          push({
-            kind: 'ability',
-            actor: side,
-            affected: opp,
-            name: 'Intimidate',
-            text: `${b.creature.name} intimidates ${t.creature.name}!`,
-          });
-          applyStage(opp, 'atk', -1, 'opponent');
-        }
-      }
+        },
+      );
     }
   };
 
@@ -1016,9 +1048,14 @@ export function simulateBattle(
   sendOut('foe', 0);
   sendOut('player', 0);
 
-  const handleFaint = (side: Side): boolean => {
+  const handleFaint = (side: Side, killer?: Battler, koMove?: string): boolean => {
     const s = sides[side];
     const b = s.team[s.active];
+    if (b.creature.ability === 'natural-cure') {
+      b.status = null;
+      b.statusTurns = 0;
+      b.toxicCounter = 0;
+    }
     push({
       kind: 'faint',
       actor: side,
@@ -1057,10 +1094,19 @@ export function simulateBattle(
       applyStage(side, offenseStage(incoming.creature), 1);
       applyStage(side, 'spd', 1);
     }
+    const faintBonus = applyFaintAbilities(
+      fainted,
+      incoming,
+      killer ?? null,
+      koMove,
+      (s, stat, delta) => applyStage(s, stat, delta, 'self'),
+      side,
+    );
+    if (faintBonus.torchPassTurns > 0) incoming.torchPassTurns = faintBonus.torchPassTurns;
     return true;
   };
 
-  const takeTurn = (side: Side): 'continue' | Side => {
+  const takeTurn = (side: Side, movedFirst = false): 'continue' | Side => {
     const me = sides[side];
     const foe = sides[otherSide(side)];
     const attacker = me.team[me.active];
@@ -1207,7 +1253,8 @@ export function simulateBattle(
         const atk = effectiveAtk(attacker, me.statMult);
         const def = effectiveDef(attacker, me.statMult);
         const base = (2 * LEVEL) / 5 + 2;
-        const dmg = Math.max(1, Math.floor((base * 40 * (atk / def)) / 50 + 2));
+        let dmg = Math.max(1, Math.floor((base * 40 * (atk / def)) / 50 + 2));
+        if (attacker.creature.ability === 'trickster') dmg = Math.max(1, Math.floor(dmg / 2));
         attacker.hp -= dmg;
         push({
           kind: 'hit',
@@ -1241,7 +1288,8 @@ export function simulateBattle(
     // Spend a use of any PP-capped move (consumed on use, even if it later
     // misses — matching how the games charge PP).
     if (move.pp !== undefined) {
-      attacker.pp[move.name] = (attacker.pp[move.name] ?? move.pp) - 1;
+      const cost = defender.creature.ability === 'pressure' ? 2 : 1;
+      attacker.pp[move.name] = Math.max(0, (attacker.pp[move.name] ?? move.pp) - cost);
     }
     push({
       kind: 'move',
@@ -1254,10 +1302,7 @@ export function simulateBattle(
 
     // Hustle trades aim for power: its damaging moves land 0.8× as reliably
     // (status moves keep their usual accuracy).
-    const accuracy =
-      attacker.creature.ability === 'hustle' && move.power > 0
-        ? move.accuracy * 0.8
-        : move.accuracy;
+    const accuracy = effectiveAccuracy(attacker, defender, move);
     if (!rng.chance(accuracy)) {
       push({ kind: 'miss', actor: side, text: 'But it missed!' });
       return 'continue';
@@ -1309,7 +1354,7 @@ export function simulateBattle(
         ...snapshot(otherSide(side)),
       });
       if (defender.hp <= 0) {
-        const survives = handleFaint(otherSide(side));
+        const survives = handleFaint(otherSide(side), attacker, move.name);
         if (!survives) return side;
       }
       return 'continue';
@@ -1323,6 +1368,18 @@ export function simulateBattle(
           kind: 'noeffect',
           actor: side,
           text: `It doesn't affect ${defender.creature.name}…`,
+        });
+      } else if (
+        defender.abilityPassive.immuneTaunt ||
+        defender.creature.ability === 'oblivious'
+      ) {
+        const tauntSide = otherSide(side);
+        push({
+          kind: 'ability',
+          actor: tauntSide,
+          affected: tauntSide,
+          name: 'Oblivious',
+          text: `${defender.creature.name} ignored the taunt!`,
         });
       } else {
         defender.taunted = TAUNT_TURNS;
@@ -1477,6 +1534,8 @@ export function simulateBattle(
       me.statMult,
       foe.statMult,
       rng,
+      me.team,
+      movedFirst,
     );
 
     if (mult === 0) {
@@ -1507,11 +1566,23 @@ export function simulateBattle(
     // Sturdy: at full health it braces against a knockout blow, clinging to a
     // single HP instead of fainting. A one-time safety net (it must be at full
     // HP for it to kick in), not a permanent wall.
+    const hpBefore = defender.hp;
+    const plotHold =
+      defender.creature.ability === 'plot-armor' &&
+      !defender.plotArmorUsed &&
+      defender.hp > defender.maxHp / 2 &&
+      damage >= defender.hp;
     const sturdyHold =
       defender.creature.ability === 'sturdy' &&
       defender.hp === defender.maxHp &&
       damage >= defender.hp;
-    const dealt = sturdyHold ? defender.hp - 1 : damage;
+    let dealt = damage;
+    if (plotHold) {
+      defender.plotArmorUsed = true;
+      dealt = defender.hp - 1;
+    } else if (sturdyHold) {
+      dealt = defender.hp - 1;
+    }
     defender.hp -= dealt;
     push({
       kind: 'hit',
@@ -1534,6 +1605,39 @@ export function simulateBattle(
         text: `${defender.creature.name} endured the hit with Sturdy!`,
       });
     }
+    if (plotHold) {
+      push({
+        kind: 'ability',
+        actor: otherSide(side),
+        affected: otherSide(side),
+        name: 'Plot Armor',
+        text: `${defender.creature.name}'s Plot Armor kept it standing!`,
+      });
+    }
+    if (
+      defender.creature.ability === 'second-wind' &&
+      !defender.secondWindUsed &&
+      hpBefore > defender.maxHp / 3 &&
+      defender.hp > 0 &&
+      defender.hp <= defender.maxHp / 3
+    ) {
+      defender.secondWindUsed = true;
+      defender.hp = Math.min(
+        defender.maxHp,
+        defender.hp + Math.floor(defender.maxHp * 0.25),
+      );
+      push({
+        kind: 'ability',
+        actor: dSide,
+        affected: dSide,
+        name: 'Second Wind',
+        text: `${defender.creature.name} rallied with Second Wind!`,
+        ...snapshot(dSide),
+      });
+    }
+    if (dealt > 0 && defender.creature.ability === 'color-change') {
+      defender.colorResistType = move.type;
+    }
 
     if (move.effect?.kind === 'lifesteal' && dealt > 0) {
       const drained = Math.floor(dealt * move.effect.fraction * attacker.mods.healMult);
@@ -1550,7 +1654,7 @@ export function simulateBattle(
           ...snapshot(side),
         });
         if (attacker.hp <= 0) {
-          if (defender.hp <= 0 && !handleFaint(otherSide(side))) return side;
+          if (defender.hp <= 0 && !handleFaint(otherSide(side), attacker, move.name)) return side;
           const survives = handleFaint(side);
           if (!survives) return otherSide(side);
           return 'continue';
@@ -1595,7 +1699,8 @@ export function simulateBattle(
       attacker.hp > 0 &&
       attacker.creature.ability !== 'magic-guard'
     ) {
-      const recoil = Math.max(1, Math.floor(dealt * move.effect.fraction));
+      const recoilFrac = move.effect.fraction * (attacker.creature.ability === 'reckless' ? 1.25 : 1);
+      const recoil = Math.max(1, Math.floor(dealt * recoilFrac));
       attacker.hp -= recoil;
       push({
         kind: 'hit',
@@ -1608,7 +1713,7 @@ export function simulateBattle(
       if (attacker.hp <= 0) {
         // The foe may have gone down to the same blow — resolve its faint first
         // so the battle ends correctly if both sides are now empty.
-        if (defender.hp <= 0 && !handleFaint(otherSide(side))) return side;
+        if (defender.hp <= 0 && !handleFaint(otherSide(side), attacker, move.name)) return side;
         const survives = handleFaint(side);
         if (!survives) return otherSide(side);
         return 'continue';
@@ -1627,7 +1732,7 @@ export function simulateBattle(
     }
 
     if (defender.hp <= 0) {
-      const survives = handleFaint(otherSide(side));
+      const survives = handleFaint(otherSide(side), attacker, move.name);
       // Aftermath: felled by a direct hit, it detonates in the attacker's face
       // for a quarter of that attacker's HP — a parting blow that can trade the
       // KO right back (resolved before Moxie, since a fainted attacker can't bask
@@ -1665,25 +1770,14 @@ export function simulateBattle(
       return 'continue';
     }
 
-    // Body-hazard abilities: a defender that takes the hit and lives can punish
-    // its attacker with a status (Static paralyzes, Flame Body burns, Poison
-    // Point badly poisons) — making it risky to keep swinging at it.
-    const onHitStatus: Exclude<StatusKind, null> | null =
-      defender.creature.ability === 'static'
-        ? 'stun'
-        : defender.creature.ability === 'flame-body'
-          ? 'burn'
-          : defender.creature.ability === 'poison-point'
-            ? 'poison'
-            : null;
-    if (
-      onHitStatus &&
-      dealt > 0 &&
-      attacker.hp > 0 &&
-      attacker.status === null &&
-      rng.chance(0.3)
-    ) {
-      applyStatus(side, onHitStatus);
+    // Contact abilities: static, flame body, rough skin, iron barbs, sticky, etc.
+    if (dealt > 0 && attacker.hp > 0 && isContactHit(attacker, move)) {
+      applyContactAbilities(defender, attacker, move.name, rng);
+      if (attacker.hp <= 0) {
+        const survives = handleFaint(side);
+        if (!survives) return otherSide(side);
+        return 'continue';
+      }
     }
 
     // Stamina: every blow it weathers makes it dig in, hardening its Defense a
@@ -1730,26 +1824,6 @@ export function simulateBattle(
         applyStage(otherSide(side), 'def', -1);
         applyStage(otherSide(side), 'atk', 1);
         applyStage(otherSide(side), 'spd', 1);
-      }
-    }
-
-    // Rough Skin: the attacker tears itself on the barbed hide, recoiling for a
-    // chip of its own HP. That recoil can itself be the knockout blow.
-    if (defender.creature.ability === 'rough-skin' && dealt > 0 && attacker.hp > 0) {
-      const recoil = Math.max(1, Math.floor(attacker.maxHp / 8));
-      attacker.hp -= recoil;
-      push({
-        kind: 'ability',
-        actor: otherSide(side),
-        affected: side,
-        name: 'Rough Skin',
-        text: `${attacker.creature.name} was hurt by Rough Skin!`,
-        ...snapshot(side),
-      });
-      if (attacker.hp <= 0) {
-        const survives = handleFaint(side);
-        if (!survives) return otherSide(side);
-        return 'continue';
       }
     }
 
@@ -1810,6 +1884,11 @@ export function simulateBattle(
       }
     }
 
+    if (dealt > 0) {
+      attacker.actedTurns += 1;
+      if (attacker.creature.ability === 'opening-act') attacker.openingActUsed = true;
+    }
+
     return 'continue';
   };
 
@@ -1855,6 +1934,77 @@ export function simulateBattle(
     // attacker only pulls further ahead the longer it stays in.
     if (b.creature.ability === 'speed-boost' && b.stages.spd < 6) {
       applyStage(side, 'spd', 1);
+    }
+
+    if (b.torchPassTurns > 0) b.torchPassTurns -= 1;
+    if (b.sealedTurns > 0) {
+      b.sealedTurns -= 1;
+      if (b.sealedTurns <= 0) b.sealedMoveName = null;
+    }
+    if (b.statusSuspectTurns > 0) {
+      b.statusSuspectTurns -= 1;
+      if (b.statusSuspectTurns <= 0) b.statusSusceptMult = 1;
+    }
+    if (b.perishCountdown > 0) {
+      const chip = Math.max(1, Math.floor(b.maxHp / 3));
+      b.hp -= chip;
+      push({
+        kind: 'statusTick',
+        actor: side,
+        affected: side,
+        damage: chip,
+        text: `${b.creature.name} is trapped by Perish Body!`,
+        ...snapshot(side),
+      });
+      b.perishCountdown -= 1;
+      if (b.perishCountdown <= 0) b.hp = 0;
+    }
+    if (b.creature.ability === 'hydration') {
+      b.hydrationCounter += 1;
+      if (b.hydrationCounter >= 3 && b.status !== null) {
+        b.status = null;
+        b.statusTurns = 0;
+        b.toxicCounter = 0;
+        b.hydrationCounter = 0;
+        push({
+          kind: 'ability',
+          actor: side,
+          affected: side,
+          name: 'Hydration',
+          text: `${b.creature.name} shook off its status with Hydration!`,
+        });
+      }
+    }
+    if (b.creature.ability === 'moody') {
+      const up = rng.pick(MOODY_STATS);
+      let down = rng.pick(MOODY_STATS);
+      while (down === up) down = rng.pick(MOODY_STATS);
+      b.stages[up] = Math.min(6, b.stages[up] + 2);
+      b.stages[down] = Math.max(-6, b.stages[down] - 1);
+      push({
+        kind: 'ability',
+        actor: side,
+        affected: side,
+        name: 'Moody',
+        text: `${b.creature.name}'s Moody shifted its stats!`,
+      });
+    }
+    const roster = s.team.map((x) => x.creature);
+    if (
+      teamHasAbility(roster, 'grass-warden') &&
+      b.creature.types.includes('grass') &&
+      b.hp > 0 &&
+      b.hp < b.maxHp
+    ) {
+      b.hp = Math.min(b.maxHp, b.hp + Math.max(1, Math.floor(b.maxHp / 16)));
+    }
+    if (
+      teamHasAbility(roster, 'tide-matriarch') &&
+      b.creature.types.includes('water') &&
+      b.hp > 0 &&
+      b.hp < b.maxHp
+    ) {
+      b.hp = Math.min(b.maxHp, b.hp + Math.max(1, Math.floor(b.maxHp / 32)));
     }
 
     // Shed Skin: about a third of the time it sloughs off whatever ails it,
@@ -1989,12 +2139,10 @@ export function simulateBattle(
     // Turn order: higher move priority strikes first; otherwise faster Speed,
     // ties broken by a coin flip. Priority is predicted from each side's planned
     // attack (KO-aware) without consuming RNG, so the stream stays stable.
-    const pPrio =
-      planAttack(pActive, fActive, sides.player.statMult, sides.foe.statMult)
-        .move.priority ?? 0;
-    const fPrio =
-      planAttack(fActive, pActive, sides.foe.statMult, sides.player.statMult)
-        .move.priority ?? 0;
+    const pPlan = planAttack(pActive, fActive, sides.player.statMult, sides.foe.statMult);
+    const fPlan = planAttack(fActive, pActive, sides.foe.statMult, sides.player.statMult);
+    const pPrio = movePriority(pActive, pPlan.move);
+    const fPrio = movePriority(fActive, fPlan.move);
     const pSpd = effectiveSpd(pActive, sides.player.statMult);
     const fSpd = effectiveSpd(fActive, sides.foe.statMult);
 
@@ -2008,7 +2156,7 @@ export function simulateBattle(
     }
 
     for (const side of order) {
-      const r = takeTurn(side);
+      const r = takeTurn(side, side === order[0]);
       if (r !== 'continue') {
         winner = r;
         break;
@@ -2047,9 +2195,9 @@ export function simulateBattle(
 export const TIER_STAT_MULT: Record<string, number> = {
   trainer: 0.9,
   gym: 1.0,
-  elite: 1.05,
+  elite: 1.03,
   special: 1.05, // mini-boss cameo — a notch above a Gym Leader
-  champion: 1.1,
+  champion: 1.08,
 };
 
 /**

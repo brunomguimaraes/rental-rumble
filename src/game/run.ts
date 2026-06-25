@@ -3,13 +3,15 @@ import {
   CREATURES,
   withSign,
   withAbility,
+  withBuild,
   withRandomPortrait,
   asShiny,
   canBeShiny,
   asAltColor,
   canBeAltColor,
 } from './pokemon.js';
-import { rollAbility } from './abilities.js';
+import { canRollBuild } from './moves.js';
+import { rollAbility, teamHasAbility } from './abilities.js';
 import { rollSign, forcedRareSign } from './zodiac.js';
 import { allRareEnabled, allShinyEnabled } from './dev.js';
 import { RNG } from './rng.js';
@@ -29,6 +31,11 @@ export const SHINY_CHANCE = 1 / 500;
  */
 export const ALT_COLOR_CHANCE = 1 / 20;
 
+/** Shiny odds while Fortune is on the team. */
+export function shinyChanceForTeam(team: readonly Creature[]): number {
+  return teamHasAbility(team, 'fortune') ? SHINY_CHANCE * 1.3 : SHINY_CHANCE;
+}
+
 /** Roll a fresh pool/reroll entry: a random zodiac sign + emotion + colour luck. */
 function rollCreature(creature: Creature, rng: RNG): Creature {
   // Dev cheat: force every drafted Pokémon to a rare/mythic celestial sign.
@@ -44,6 +51,12 @@ function rollCreature(creature: Creature, rng: RNG): Creature {
   // Roll which ability this mon is born with. Single-ability species keep their
   // one ability (no RNG drawn); the few with two slots pick one at random.
   c = withAbility(c, rollAbility(c.dexId, rng));
+  // Roll a Physical/Energy build for genuinely mixed attackers — a coin flip that
+  // reshapes its two attack stats and biases its kit (see canRollBuild/withBuild).
+  // Lopsided species draw nothing here, keeping their natural identity.
+  if (canRollBuild(creature.stats)) {
+    c = withBuild(c, rng.next() < 0.5 ? 'physical' : 'energy');
+  }
   if ((allShinyEnabled() || shinyRoll) && canBeShiny(c.dexId)) {
     c = asShiny(c);
   } else if (altRoll && canBeAltColor(c.dexId)) {
@@ -169,8 +182,8 @@ export function rollPool(seed: string, dex: Creature[] = CREATURES): Creature[] 
  * Upper bound on cards a single draft can reveal: one trio per team slot plus
  * the most generous skip budget, with generous headroom. The deck is sliced to
  * this length so we never roll the whole dex up front. The headroom is deliberately
- * large because the draft hides any card sharing an evolutionary line with a mon
- * you've already picked (no two members of the same family on one team) — those
+ * large because the draft hides any card that species-locks against a mon you've
+ * already picked (no ancestor/descendant pairs; branch siblings are fine) — those
  * hidden cards are still drawn off the deck, so a heavily-family-blocked draft
  * burns through more of it than the bare pick + skip count would suggest.
  */

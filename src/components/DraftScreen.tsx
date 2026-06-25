@@ -7,7 +7,7 @@ import {
   rollDraftDeck,
   type Difficulty,
 } from '../game/run';
-import { withBall, familyId } from '../game/pokemon';
+import { withBall, speciesLockConflictsWithAny } from '../game/pokemon';
 import { ballUrl } from '../game/balls';
 import { CreatureCard } from './CreatureCard';
 import { BallBadge, BallPicker } from './BallPicker';
@@ -93,29 +93,30 @@ export function DraftScreen({
     (difficulty === 'easy' || difficulty === 'normal') && !done;
 
   // Build the trio on offer by walking the deterministic deck. A team can't hold
-  // two members of the same evolutionary line, so once you've picked a mon every
-  // card in its family is hidden — we skip past it and draw the next fresh card
-  // instead of ever showing it. We replay every past decision (each pick or skip
-  // consumes one trio) so the deck position and the current trio are derived
-  // purely from `deck`, `history` and `picked` — which makes undo trivially
-  // correct. Picks only ever *add* family blocks, so a card hidden now stays
-  // hidden, meaning a consumed card never needs to reappear later in the draft.
+  // an ancestor and its descendant (same line), but branch siblings (different
+  // Eevee evolutions, Vileplume + Bellossom, …) are allowed — so we hide any
+  // card that species-locks against something already picked. We replay every
+  // past decision (each pick or skip consumes one trio) so the deck position
+  // and the current trio are derived purely from `deck`, `history` and `picked`
+  // — which makes undo trivially correct. Picks only ever *add* lock blocks,
+  // so a card hidden now stays hidden, meaning a consumed card never needs to
+  // reappear later in the draft.
   const choices = useMemo(() => {
-    const blocked = new Set<number>();
+    const lockedDexIds: number[] = [];
     let deckIndex = 0;
     let pickIndex = 0;
     const takeTrio = (): Creature[] => {
       const trio: Creature[] = [];
       while (deckIndex < deck.length && trio.length < DRAFT_CHOICES) {
         const card = deck[deckIndex++];
-        if (!blocked.has(familyId(card.dexId))) trio.push(card);
+        if (!speciesLockConflictsWithAny(card.dexId, lockedDexIds)) trio.push(card);
       }
       return trio;
     };
     for (const move of history) {
       takeTrio(); // burn the trio that decision was made on
       if (move.kind === 'pick') {
-        blocked.add(familyId(picked[pickIndex++].dexId));
+        lockedDexIds.push(picked[pickIndex++].dexId);
       }
     }
     return takeTrio();

@@ -1,9 +1,14 @@
-import type { Creature, Sign } from './types.js';
+import type { Build, Creature, Move, Sign } from './types.js';
 import type { BracketId } from './gens.js';
 import { inBracket } from './gens.js';
 import { RAW_DEX } from './pokedex.gen.js';
 import { EVOLUTIONS } from './evolutions.gen.js';
-import { movesFor } from './moves.js';
+import {
+  movesFor,
+  canRollBuild,
+  redistributeForBuild,
+  applyMoveOverrides,
+} from './moves.js';
 import { abilitiesForDex, defaultAbilityForDex, isAbilityOption } from './abilities.js';
 import { defaultSign, signsByFit } from './zodiac.js';
 import { PORTRAIT_EMOTIONS } from './portraits.gen.js';
@@ -221,20 +226,63 @@ export function getCreature(id: string): Creature {
   return c;
 }
 
+/**
+ * Re-derive a creature's move pool from its current stats + sign, then re-apply
+ * any player move tweaks on top. Centralised so every transform that changes the
+ * moveset (sign reroll, build roll) keeps earned move overrides stuck in place.
+ */
+function deriveMoves(creature: Creature, sign = creature.sign): Move[] {
+  const base = movesFor(
+    creature.types,
+    creature.stats,
+    sign,
+    abilitiesForDex(creature.dexId),
+    creature.dexId,
+  );
+  return applyMoveOverrides(base, creature.moveOverrides);
+}
+
 /** Return a copy of the creature born under a different zodiac sign. */
 export function withSign(creature: Creature, sign: Sign): Creature {
   if (creature.sign === sign) return creature;
-  return {
-    ...creature,
-    sign,
-    moves: movesFor(
-      creature.types,
-      creature.stats,
-      sign,
-      abilitiesForDex(creature.dexId),
-      creature.dexId,
-    ),
-  };
+  return { ...creature, sign, moves: deriveMoves(creature, sign) };
+}
+
+/**
+ * Return a copy of the creature drafted with a specific offensive build, but
+ * ONLY for genuinely mixed-attacker species (see canRollBuild) — on anything
+ * else it's a no-op, so a lopsided mon can never have its stats reshaped. The
+ * build redistributes the two attack stats around the *canonical* base spread
+ * (so it's idempotent — re-applying never compounds), then rebuilds the moveset
+ * (now biased to the chosen side by the category floor) and re-lays any move
+ * tweaks. Round-trips through the leaderboard payload like sign/ability.
+ */
+export function withBuild(creature: Creature, build: Build): Creature {
+  const baseStats = (CREATURES_BY_ID[creature.id] ?? creature).stats;
+  if (!canRollBuild(baseStats)) return creature;
+  const stats = redistributeForBuild(baseStats, build);
+  const next: Creature = { ...creature, build, stats };
+  return { ...next, moves: deriveMoves(next) };
+}
+
+/**
+ * Return a copy of the creature with one move slot swapped for `move` — the
+ * post-battle "tweak a move" reward. The override is recorded on the creature so
+ * it survives later moveset re-derivations (a sign reroll, an evolution build
+ * re-roll), and the live `moves` array is updated to match. Callers are expected
+ * to pass a `move` from candidateMovesFor(creature) (the UI and the server-side
+ * validator both gate on that legal pool).
+ */
+export function withMoveOverride(
+  creature: Creature,
+  slot: number,
+  move: Move,
+): Creature {
+  if (slot < 0 || slot >= creature.moves.length) return creature;
+  const moveOverrides = { ...(creature.moveOverrides ?? {}), [slot]: move };
+  const moves = creature.moves.slice();
+  moves[slot] = move;
+  return { ...creature, moveOverrides, moves };
 }
 
 /** Return a copy of the creature sent out in a different (cosmetic) ball. */
@@ -278,60 +326,50 @@ export function canEvolve(creature: Creature, bracket?: BracketId): boolean {
 }
 
 /**
- * Map every species to a stable "family id" — the lowest National Dex id in its
- * evolutionary line, treating EVOLUTIONS as an undirected graph. Two species
- * share a family when one evolves into the other at any distance, so Bulbasaur,
- * Ivysaur and Venusaur all resolve to 1, and branched lines (Eevee, Wurmple, …)
- * collapse into a single family too. A species with no relatives is its own
- * family. Built once at module load by flood-filling connected components.
+ * Species-lock framework — which dex ids can't share a team slot.
+ *
+ * Default rule: a team can't hold an ancestor and its descendant (Bulbasaur +
+ * Venusaur, Eevee + Flareon, Gloom + Vileplume). Branched lines are the
+ * exception: sibling evolutions from the same fork *can* coexist (Vaporeon +
+ * Umbreon, Vileplume + Bellossom, Hitmonlee + Hitmontop). Derived entirely
+ * from EVOLUTIONS — no hand-maintained exception list.
  */
-const FAMILY_OF: Map<number, number> = (() => {
-  const adjacency = new Map<number, Set<number>>();
-  const link = (a: number, b: number) => {
-    if (!adjacency.has(a)) adjacency.set(a, new Set());
-    if (!adjacency.has(b)) adjacency.set(b, new Set());
-    adjacency.get(a)!.add(b);
-    adjacency.get(b)!.add(a);
-  };
+const EVOLUTION_PARENT = (() => {
+  const parent = new Map<number, number>();
   for (const [fromId, targets] of Object.entries(EVOLUTIONS)) {
-    for (const to of targets) link(Number(fromId), to);
+    for (const to of targets) parent.set(to, Number(fromId));
   }
-
-  const family = new Map<number, number>();
-  const visited = new Set<number>();
-  for (const start of adjacency.keys()) {
-    if (visited.has(start)) continue;
-    const stack = [start];
-    const component: number[] = [];
-    visited.add(start);
-    while (stack.length > 0) {
-      const node = stack.pop()!;
-      component.push(node);
-      for (const next of adjacency.get(node) ?? []) {
-        if (!visited.has(next)) {
-          visited.add(next);
-          stack.push(next);
-        }
-      }
-    }
-    const root = Math.min(...component);
-    for (const node of component) family.set(node, root);
-  }
-  return family;
+  return parent;
 })();
 
-/**
- * Stable id shared by every member of a species' evolutionary line. Species with
- * no (shipped) evolutions are their own family, so this is always defined — which
- * makes it a safe key for "one per evolutionary line on a team" rules.
- */
-export function familyId(dexId: number): number {
-  return FAMILY_OF.get(dexId) ?? dexId;
+/** Whether `ancestor` is the same species as, or evolves into, `descendant`. */
+export function isEvolutionAncestor(ancestor: number, descendant: number): boolean {
+  if (ancestor === descendant) return true;
+  let current = descendant;
+  while (EVOLUTION_PARENT.has(current)) {
+    current = EVOLUTION_PARENT.get(current)!;
+    if (current === ancestor) return true;
+  }
+  return false;
 }
 
-/** Whether two species belong to the same evolutionary line. */
+/**
+ * Whether two species conflict under the team species lock. True for duplicates
+ * and for any ancestor/descendant pair; false for branch siblings (different
+ * Eevee evolutions, Vileplume vs Bellossom, etc.).
+ */
+export function speciesLockConflict(a: number, b: number): boolean {
+  return isEvolutionAncestor(a, b) || isEvolutionAncestor(b, a);
+}
+
+/** Whether `dexId` conflicts with any species already on the team. */
+export function speciesLockConflictsWithAny(dexId: number, teamDexIds: number[]): boolean {
+  return teamDexIds.some((id) => speciesLockConflict(dexId, id));
+}
+
+/** @deprecated Use {@link speciesLockConflict} — kept for call-site clarity. */
 export function sameFamily(a: number, b: number): boolean {
-  return familyId(a) === familyId(b);
+  return speciesLockConflict(a, b);
 }
 
 /**
@@ -350,6 +388,11 @@ export function evolveCreature(creature: Creature, targetDexId: number): Creatur
   if (creature.ability && isAbilityOption(targetDexId, creature.ability)) {
     evolved = withAbility(evolved, creature.ability);
   }
+  // Carry the rolled Physical/Energy build across when the evolved species is
+  // also a mixed attacker; otherwise it simply takes its own (lopsided) stats.
+  // Earned per-move tweaks do NOT carry — the evolved species' kit is different,
+  // so its moveset starts fresh (withBuild here works off the override-free base).
+  if (creature.build) evolved = withBuild(evolved, creature.build);
   // A special colouring carries over through evolution (shiny stays shiny, an
   // alt colour stays an alt colour) — falling back to the base palette if the
   // evolved species has no matching recolour.

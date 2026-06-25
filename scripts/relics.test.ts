@@ -211,6 +211,19 @@ console.log('\n[5] rollRelicOffer — determinism + criteria');
     if (rollRelicOffer(`early:${s}`, 1, CREATURES.slice(0, 6), []).includes('lifeorb')) earlyLifeOrb = true;
   }
   check('respects minStage (no Life Orb at stage 1)', !earlyLifeOrb);
+
+  // Pickup: a Meowth with Pickup leans item events toward rarer relics.
+  const pickupTeam = teamFromMons([{ id: '52', sign: 'gemini', ability: 'pickup' }]);
+  const plainTeam = teamFromMons([{ id: '52', sign: 'gemini', ability: 'technician' }]);
+  let pickupRare = 0;
+  let plainRare = 0;
+  for (let s = 0; s < 80; s++) {
+    const offer = rollRelicOffer(`pickup:${s}`, 5, pickupTeam, []);
+    if (offer.some((id) => RELICS[id].rarity !== 'common')) pickupRare++;
+    const plain = rollRelicOffer(`pickup:${s}`, 5, plainTeam, []);
+    if (plain.some((id) => RELICS[id].rarity !== 'common')) plainRare++;
+  }
+  check('Pickup leans offers toward rarer relics', pickupRare > plainRare);
 }
 
 console.log('\n[6] itemEventStages — count + bounds');

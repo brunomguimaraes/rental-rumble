@@ -33,7 +33,7 @@ import {
   rerollAbility,
 } from '../game/abilities';
 import { allRareEnabled, allShinyEnabled } from '../game/dev';
-import { SHINY_CHANCE } from '../game/run';
+import { shinyChanceForTeam } from '../game/run';
 import { RNG } from '../game/rng';
 import { CreatureCard } from './CreatureCard';
 import { CupIcon } from './CupIcon';
@@ -190,7 +190,7 @@ export function RecruitScreen({
       view = withSign(view, sign);
     }
     const shinyRng = new RNG(`recruitshiny:${c.dexId}:${c.sign}`);
-    const shinyRoll = shinyRng.chance(SHINY_CHANCE);
+    const shinyRoll = shinyRng.chance(shinyChanceForTeam(currentTeam));
     if (!view.shiny && (allShiny || shinyRoll) && canBeShiny(view.dexId)) {
       view = withRandomPortrait(asShiny(view), shinyRng);
     }
@@ -198,11 +198,12 @@ export function RecruitScreen({
   };
   const defeatedView = defeatedTeam.map(recruitView);
 
-  // A team can't hold two members of the same evolutionary line. Recruiting swaps
+  // A team can't hold an ancestor and its descendant (same line). Recruiting swaps
   // a foe into one slot, so a slot is only a legal target if no *other* slot
-  // already holds a mon from the foe's family — letting you swap a foe onto its
-  // own line (e.g. trade your Ivysaur for their Venusaur) while still blocking a
-  // duplicate line. A foe with no legal slot at all can't be recruited.
+  // already species-locks against the foe — letting you swap a foe onto its own
+  // line (e.g. trade your Ivysaur for their Venusaur) while still blocking a
+  // duplicate, but allowing branch siblings (e.g. Vaporeon + Jolteon). A foe
+  // with no legal slot at all can't be recruited.
   const recruitSlotAllowed = (foe: Creature, slot: number) =>
     currentTeam.every((c, j) => j === slot || !sameFamily(c.dexId, foe.dexId));
   const canRecruitFoe = (foe: Creature) =>

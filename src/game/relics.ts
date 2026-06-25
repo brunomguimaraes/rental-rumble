@@ -1,6 +1,8 @@
 import type { Creature, PokemonType, RelicId, RelicMods } from './types.js';
 import type { Difficulty } from './run.js';
 import { RNG } from './rng.js';
+import { teamHasAbility } from './abilities.js';
+import { relicOfferCountForTeam, treasureHoundBonus } from './ability-effects.js';
 
 /**
  * Team-wide passive "relics" — the Slay-the-Spire-style run-long buffs the
@@ -228,10 +230,22 @@ export function relicRelevant(def: RelicDef, team: readonly Creature[]): boolean
 }
 
 /** Draw weight for a relic's rarity, with legendaries ramping up deeper in. */
-function rarityWeight(rarity: RelicRarity, stage: number): number {
+function rarityWeight(
+  rarity: RelicRarity,
+  stage: number,
+  pickup = false,
+  bargain = false,
+): number {
+  void bargain;
   if (rarity === 'common') return 100;
-  if (rarity === 'rare') return 32;
-  return 5 + stage; // legendary: rare early, a real possibility late
+  if (rarity === 'rare') return pickup ? 48 : 32;
+  const leg = 5 + stage;
+  return pickup ? leg * 2 : leg;
+}
+
+/** Type-booster draw weight; Bargain doubles it. */
+function typeBoosterWeight(bargain: boolean): number {
+  return bargain ? 200 : 100;
 }
 
 /** How many distinct relics an item event offers the player to choose from. */
@@ -249,7 +263,7 @@ export function rollRelicOffer(
   stage: number,
   team: readonly Creature[],
   owned: readonly RelicId[],
-  count = RELIC_OFFER_COUNT,
+  count = relicOfferCountForTeam(team, RELIC_OFFER_COUNT),
 ): RelicId[] {
   const eligible = ALL_RELICS.filter((id) => {
     if (owned.includes(id)) return false;
@@ -258,11 +272,17 @@ export function rollRelicOffer(
     return relicRelevant(def, team);
   });
 
+  const pickup = teamHasAbility(team, 'pickup');
+  const bargain = teamHasAbility(team, 'bargain');
   const rng = new RNG(`relics:${seed}:${stage}`);
   const pool = eligible.slice();
   const picked: RelicId[] = [];
   while (picked.length < count && pool.length > 0) {
-    const weights = pool.map((id) => rarityWeight(RELICS[id].rarity, stage));
+    const weights = pool.map((id) => {
+      const def = RELICS[id];
+      if (def.boostType) return typeBoosterWeight(bargain);
+      return rarityWeight(def.rarity, stage, pickup);
+    });
     const total = weights.reduce((a, b) => a + b, 0);
     let roll = rng.range(0, total);
     let idx = 0;
@@ -295,8 +315,9 @@ export function itemEventStages(
   seed: string,
   difficulty: Difficulty,
   ladderLen: number,
+  team?: readonly Creature[],
 ): Set<number> {
-  const count = ITEM_EVENTS[difficulty];
+  const count = ITEM_EVENTS[difficulty] + (team ? treasureHoundBonus(team) : 0);
   const candidates: number[] = [];
   for (let i = 1; i <= ladderLen - 2; i++) candidates.push(i);
   if (candidates.length === 0 || count <= 0) return new Set();

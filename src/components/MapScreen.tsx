@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Creature, Opponent, RelicId } from '../game/types';
 import type { Difficulty } from '../game/run';
 import { TIER_LABEL, isTypeThemed, opponentAccent } from '../game/opponents';
+import { teamHasAbility } from '../game/abilities';
 import { TypeBadge } from './TypeBadge';
 import { TrainerSprite } from './TrainerSprite';
 import { LineupEditor } from './LineupEditor';
@@ -39,7 +40,7 @@ export function MapScreen({
   const required = gauntlet.filter((o) => !o.skippable).length;
   // Master hides the type of foes you haven't beaten yet: no scouting ahead to
   // pre-arrange your lineup, so every battle is a blind read.
-  const concealTypes = difficulty === 'master';
+  const concealTypes = difficulty === 'master' && !teamHasAbility(team, 'scout');
   return (
     <div className="mx-auto max-w-5xl px-3 py-6 pb-28 sm:px-4 sm:py-8 sm:pb-28">
       <div className="flex items-start justify-between gap-3">

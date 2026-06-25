@@ -683,7 +683,9 @@ export function movesFor(
 
   // 4) Priority for fast, hard-hitting attackers — and for Technician mons,
   //    whose ability is dead without a sub-60 move to wring power from.
-  if (hasTechnician || (stats.spd >= 95 && stats.atk >= 80)) add(QUICK_ATTACK);
+  if (hasTechnician || (stats.spd >= 95 && stats.atk >= 80) || (stats.spd >= 90 && stats.eatk >= 80)) {
+    add(QUICK_ATTACK);
+  }
 
   // 5) Exactly one setup/sustain button. Type-flavored dual-stat setups take
   //    precedence for the attackers that fit them (Dragon Dance for fast, hard-
@@ -705,9 +707,12 @@ export function movesFor(
   } else if (off >= 100) {
     add(energyAtk ? NASTY_PLOT : SWORDS_DANCE);
     if (isBulky(stats)) add(RECOVER); // bulky attacker may still pack sustain
-  } else if (stats.spd >= 100) {
+  } else if (off >= 85 && stats.spd >= 95) {
+    // Fast attackers with good (not elite) offence still get a setup button — speed
+    // is their edge, so they can afford a turn to snowball.
+    add(energyAtk ? NASTY_PLOT : SWORDS_DANCE);
+  } else if (stats.spd >= 95 && !isBulky(stats)) {
     add(AGILITY);
-    if (isBulky(stats)) add(RECOVER);
   } else if (isBulky(stats)) {
     // Pure wall: fortify if defence-dominant, otherwise heal. Fortify the half
     // it's already better at (Iron Defense for physical, Amnesia for energy).
@@ -745,5 +750,240 @@ export function movesFor(
     pool[pool.length - 1] = QUICK_ATTACK;
   }
 
+  // Build/offence floor: guarantee the pool can actually leverage the mon's
+  // stronger attack. At least ~30% of the slots must be damaging moves of its
+  // offensive category, so a physical-statted mon of energy typing (or a rolled
+  // physical build) still gets physical moves to swing — and vice-versa. Most
+  // mons clear this on STAB alone; it only fires on cross-category builds.
+  ensureCategoryFloor(pool, stats, types, dexId, hasTechnician);
+
   return pool;
+}
+
+/** Minimum share of the move pool that must match the mon's offensive category. */
+const CATEGORY_FLOOR = 0.3;
+
+// Broadly-available coverage on each side of the split, used to top a pool up to
+// the category floor when the mon's typing alone can't (e.g. an energy-typed
+// physical build). Real, defined moves only — drawn in order, skipping anything
+// already carried. Ordered roughly strongest/most-neutral first.
+const PHYSICAL_FILLER: Move[] = [
+  TYPE_MOVES.ground[0], // Earthquake
+  TYPE_MOVES.rock[0], // Stone Edge
+  TYPE_MOVES.fighting[0], // Close Combat
+  TYPE_MOVES.dark[1], // Crunch
+  TYPE_MOVES.steel[0], // Iron Head
+  TYPE_MOVES.ice[1], // Icicle Crash
+  TYPE_MOVES.normal[0], // Body Slam
+];
+const ENERGY_FILLER: Move[] = [
+  TYPE_MOVES.fire[0], // Flamethrower
+  TYPE_MOVES.electric[0], // Thunderbolt
+  TYPE_MOVES.ice[0], // Ice Beam
+  TYPE_MOVES.psychic[0], // Psychic
+  TYPE_MOVES.water[0], // Surf
+  TYPE_MOVES.grass[0], // Energy Ball
+  TYPE_MOVES.normal[1], // Hyper Voice
+];
+
+/**
+ * Top a finished pool up so at least {@link CATEGORY_FLOOR} of its slots are
+ * damaging moves matching the mon's offensive category (Physical if atk ≥ eatk,
+ * else Energy). Mutates `pool` in place. Never displaces the signature (slot 0),
+ * a Technician enabler, or a slot that already matches the wanted category —
+ * replacing only the lowest-priority off-category/utility slots, drawing
+ * replacements from the matching filler list.
+ */
+function ensureCategoryFloor(
+  pool: Move[],
+  stats: BaseStats,
+  types: PokemonType[],
+  dexId: number | undefined,
+  hasTechnician: boolean,
+): void {
+  const want: MoveCategory = isEnergyAttacker(stats) ? 'energy' : 'physical';
+  const need = Math.ceil(MOVE_SLOTS * CATEGORY_FLOOR);
+  const matches = (m: Move) => m.power > 0 && moveCategory(m) === want;
+  let have = pool.filter(matches).length;
+  if (have >= need) return;
+
+  const hasSignature = dexId !== undefined && SIGNATURE_MOVES[dexId] !== undefined;
+  const present = new Set(pool.map((m) => m.name));
+  const filler = want === 'energy' ? ENERGY_FILLER : PHYSICAL_FILLER;
+
+  for (const repl of filler) {
+    if (have >= need) break;
+    if (present.has(repl.name)) continue;
+    // Replace the lowest-priority slot we're allowed to touch (scan from the end).
+    for (let i = pool.length - 1; i >= 0; i--) {
+      if (i === 0 && hasSignature) continue; // never bump the signature
+      const cur = pool[i];
+      if (matches(cur)) continue; // don't trade a matching move for another
+      if (hasTechnician && cur.name === QUICK_ATTACK.name) continue; // keep the enabler
+      present.delete(cur.name);
+      present.add(repl.name);
+      pool[i] = repl;
+      have++;
+      break;
+    }
+  }
+}
+
+/**
+ * The set of moves a given species may legally swap *into* a slot via the
+ * post-battle "tweak a move" reward — its STAB, every off-type coverage it could
+ * roll under any sign, its signature, both reckless recoil nukes its typing owns,
+ * a spread of generic coverage on both halves of the split, and the universal
+ * utility/setup kit. Deterministic from (types, dexId) ALONE — never the current
+ * moveset, sign or build — so the client's picker and the server's anti-cheat
+ * validation always agree on what's allowed. Returned in a stable, readable order
+ * (STAB → signature → coverage → utility); the UI filters out moves already
+ * equipped.
+ */
+export function candidateMovesFor(types: PokemonType[], dexId?: number): Move[] {
+  const out: Move[] = [];
+  const seen = new Set<string>();
+  const add = (m: Move | undefined) => {
+    if (!m || seen.has(m.name)) return;
+    seen.add(m.name);
+    out.push(m);
+  };
+
+  // STAB + signature first (the mon's core identity).
+  for (const t of types) {
+    add(TYPE_MOVES[t][0]);
+    add(TYPE_MOVES[t][1]);
+  }
+  if (dexId !== undefined) add(SIGNATURE_MOVES[dexId]);
+  // A reckless recoil nuke its typing owns.
+  for (const t of types) add(RECOIL_NUKES[t]);
+  // Every element's premium coverage + the celestial set — the full breadth of
+  // off-type reach the mon could otherwise only roll one slice of per sign.
+  for (const el of Object.keys(ELEMENT_COVERAGE) as Element[]) {
+    for (const t of ELEMENT_COVERAGE[el]) add(TYPE_MOVES[t][0]);
+  }
+  for (const t of CELESTIAL_COVERAGE) add(TYPE_MOVES[t][0]);
+  // Generic coverage on both halves of the split, so a mixed mon can lean either
+  // way regardless of its typing.
+  for (const m of PHYSICAL_FILLER) add(m);
+  for (const m of ENERGY_FILLER) add(m);
+  // Universal utility & setup kit.
+  for (const m of [
+    QUICK_ATTACK,
+    SUPER_FANG,
+    TAUNT,
+    RECOVER,
+    SWORDS_DANCE,
+    NASTY_PLOT,
+    AGILITY,
+    IRON_DEFENSE,
+    AMNESIA,
+    CALM_MIND,
+    DRAGON_DANCE,
+    BULK_UP,
+    CHARM,
+    SCREECH,
+    SCARY_FACE,
+    CONFUSE_RAY,
+  ]) {
+    add(m);
+  }
+  return out;
+}
+
+// Every move the game can hand out, indexed by name — the authority the move
+// registry resolves a stored override name back to a full Move object through
+// (see moveByName), and a deterministic list both client and server share.
+const MOVE_BY_NAME: Map<string, Move> = (() => {
+  const map = new Map<string, Move>();
+  const reg = (m: Move) => {
+    if (!map.has(m.name)) map.set(m.name, m);
+  };
+  for (const pair of Object.values(TYPE_MOVES)) {
+    reg(pair[0]);
+    reg(pair[1]);
+  }
+  for (const m of Object.values(SIGNATURE_MOVES)) reg(m);
+  for (const m of Object.values(RECOIL_NUKES)) if (m) reg(m);
+  for (const m of [
+    QUICK_ATTACK,
+    SUPER_FANG,
+    TAUNT,
+    RECOVER,
+    BODY_SLAM,
+    SWORDS_DANCE,
+    NASTY_PLOT,
+    AGILITY,
+    IRON_DEFENSE,
+    AMNESIA,
+    CALM_MIND,
+    DRAGON_DANCE,
+    BULK_UP,
+    CHARM,
+    SCREECH,
+    SCARY_FACE,
+    CONFUSE_RAY,
+  ]) {
+    reg(m);
+  }
+  return map;
+})();
+
+/** Resolve a move name to its canonical Move object (undefined if unknown). */
+export function moveByName(name: string): Move | undefined {
+  return MOVE_BY_NAME.get(name);
+}
+
+/** Apply slot→Move overrides onto a derived move list (out-of-range slots are
+ *  ignored). Returns a fresh array; the input is left untouched. */
+export function applyMoveOverrides(
+  moves: Move[],
+  overrides: Record<number, Move> | undefined,
+): Move[] {
+  if (!overrides) return moves;
+  const out = moves.slice();
+  for (const [slot, move] of Object.entries(overrides)) {
+    const i = Number(slot);
+    if (Number.isInteger(i) && i >= 0 && i < out.length) out[i] = move;
+  }
+  return out;
+}
+
+/** Smallest gap (as a fraction of the higher stat) by which Physical and Energy
+ *  Attack may differ for a species to still count as a genuinely *mixed*
+ *  attacker — and so roll a Physical/Energy build (see canRollBuild). */
+const MIXED_BUILD_TOLERANCE = 0.8;
+/** A mixed mon must also actually hit hard enough for the choice to matter. */
+const MIXED_BUILD_MIN_ATTACK = 70;
+/** How far a chosen build tilts the two attack stats around their shared mean
+ *  (±12%): budget-neutral, but a clear, usable lean (a 100/100 → 112/88). */
+const BUILD_SPREAD = 0.12;
+
+/**
+ * Whether a species is a genuinely *mixed* attacker — its Physical and Energy
+ * Attack sit within {@link MIXED_BUILD_TOLERANCE} of each other and are high
+ * enough to matter — and so can be drafted as either a Physical or Energy build.
+ * Clearly-lopsided mons (a 130/65 bruiser) return false: they have no real choice
+ * to make and keep their natural stats untouched.
+ */
+export function canRollBuild(s: BaseStats): boolean {
+  const hi = Math.max(s.atk, s.eatk);
+  const lo = Math.min(s.atk, s.eatk);
+  return hi >= MIXED_BUILD_MIN_ATTACK && lo / hi >= MIXED_BUILD_TOLERANCE;
+}
+
+/**
+ * Redistribute a (mixed) stat line's two attack stats for the chosen build: the
+ * build's side rises and the other falls by {@link BUILD_SPREAD} around their
+ * shared mean, so the total offensive budget is preserved while the identity
+ * becomes decisive. Defenses, HP and Speed are left alone. Caller is responsible
+ * for only applying this to canRollBuild species.
+ */
+export function redistributeForBuild(s: BaseStats, build: Build): BaseStats {
+  const avg = (s.atk + s.eatk) / 2;
+  const hi = Math.round(avg * (1 + BUILD_SPREAD));
+  const lo = Math.round(avg * (1 - BUILD_SPREAD));
+  return build === 'physical'
+    ? { ...s, atk: hi, eatk: lo }
+    : { ...s, atk: lo, eatk: hi };
 }
