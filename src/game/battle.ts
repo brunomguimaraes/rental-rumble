@@ -2559,15 +2559,15 @@ export const TIER_STAT_MULT: Record<string, number> = {
  * The daily boss's hidden, difficulty-scaled "passive" — never shown to players.
  * It's a flat stat handicap/boost layered on top of the Champion's base tier edge
  * (TIER_STAT_MULT.champion): Easy weakens the boss, Normal leaves it bare, and
- * Hard / Master toughen it by +10% / +25%. Applied identically on the client run
+ * Hard / Master toughen it by +7.5% / +15%. Applied identically on the client run
  * loop and the server's leaderboard re-sim (see championFoeStatMult), so a win
  * reproduces on both. Only the Champion carries it; every other rung is unchanged.
  */
 export const CHAMPION_DIFFICULTY_MULT: Record<Difficulty, number> = {
   easy: 0.9, // a handicap — the boss fights with weaker stats
   normal: 1, // the bare daily Champion
-  hard: 1.1, // +10%
-  master: 1.25, // +25%
+  hard: 1.075, // +7.5%
+  master: 1.15, // +15%
 };
 
 /**
