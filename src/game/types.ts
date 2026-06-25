@@ -176,6 +176,16 @@ export type SpecialTier = 'normal' | 'legendary' | 'mythical';
  *                    debuffs slide right off).
  * - `defiant`      — an enemy stat drop stings its pride into a sharp two-stage
  *                    Attack spike.
+ * - `sniper`       — its critical hits cut deeper, dealing 2.25× instead of 1.5×.
+ * - `sheer-force`  — throws its whole weight behind every blow: +30% damage, but
+ *                    its moves' bonus effects (burns, drops, …) never trigger.
+ * - `shed-skin`    — sloughs off a status condition outright about a third of the
+ *                    time at the end of each turn.
+ * - `early-bird`   — a light sleeper: it shakes off sleep twice as fast.
+ * - `scrappy`      — undaunted by Ghosts — its Normal and Fighting moves land on
+ *                    them as if the immunity weren't there.
+ * - `unaware`      — ignores the foe's stat-stage changes entirely, both when
+ *                    attacking and defending — a hard counter to setup sweepers.
  */
 export type AbilityId =
   | 'truant'
@@ -208,7 +218,13 @@ export type AbilityId =
   | 'magic-guard'
   | 'poison-heal'
   | 'clear-body'
-  | 'defiant';
+  | 'defiant'
+  | 'sniper'
+  | 'sheer-force'
+  | 'shed-skin'
+  | 'early-bird'
+  | 'scrappy'
+  | 'unaware';
 
 /** Raw generated dex row (see scripts/gen-pokedex.ts). */
 export interface DexEntry {

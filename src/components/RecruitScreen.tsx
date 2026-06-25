@@ -316,6 +316,21 @@ export function RecruitScreen({
               onClick={() => chooseReward('reroll')}
             />
           )}
+          {allowSignReroll && (
+            <RewardOption
+              emoji="✦"
+              title="Reroll an Ability"
+              desc={
+                rerollStrong
+                  ? 'Hand-pick a new ability from a Pokémon\'s pool. Only mons with a choice of abilities qualify.'
+                  : 'Gamble a Pokémon\'s ability for another from its pool. Only mons with a choice of abilities qualify.'
+              }
+              preview={
+                <PreviewRow creatures={currentTeam.filter((c) => hasAbilityChoice(c.dexId))} />
+              }
+              onClick={() => chooseReward('ability')}
+            />
+          )}
         </div>
       )}
 
@@ -490,6 +505,107 @@ export function RecruitScreen({
         </>
       )}
 
+      {/* Step 2d — ability reroll */}
+      {mode === 'ability' && (
+        <>
+          <RewardHeader label="Reroll an Ability" />
+
+          <div className="mt-5">
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
+              Your team
+              <span className="ml-2 text-white/35">
+                {abilitySlot !== null
+                  ? rerollStrong
+                    ? 'now choose its new ability below'
+                    : 'tap another to move the reroll'
+                  : 'tap a Pokémon with an ability pool'}
+              </span>
+            </h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {currentTeam.map((c, i) => {
+                const choosable = hasAbilityChoice(c.dexId);
+                const isPicked = abilitySlot === i;
+                // On a strong special the card previews the chosen ability live;
+                // on a weak one it stays the current ability (a blind gamble).
+                const shown =
+                  rerollStrong && isPicked && abilityChoice
+                    ? withAbility(c, abilityChoice)
+                    : c;
+                return (
+                  <div key={`${c.id}-${i}`} className="relative rounded-2xl">
+                    <CreatureCard
+                      creature={shown}
+                      selected={isPicked}
+                      disabled={!choosable}
+                      onClick={
+                        choosable
+                          ? () => {
+                              setAbilitySlot(isPicked ? null : i);
+                              setAbilityChoice(null);
+                            }
+                          : undefined
+                      }
+                    />
+                    {isPicked && <Tag color="amber" text="✦ ABILITY" />}
+                    {!choosable && <Tag color="slate" text="FIXED" />}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Strong special: hand-pick the new ability from the species pool. */}
+            {rerollStrong && abilitySlot !== null && (
+              <div className="mt-7">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
+                  Choose an ability for {currentTeam[abilitySlot].name}
+                </h3>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {abilitiesForDex(currentTeam[abilitySlot].dexId).map((id) => {
+                    const info = abilityInfo(id);
+                    const isCurrent = currentTeam[abilitySlot].ability === id;
+                    const isSelected = abilityChoice === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        disabled={isCurrent}
+                        onClick={() => setAbilityChoice(id)}
+                        className={`rounded-2xl border p-3 text-left transition-all ${
+                          isCurrent
+                            ? 'cursor-not-allowed border-white/10 bg-white/[0.02] opacity-50'
+                            : isSelected
+                              ? 'border-amber-300/60 bg-amber-300/[0.1]'
+                              : 'border-white/10 bg-white/[0.03] hover:border-white/30 hover:bg-white/[0.07]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-amber-300">✦</span>
+                          <span className="text-sm font-bold text-white">{info.name}</span>
+                          {isCurrent && (
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-white/40">
+                              current
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs text-white/55">{info.description}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Weak special: blind gamble, revealed on continue. */}
+            {!rerollStrong && abilitySlot !== null && (
+              <p className="mt-4 text-center text-sm text-white/55">
+                {currentTeam[abilitySlot].name}'s ability is left to chance. The
+                result stays hidden until you continue — fate decides the rest.
+              </p>
+            )}
+          </div>
+        </>
+      )}
+
       {/* Anchored action bar */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#0c0c14]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-center gap-3 px-3 py-3 sm:px-4">
@@ -499,6 +615,12 @@ export function RecruitScreen({
               // A locked-in reroll hands off to the slot-machine reveal, which
               // calls onConfirm once the result has been shown.
               if (mode === 'reroll' && rerollDone) {
+                setRolling(true);
+                return;
+              }
+              // A weak ability reroll is also a blind gamble, so it gets the same
+              // reveal. A strong one is a deliberate pick — no suspense needed.
+              if (mode === 'ability' && abilityDone && !rerollStrong) {
                 setRolling(true);
                 return;
               }
@@ -519,10 +641,18 @@ export function RecruitScreen({
         />
       )}
 
-      {rolling && rerollSlot !== null && (
+      {rolling && mode === 'reroll' && rerollSlot !== null && (
         <SignRollReveal
           creature={currentTeam[rerollSlot]}
           finalSign={rerolledSignFor(rerollSlot)}
+          onDone={() => onConfirm(resultTeam)}
+        />
+      )}
+
+      {rolling && mode === 'ability' && abilitySlot !== null && (
+        <AbilityRollReveal
+          creature={currentTeam[abilitySlot]}
+          finalAbility={abilityResultFor(abilitySlot)}
           onDone={() => onConfirm(resultTeam)}
         />
       )}
@@ -698,6 +828,112 @@ function SignRollReveal({
             </p>
             <h3 className="mt-1 text-3xl font-black text-white">{signLabel(display)}</h3>
             <p className="mt-1 max-w-xs text-sm text-white/60">{SIGN_INFO[display].tagline}</p>
+          </>
+        ) : (
+          <p className="animate-pulse text-lg font-black uppercase tracking-[0.3em] text-white/70">
+            Rerolling…
+          </p>
+        )}
+      </div>
+
+      {settled && (
+        <button
+          type="button"
+          onClick={onDone}
+          className="rounded-full bg-white px-8 py-3 text-base font-bold text-black transition-transform hover:scale-105 active:scale-95"
+        >
+          Continue →
+        </button>
+      )}
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * Slot-machine reveal for the (weak) ability reroll — the sibling of
+ * SignRollReveal. Spins through the species' ability pool and lands on the
+ * awarded ability, so a blind gamble gets the same beat of suspense. The result
+ * is already fixed before this mounts (seed-pinned upstream); the spin is pure
+ * theatre.
+ */
+function AbilityRollReveal({
+  creature,
+  finalAbility,
+  onDone,
+}: {
+  creature: Creature;
+  finalAbility: AbilityId | undefined;
+  onDone: () => void;
+}) {
+  const [display, setDisplay] = useState<AbilityId | undefined>(creature.ability);
+  const [settled, setSettled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    let tick = 0;
+    const TICKS = 22;
+    // Spin through the species' other options so the landing reads as a reveal.
+    const pool = abilitiesForDex(creature.dexId).filter((id) => id !== finalAbility);
+    const spin = () => {
+      if (cancelled) return;
+      tick += 1;
+      if (tick >= TICKS || pool.length === 0) {
+        setDisplay(finalAbility);
+        setSettled(true);
+        return;
+      }
+      setDisplay(pool[Math.floor(Math.random() * pool.length)]);
+      timer = setTimeout(spin, 38 + tick * tick * 0.7);
+    };
+    timer = setTimeout(spin, 60);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [creature.dexId, finalAbility]);
+
+  const info = display ? abilityInfo(display) : null;
+  const glow = 'rgba(252,211,77,0.6)';
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-black/85 p-6 text-center backdrop-blur-md">
+      <div className="flex flex-col items-center">
+        <img
+          src={creature.portrait}
+          alt={creature.name}
+          onError={(e) => {
+            const img = e.currentTarget;
+            if (img.src !== creature.sprite) img.src = creature.sprite;
+          }}
+          className="h-20 w-20 rounded-2xl border border-white/10 bg-white/5 object-cover"
+        />
+        <p className="mt-2 text-sm font-bold text-white/70">{creature.name}</p>
+      </div>
+
+      <div
+        className="relative grid h-40 w-40 place-items-center rounded-full border-2 transition-all duration-300"
+        style={{
+          borderColor: glow,
+          boxShadow: settled ? `0 0 56px 10px ${glow}` : `0 0 22px 2px rgba(255,255,255,0.1)`,
+          transform: settled ? 'scale(1.08)' : 'scale(1)',
+        }}
+      >
+        <span className={`text-5xl ${settled ? '' : 'animate-pulse'}`}>✦</span>
+      </div>
+
+      <div className="flex min-h-[6rem] flex-col items-center justify-center">
+        {settled && info ? (
+          <>
+            <p
+              className="text-xs font-black uppercase tracking-[0.2em]"
+              style={{ color: glow }}
+            >
+              New ability
+            </p>
+            <h3 className="mt-1 text-3xl font-black text-white">{info.name}</h3>
+            <p className="mt-1 max-w-xs text-sm text-white/60">{info.description}</p>
           </>
         ) : (
           <p className="animate-pulse text-lg font-black uppercase tracking-[0.3em] text-white/70">

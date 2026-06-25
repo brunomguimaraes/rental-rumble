@@ -468,5 +468,16 @@ export function movesFor(
   // 6) Dependable filler.
   add(BODY_SLAM);
 
-  return moves.slice(0, MOVE_SLOTS);
+  const pool = moves.slice(0, MOVE_SLOTS);
+
+  // Technician guarantee: a Technician mon must keep at least one move it can
+  // actually boost (power 1–60). A broad pool — e.g. a dual-type with celestial
+  // coverage — can fill all MOVE_SLOTS before Quick Attack and push the enabler
+  // past the cut, leaving the ability dead. If that happened, reclaim the last
+  // (lowest-priority) slot for it.
+  if (hasTechnician && !pool.some((m) => m.power > 0 && m.power <= 60)) {
+    pool[pool.length - 1] = QUICK_ATTACK;
+  }
+
+  return pool;
 }

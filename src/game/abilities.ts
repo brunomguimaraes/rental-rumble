@@ -1,26 +1,30 @@
-import type { AbilityId } from './types.js';
+import type { AbilityId, BaseStats, DexEntry, PokemonType } from './types.js';
 import type { RNG } from './rng.js';
+import { RAW_DEX } from './pokedex.gen.js';
 
 /**
- * The abilities framework — scaffolding for species-level passives that bend the
- * battle engine (as opposed to zodiac signs, which only tilt stats, or moves,
- * which are chosen each turn).
+ * The abilities framework — species-level passives that bend the battle engine
+ * (as opposed to zodiac signs, which only tilt stats, or moves, which are chosen
+ * each turn).
  *
- * Two layers:
+ * Three layers:
  *   1. ABILITIES          — display metadata (name + description) per ability.
- *   2. SPECIES_ABILITIES  — which ability *options* each National Dex id can be
- *                           born with. Most listed species have a single fixed
- *                           ability; some have two, and a freshly-rolled mon
- *                           picks one of them at random (seeded), the same way
- *                           its zodiac sign and shiny luck are rolled.
+ *   2. SPECIES_ABILITIES  — hand-curated ability *options* for a National Dex id,
+ *                           used for flavour/canon (e.g. the Slaking line's
+ *                           Truant). An override layer: anything listed here wins.
+ *   3. derivedAbilities   — the universal fallback. Every species NOT in the
+ *                           curated table is given a small 2–3 ability pool drawn
+ *                           from its types and stats, so *every* Pokémon has an
+ *                           ability and most have a real choice. A freshly-rolled
+ *                           mon picks one of its pool at random (seeded), the same
+ *                           way its zodiac sign and shiny luck are rolled.
  *
  * The actual battle behaviour lives in battle.ts (so the client sim and the
  * server re-sim stay byte-identical, the same pattern used for status/move
  * effects). This file is purely data: identity, copy, and the species mapping.
  *
- * Deliberately starting small — only the species that genuinely need one have an
- * ability. We grow the union (see AbilityId in types.ts) and these tables as we
- * implement more.
+ * We grow the union (see AbilityId in types.ts) and these tables as we implement
+ * more.
  */
 
 export interface AbilityDef {
@@ -192,18 +196,46 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
     name: 'Defiant',
     description: 'Bristles at being belittled — an enemy stat drop spikes its Attack two stages.',
   },
+  sniper: {
+    id: 'sniper',
+    name: 'Sniper',
+    description: 'Takes deadly aim — its critical hits strike for 2.25× instead of the usual 1.5×.',
+  },
+  'sheer-force': {
+    id: 'sheer-force',
+    name: 'Sheer Force',
+    description: 'Hits with raw power for 30% more damage, but its moves\u2019 added effects never trigger.',
+  },
+  'shed-skin': {
+    id: 'shed-skin',
+    name: 'Shed Skin',
+    description: 'Sloughs off its skin — a roughly one-in-three chance to cure its status each turn.',
+  },
+  'early-bird': {
+    id: 'early-bird',
+    name: 'Early Bird',
+    description: 'A restless sleeper — it wakes from sleep twice as fast.',
+  },
+  scrappy: {
+    id: 'scrappy',
+    name: 'Scrappy',
+    description: 'Fears no Ghost — its Normal and Fighting moves hit them despite the immunity.',
+  },
+  unaware: {
+    id: 'unaware',
+    name: 'Unaware',
+    description: 'Pays no mind to the foe\u2019s stat boosts or drops, ignoring them on attack and defense.',
+  },
 };
 
 /**
- * National Dex id → the ability options that species can be born with. A
- * single-entry list is a fixed ability; a two-entry list rolls one at random
- * per freshly-rolled mon (see rollAbility). Only species with at least one
- * implemented ability appear here; every other species has none.
- *
- * Mirrors canon for the Slaking line (Slakoth/Slaking loaf with Truant, the
- * hyperactive Vigoroth is too wired to sleep) and gives a few species their two
- * real ability slots where both are implemented — e.g. Heracross is famously
- * either Guts or Moxie.
+ * National Dex id → hand-curated ability options, an OVERRIDE layer on top of the
+ * universal type/stat derivation below. A single-entry list pins a fixed ability
+ * (e.g. the Slaking line's Truant); a multi-entry list rolls one at random per
+ * freshly-rolled mon (see rollAbility). Species absent from this table fall back
+ * to derivedAbilities() — so every Pokémon still gets a pool, these are just the
+ * ones we wanted to flavour by hand (Slaking loafs with Truant, Heracross is
+ * famously Guts/Moxie/Swarm, …).
  */
 export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   // --- Truant / Vital Spirit (the Slaking line) ---------------------------
@@ -498,9 +530,87 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   628: ['defiant', 'sturdy'], // Braviary — Defiant or Sturdy
 };
 
-/** Every ability a species could be born with (empty when it has none). */
+/**
+ * Per-type ability flavour, ordered best-fit-first. The [0] entry is a type's
+ * "signature" passive (and becomes a derived species' canonical default); the
+ * rest round out its pool. Mixes the classic type passives with our own riffs so
+ * each type reads distinctly.
+ */
+const TYPE_ABILITIES: Record<PokemonType, AbilityId[]> = {
+  normal: ['adaptability', 'scrappy', 'quick-feet'],
+  fire: ['blaze', 'flame-body', 'sheer-force'],
+  water: ['torrent', 'rough-skin', 'unaware'],
+  electric: ['static', 'quick-feet', 'sniper'],
+  grass: ['overgrow', 'regenerator', 'shed-skin'],
+  ice: ['thick-fat', 'multiscale', 'sniper'],
+  fighting: ['guts', 'defiant', 'scrappy'],
+  poison: ['poison-point', 'poison-heal', 'shed-skin'],
+  ground: ['rough-skin', 'sturdy', 'sheer-force'],
+  flying: ['intimidate', 'defiant', 'early-bird'],
+  psychic: ['magic-guard', 'levitate', 'unaware'],
+  bug: ['swarm', 'technician', 'tinted-lens'],
+  rock: ['sturdy', 'solid-rock', 'battle-armor'],
+  ghost: ['levitate', 'magic-guard', 'sniper'],
+  dragon: ['marvel-scale', 'multiscale', 'sheer-force'],
+  dark: ['moxie', 'intimidate', 'defiant'],
+  steel: ['clear-body', 'battle-armor', 'sturdy'],
+  fairy: ['magic-guard', 'clear-body', 'unaware'],
+};
+
+/** A stat-flavoured pool keyed to a species' single biggest base stat. */
+function statFlavor(stats: BaseStats): AbilityId[] {
+  const { hp, atk, def, spd } = stats;
+  const max = Math.max(hp, atk, def, spd);
+  if (atk === max) return ['moxie', 'sheer-force', 'guts'];
+  if (spd === max) return ['speed-boost', 'quick-feet', 'sniper'];
+  if (def === max) return ['stamina', 'battle-armor', 'sturdy'];
+  return ['regenerator', 'thick-fat', 'shed-skin']; // HP-dominant (or tie → HP)
+}
+
+const DEX_BY_ID = new Map<number, DexEntry>(RAW_DEX.map((e) => [e.id, e]));
+const derivedCache = new Map<number, AbilityId[]>();
+
+/**
+ * The universal fallback pool for any species not in the curated table: a small
+ * 2–3 ability set woven from its primary/secondary types and its dominant stat.
+ * Deterministic (pure function of the static dex row), so the client sim and the
+ * server re-sim agree, and cached so we only build it once per species.
+ */
+function derivedAbilities(dexId: number): AbilityId[] {
+  const cached = derivedCache.get(dexId);
+  if (cached) return cached;
+  const entry = DEX_BY_ID.get(dexId);
+  if (!entry) return [];
+
+  const pool: AbilityId[] = [];
+  const add = (id: AbilityId | undefined) => {
+    if (id && !pool.includes(id) && pool.length < 3) pool.push(id);
+  };
+
+  const [primary, secondary] = entry.types;
+  const primaryPool = TYPE_ABILITIES[primary];
+  const stat = statFlavor(entry.stats);
+
+  // Canonical default first (the primary type's signature), then a stat-flavoured
+  // pick varied across the dex by id, then a touch of secondary-type identity.
+  add(primaryPool[0]);
+  add(stat[entry.id % stat.length]);
+  if (secondary) add(TYPE_ABILITIES[secondary][0]);
+  add(primaryPool[1]);
+  // Guarantee a genuine choice (>=2) even if the picks above collapsed into one.
+  add(stat[0]);
+  add(stat[1]);
+
+  derivedCache.set(dexId, pool);
+  return pool;
+}
+
+/**
+ * Every ability a species could be born with. Curated entries win; everything
+ * else falls back to the type/stat derivation, so every Pokémon has a pool.
+ */
 export function abilitiesForDex(dexId: number): AbilityId[] {
-  return SPECIES_ABILITIES[dexId] ?? [];
+  return SPECIES_ABILITIES[dexId] ?? derivedAbilities(dexId);
 }
 
 /**

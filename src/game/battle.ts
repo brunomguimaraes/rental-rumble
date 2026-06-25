@@ -122,25 +122,29 @@ function stageMult(stage: number): number {
   return s >= 0 ? (2 + s) / 2 : 2 / (2 - s);
 }
 
-function effectiveAtk(b: Battler, statMult: number): number {
+// `ignoreStage` blanks out the stat-stage multiplier — used when the *other*
+// battler has Unaware and so pays no mind to this one's buffs/drops.
+function effectiveAtk(b: Battler, statMult: number, ignoreStage = false): number {
   const spread = SIGN_SPREAD[b.creature.sign];
   const mult = statMult * shinyMult(b.creature);
   // Guts: a status condition that would normally hamper it instead fires it up,
   // boosting Attack by half while burned / poisoned / paralyzed / asleep.
   const guts = b.status !== null && b.creature.ability === 'guts' ? 1.5 : 1;
+  const stage = ignoreStage ? 1 : stageMult(b.stages.atk);
   return Math.floor(
-    otherStat(b.creature.stats.atk) * spread.atk * mult * stageMult(b.stages.atk) * guts,
+    otherStat(b.creature.stats.atk) * spread.atk * mult * stage * guts,
   );
 }
-function effectiveDef(b: Battler, statMult: number): number {
+function effectiveDef(b: Battler, statMult: number, ignoreStage = false): number {
   const spread = SIGN_SPREAD[b.creature.sign];
   const mult = statMult * shinyMult(b.creature);
   // Marvel Scale: a status condition that would normally be a liability instead
   // toughens its hide, raising Defense by half — the defensive mirror of Guts.
   const marvel =
     b.status !== null && b.creature.ability === 'marvel-scale' ? 1.5 : 1;
+  const stage = ignoreStage ? 1 : stageMult(b.stages.def);
   return Math.floor(
-    otherStat(b.creature.stats.def) * spread.def * mult * stageMult(b.stages.def) * marvel,
+    otherStat(b.creature.stats.def) * spread.def * mult * stage * marvel,
   );
 }
 function effectiveSpd(b: Battler, statMult: number): number {
@@ -171,11 +175,24 @@ function stabMult(b: Battler): number {
 // else falls through to the plain type chart. Used everywhere the engine asks
 // "does this move connect?", so a Levitate mon shrugs off Ground damage, Ground
 // status moves and Ground Super Fang alike.
-function typeMult(move: Move, defender: Battler): number {
+function typeMult(move: Move, defender: Battler, attacker?: Battler): number {
   if (defender.creature.ability === 'levitate' && move.type === 'ground') {
     return 0;
   }
-  return effectiveness(move.type, defender.creature.types);
+  const base = effectiveness(move.type, defender.creature.types);
+  // Scrappy: Normal and Fighting moves land on Ghosts in spite of the immunity.
+  // Strip the Ghost typing out and re-judge against whatever's left (neutral if
+  // the foe is pure Ghost).
+  if (
+    base === 0 &&
+    attacker?.creature.ability === 'scrappy' &&
+    (move.type === 'normal' || move.type === 'fighting') &&
+    defender.creature.types.includes('ghost')
+  ) {
+    const rest = defender.creature.types.filter((t) => t !== 'ghost');
+    return rest.length > 0 ? effectiveness(move.type, rest) : 1;
+  }
+  return base;
 }
 
 // Flat damage multiplier from the ATTACKER's ability for a given move:
@@ -505,11 +522,12 @@ function damageRoll(
   defStatMult: number,
   rng: RNG,
 ): { damage: number; mult: number; crit: boolean } {
-  const mult = typeMult(move, defender);
+  const mult = typeMult(move, defender, attacker);
   if (mult === 0) return { damage: 0, mult: 0, crit: false };
 
-  const atk = effectiveAtk(attacker, atkStatMult);
-  const def = effectiveDef(defender, defStatMult);
+  // Unaware: each side that has it tunes out the *other's* stat stages.
+  const atk = effectiveAtk(attacker, atkStatMult, defender.creature.ability === 'unaware');
+  const def = effectiveDef(defender, defStatMult, attacker.creature.ability === 'unaware');
   const base = (2 * LEVEL) / 5 + 2;
   const raw = (base * move.power * (atk / def)) / 50 + 2;
   const stab = hasStab(attacker, move) ? stabMult(attacker) : 1;
@@ -518,6 +536,11 @@ function damageRoll(
   // effective" attack lands at full strength instead.
   if (attacker.creature.ability === 'tinted-lens' && mult > 0 && mult < 1) {
     abil *= 2;
+  }
+  // Sheer Force: throws its full weight behind the blow for 30% more — its
+  // payoff for shedding the move's secondary effect (handled at on-hit time).
+  if (attacker.creature.ability === 'sheer-force') {
+    abil *= 1.3;
   }
   // Solid Rock: a rugged frame cushions a super-effective blow to 0.75×.
   if (defender.creature.ability === 'solid-rock' && mult > 1) {
@@ -531,7 +554,8 @@ function damageRoll(
   // simply seals it shut.
   let crit = rng.chance(0.0625);
   if (defender.creature.ability === 'battle-armor') crit = false;
-  const critMult = crit ? 1.5 : 1;
+  // Sniper lines up the shot: a landed crit bites for 2.25× rather than 1.5×.
+  const critMult = crit ? (attacker.creature.ability === 'sniper' ? 2.25 : 1.5) : 1;
   const variance = rng.range(0.85, 1);
   const damage = Math.max(
     1,
@@ -813,9 +837,10 @@ export function simulateBattle(
       return 'continue';
     }
 
-    // Sleep: snooze for a few turns, then wake.
+    // Sleep: snooze for a few turns, then wake. Early Bird is a light sleeper and
+    // burns through those turns twice as fast.
     if (attacker.status === 'sleep') {
-      attacker.statusTurns -= 1;
+      attacker.statusTurns -= attacker.creature.ability === 'early-bird' ? 2 : 1;
       if (attacker.statusTurns <= 0) {
         attacker.status = null;
         push({
@@ -1170,9 +1195,10 @@ export function simulateBattle(
       }
     }
 
-    // On-hit rider effects: a status, confusion, or a stat-stage shift.
+    // On-hit rider effects: a status, confusion, or a stat-stage shift. Sheer
+    // Force trades all of these away for its flat damage boost, so it skips them.
     const eff = move.effect;
-    if (eff) {
+    if (eff && attacker.creature.ability !== 'sheer-force') {
       if (
         (eff.kind === 'burn' ||
           eff.kind === 'stun' ||
@@ -1219,6 +1245,21 @@ export function simulateBattle(
     // attacker only pulls further ahead the longer it stays in.
     if (b.creature.ability === 'speed-boost' && b.stages.spd < 6) {
       applyStage(side, 'spd', 1);
+    }
+
+    // Shed Skin: about a third of the time it sloughs off whatever ails it,
+    // before the status would tick — so a lucky shed dodges that turn's chip too.
+    if (b.creature.ability === 'shed-skin' && b.status !== null && rng.chance(1 / 3)) {
+      b.status = null;
+      b.statusTurns = 0;
+      b.toxicCounter = 0;
+      push({
+        kind: 'status',
+        actor: side,
+        affected: side,
+        status: null,
+        text: `${b.creature.name} shed its skin and healed its status!`,
+      });
     }
 
     // Magic Guard: indirect harm rolls off — burn and poison still tick down and
