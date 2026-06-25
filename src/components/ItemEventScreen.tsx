@@ -56,9 +56,21 @@ export function ItemEventScreen({
     [seed, stage, team, owned],
   );
   const [selected, setSelected] = useState<RelicId | null>(null);
+  // Skipping an offered relic throws away a free, downside-free team buff, so the
+  // skip asks "are you sure?" first. Taking one — or pressing past an empty offer
+  // with nothing to skip — commits immediately.
+  const [confirmingSkip, setConfirmingSkip] = useState(false);
 
   const empty = offer.length === 0;
   const continueLabel = selected ? nextLabel : empty ? nextLabel : 'Skip — take nothing';
+
+  const handlePrimary = () => {
+    if (!empty && !selected) {
+      setConfirmingSkip(true);
+      return;
+    }
+    onConfirm(selected);
+  };
 
   return (
     <div className="mx-auto max-w-5xl px-3 py-6 pb-28 sm:px-4 sm:py-8 sm:pb-28">
@@ -103,7 +115,10 @@ export function ItemEventScreen({
               <button
                 key={id}
                 type="button"
-                onClick={() => setSelected(isPicked ? null : id)}
+                onClick={() => {
+                  setSelected(isPicked ? null : id);
+                  setConfirmingSkip(false);
+                }}
                 className={`group flex flex-col items-center rounded-3xl border bg-white/[0.03] p-6 text-center transition-all hover:bg-white/[0.07] ${
                   isPicked
                     ? 'scale-[1.02] border-white/60'
@@ -137,13 +152,38 @@ export function ItemEventScreen({
       {/* Anchored action bar */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#0c0c14]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-5xl items-center justify-center gap-3 px-3 py-3 sm:px-4">
-          <button
-            type="button"
-            onClick={() => onConfirm(selected)}
-            className="w-full rounded-full bg-white px-8 py-3 text-base font-bold text-black transition-transform hover:scale-105 active:scale-95 sm:w-auto sm:text-lg"
-          >
-            {selected ? `Take ${RELICS[selected].name}` : continueLabel} →
-          </button>
+          {confirmingSkip ? (
+            <div className="flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
+              <span className="text-center text-sm text-white/70">
+                Relics buff your whole team for the rest of the run — no
+                downside. Skip it?
+              </span>
+              <div className="flex w-full items-center gap-3 sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setConfirmingSkip(false)}
+                  className="flex-1 rounded-full bg-white px-6 py-3 text-base font-bold text-black transition-transform hover:scale-105 active:scale-95 sm:flex-none"
+                >
+                  Go back
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onConfirm(null)}
+                  className="flex-1 rounded-full border border-amber-300/40 bg-amber-300/15 px-6 py-3 text-base font-bold text-amber-200 transition hover:bg-amber-300/25 sm:flex-none"
+                >
+                  Skip anyway →
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handlePrimary}
+              className="w-full rounded-full bg-white px-8 py-3 text-base font-bold text-black transition-transform hover:scale-105 active:scale-95 sm:w-auto sm:text-lg"
+            >
+              {selected ? `Take ${RELICS[selected].name}` : continueLabel} →
+            </button>
+          )}
         </div>
       </div>
     </div>
