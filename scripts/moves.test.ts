@@ -7,8 +7,8 @@
  *
  *   npx --yes tsx scripts/moves.test.ts
  */
-import { moveEffectLabel, movesFor, MOVE_SLOTS } from '../src/game/moves.js';
-import { CREATURES } from '../src/game/pokemon.js';
+import { moveEffectLabel, moveSelfNote, movesFor, MOVE_SLOTS } from '../src/game/moves.js';
+import { CREATURES, CREATURES_BY_ID } from '../src/game/pokemon.js';
 import type { BaseStats, Move, MoveEffect, PokemonType } from '../src/game/types.js';
 
 let passed = 0;
@@ -146,6 +146,111 @@ console.log('\n[3] Pool invariants hold across the entire dex');
   for (const [name, n] of Object.entries(counts)) {
     check(`${name} is distributed to at least one species`, n > 0);
   }
+}
+
+console.log('\n[4] Recoil & flinch — labels and distribution');
+{
+  // Labels read cleanly for the two new effect kinds.
+  const recoil: MoveEffect = { kind: 'recoil', fraction: 1 / 3 };
+  check('recoil label reads as a self-damage rider', moveEffectLabel(recoil) === 'Recoils 33% of damage dealt');
+  const flinch: MoveEffect = { kind: 'flinch', chance: 0.3 };
+  check('flinch label notes the speed requirement', moveEffectLabel(flinch) === '30% flinch (if faster)');
+
+  // A hard-hitting, non-bulky attacker of a recoil-capable type packs the nuke.
+  const recklessFire = movesFor(['fire'], stats(70, 110, 60, 100), 'aries');
+  check('hard-hitting Fire gets Flare Blitz', has(recklessFire, 'Flare Blitz'));
+  const flareBlitz = named(recklessFire, 'Flare Blitz');
+  check(
+    'Flare Blitz is a high-power recoil move',
+    !!flareBlitz && flareBlitz.power >= 100 && flareBlitz.effect?.kind === 'recoil',
+  );
+
+  // A bulky mon never takes the suicidal nuke (it's the offensive answer to bulk,
+  // not a tool for the walls themselves).
+  const bulkyFire = movesFor(['fire'], stats(110, 110, 100, 50), 'aries');
+  check('bulky Fire skips the recoil nuke', !has(bulkyFire, 'Flare Blitz'));
+
+  // Across the dex: both new effect kinds actually reach some species (recoil via
+  // the nukes, flinch via Iron Head / Rock Slide / Air Slash STAB cores).
+  let recoilMons = 0;
+  let flinchMons = 0;
+  let powerlessRecoil = 0;
+  for (const c of CREATURES) {
+    if (c.moves.some((m) => m.effect?.kind === 'recoil')) recoilMons++;
+    if (c.moves.some((m) => m.effect?.kind === 'flinch')) flinchMons++;
+    // A recoil move is always a damaging finisher, never a power-0 utility.
+    if (c.moves.some((m) => m.effect?.kind === 'recoil' && m.power <= 0)) powerlessRecoil++;
+  }
+  check('recoil moves reach at least one species', recoilMons > 0);
+  check('flinch moves reach at least one species', flinchMons > 0);
+  check('every recoil move deals damage (never power-0)', powerlessRecoil === 0);
+}
+
+console.log('\n[5] Signature moves — custom riders land on the right species');
+{
+  // Self-cost note reads cleanly for both new fields.
+  check(
+    'selfStage note reads as a self stat cost',
+    moveSelfNote({ name: '', type: 'fire', power: 95, accuracy: 1, selfStage: { stat: 'spd', delta: -1 } }) ===
+      '-1 own SPD',
+  );
+  check(
+    'lockTurns note mentions the type lockout',
+    moveSelfNote({ name: '', type: 'water', power: 150, accuracy: 1, lockTurns: 2 }) ===
+      'locks its own Water moves briefly',
+  );
+  check('a plain move has no self-cost note', moveSelfNote({ name: '', type: 'normal', power: 80, accuracy: 1 }) === null);
+
+  // Rapidash (#78): blazing charge that burns at a high clip AND taxes its Speed.
+  const rapidash = CREATURES_BY_ID['78'];
+  const gallop = rapidash && named(rapidash.moves, 'Searing Gallop');
+  check('Rapidash carries Searing Gallop', !!gallop);
+  check(
+    'Searing Gallop burns on hit and costs the user Speed',
+    !!gallop && gallop.effect?.kind === 'burn' && gallop.selfStage?.stat === 'spd' && gallop.selfStage.delta < 0,
+  );
+
+  // Blastoise (#9): a water nuke that benches its own Water moves after firing.
+  const blastoise = CREATURES_BY_ID['9'];
+  const cannon = blastoise && named(blastoise.moves, 'Hydro Cannon');
+  check('Blastoise carries Hydro Cannon', !!cannon);
+  check(
+    'Hydro Cannon is a high-power Water move with a lockout',
+    !!cannon && cannon.type === 'water' && cannon.power >= 120 && (cannon.lockTurns ?? 0) > 0,
+  );
+  // The lockout is only fair because Blastoise has non-Water moves to fall back on.
+  check(
+    'Blastoise has a non-Water attack to use while locked out',
+    !!blastoise && blastoise.moves.some((m) => m.type !== 'water' && m.power > 0),
+  );
+
+  // Headliner signatures land on the right marquee species with the right rider.
+  const sig = (id: string, move: string) => named(CREATURES_BY_ID[id]?.moves ?? [], move);
+  check('Gengar carries Shadow Smother (always badly poisons)', (() => {
+    const m = sig('94', 'Shadow Smother');
+    return !!m && m.effect?.kind === 'poison' && m.effect.chance >= 1;
+  })());
+  check('Machamp carries Dynamic Punch (always confuses)', (() => {
+    const m = sig('68', 'Dynamic Punch');
+    return !!m && m.effect?.kind === 'confuse' && m.effect.chance >= 1;
+  })());
+  check('Gyarados carries Thrash (drops its own Defense)', (() => {
+    const m = sig('130', 'Thrash');
+    return !!m && m.power >= 120 && m.selfStage?.stat === 'def' && m.selfStage.delta < 0;
+  })());
+  check('Tyranitar carries Sandstorm Slam (always shreds foe Defense)', (() => {
+    const m = sig('248', 'Sandstorm Slam');
+    return !!m && m.effect?.kind === 'stage' && m.effect.target === 'foe' && m.effect.delta < 0 && m.effect.chance >= 1;
+  })());
+
+  // Every shipped signature with a lockout also leaves its owner a fallback, or
+  // the lockout would softlock the AI's damaging-move search.
+  let lockSoftlocks = 0;
+  for (const c of CREATURES) {
+    const locker = c.moves.find((m) => (m.lockTurns ?? 0) > 0);
+    if (locker && !c.moves.some((m) => m.type !== locker.type && m.power > 0)) lockSoftlocks++;
+  }
+  check('no lockout move can softlock its owner', lockSoftlocks === 0);
 }
 
 console.log(`\n${failed === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${passed} passed, ${failed} failed\n`);

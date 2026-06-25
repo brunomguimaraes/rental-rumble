@@ -42,6 +42,12 @@ export function moveEffectLabel(effect: MoveEffect): string {
       return `Cuts ${Math.round(effect.fraction * 100)}% of current HP (ignores DEF)`;
     case 'taunt':
       return 'Seals setup & heals for a few turns';
+    case 'recoil':
+      return `Recoils ${Math.round(effect.fraction * 100)}% of damage dealt`;
+    case 'flinch':
+      return effect.chance >= 1
+        ? 'Makes the foe flinch (if it moves first)'
+        : `${pct(effect.chance)} flinch (if faster)`;
     case 'stage': {
       const sign = effect.delta > 0 ? '+' : '';
       const who = effect.target === 'self' ? 'own' : "foe's";
@@ -114,7 +120,7 @@ const TYPE_MOVES: Record<PokemonType, [Move, Move]> = {
   ],
   flying: [
     mk('Hurricane', 'flying', 100, 0.8, { kind: 'stun', chance: 0.2 }),
-    mk('Air Slash', 'flying', 75, 0.95, { kind: 'stun', chance: 0.3 }),
+    mk('Air Slash', 'flying', 75, 0.95, { kind: 'flinch', chance: 0.3 }),
   ],
   psychic: [
     mk('Psychic', 'psychic', 90, 1),
@@ -126,7 +132,7 @@ const TYPE_MOVES: Record<PokemonType, [Move, Move]> = {
   ],
   rock: [
     mk('Stone Edge', 'rock', 100, 0.8),
-    mk('Rock Slide', 'rock', 75, 0.9, { kind: 'stun', chance: 0.3 }),
+    mk('Rock Slide', 'rock', 75, 0.9, { kind: 'flinch', chance: 0.3 }),
   ],
   ghost: [
     mk('Shadow Ball', 'ghost', 90, 1),
@@ -148,7 +154,7 @@ const TYPE_MOVES: Record<PokemonType, [Move, Move]> = {
     }),
   ],
   steel: [
-    mk('Iron Head', 'steel', 80, 1, { kind: 'stun', chance: 0.3 }),
+    mk('Iron Head', 'steel', 80, 1, { kind: 'flinch', chance: 0.3 }),
     mk('Flash Cannon', 'steel', 80, 1),
   ],
   fairy: [
@@ -199,6 +205,98 @@ const SUPER_FANG = mk('Super Fang', 'normal', 0, 0.9, {
 const TAUNT = mk('Taunt', 'dark', 0, 1, { kind: 'taunt', chance: 1 });
 // How many turns a Taunt keeps the foe locked into attacking.
 export const TAUNT_TURNS = 3;
+
+// Reckless recoil "nukes": premium-power STAB attacks that bite back, spending a
+// share of the damage dealt as the attacker's own HP (see the `recoil` effect in
+// battle.ts). Handed to hard-hitting, non-bulky attackers as a high-risk finisher
+// — a glass cannon trades longevity for a hit that few walls can eat. Only the
+// physical-contact types that canonically own one get an entry; everyone else
+// just sticks to their reliable STAB.
+const RECOIL_NUKES: Partial<Record<PokemonType, Move>> = {
+  normal: mk('Double-Edge', 'normal', 120, 1, { kind: 'recoil', fraction: 1 / 3 }),
+  fire: mk('Flare Blitz', 'fire', 120, 1, { kind: 'recoil', fraction: 1 / 3 }),
+  water: mk('Wave Crash', 'water', 120, 1, { kind: 'recoil', fraction: 1 / 3 }),
+  electric: mk('Wild Charge', 'electric', 90, 1, { kind: 'recoil', fraction: 1 / 4 }),
+  grass: mk('Wood Hammer', 'grass', 120, 1, { kind: 'recoil', fraction: 1 / 3 }),
+  flying: mk('Brave Bird', 'flying', 120, 1, { kind: 'recoil', fraction: 1 / 3 }),
+  rock: mk('Head Smash', 'rock', 130, 0.85, { kind: 'recoil', fraction: 1 / 2 }),
+};
+
+/**
+ * Signature moves: one-of-a-kind attacks invented for this game and bolted onto a
+ * specific species by National Dex id, so a marquee mon plays unlike anything the
+ * type tables could produce. They lean on the two custom riders — `selfStage` (a
+ * guaranteed self stat-tax paid on every hit) and `lockTurns` (the move benches
+ * its own type for a beat after firing) — to trade raw power for a real drawback.
+ *
+ * Woven in first by movesFor (see below) so a species' identity move is never
+ * crowded out of its pool. Purely additive: a mon without an entry here is built
+ * exactly as before.
+ */
+const SIGNATURE_MOVES: Record<number, Move> = {
+  // Rapidash — a headlong blazing charge: it almost always sears the foe, but
+  // running this hot costs the horse its own footing (a stage of Speed each use).
+  78: {
+    ...mk('Searing Gallop', 'fire', 100, 1, { kind: 'burn', chance: 0.5 }),
+    selfStage: { stat: 'spd', delta: -1 },
+  },
+
+  // The Kanto starters' "ultimate" blasts — colossal single hits whose cannons /
+  // furnace / root-network need a couple of turns to repower, so the user can't
+  // fire the same element again right after (it falls back to coverage meanwhile).
+  9: { ...mk('Hydro Cannon', 'water', 150, 0.95), lockTurns: 3 }, // Blastoise
+  6: { ...mk('Blast Burn', 'fire', 150, 0.95), lockTurns: 3 }, // Charizard
+  3: { ...mk('Frenzy Plant', 'grass', 150, 0.95), lockTurns: 3 }, // Venusaur
+
+  // Salamence — a meteor swarm called down from on high: devastating, but the
+  // strain of pulling it off saps the dragon's own Attack two stages.
+  373: {
+    ...mk('Draco Meteor', 'dragon', 130, 0.95),
+    selfStage: { stat: 'atk', delta: -2 },
+  },
+
+  // Gengar — a creeping shadow that smothers the foe in toxin: middling power,
+  // but it ALWAYS leaves the target badly poisoned, so a fast Gengar can stamp
+  // a clock on something and then dance around it.
+  94: mk('Shadow Smother', 'ghost', 90, 1, { kind: 'poison', chance: 1 }),
+
+  // Machamp — a wild, telegraphed haymaker: it can whiff (low accuracy), but on
+  // contact it ALWAYS leaves the foe reeling in confusion.
+  68: mk('Dynamic Punch', 'fighting', 100, 0.8, { kind: 'confuse', chance: 1 }),
+
+  // Gyarados — a thrashing, all-out assault that hits like a truck but leaves the
+  // serpent's own guard wide open (a stage of Defense each use).
+  130: {
+    ...mk('Thrash', 'water', 130, 1),
+    selfStage: { stat: 'def', delta: -1 },
+  },
+
+  // Tyranitar — a crushing avalanche that ALWAYS caves in the foe's Defense,
+  // cracking open a wall for the rest of the team to pour through.
+  248: mk('Sandstorm Slam', 'rock', 120, 0.9, {
+    kind: 'stage',
+    stat: 'def',
+    delta: -1,
+    chance: 1,
+    target: 'foe',
+  }),
+};
+
+/** A short note for a move's self-cost riders (selfStage / lockTurns), or null. */
+export function moveSelfNote(move: Move): string | null {
+  const parts: string[] = [];
+  if (move.selfStage) {
+    const { stat, delta } = move.selfStage;
+    const sign = delta > 0 ? '+' : '';
+    const sharply = Math.abs(delta) >= 2 ? ' sharply' : '';
+    parts.push(`${sign}${delta} own ${STAT_LABEL[stat]}${sharply}`);
+  }
+  if (move.lockTurns) {
+    const t = `${move.type[0].toUpperCase()}${move.type.slice(1)}`;
+    parts.push(`locks its own ${t} moves briefly`);
+  }
+  return parts.length ? parts.join(' · ') : null;
+}
 
 // Pure setup moves (power 0): sharply raise one of the user's own stat stages.
 const SWORDS_DANCE = mk('Swords Dance', 'normal', 0, 1, {
@@ -318,6 +416,19 @@ const CONTACT_MOVES = new Set([
   'Dragon Claw',
   'Crunch',
   'Iron Head',
+  // Reckless recoil nukes — all body-checks/charges, so they read as a melee
+  // strike (Head Smash slams head-first; Wild Charge dashes in).
+  'Double-Edge',
+  'Flare Blitz',
+  'Wave Crash',
+  'Wild Charge',
+  'Wood Hammer',
+  'Brave Bird',
+  'Head Smash',
+  // Signature melee — a galloping body-check, a haymaker, a thrashing assault.
+  'Searing Gallop',
+  'Dynamic Punch',
+  'Thrash',
 ]);
 
 // Heavy, ground-shaking AoE moves play a big "Swing" slam.
@@ -326,6 +437,8 @@ const HEAVY_MOVES = new Set([
   'Stone Edge',
   'Rock Slide',
   'Icicle Crash',
+  // Tyranitar's signature avalanche lands as a heavy slam.
+  'Sandstorm Slam',
 ]);
 
 // Aura / sound / mind-burst specials play "SpAttack" (a stationary special cast)
@@ -338,6 +451,13 @@ const SPECIAL_MOVES = new Set([
   'Psychic',
   'Bug Buzz',
   'Dazzling Gleam',
+  // Signature blasts — huge channelled bursts, cast in place rather than thrown.
+  'Hydro Cannon',
+  'Blast Burn',
+  'Frenzy Plant',
+  'Draco Meteor',
+  // Gengar's smothering shadow wells up in place rather than firing outward.
+  'Shadow Smother',
 ]);
 
 /**
@@ -369,6 +489,8 @@ export const MOVE_SLOTS = 8;
  *   1. STAB core — both moves of each of the mon's own types.
  *   2. Coverage  — element-themed off-type attacks (driven by the sign, so it
  *      shifts run to run).
+ *   2b. Recoil   — a reckless, premium-power STAB nuke for hard hitters (it bites
+ *      back, so it's a finisher, not a spam button).
  *   3. Counter  — anti-wall tools (Super Fang / Taunt) for offensive mons.
  *   4. Priority  — Quick Attack for genuinely fast attackers, and for any mon
  *      that can be born with Technician (the ability is dead weight without a
@@ -391,6 +513,7 @@ export function movesFor(
   stats: BaseStats,
   sign: Sign,
   abilities: AbilityId[] = [],
+  dexId?: number,
 ): Move[] {
   // Technician only pays off on a damaging move of 60 power or less. Key off the
   // species' ability *options* (not a single rolled ability) so the canonical
@@ -406,6 +529,10 @@ export function movesFor(
     moves.push(m);
   };
 
+  // 0) Signature move — a species' invented identity attack, slotted first so it
+  //    can never be crowded out of the pool (see SIGNATURE_MOVES).
+  if (dexId !== undefined) add(SIGNATURE_MOVES[dexId]);
+
   // 1) STAB core.
   for (const t of types) {
     add(TYPE_MOVES[t][0]);
@@ -418,6 +545,21 @@ export function movesFor(
   const coverage = element ? ELEMENT_COVERAGE[element] : CELESTIAL_COVERAGE;
   for (const t of coverage) {
     if (!types.includes(t)) add(TYPE_MOVES[t][0]);
+  }
+
+  // 2b) Reckless recoil nuke: a hard-hitting, non-bulky attacker reaches for a
+  //     STAB recoil move where its typing owns one — a high-risk finisher that
+  //     spends the user's HP for premium power (see RECOIL_NUKES). Added high so
+  //     a crowded pool can't crowd it out, and capped at one (the first matching
+  //     STAB type) so the rest of the kit stays varied.
+  if (!isBulky(stats) && stats.atk >= 95) {
+    for (const t of types) {
+      const nuke = RECOIL_NUKES[t];
+      if (nuke) {
+        add(nuke);
+        break;
+      }
+    }
   }
 
   // 3) Anti-wall counterplay for offensive mons — the answer TO bulk, so walls

@@ -38,6 +38,14 @@ export type MoveEffect =
   // Seals the foe's setup/heal buttons for a few turns (Taunt): a forced trade
   // that stops a wall from fortifying or out-healing. Deals no damage itself.
   | { kind: 'taunt'; chance: number }
+  // Recoil: a reckless, high-power hit that bites back, spending `fraction` of
+  // the damage dealt as the attacker's own HP (Double-Edge, Flare Blitz, …).
+  // Pure risk/reward — a real finisher that can also leave the user wide open.
+  | { kind: 'recoil'; fraction: number }
+  // Flinch: an on-hit rider (chance <1) that makes the foe lose its turn — but
+  // ONLY when the attacker moved first, so it rewards speed and priority. Worth
+  // nothing on a slower mon, momentum-defining on a fast one.
+  | { kind: 'flinch'; chance: number }
   // Buff/debuff: shifts a stat stage on self or the foe. `chance` is 1 for pure
   // setup moves, <1 for on-hit riders.
   | { kind: 'stage'; stat: StageStat; delta: number; chance: number; target: 'self' | 'foe' }
@@ -74,6 +82,18 @@ export interface Move {
   // heal each other forever — see chooseMove/takeTurn in battle.ts.
   pp?: number;
   effect?: MoveEffect;
+  // A guaranteed self stat-stage shift paid whenever the move lands — a built-in
+  // *cost* (or, rarely, a kicker) that's distinct from `effect` (which targets
+  // the foe). Lets a move stack a foe-rider AND a self-tax in one slot: e.g. a
+  // blazing charge that almost always burns but tires the user's own Speed, or a
+  // dragon nuke that recoils the user's Attack. Applied unconditionally on a
+  // connecting hit (never traded away by Sheer Force — it's a cost, not a perk).
+  selfStage?: { stat: StageStat; delta: number };
+  // Self type-lockout: after this move connects, the user can't pick another move
+  // of THIS move's type for a short spell (see Battler.typeLock). The drawback on
+  // an over-the-top nuke — fire it, then it has to do something else while the
+  // weapon "recharges". 0/undefined means no lockout.
+  lockTurns?: number;
 }
 
 export interface BaseStats {
@@ -186,6 +206,61 @@ export type SpecialTier = 'normal' | 'legendary' | 'mythical';
  *                    them as if the immunity weren't there.
  * - `unaware`      — ignores the foe's stat-stage changes entirely, both when
  *                    attacking and defending — a hard counter to setup sweepers.
+ * - `water-absorb` — Water washes over it harmlessly and mends it: a Water move
+ *                    heals ~1/4 max HP instead of landing.
+ * - `volt-absorb`  — drinks in electricity; an Electric move heals it rather than
+ *                    hurting it.
+ * - `flash-fire`   — Fire can't touch it, and the first time one tries, the flames
+ *                    stoke its own — its Fire moves burn 1.5× hotter thereafter.
+ * - `sap-sipper`   — grazes on Grass attacks: they do nothing and its Attack rises
+ *                    a stage instead.
+ * - `motor-drive`  — Electric jolts it into gear — an Electric move does nothing
+ *                    and its Speed climbs a stage.
+ * - `dry-skin`     — porous hide: Water heals it, but Fire sears it for 1.25×.
+ * - `heatproof`    — insulated against heat, halving the damage it takes from Fire.
+ * - `immunity`     — a clean constitution that can never be poisoned.
+ * - `water-veil`   — a moist sheen that means it can never be burned.
+ * - `limber`       — supple-limbed; it can never be paralyzed.
+ * - `own-tempo`    — marches to its own beat and so can never be confused.
+ * - `contrary`     — everything's upside-down: stat boosts drop it and drops boost
+ *                    it, turning the foe's debuffs into fuel.
+ * - `simple`       — easily swayed — every stat change it takes is doubled.
+ * - `anger-point`  — a critical hit sends it into a rage, maxing out its Attack.
+ * - `justified`    — its sense of justice flares against Dark moves, raising its
+ *                    Attack a stage when one strikes it.
+ * - `disguise`     — a flimsy costume soaks the first hit it takes for it, breaking
+ *                    instead of letting that blow land.
+ * - `hyper-cutter` — proud of its blades: the foe can never lower its Attack.
+ * - `big-pecks`    — puffs up its chest; the foe can never lower its Defense.
+ * - `inner-focus`  — unshakeable composure — it never flinches and shrugs off
+ *                    Intimidate's fear entirely.
+ * - `steadfast`    — every flinch only steels its resolve, raising its Speed a
+ *                    stage even as it loses the turn.
+ * - `hustle`       — muscles every hit for 1.5× Attack, but the wind-up costs it
+ *                    accuracy (its moves land 0.8× as reliably).
+ * - `defeatist`    — loses heart once worn to half HP or less, its Attack halving
+ *                    until it recovers.
+ * - `weak-armor`   — a hit cracks its plating (−Defense) but lightens it into a
+ *                    quicker step (+Speed) each time it's struck.
+ * - `anger-shell`  — a blow that drops it below half HP cracks its shell: Defense
+ *                    falls, but fury floods in and its Attack and Speed surge.
+ * - `aftermath`    — if a direct hit fells it, the blast catches the attacker for
+ *                    a quarter of its HP.
+ * - `liquid-ooze`  — its fluids are toxic: anything that drains its HP is poisoned
+ *                    by the ooze and loses that HP instead of gaining it.
+ * - `overload`     — runs its systems hot: every stat boost it gains is 25%
+ *                    stronger, but burn and poison gnaw at it 50% harder.
+ * - `glass-cannon` — all offence, no guard — it deals 1.3× damage but takes 1.2×
+ *                    in return.
+ * - `last-stand`   — the more wounded it is, the harder it fights, its blows
+ *                    climbing toward 1.5× as its HP empties.
+ * - `legacy`       — when it faints, it passes its strength on: the next ally in
+ *                    enters with a sharp +2 boost to whichever stat (Attack,
+ *                    Defense or Speed) the fallen mon was best at.
+ * - `rally`        — its fall rallies the team — the next ally in charges out
+ *                    fired up, with +1 Attack and +1 Speed.
+ * - `glory-hog`    — a spotlight-stealing star: it fights at 1.15× its stats, but
+ *                    hogs everything, dragging the rest of its team to 0.9×.
  */
 export type AbilityId =
   | 'truant'
@@ -224,7 +299,96 @@ export type AbilityId =
   | 'shed-skin'
   | 'early-bird'
   | 'scrappy'
-  | 'unaware';
+  | 'unaware'
+  | 'water-absorb'
+  | 'volt-absorb'
+  | 'flash-fire'
+  | 'sap-sipper'
+  | 'motor-drive'
+  | 'dry-skin'
+  | 'heatproof'
+  | 'immunity'
+  | 'water-veil'
+  | 'limber'
+  | 'own-tempo'
+  | 'contrary'
+  | 'simple'
+  | 'anger-point'
+  | 'justified'
+  | 'disguise'
+  | 'hyper-cutter'
+  | 'big-pecks'
+  | 'inner-focus'
+  | 'steadfast'
+  | 'hustle'
+  | 'defeatist'
+  | 'weak-armor'
+  | 'anger-shell'
+  | 'aftermath'
+  | 'liquid-ooze'
+  | 'overload'
+  | 'glass-cannon'
+  | 'last-stand'
+  | 'legacy'
+  | 'rally'
+  | 'glory-hog';
+
+/**
+ * A team-wide passive "relic" the player collects from item events across a run
+ * (think Slay the Spire relics, built from held-item art). Unlike a species
+ * Ability — which lives on one Creature — a relic buffs the *whole* team for the
+ * rest of the run, applying to whichever member is active in battle. The full
+ * registry (art, rarity, description, appearance criteria and the battle mods
+ * each grants) lives in relics.ts.
+ */
+export type RelicId =
+  // General-purpose passives.
+  | 'leftovers' // active mon recovers a sliver of HP every turn
+  | 'muscleband' // team Attack up
+  | 'assaultvest' // team Defense up
+  | 'quickclaw' // team Speed up
+  | 'wiseglasses' // small all-damage boost
+  | 'shellbell' // heal a fraction of the damage you deal
+  | 'bigroot' // all healing (Leftovers, Shell Bell, heal moves) hits harder
+  | 'lifeorb' // big all-damage boost
+  // Type boosters — only offered when the team can use them (see relics.ts).
+  | 'silkscarf'
+  | 'charcoal'
+  | 'mysticwater'
+  | 'magnet'
+  | 'miracleseed'
+  | 'nevermeltice'
+  | 'blackbelt'
+  | 'poisonbarb'
+  | 'softsand'
+  | 'sharpbeak'
+  | 'twistedspoon'
+  | 'silverpowder'
+  | 'hardstone'
+  | 'spelltag'
+  | 'dragonfang'
+  | 'blackglasses'
+  | 'metalcoat'
+  | 'fairyfeather';
+
+/**
+ * The accumulated battle effect of a team's collected relics, resolved once per
+ * fight (see relicMods in relics.ts) and baked onto every Battler. Identity
+ * values (×1, 0, empty) leave the engine byte-identical to a relic-free run, so
+ * an ordinary fight is unaffected.
+ */
+export interface RelicMods {
+  atkMult: number; // Attack multiplier (Muscle Band)
+  defMult: number; // Defense multiplier (Assault Vest)
+  spdMult: number; // Speed multiplier (Quick Claw)
+  allDmgMult: number; // flat multiplier on all damage dealt (Wise Glasses, Life Orb)
+  // Per-type damage multipliers, stacked onto allDmgMult for matching move types
+  // (the type-booster relics). Absent type = ×1.
+  dmgMult: Partial<Record<PokemonType, number>>;
+  lifesteal: number; // fraction of damage dealt healed back (Shell Bell), 0 = none
+  endTurnHeal: number; // fraction of max HP healed each end of turn (Leftovers), 0 = none
+  healMult: number; // multiplier applied to every heal (Big Root)
+}
 
 /** Raw generated dex row (see scripts/gen-pokedex.ts). */
 export interface DexEntry {
@@ -284,6 +448,14 @@ export interface Battler {
   statusTurns: number; // remaining turns for burn / stun / sleep
   toxicCounter: number; // escalation step for poison (0 when not poisoned)
   confusion: number; // remaining confused turns (0 = not confused); a volatile
+  // Self type-lockout from a move's `lockTurns`: while set, the battler cannot
+  // pick a move whose type matches `type` (its over-the-top nuke is recharging).
+  // Ticks down each end of turn and clears at 0; null when nothing is locked.
+  typeLock: { type: PokemonType; turns: number } | null;
+  // Set when a faster foe lands a flinch this turn: the battler loses its action
+  // and the flag is cleared at end of turn (so it can only ever skip one turn,
+  // and only when it hadn't yet acted). Always false outside that window.
+  flinched: boolean;
   // Remaining turns the battler is taunted: while >0 it cannot set up, heal or
   // throw a pure-status move — it must attack. A volatile that ticks down each
   // round (see endOfTurnStatus) and breaks the fortify-and-heal wall loop.
@@ -300,6 +472,22 @@ export interface Battler {
   // action) on its next turn. Toggles on each turn it actually acts, so a Truant
   // user moves only every other turn. Always false for non-Truant species.
   loafing: boolean;
+  // Flash Fire ability state: set once it has soaked a Fire-type move, after
+  // which its own Fire moves burn 1.5× hotter. Always false for non-Flash Fire
+  // species (and until they're first hit by Fire).
+  flashFire: boolean;
+  // Disguise ability state: set once its costume has eaten a hit. While false a
+  // Disguise mon shrugs off the first damaging blow entirely; afterwards it takes
+  // hits normally. Always false for non-Disguise species.
+  disguiseBusted: boolean;
+  // A flat multiplier on this battler's Attack/Defense/Speed from a roster-wide
+  // Ability (Glory Hog: the star itself runs at 1.15×, its teammates at 0.9×).
+  // Fixed when the teams are built and 1 for any side without such an Ability.
+  teamFactor: number;
+  // The team's collected relic effects, baked on at send-out so every active
+  // member of a side carries the same run-long passives (identity mods for a
+  // relic-free side, so ordinary fights are unaffected). See relics.ts.
+  mods: RelicMods;
 }
 
 export type Side = 'player' | 'foe';

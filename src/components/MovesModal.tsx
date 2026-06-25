@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { Creature, Move } from '../game/types';
-import { moveEffectLabel } from '../game/moves';
+import { moveEffectLabel, moveSelfNote } from '../game/moves';
 import { TYPE_COLORS, typeIconUrl, typeLabel } from '../game/typechart';
 
 /**
@@ -82,6 +82,7 @@ export function MovesModal({
 function MoveRow({ move, stab }: { move: Move; stab: boolean }) {
   const color = TYPE_COLORS[move.type];
   const isStatus = move.power === 0;
+  const selfNote = moveSelfNote(move);
   return (
     <li
       className="flex items-center gap-3 rounded-2xl border p-2.5"
@@ -110,6 +111,8 @@ function MoveRow({ move, stab }: { move: Move; stab: boolean }) {
           {move.effect && (
             <span className="text-emerald-300/90">· {moveEffectLabel(move.effect)}</span>
           )}
+          {/* The custom self-cost riders read in amber to flag the trade-off. */}
+          {selfNote && <span className="text-amber-300/90">· {selfNote}</span>}
         </div>
       </div>
 

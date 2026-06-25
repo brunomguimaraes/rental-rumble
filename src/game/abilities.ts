@@ -226,6 +226,166 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
     name: 'Unaware',
     description: 'Pays no mind to the foe\u2019s stat boosts or drops, ignoring them on attack and defense.',
   },
+  'water-absorb': {
+    id: 'water-absorb',
+    name: 'Water Absorb',
+    description: 'Drinks in Water moves — they do no damage and instead restore about a quarter of its HP.',
+  },
+  'volt-absorb': {
+    id: 'volt-absorb',
+    name: 'Volt Absorb',
+    description: 'Feeds on electricity — Electric moves do nothing and heal it for about a quarter of its HP.',
+  },
+  'flash-fire': {
+    id: 'flash-fire',
+    name: 'Flash Fire',
+    description: 'Fire can\u2019t touch it; once doused in flame, its own Fire moves burn 1.5\u00d7 hotter.',
+  },
+  'sap-sipper': {
+    id: 'sap-sipper',
+    name: 'Sap Sipper',
+    description: 'Grazes on Grass attacks — they deal no damage and raise its Attack a stage instead.',
+  },
+  'motor-drive': {
+    id: 'motor-drive',
+    name: 'Motor Drive',
+    description: 'Electricity jolts it into gear — Electric moves do nothing and its Speed climbs a stage.',
+  },
+  'dry-skin': {
+    id: 'dry-skin',
+    name: 'Dry Skin',
+    description: 'A porous hide: Water heals it, but Fire bites for 1.25\u00d7 the damage.',
+  },
+  heatproof: {
+    id: 'heatproof',
+    name: 'Heatproof',
+    description: 'Insulated against heat — it takes only half the damage from Fire-type moves.',
+  },
+  immunity: {
+    id: 'immunity',
+    name: 'Immunity',
+    description: 'A clean constitution that can never be poisoned.',
+  },
+  'water-veil': {
+    id: 'water-veil',
+    name: 'Water Veil',
+    description: 'Wrapped in a moist sheen — it can never be burned.',
+  },
+  limber: {
+    id: 'limber',
+    name: 'Limber',
+    description: 'Supple-limbed and loose — it can never be paralyzed.',
+  },
+  'own-tempo': {
+    id: 'own-tempo',
+    name: 'Own Tempo',
+    description: 'Marches to its own beat, so it can never be confused.',
+  },
+  contrary: {
+    id: 'contrary',
+    name: 'Contrary',
+    description: 'Everything\u2019s upside-down — stat drops raise it and boosts lower it, so a foe\u2019s debuffs only help.',
+  },
+  simple: {
+    id: 'simple',
+    name: 'Simple',
+    description: 'Easily swayed — every stat change it takes, up or down, is doubled.',
+  },
+  'anger-point': {
+    id: 'anger-point',
+    name: 'Anger Point',
+    description: 'A critical hit sends it into a fury, maxing out its Attack on the spot.',
+  },
+  justified: {
+    id: 'justified',
+    name: 'Justified',
+    description: 'Its sense of justice flares against Dark moves — being struck by one raises its Attack a stage.',
+  },
+  disguise: {
+    id: 'disguise',
+    name: 'Disguise',
+    description: 'A flimsy costume eats the first hit it takes — that blow is shrugged off before the disguise breaks.',
+  },
+  'hyper-cutter': {
+    id: 'hyper-cutter',
+    name: 'Hyper Cutter',
+    description: 'Proud of its blades — the foe can never lower its Attack.',
+  },
+  'big-pecks': {
+    id: 'big-pecks',
+    name: 'Big Pecks',
+    description: 'Puffs out its chest — the foe can never lower its Defense.',
+  },
+  'inner-focus': {
+    id: 'inner-focus',
+    name: 'Inner Focus',
+    description: 'Unshakeable composure — it never flinches and ignores Intimidate entirely.',
+  },
+  steadfast: {
+    id: 'steadfast',
+    name: 'Steadfast',
+    description: 'Every flinch only steels it — its Speed rises a stage each time it\u2019s made to balk.',
+  },
+  hustle: {
+    id: 'hustle',
+    name: 'Hustle',
+    description: 'Throws its whole body into each blow for 1.5\u00d7 Attack, at the cost of shakier accuracy (0.8\u00d7).',
+  },
+  defeatist: {
+    id: 'defeatist',
+    name: 'Defeatist',
+    description: 'Loses heart at half HP or less — its Attack is halved until it heals back up.',
+  },
+  'weak-armor': {
+    id: 'weak-armor',
+    name: 'Weak Armor',
+    description: 'Each hit cracks its plating (lowering Defense) but sheds weight, quickening it (raising Speed).',
+  },
+  'anger-shell': {
+    id: 'anger-shell',
+    name: 'Anger Shell',
+    description: 'A blow that drops it below half HP cracks its shell — Defense falls, but its Attack and Speed surge.',
+  },
+  aftermath: {
+    id: 'aftermath',
+    name: 'Aftermath',
+    description: 'If a direct hit knocks it out, the blast catches the attacker for a quarter of its HP.',
+  },
+  'liquid-ooze': {
+    id: 'liquid-ooze',
+    name: 'Liquid Ooze',
+    description: 'Its fluids are foul — anything that drains its HP is poisoned by the ooze and loses HP instead.',
+  },
+  overload: {
+    id: 'overload',
+    name: 'Overload',
+    description: 'Runs hot: the stat boosts it gains are 25% stronger, but burn and poison gnaw at it 50% harder.',
+  },
+  'glass-cannon': {
+    id: 'glass-cannon',
+    name: 'Glass Cannon',
+    description: 'All offence, no guard — it deals 1.3\u00d7 damage but takes 1.2\u00d7 from every hit in return.',
+  },
+  'last-stand': {
+    id: 'last-stand',
+    name: 'Last Stand',
+    description: 'The more wounded it is, the harder it fights — its damage climbs toward 1.5\u00d7 as its HP empties.',
+  },
+  legacy: {
+    id: 'legacy',
+    name: 'Legacy',
+    description: 'When it faints, it passes on its strength — the next ally enters with a sharp +2 to the stat it was best at.',
+  },
+  rally: {
+    id: 'rally',
+    name: 'Rally',
+    description: 'Its fall rallies the team — the next ally charges out fired up, with +1 Attack and +1 Speed.',
+  },
+  'glory-hog': {
+    id: 'glory-hog',
+    name: 'Glory Hog',
+    description: 'A spotlight-stealing star: it fights at 1.15\u00d7 its stats, but hogs the glory, dragging the rest of its team to 0.9\u00d7.',
+  },
 };
 
 /**
@@ -269,7 +429,7 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   66: ['guts'], // Machop
   67: ['guts'], // Machoke
   68: ['guts'], // Machamp
-  136: ['guts'], // Flareon
+  136: ['flash-fire', 'guts'], // Flareon — Flash Fire or Guts
   217: ['guts', 'quick-feet'], // Ursaring — Guts or Quick Feet
   901: ['guts', 'quick-feet'], // Ursaluna — Guts or Quick Feet
   276: ['guts'], // Taillow
@@ -281,8 +441,8 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   534: ['guts'], // Conkeldurr
 
   // --- Adaptability: doubled-STAB nukes ----------------------------------
-  341: ['adaptability'], // Corphish
-  342: ['adaptability'], // Crawdaunt
+  341: ['adaptability', 'anger-shell'], // Corphish — Adaptability or Anger Shell
+  342: ['adaptability', 'anger-shell'], // Crawdaunt — Adaptability or Anger Shell
   474: ['adaptability'], // Porygon-Z
   550: ['adaptability'], // Basculin
   902: ['adaptability'], // Basculegion (keeps Basculin's Adaptability on evolution)
@@ -290,11 +450,11 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   691: ['adaptability'], // Dragalge
 
   // --- Intimidate: entry-control bruisers ---------------------------------
-  58: ['intimidate'], // Growlithe
-  59: ['intimidate'], // Arcanine
-  128: ['intimidate'], // Tauros
+  58: ['intimidate', 'flash-fire'], // Growlithe — Intimidate or Flash Fire
+  59: ['intimidate', 'flash-fire'], // Arcanine — Intimidate or Flash Fire
+  128: ['intimidate', 'anger-point'], // Tauros — Intimidate or Anger Point
   130: ['intimidate', 'moxie'], // Gyarados — Intimidate or Moxie
-  303: ['intimidate'], // Mawile
+  303: ['intimidate', 'hyper-cutter'], // Mawile — Intimidate or Hyper Cutter
   398: ['intimidate', 'defiant'], // Staraptor — Intimidate or Defiant
   405: ['intimidate'], // Luxray
 
@@ -302,7 +462,7 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   74: ['sturdy'], // Geodude
   75: ['sturdy'], // Graveler
   76: ['sturdy'], // Golem
-  95: ['sturdy'], // Onix
+  95: ['sturdy', 'weak-armor'], // Onix — Sturdy or Weak Armor
   185: ['sturdy'], // Sudowoodo
   208: ['sturdy'], // Steelix
   213: ['sturdy'], // Shuckle
@@ -325,15 +485,15 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   343: ['levitate'], // Baltoy
   344: ['levitate'], // Claydol
   429: ['levitate'], // Mismagius
-  436: ['levitate'], // Bronzor
-  437: ['levitate'], // Bronzong
+  436: ['levitate', 'heatproof'], // Bronzor — Levitate or Heatproof
+  437: ['levitate', 'heatproof'], // Bronzong — Levitate or Heatproof
   602: ['levitate'], // Tynamo
   603: ['levitate'], // Eelektrik
   604: ['levitate'], // Eelektross
 
   // --- Thick Fat: shrugs off Fire & Ice -----------------------------------
-  143: ['thick-fat'], // Snorlax
-  446: ['thick-fat'], // Munchlax
+  143: ['thick-fat', 'immunity'], // Snorlax — Thick Fat or Immunity
+  446: ['thick-fat', 'immunity'], // Munchlax — Thick Fat or Immunity
   220: ['thick-fat'], // Swinub
   221: ['thick-fat'], // Piloswine
   473: ['thick-fat'], // Mamoswine
@@ -348,8 +508,8 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   350: ['marvel-scale'], // Milotic
 
   // --- Technician: weak moves punch above their weight --------------------
-  53: ['technician'], // Persian
-  107: ['technician'], // Hitmonchan
+  53: ['technician', 'limber'], // Persian — Technician or Limber
+  107: ['technician', 'inner-focus'], // Hitmonchan — Technician or Inner Focus
   212: ['swarm', 'technician'], // Scizor — Swarm or Technician
   215: ['technician'], // Sneasel
   461: ['technician'], // Weavile
@@ -399,9 +559,9 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   387: ['overgrow'], // Turtwig
   388: ['overgrow'], // Grotle
   389: ['overgrow'], // Torterra
-  495: ['overgrow'], // Snivy
-  496: ['overgrow'], // Servine
-  497: ['overgrow'], // Serperior
+  495: ['overgrow', 'contrary'], // Snivy — Overgrow or Contrary
+  496: ['overgrow', 'contrary'], // Servine — Overgrow or Contrary
+  497: ['overgrow', 'contrary'], // Serperior — Overgrow or Contrary
   650: ['overgrow'], // Chespin
   651: ['overgrow'], // Quilladin
   652: ['overgrow'], // Chesnaught
@@ -425,17 +585,17 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   172: ['static'], // Pichu
   125: ['static'], // Electabuzz
   239: ['static'], // Elekid
-  466: ['static'], // Electivire
+  466: ['motor-drive', 'static'], // Electivire — Motor Drive or Static
   309: ['static'], // Electrike
-  310: ['static'], // Manectric
-  587: ['static'], // Emolga
+  310: ['static', 'intimidate'], // Manectric — Static or Intimidate
+  587: ['static', 'motor-drive'], // Emolga — Static or Motor Drive
 
   // --- Flame Body: burns a careless attacker ------------------------------
   126: ['flame-body'], // Magmar
   240: ['flame-body'], // Magby
   467: ['flame-body'], // Magmortar
   218: ['flame-body'], // Slugma
-  219: ['flame-body'], // Magcargo
+  219: ['flame-body', 'weak-armor'], // Magcargo — Flame Body or Weak Armor
   636: ['flame-body'], // Larvesta
   637: ['flame-body'], // Volcarona
 
@@ -496,13 +656,12 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   141: ['battle-armor'], // Kabutops
   347: ['battle-armor'], // Anorith
   348: ['battle-armor', 'sturdy'], // Armaldo — Battle Armor or Sturdy
-  104: ['battle-armor'], // Cubone
-  105: ['battle-armor', 'rough-skin'], // Marowak — Battle Armor or Rough Skin
+  104: ['legacy', 'battle-armor'], // Cubone — Legacy (its mother's memory) or Battle Armor
+  105: ['legacy', 'battle-armor'], // Marowak — Legacy or Battle Armor
 
   // --- Quick Feet: status fuels its Speed ---------------------------------
   263: ['quick-feet'], // Zigzagoon
   264: ['quick-feet'], // Linoone
-  135: ['quick-feet'], // Jolteon
 
   // --- Magic Guard: shrugs off chip damage --------------------------------
   35: ['magic-guard'], // Clefairy
@@ -515,19 +674,195 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
   472: ['poison-heal', 'intimidate'], // Gliscor — Poison Heal or Intimidate
 
   // --- Clear Body: unshakeable, immune to stat drops ----------------------
-  72: ['clear-body'], // Tentacool
-  73: ['clear-body', 'poison-point'], // Tentacruel — Clear Body or Poison Point
+  72: ['clear-body', 'liquid-ooze'], // Tentacool — Clear Body or Liquid Ooze
+  73: ['clear-body', 'poison-point', 'liquid-ooze'], // Tentacruel — Clear Body, Poison Point or Liquid Ooze
   374: ['clear-body'], // Beldum
   375: ['clear-body'], // Metang
   376: ['clear-body'], // Metagross
 
   // --- Defiant: an enemy debuff spikes its Attack -------------------------
   509: ['defiant'], // Purrloin
-  510: ['defiant'], // Liepard
+  510: ['defiant', 'glory-hog'], // Liepard — Defiant or Glory Hog (a treacherous diva)
   624: ['defiant'], // Pawniard
   625: ['defiant'], // Bisharp
   627: ['defiant', 'sturdy'], // Rufflet — Defiant or Sturdy
   628: ['defiant', 'sturdy'], // Braviary — Defiant or Sturdy
+
+  // --- Water Absorb: soaks up Water and heals --------------------------------
+  134: ['water-absorb'], // Vaporeon
+  86: ['thick-fat', 'water-absorb'], // Seel — Thick Fat or Water Absorb
+  87: ['thick-fat', 'water-absorb'], // Dewgong — Thick Fat or Water Absorb
+  194: ['water-absorb', 'unaware'], // Wooper — Water Absorb or Unaware
+  195: ['water-absorb', 'unaware'], // Quagsire — Water Absorb or Unaware
+  226: ['water-absorb', 'intimidate'], // Mantine — Water Absorb or Intimidate
+  458: ['water-absorb', 'intimidate'], // Mantyke — Water Absorb or Intimidate
+  592: ['water-absorb', 'levitate'], // Frillish — Water Absorb or Levitate
+  593: ['water-absorb', 'levitate'], // Jellicent — Water Absorb or Levitate
+
+  // --- Volt Absorb / Motor Drive: feed on electricity ------------------------
+  135: ['volt-absorb', 'quick-feet', 'overload'], // Jolteon — Volt Absorb, Quick Feet or Overload
+  170: ['volt-absorb'], // Chinchou
+  171: ['volt-absorb'], // Lanturn
+  311: ['volt-absorb', 'rally'], // Plusle — Volt Absorb or Rally (a cheering partner)
+  312: ['volt-absorb', 'rally'], // Minun — Volt Absorb or Rally (a cheering partner)
+  522: ['motor-drive'], // Blitzle
+  523: ['motor-drive'], // Zebstrika
+
+  // --- Flash Fire: doused in flame, it only burns hotter ---------------------
+  37: ['flash-fire'], // Vulpix
+  38: ['flash-fire'], // Ninetales
+  77: ['flash-fire'], // Ponyta
+  78: ['flash-fire'], // Rapidash
+  228: ['flash-fire', 'early-bird'], // Houndour — Flash Fire or Early Bird
+  229: ['flash-fire', 'early-bird'], // Houndoom — Flash Fire or Early Bird
+  607: ['flash-fire', 'levitate'], // Litwick — Flash Fire or Levitate
+  608: ['flash-fire', 'levitate'], // Lampent — Flash Fire or Levitate
+  609: ['flash-fire', 'levitate'], // Chandelure — Flash Fire or Levitate
+
+  // --- Sap Sipper: grazes on Grass attacks for an Attack boost ---------------
+  184: ['sap-sipper', 'thick-fat'], // Azumarill — Sap Sipper or Thick Fat
+  241: ['sap-sipper', 'thick-fat'], // Miltank — Sap Sipper or Thick Fat
+  585: ['sap-sipper'], // Deerling
+  586: ['sap-sipper'], // Sawsbuck
+  626: ['sap-sipper', 'guts'], // Bouffalant — Sap Sipper or Guts
+  672: ['sap-sipper'], // Skiddo
+  673: ['sap-sipper'], // Gogoat
+
+  // --- Dry Skin: Water mends it, Fire sears it -------------------------------
+  46: ['dry-skin'], // Paras
+  47: ['dry-skin'], // Parasect
+  453: ['dry-skin'], // Croagunk
+  454: ['dry-skin'], // Toxicroak
+
+  // --- Immunity: a clean constitution, never poisoned ------------------------
+  335: ['immunity', 'quick-feet'], // Zangoose — Immunity or Quick Feet
+
+  // --- Water Veil: a moist sheen, never burned -------------------------------
+  118: ['water-veil'], // Goldeen
+  119: ['water-veil'], // Seaking
+  320: ['water-veil'], // Wailmer
+  321: ['water-veil', 'thick-fat'], // Wailord — Water Veil or Thick Fat
+
+  // --- Limber: too supple to be paralyzed ------------------------------------
+  106: ['limber', 'steadfast'], // Hitmonlee — Limber or Steadfast
+  132: ['limber'], // Ditto
+
+  // --- Own Tempo: marches to its own beat, never confused --------------------
+  108: ['own-tempo'], // Lickitung
+  463: ['own-tempo'], // Lickilicky
+  235: ['own-tempo', 'technician'], // Smeargle — Own Tempo or Technician
+  327: ['own-tempo', 'contrary'], // Spinda — Own Tempo or Contrary
+
+  // --- Contrary: the foe's debuffs only feed it ------------------------------
+  686: ['contrary'], // Inkay
+  687: ['contrary'], // Malamar
+
+  // --- Simple: every stat shift it takes is doubled --------------------------
+  399: ['simple', 'unaware'], // Bidoof — Simple or Unaware
+  400: ['simple', 'unaware'], // Bibarel — Simple or Unaware
+  322: ['simple', 'solid-rock'], // Numel — Simple or Solid Rock
+  527: ['unaware', 'simple'], // Woobat — Unaware or Simple
+  528: ['unaware', 'simple'], // Swoobat — Unaware or Simple
+
+  // --- Anger Point: a crit tips it into a full rage --------------------------
+  56: ['anger-point', 'vital-spirit'], // Mankey — Anger Point or Vital Spirit
+  57: ['anger-point', 'vital-spirit'], // Primeape — Anger Point or Vital Spirit
+  98: ['hyper-cutter', 'anger-point'], // Krabby — Hyper Cutter or Anger Point
+  99: ['hyper-cutter', 'anger-point'], // Kingler — Hyper Cutter or Anger Point
+
+  // --- Justified: its honor flares against Dark attacks ----------------------
+  448: ['justified', 'inner-focus'], // Lucario — Justified or Inner Focus
+  475: ['justified', 'steadfast'], // Gallade — Justified or Steadfast
+
+  // --- Disguise: a costume eats the first hit --------------------------------
+  778: ['disguise'], // Mimikyu
+
+  // --- Battle Armor / Shell Armor: a sealed shell wards off crits ------------
+  // Cloyster's spiked shell is armour, not blubber — Shell Armor, not Thick Fat.
+  90: ['battle-armor'], // Shellder
+  91: ['battle-armor'], // Cloyster
+
+  // --- Hyper Cutter: proud blades the foe can't blunt ------------------------
+  127: ['hyper-cutter', 'moxie'], // Pinsir — Hyper Cutter or Moxie
+  207: ['hyper-cutter'], // Gligar
+  328: ['hyper-cutter'], // Trapinch
+
+  // --- Big Pecks: a puffed-out chest guards its Defense ----------------------
+  16: ['big-pecks'], // Pidgey
+  17: ['big-pecks'], // Pidgeotto
+  18: ['big-pecks'], // Pidgeot
+  580: ['big-pecks'], // Ducklett
+  581: ['big-pecks'], // Swanna
+  661: ['big-pecks'], // Fletchling
+
+  // --- Inner Focus: unshakeable, never flinches, ignores Intimidate ----------
+  41: ['inner-focus'], // Zubat
+  42: ['inner-focus'], // Golbat
+  169: ['inner-focus'], // Crobat
+  447: ['inner-focus', 'steadfast'], // Riolu — Inner Focus or Steadfast
+
+  // --- Steadfast: every flinch only quickens its resolve ---------------------
+  123: ['technician', 'steadfast'], // Scyther — Technician or Steadfast
+  359: ['sniper', 'steadfast'], // Absol — Sniper or Steadfast
+
+  // --- Hustle: raw power bought with shakier aim -----------------------------
+  554: ['hustle', 'sheer-force'], // Darumaka — Hustle or Sheer Force
+  555: ['hustle', 'sheer-force'], // Darmanitan — Hustle or Sheer Force
+  632: ['hustle', 'swarm'], // Durant — Hustle or Swarm
+  633: ['hustle'], // Deino
+  634: ['hustle'], // Zweilous
+  635: ['levitate'], // Hydreigon
+
+  // --- Defeatist: loses heart once worn down ---------------------------------
+  566: ['defeatist'], // Archen
+  567: ['defeatist'], // Archeops
+
+  // --- Weak Armor: a hit cracks its plating but lightens its step -------------
+  227: ['sturdy', 'weak-armor'], // Skarmory — Sturdy or Weak Armor
+  557: ['sturdy', 'anger-shell'], // Dwebble — Sturdy or Anger Shell
+  558: ['sturdy', 'anger-shell'], // Crustle — Sturdy or Anger Shell
+
+  // --- Aftermath: it goes off like a bomb when it's downed --------------------
+  100: ['aftermath', 'static'], // Voltorb — Aftermath or Static
+  101: ['aftermath', 'static'], // Electrode — Aftermath or Static
+  434: ['aftermath'], // Stunky
+  435: ['aftermath'], // Skuntank
+  425: ['aftermath'], // Drifloon
+  426: ['aftermath'], // Drifblim
+
+  // --- Liquid Ooze: drainers choke on its toxic fluids -----------------------
+  316: ['liquid-ooze'], // Gulpin
+  317: ['liquid-ooze'], // Swalot
+
+  // --- Overload: runs hot — bigger boosts, but burn/poison bite harder -------
+  64: ['magic-guard', 'overload'], // Kadabra — Magic Guard or Overload
+  65: ['magic-guard', 'overload'], // Alakazam — Magic Guard or Overload
+  181: ['static', 'overload'], // Ampharos — Static or Overload
+
+  // --- Glass Cannon: all offence, paper-thin guard ---------------------------
+  142: ['glass-cannon'], // Aerodactyl
+  408: ['glass-cannon'], // Cranidos
+  409: ['glass-cannon'], // Rampardos
+
+  // --- Last Stand: it fights hardest with its back to the wall ----------------
+  83: ['last-stand'], // Farfetch'd
+  538: ['guts', 'last-stand'], // Throh — Guts or Last Stand
+  539: ['inner-focus', 'last-stand'], // Sawk — Inner Focus or Last Stand
+
+  // --- Legacy: a fallen mon passes its strength to its successor --------------
+  355: ['levitate', 'legacy'], // Duskull — Levitate or Legacy (a lingering spirit)
+  356: ['levitate', 'legacy'], // Dusclops — Levitate or Legacy
+  477: ['levitate', 'legacy'], // Dusknoir — Levitate or Legacy
+
+  // --- Rally: a supportive heart fires up the next ally in --------------------
+  113: ['rally'], // Chansey
+  242: ['rally'], // Blissey
+  531: ['regenerator', 'rally'], // Audino — Regenerator or Rally
+
+  // --- Glory Hog: a selfish star that hogs the team's strength ----------------
+  431: ['glory-hog'], // Glameow
+  432: ['glory-hog'], // Purugly
+  668: ['moxie', 'glory-hog'], // Pyroar — Moxie or Glory Hog (the proud lion)
 };
 
 /**
@@ -537,23 +872,23 @@ export const SPECIES_ABILITIES: Record<number, AbilityId[]> = {
  * each type reads distinctly.
  */
 const TYPE_ABILITIES: Record<PokemonType, AbilityId[]> = {
-  normal: ['adaptability', 'scrappy', 'quick-feet'],
-  fire: ['blaze', 'flame-body', 'sheer-force'],
-  water: ['torrent', 'rough-skin', 'unaware'],
-  electric: ['static', 'quick-feet', 'sniper'],
-  grass: ['overgrow', 'regenerator', 'shed-skin'],
-  ice: ['thick-fat', 'multiscale', 'sniper'],
-  fighting: ['guts', 'defiant', 'scrappy'],
-  poison: ['poison-point', 'poison-heal', 'shed-skin'],
+  normal: ['adaptability', 'scrappy', 'own-tempo'],
+  fire: ['blaze', 'flash-fire', 'flame-body'],
+  water: ['torrent', 'water-absorb', 'rough-skin'],
+  electric: ['static', 'volt-absorb', 'motor-drive'],
+  grass: ['overgrow', 'sap-sipper', 'regenerator'],
+  ice: ['thick-fat', 'battle-armor', 'multiscale'],
+  fighting: ['guts', 'justified', 'scrappy'],
+  poison: ['poison-point', 'immunity', 'poison-heal'],
   ground: ['rough-skin', 'sturdy', 'sheer-force'],
   flying: ['intimidate', 'defiant', 'early-bird'],
-  psychic: ['magic-guard', 'levitate', 'unaware'],
+  psychic: ['magic-guard', 'levitate', 'own-tempo'],
   bug: ['swarm', 'technician', 'tinted-lens'],
   rock: ['sturdy', 'solid-rock', 'battle-armor'],
   ghost: ['levitate', 'magic-guard', 'sniper'],
   dragon: ['marvel-scale', 'multiscale', 'sheer-force'],
   dark: ['moxie', 'intimidate', 'defiant'],
-  steel: ['clear-body', 'battle-armor', 'sturdy'],
+  steel: ['clear-body', 'heatproof', 'battle-armor'],
   fairy: ['magic-guard', 'clear-body', 'unaware'],
 };
 
