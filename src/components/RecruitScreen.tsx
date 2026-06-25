@@ -212,12 +212,18 @@ export function RecruitScreen({
   const recruitDone = foeIdx !== null && recruitSlot !== null;
   const evolveDone = evolveSlot !== null && evolveTarget !== null;
   const rerollDone = rerollSlot !== null;
+  // A strong special needs an explicit pick; a weak one is locked in by the slot
+  // alone (the result is a blind gamble revealed on confirm).
+  const abilityDone =
+    abilitySlot !== null && (!rerollStrong || abilityChoice !== null);
 
   // The team we'd hand back if the player confirms right now.
   const resultTeam = currentTeam.map((c, i) => {
     if (mode === 'recruit' && recruitDone && i === recruitSlot) return defeatedView[foeIdx];
     if (mode === 'evolve' && evolveDone && i === evolveSlot) return evolveCreature(c, evolveTarget);
     if (mode === 'reroll' && rerollDone && i === rerollSlot) return withSign(c, rerolledSignFor(i));
+    if (mode === 'ability' && abilityDone && i === abilitySlot)
+      return withAbility(c, abilityResultFor(i));
     return c;
   });
 
@@ -248,7 +254,7 @@ export function RecruitScreen({
   // A reward is only "claimed" once it's fully chosen. Until then — in any mode,
   // including after you've stepped into recruit/evolve — the player can still
   // skip outright and move on with their current team.
-  const rewardChosen = recruitDone || evolveDone || rerollDone;
+  const rewardChosen = recruitDone || evolveDone || rerollDone || abilityDone;
   const continueLabel = rewardChosen ? nextLabel : 'Skip reward';
 
   return (
@@ -265,14 +271,18 @@ export function RecruitScreen({
               ? 'Pick one of their Pokémon, then tap a slot on your team to swap it in.'
               : mode === 'evolve'
                 ? 'Spend your Evolution Ticket on one of your team — pick a Pokémon to evolve.'
-                : 'Pick one of your team to reroll its sign — fate decides the rest.'}
+                : mode === 'reroll'
+                  ? 'Pick one of your team to reroll its sign — fate decides the rest.'
+                  : rerollStrong
+                    ? 'Pick a Pokémon, then choose its new ability from its pool.'
+                    : 'Pick one of your team to reroll its ability — fate decides the rest.'}
         </p>
       </div>
 
       {/* Step 1 — choose your reward */}
       {mode === 'choose' && (
         <div
-          className={`mt-8 grid gap-4 sm:grid-cols-2 ${allowSignReroll ? 'lg:grid-cols-3' : ''}`}
+          className={`mt-8 grid gap-4 sm:grid-cols-2 ${allowSignReroll ? 'lg:grid-cols-4' : ''}`}
         >
           <RewardOption
             emoji="🔄"
