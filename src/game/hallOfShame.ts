@@ -47,6 +47,9 @@ export interface ShameSubmission {
   team: SubmissionMon[]; // their roster at the moment of defeat
   fellTo: string; // the trainer who ended the run
   fellToTeam?: SubmissionMon[]; // that trainer's roster, for mini portraits
+  // Set when the run was forfeited mid-gauntlet rather than lost in battle —
+  // tags the entry as a ragequit. Omitted on a normal defeat.
+  ragequit?: boolean;
   // When set, rename an *existing* row instead of adding a new one — so editing
   // the auto-assigned gag name never spawns a duplicate flop.
   eid?: string;
@@ -64,6 +67,9 @@ export interface ShameEntry {
   team: SubmissionMon[];
   fellTo: string;
   fellToTeam?: SubmissionMon[];
+  // True when this flop was a forfeit rather than a battle loss — drives the
+  // "Ragequit" tag on the row. Absent means a normal defeat.
+  ragequit?: boolean;
 }
 
 export interface ShameResponse {
@@ -100,6 +106,7 @@ export function buildShameSubmission(args: {
   team: Creature[];
   fellTo: string;
   fellToTeam?: Creature[];
+  ragequit?: boolean;
   eid?: string;
 }): ShameSubmission {
   return {
@@ -111,6 +118,7 @@ export function buildShameSubmission(args: {
     team: args.team.map(monToRecord),
     fellTo: args.fellTo.slice(0, 40),
     ...(args.fellToTeam ? { fellToTeam: args.fellToTeam.map(monToRecord) } : {}),
+    ...(args.ragequit ? { ragequit: true } : {}),
     ...(args.eid ? { eid: args.eid } : {}),
   };
 }

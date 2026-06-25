@@ -128,6 +128,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? body.fellTo.replace(/\s+/g, ' ').trim().slice(0, 40)
         : '';
 
+    // A forfeit is enshrined just like a battle loss, but tagged so the board
+    // can call it what it is: a ragequit.
+    const ragequit = body.ragequit === true;
+
     const now = Date.now();
     const eid = newEntryId();
     const name = shameName(body.name, eid);
@@ -144,6 +148,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       fellTo,
       ...(fellToTeam.length > 0 ? { fellToTeam } : {}),
       at: now,
+      ...(ragequit ? { ragequit: true } : {}),
     };
     await redis.hset(dataKey, { [eid]: entry });
 

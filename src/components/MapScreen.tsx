@@ -244,12 +244,12 @@ function ForfeitDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 id="forfeit-title" className="text-lg font-black">
-          Forfeit this run?
+          Rage quit this run?
         </h3>
         <p id="forfeit-desc" className="mt-1 text-sm text-white/55">
           {stage > 0
-            ? `You've beaten ${stage} of ${required}. This will end the run and your progress will be lost.`
-            : `This will end the run before it really begins.`}
+            ? `You've beaten ${stage} of ${required}. Bailing now ends the run — and enshrines you in the Hall of Shame, tagged as a Ragequitter.`
+            : `This ends the run before it really begins — and lands you in the Hall of Shame as a Ragequitter.`}
         </p>
 
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -258,7 +258,7 @@ function ForfeitDialog({
             onClick={onConfirm}
             className="rounded-full border border-red-400/40 bg-red-500/15 px-4 py-2.5 text-sm font-bold text-red-300 transition hover:bg-red-500/25"
           >
-            Forfeit run
+            🏳 Rage quit
           </button>
           <button
             ref={cancelRef}

@@ -69,6 +69,10 @@ export interface ShameEntryData {
   fellTo: string; // the trainer who ended the run
   fellToTeam?: SubmissionMon[]; // that trainer's roster, for mini portraits
   at: number; // epoch ms of the defeat
+  // Set when the run wasn't lost in battle but abandoned mid-gauntlet — the
+  // player forfeited. Drives the "Ragequit" tag on the board. Omitted on a
+  // normal defeat (readers treat absent as false).
+  ragequit?: boolean;
 }
 
 export interface BoardEntryData {

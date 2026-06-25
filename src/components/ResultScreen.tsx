@@ -21,6 +21,7 @@ export function ResultScreen({
   difficulty,
   relics = [],
   lostToTeam = [],
+  ragequit = false,
   onPlayAgain,
   onChallengeThrone,
 }: {
@@ -39,6 +40,8 @@ export function ResultScreen({
   difficulty: Difficulty;
   /** Team of the trainer who ended the run — drawn on the loss share card. */
   lostToTeam?: Creature[];
+  /** The run was forfeited mid-gauntlet rather than lost in battle. */
+  ragequit?: boolean;
   onPlayAgain: () => void;
   /** Stake a Master win's one shot at the reigning Master #1 (the throne). */
   onChallengeThrone?: (grant: ThroneGrant, king: LeaderboardEntry) => void;
@@ -49,14 +52,17 @@ export function ResultScreen({
   const [shareNote, setShareNote] = useState<string | null>(null);
   const blobRef = useRef<Blob | null>(null);
 
-  const fellTo = !won ? gauntlet[clearedStages] : null;
+  // On a ragequit nobody beat you — you fled — so there's no "fell to" trainer.
+  const fellTo = !won && !ragequit ? gauntlet[clearedStages] : null;
   const fileName = `rental-rumble-${won ? 'champion' : `${clearedStages}of${gauntlet.length}`}.png`;
 
   const shareText = won
     ? `I became Champion in Rental Rumble! Same gauntlet, can you take the crown?`
-    : `I cleared ${clearedStages}/${gauntlet.length} in Rental Rumble${
-        fellTo ? `, fell to ${fellTo.name}` : ''
-      }. Can you do better?`;
+    : ragequit
+      ? `I rage quit Rental Rumble after clearing ${clearedStages}/${gauntlet.length} 🏳. Don't be like me.`
+      : `I cleared ${clearedStages}/${gauntlet.length} in Rental Rumble${
+          fellTo ? `, fell to ${fellTo.name}` : ''
+        }. Can you do better?`;
 
   // Render the shareable card once the team is known.
   useEffect(() => {
@@ -144,12 +150,14 @@ export function ResultScreen({
           won ? 'text-amber-300' : 'text-rose-300'
         }`}
       >
-        {won ? 'CHAMPION!' : 'Run Over'}
+        {won ? 'CHAMPION!' : ragequit ? 'Rage Quit' : 'Run Over'}
       </h2>
       <p className="mt-2 text-white/60">
         {won
           ? 'You ran the gauntlet and took the crown. Flawless drafting.'
-          : `Your team cleared ${clearedStages} of ${gauntlet.length} and fell to ${fellTo?.name}, the ${fellTo?.title}.`}
+          : ragequit
+            ? `You bailed after clearing ${clearedStages} of ${gauntlet.length}. The Hall of Shame never forgets a ragequit.`
+            : `Your team cleared ${clearedStages} of ${gauntlet.length} and fell to ${fellTo?.name}, the ${fellTo?.title}.`}
       </p>
 
       {/* Shareable team card preview */}
@@ -228,8 +236,9 @@ export function ResultScreen({
             difficulty,
             clearedStages,
             team,
-            fellTo: fellTo?.name ?? 'the unknown',
+            fellTo: ragequit ? '' : fellTo?.name ?? 'the unknown',
             fellToTeam: lostToTeam,
+            ragequit,
           }}
           onRenamed={onPlayAgain}
         />

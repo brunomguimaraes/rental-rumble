@@ -108,6 +108,9 @@ export default function App() {
   const [relics, setRelics] = useState<RelicId[]>([]);
   const [stage, setStage] = useState(0);
   const [won, setWon] = useState(false);
+  // Set when the player forfeits from the map instead of losing a battle — the
+  // run is still enshrined in the Hall of Shame, but tagged as a ragequit.
+  const [ragequit, setRagequit] = useState(false);
   const [defeated, setDefeated] = useState<Creature[]>([]);
   // The roster of the trainer who ended the run — kept so the result/share card
   // can show who you fell to (the battle's foe team is otherwise discarded).
@@ -260,6 +263,7 @@ export default function App() {
     setRelics([]);
     setStage(0);
     setWon(false);
+    setRagequit(false);
 
     // The server picks the seed and signs a token for it — that's what keeps the
     // leaderboard honest. A custom/shared seed (or an offline failure) is local
@@ -284,6 +288,7 @@ export default function App() {
   const onBattleComplete = (winner: Side) => {
     if (winner === 'foe') {
       setWon(false);
+      setRagequit(false);
       setLostToTeam(battle?.foeTeam ?? []);
       setPhase('over');
       return;
@@ -355,7 +360,14 @@ export default function App() {
             setStage(next);
             setPhase(itemEvents.has(next) ? 'item' : 'map');
           }}
-          onQuit={() => setPhase('title')}
+          onQuit={() => {
+            // A forfeit isn't a quiet exit — the run is enshrined in the Hall
+            // of Shame, tagged as a ragequit, ranked by how far they'd got.
+            setWon(false);
+            setRagequit(true);
+            setLostToTeam([]);
+            setPhase('over');
+          }}
           onReorder={setTeam}
         />
       );
@@ -426,6 +438,7 @@ export default function App() {
           relics={relics}
           clearedStages={won ? gauntlet.length : stage}
           lostToTeam={lostToTeam}
+          ragequit={ragequit}
           onPlayAgain={() => setPhase('title')}
           onChallengeThrone={startThrone}
         />

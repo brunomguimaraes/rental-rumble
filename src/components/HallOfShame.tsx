@@ -56,6 +56,18 @@ function DifficultyBadge({ difficulty }: { difficulty: Difficulty }) {
   );
 }
 
+/** The badge of dishonour for those who didn't fall — they fled. */
+function RagequitBadge() {
+  return (
+    <span
+      title="Forfeited the run rather than fighting it out"
+      className="shrink-0 rounded-full border border-red-400/50 bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-300"
+    >
+      🏳 Ragequit
+    </span>
+  );
+}
+
 /**
  * The Hall of Shame — the leaderboard's mischievous twin.
  *
@@ -84,10 +96,12 @@ export function HallOfShame({
     clearedStages: number;
     /** The player's roster at the moment of defeat. */
     team: Creature[];
-    /** The trainer who ended the run. */
+    /** The trainer who ended the run. Empty for a forfeit (nobody beat them). */
     fellTo: string;
     /** That trainer's roster, drawn as tiny "who beat you" portraits. */
     fellToTeam?: Creature[];
+    /** The run was forfeited mid-gauntlet, not lost in battle — tag it a ragequit. */
+    ragequit?: boolean;
   };
   /** Called after a successful rename — used to return to the title screen. */
   onRenamed?: () => void;
@@ -157,6 +171,7 @@ export function HallOfShame({
           team: run.team,
           fellTo: run.fellTo,
           fellToTeam: run.fellToTeam,
+          ragequit: run.ragequit,
         }),
       );
       if (result.ok && result.eid) {
@@ -189,6 +204,7 @@ export function HallOfShame({
         team: run.team,
         fellTo: run.fellTo,
         fellToTeam: run.fellToTeam,
+        ragequit: run.ragequit,
         eid: myEid,
       }),
     );
@@ -330,15 +346,22 @@ function ShameRow({ entry, mine }: { entry: ShameEntry; mine: boolean }) {
           {entry.name}
           {mine && <span className="ml-1 text-[10px] text-rose-300/80">(you)</span>}
         </span>
-        {entry.fellTo && (
-          <span
-            title={`Fell to ${entry.fellTo}`}
-            className="block truncate text-[10px] font-semibold text-rose-300/70"
-          >
-            ☠ fell to {entry.fellTo}
+        {entry.ragequit ? (
+          <span className="block truncate text-[10px] font-semibold text-red-300/70">
+            🏳 rage quit the run
           </span>
+        ) : (
+          entry.fellTo && (
+            <span
+              title={`Fell to ${entry.fellTo}`}
+              className="block truncate text-[10px] font-semibold text-rose-300/70"
+            >
+              ☠ fell to {entry.fellTo}
+            </span>
+          )
         )}
       </div>
+      {entry.ragequit && <RagequitBadge />}
       <DifficultyBadge difficulty={entry.difficulty} />
       <span
         title="Stages cleared before the wipe"

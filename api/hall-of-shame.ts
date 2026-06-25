@@ -71,6 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ...(Array.isArray(data.fellToTeam)
             ? { fellToTeam: data.fellToTeam }
             : {}),
+          ...(data.ragequit ? { ragequit: true } : {}),
         } satisfies ShameEntry;
       });
     } catch (err) {
