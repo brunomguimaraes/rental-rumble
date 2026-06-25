@@ -1,4 +1,5 @@
 import type {
+  AbilityId,
   AttackAnim,
   BaseStats,
   Move,
@@ -369,7 +370,11 @@ export const MOVE_SLOTS = 8;
  *   2. Coverage  — element-themed off-type attacks (driven by the sign, so it
  *      shifts run to run).
  *   3. Counter  — anti-wall tools (Super Fang / Taunt) for offensive mons.
- *   4. Priority  — Quick Attack for genuinely fast attackers.
+ *   4. Priority  — Quick Attack for genuinely fast attackers, and for any mon
+ *      that can be born with Technician (the ability is dead weight without a
+ *      move of 60 power or less to boost, and Quick Attack is the only one in
+ *      the kit). A final guarantee below reclaims a slot for it if a crowded
+ *      pool would otherwise crowd it out.
  *   5. Setup    — exactly ONE setup/sustain button per mon (see below).
  *   5b. Support — at most ONE disruption move (foe stat-drop / confusion),
  *                 thematic where the typing fits, otherwise stat-based.
@@ -385,7 +390,14 @@ export function movesFor(
   types: PokemonType[],
   stats: BaseStats,
   sign: Sign,
+  abilities: AbilityId[] = [],
 ): Move[] {
+  // Technician only pays off on a damaging move of 60 power or less. Key off the
+  // species' ability *options* (not a single rolled ability) so the canonical
+  // moveset — built once from the default ability and never rebuilt when the
+  // ability is rolled — always carries the enabler for a two-ability species
+  // like Scizor too.
+  const hasTechnician = abilities.includes('technician');
   const moves: Move[] = [];
   const seen = new Set<string>();
   const add = (m: Move | undefined) => {
@@ -414,8 +426,9 @@ export function movesFor(
   if (!isBulky(stats) && stats.atk >= 85) add(SUPER_FANG);
   if (!isBulky(stats) && stats.spd >= 90) add(TAUNT);
 
-  // 4) Priority for fast, hard-hitting attackers.
-  if (stats.spd >= 95 && stats.atk >= 80) add(QUICK_ATTACK);
+  // 4) Priority for fast, hard-hitting attackers — and for Technician mons,
+  //    whose ability is dead without a sub-60 move to wring power from.
+  if (hasTechnician || (stats.spd >= 95 && stats.atk >= 80)) add(QUICK_ATTACK);
 
   // 5) Exactly one setup/sustain button. Type-flavored dual-stat setups take
   //    precedence for the attackers that fit them (Dragon Dance for fast, hard-

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { Creature, Sign } from '../game/types';
+import type { AbilityId, Creature, Sign } from '../game/types';
 import type { BracketId } from '../game/gens';
 import {
   canEvolve,
   evolutionTargets,
   evolveCreature,
   withSign,
+  withAbility,
   asShiny,
   canBeShiny,
   withRandomPortrait,
@@ -24,14 +25,60 @@ import {
   ALL_SIGNS,
   type SignTier,
 } from '../game/zodiac';
-import { abilityInfo } from '../game/abilities';
+import {
+  abilityInfo,
+  abilitiesForDex,
+  hasAbilityChoice,
+  rerollAbility,
+} from '../game/abilities';
 import { allRareEnabled, allShinyEnabled } from '../game/dev';
 import { SHINY_CHANCE } from '../game/run';
 import { RNG } from '../game/rng';
 import { CreatureCard } from './CreatureCard';
 import { CupIcon } from './CupIcon';
 
-type Mode = 'choose' | 'recruit' | 'evolve' | 'reroll';
+type Mode = 'choose' | 'recruit' | 'evolve' | 'reroll' | 'ability';
+type RewardMode = Exclude<Mode, 'choose'>;
+
+// Picking a reward type is a commitment — once chosen the player can't switch to
+// another reward — so a gate confirms it first. That gate gets old fast across a
+// run, so the player can opt out of it; the preference sticks across battles and
+// reloads via localStorage, mirroring how battle speed is remembered.
+const COMMIT_SKIP_KEY = 'recruit-skip-commit-confirm';
+const readSkipCommitConfirm = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(COMMIT_SKIP_KEY) === '1';
+};
+const writeSkipCommitConfirm = (skip: boolean) => {
+  if (typeof window === 'undefined') return;
+  if (skip) window.localStorage.setItem(COMMIT_SKIP_KEY, '1');
+  else window.localStorage.removeItem(COMMIT_SKIP_KEY);
+};
+
+// Per-reward copy for the commit gate, so the confirmation names exactly what
+// the player is locking themselves into before the back-out option disappears.
+const REWARD_META: Record<RewardMode, { emoji: string; title: string; commit: string }> = {
+  recruit: {
+    emoji: '🔄',
+    title: 'Recruit a Pokémon',
+    commit: 'You\'ll take one of the defeated team into your own.',
+  },
+  evolve: {
+    emoji: '🎟️',
+    title: 'Evolution Ticket',
+    commit: 'You\'ll evolve one of your team into its next stage.',
+  },
+  reroll: {
+    emoji: '🎲',
+    title: 'Reroll a Sign',
+    commit: 'You\'ll gamble one of your team\'s zodiac signs for a new one.',
+  },
+  ability: {
+    emoji: '✦',
+    title: 'Reroll an Ability',
+    commit: 'You\'ll change one of your team\'s abilities from its pool.',
+  },
+};
 
 export function RecruitScreen({
   opponentName,
@@ -42,6 +89,7 @@ export function RecruitScreen({
   allowSignReroll = false,
   rerollStrong = false,
   rerollSeed,
+  abilityRerollSeed,
   onConfirm,
 }: {
   opponentName: string;
@@ -51,21 +99,27 @@ export function RecruitScreen({
   defeatedTeam: Creature[];
   // Whether the rare "reroll a sign" reward is offered (set after the run's last
   // special trainer). `rerollSeed` pins the outcome deterministically so the
-  // gamble can't be re-rolled by leaving and re-entering the screen.
+  // gamble can't be re-rolled by leaving and re-entering the screen. The same
+  // gate also unlocks the sibling "reroll an ability" reward.
   allowSignReroll?: boolean;
-  // Hidden reward tier (from the special trainer's `strong` flag): a "strong"
-  // special's win guarantees a rare sign; a "weak" one grants the ordinary
-  // random reroll. Never surfaced to the player — both look identical up front.
+  // Hidden reward tier (from the special trainer's `strong` flag). For signs a
+  // "strong" special guarantees a rare; for abilities it lets the player *pick*
+  // from the pool, while a "weak" special is the ordinary random gamble. Never
+  // surfaced to the player — both look identical up front.
   rerollStrong?: boolean;
   rerollSeed?: string;
+  // Seed pinning the random ability-reroll outcome (weak special). Same idea as
+  // `rerollSeed`: fixed per run+stage so it can't be re-fished.
+  abilityRerollSeed?: string;
   onConfirm: (team: Creature[]) => void;
 }) {
   const [mode, setMode] = useState<Mode>('choose');
 
-  // The final commit is intentionally one-way: once the player continues they
-  // advance to the next stage and can never return to re-pick this reward. A
-  // confirmation gate makes that finality explicit before locking it in.
-  const [confirming, setConfirming] = useState(false);
+  // A reward type the player has tapped but not yet committed to. While set, the
+  // commit gate is shown; choosing a reward only enters its mode once confirmed
+  // (or immediately, if the player has opted out of the gate).
+  const [pendingMode, setPendingMode] = useState<RewardMode | null>(null);
+  const [skipCommitConfirm, setSkipCommitConfirm] = useState(readSkipCommitConfirm);
 
   // A claimed sign reroll plays a slot-machine reveal before we advance, so the
   // gamble lands with a beat of suspense instead of silently swapping the card.
@@ -98,6 +152,23 @@ export function RecruitScreen({
       new RNG(rerollSeed ?? 'reroll'),
       currentTeam[i].sign,
     );
+
+  // Reward 4 — ability reroll: change one of YOUR Pokémon's abilities. After a
+  // "strong" special the player *picks* from the species' pool (abilityChoice);
+  // after a "weak" one it's a blind, seed-pinned gamble like the sign reroll.
+  const [abilitySlot, setAbilitySlot] = useState<number | null>(null);
+  const [abilityChoice, setAbilityChoice] = useState<AbilityId | null>(null);
+
+  // The ability this reward would grant a given slot. For a strong special this
+  // is the player's explicit pick; for a weak one it's the deterministic gamble.
+  const abilityResultFor = (i: number): AbilityId | undefined => {
+    if (rerollStrong) return abilityChoice ?? currentTeam[i].ability;
+    return rerollAbility(
+      currentTeam[i].dexId,
+      new RNG(abilityRerollSeed ?? 'ability-reroll'),
+      currentTeam[i].ability,
+    );
+  };
 
   // How a defeated foe presents as a recruit. Two independent blessings can land
   // here, mirroring the draft so a recruit can be rare/mythic AND shiny at once:
@@ -150,13 +221,21 @@ export function RecruitScreen({
     return c;
   });
 
-  const backToChoose = () => {
-    setMode('choose');
-    setFoeIdx(null);
-    setRecruitSlot(null);
-    setEvolveSlot(null);
-    setEvolveTarget(null);
-    setRerollSlot(null);
+  // Entering a reward is a one-way door (no "change reward" once inside), so a
+  // gate confirms the pick first — unless the player has chosen to skip it.
+  const chooseReward = (m: RewardMode) => {
+    if (skipCommitConfirm) setMode(m);
+    else setPendingMode(m);
+  };
+
+  const commitReward = (dontAskAgain: boolean) => {
+    if (pendingMode === null) return;
+    if (dontAskAgain) {
+      setSkipCommitConfirm(true);
+      writeSkipCommitConfirm(true);
+    }
+    setMode(pendingMode);
+    setPendingMode(null);
   };
 
   const pickTeamForEvolve = (i: number) => {
@@ -171,43 +250,6 @@ export function RecruitScreen({
   // skip outright and move on with their current team.
   const rewardChosen = recruitDone || evolveDone || rerollDone;
   const continueLabel = rewardChosen ? nextLabel : 'Skip reward';
-
-  // A plain-language recap of exactly what confirming will do, shown in the
-  // final commit gate so the player knows precisely what they're locking in.
-  const selectionSummary = (): { title: string; detail: string } => {
-    if (mode === 'recruit' && recruitDone && foeIdx !== null && recruitSlot !== null) {
-      const foe = defeatedView[foeIdx];
-      const replaced = currentTeam[recruitSlot];
-      return {
-        title: `Recruit ${foe.name}`,
-        detail: `${foe.name} joins your team in ${replaced.name}'s slot, and ${replaced.name} is released for good.`,
-      };
-    }
-    if (mode === 'evolve' && evolveDone && evolveSlot !== null && evolveTarget !== null) {
-      const base = currentTeam[evolveSlot];
-      const evolved = evolveCreature(base, evolveTarget);
-      return {
-        title: `Evolve ${base.name}`,
-        detail: `${base.name} evolves into ${evolved.name}.`,
-      };
-    }
-    if (mode === 'reroll' && rerollDone && rerollSlot !== null) {
-      const base = currentTeam[rerollSlot];
-      return {
-        title: `Reroll ${base.name}'s sign`,
-        detail: `${base.name}'s zodiac sign is gambled for a new one. The result stays hidden until it's done — and there are no second tries.`,
-      };
-    }
-    return {
-      title: 'Skip your reward',
-      // The sign reroll is a once-per-run treat that's easy to miss tucked beside
-      // the usual recruit/evolve picks — so when it's on the table, call it out by
-      // name before the player walks away from it for good.
-      detail: allowSignReroll
-        ? 'You move on with your current team and claim nothing — including the sign reroll on offer, which won\'t come around again.'
-        : 'You move on with your current team and claim no reward for this win.',
-    };
-  };
 
   return (
     <div className="mx-auto max-w-6xl px-3 py-6 pb-28 sm:px-4 sm:py-8 sm:pb-28">
@@ -237,7 +279,7 @@ export function RecruitScreen({
             title="Recruit a Pokémon"
             desc={`Swap one of ${opponentName}'s Pokémon into your team — keeps its sign & ball.`}
             preview={<RecruitPreview creatures={defeatedView} />}
-            onClick={() => setMode('recruit')}
+            onClick={() => chooseReward('recruit')}
           />
           <RewardOption
             emoji="🎟️"
@@ -253,7 +295,7 @@ export function RecruitScreen({
               ) : undefined
             }
             disabled={!anyEvolvable}
-            onClick={() => anyEvolvable && setMode('evolve')}
+            onClick={() => anyEvolvable && chooseReward('evolve')}
           />
           {allowSignReroll && (
             <RewardOption
@@ -261,7 +303,7 @@ export function RecruitScreen({
               title="Reroll a Sign"
               desc="Gamble one of your team's zodiac signs for a brand-new one. Who knows what the stars hold?"
               preview={<PreviewRow creatures={currentTeam} />}
-              onClick={() => setMode('reroll')}
+              onClick={() => chooseReward('reroll')}
             />
           )}
         </div>
@@ -270,7 +312,7 @@ export function RecruitScreen({
       {/* Step 2a — recruit */}
       {mode === 'recruit' && (
         <>
-          <RewardHeader onBack={backToChoose} label="Recruiting from defeated team" />
+          <RewardHeader label="Recruiting from defeated team" />
 
           <div className="mt-5">
             <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
@@ -347,7 +389,7 @@ export function RecruitScreen({
       {/* Step 2b — evolve */}
       {mode === 'evolve' && (
         <>
-          <RewardHeader onBack={backToChoose} label="Evolution Ticket" />
+          <RewardHeader label="Evolution Ticket" />
 
           <div className="mt-5">
             <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
@@ -402,7 +444,7 @@ export function RecruitScreen({
       {/* Step 2c — sign reroll */}
       {mode === 'reroll' && (
         <>
-          <RewardHeader onBack={backToChoose} label="Reroll a Sign" />
+          <RewardHeader label="Reroll a Sign" />
 
           <div className="mt-5">
             <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
@@ -443,7 +485,15 @@ export function RecruitScreen({
         <div className="mx-auto flex max-w-6xl items-center justify-center gap-3 px-3 py-3 sm:px-4">
           <button
             type="button"
-            onClick={() => setConfirming(true)}
+            onClick={() => {
+              // A locked-in reroll hands off to the slot-machine reveal, which
+              // calls onConfirm once the result has been shown.
+              if (mode === 'reroll' && rerollDone) {
+                setRolling(true);
+                return;
+              }
+              onConfirm(resultTeam);
+            }}
             className="w-full rounded-full bg-white px-8 py-3 text-base font-bold text-black transition-transform hover:scale-105 active:scale-95 sm:w-auto sm:text-lg"
           >
             {continueLabel} →
@@ -451,22 +501,11 @@ export function RecruitScreen({
         </div>
       </div>
 
-      {confirming && (
-        <ConfirmModal
-          summary={selectionSummary()}
-          confirmLabel={continueLabel}
-          rewardChosen={rewardChosen}
-          onCancel={() => setConfirming(false)}
-          onConfirm={() => {
-            setConfirming(false);
-            // A locked-in reroll hands off to the slot-machine reveal, which
-            // calls onConfirm once the result has been shown.
-            if (mode === 'reroll' && rerollDone) {
-              setRolling(true);
-              return;
-            }
-            onConfirm(resultTeam);
-          }}
+      {pendingMode !== null && (
+        <CommitChoiceModal
+          mode={pendingMode}
+          onCancel={() => setPendingMode(null)}
+          onConfirm={commitReward}
         />
       )}
 
@@ -481,22 +520,20 @@ export function RecruitScreen({
   );
 }
 
-// Final commit gate. After-battle rewards are one-and-done: once confirmed the
-// player advances and can never come back to this screen, so we spell out the
-// exact outcome and that it's permanent before letting them through.
-function ConfirmModal({
-  summary,
-  confirmLabel,
-  rewardChosen,
+// Commit gate for the reward *type*. Entering a reward is a one-way door — there
+// is no "change reward" once inside — so this confirms the pick first and lets
+// the player opt out of seeing it again on future wins.
+function CommitChoiceModal({
+  mode,
   onCancel,
   onConfirm,
 }: {
-  summary: { title: string; detail: string };
-  confirmLabel: string;
-  rewardChosen: boolean;
+  mode: RewardMode;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: (dontAskAgain: boolean) => void;
 }) {
+  const [dontAskAgain, setDontAskAgain] = useState(false);
+  const meta = REWARD_META[mode];
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
@@ -507,19 +544,29 @@ function ConfirmModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="text-center">
-          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full border border-amber-300/30 bg-amber-300/10 text-2xl">
-            {rewardChosen ? '🔒' : '⏭️'}
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full border border-white/15 bg-white/5 text-2xl">
+            {meta.emoji}
           </div>
-          <h3 className="mt-3 text-xl font-black text-white">{summary.title}</h3>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-white/65">{summary.detail}</p>
+          <h3 className="mt-3 text-xl font-black text-white">Commit to {meta.title}?</h3>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-white/65">{meta.commit}</p>
         </div>
 
         <div className="mt-4 rounded-2xl border border-amber-300/25 bg-amber-300/[0.06] px-4 py-3 text-center">
           <p className="text-xs font-semibold text-amber-200/90">
-            This choice is permanent. Once you continue you can't return to this
-            screen or change it.
+            Once you pick a reward you can't switch to a different one — so choose
+            with care.
           </p>
         </div>
+
+        <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 text-sm text-white/55 transition hover:text-white/80">
+          <input
+            type="checkbox"
+            checked={dontAskAgain}
+            onChange={(e) => setDontAskAgain(e.target.checked)}
+            className="h-4 w-4 cursor-pointer accent-emerald-400"
+          />
+          Don't ask again
+        </label>
 
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button
@@ -531,10 +578,10 @@ function ConfirmModal({
           </button>
           <button
             type="button"
-            onClick={onConfirm}
+            onClick={() => onConfirm(dontAskAgain)}
             className="rounded-full bg-white px-6 py-2.5 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
           >
-            {confirmLabel} →
+            Choose this →
           </button>
         </div>
       </div>
@@ -807,17 +854,16 @@ function RecruitPreview({ creatures }: { creatures: Creature[] }) {
   );
 }
 
-function RewardHeader({ onBack, label }: { onBack: () => void; label: string }) {
+// No "change reward" escape hatch here by design: picking a reward is a
+// commitment locked in at the choose step's confirmation gate, so once you're
+// inside a reward you can only complete it (or skip your reward entirely).
+function RewardHeader({ label }: { label: string }) {
   return (
     <div className="mt-7 flex items-center justify-between border-b border-white/10 pb-2">
       <span className="text-xs font-bold uppercase tracking-widest text-white/40">{label}</span>
-      <button
-        type="button"
-        onClick={onBack}
-        className="text-xs text-white/50 underline-offset-2 hover:underline"
-      >
-        ← Change reward
-      </button>
+      <span className="text-xs font-semibold uppercase tracking-widest text-white/30">
+        Locked in
+      </span>
     </div>
   );
 }

@@ -148,6 +148,11 @@ function effectiveSpd(b: Battler, statMult: number): number {
   const mult = statMult * shinyMult(b.creature);
   const base =
     otherStat(b.creature.stats.spd) * spread.spd * mult * stageMult(b.stages.spd);
+  // Quick Feet: a status condition fires its nerves up rather than slowing it —
+  // Speed jumps by half and the usual paralysis slowdown is ignored entirely.
+  if (b.creature.ability === 'quick-feet') {
+    return b.status !== null ? base * 1.5 : base;
+  }
   return b.status === 'stun' ? base * 0.6 : base;
 }
 
@@ -508,8 +513,24 @@ function damageRoll(
   const base = (2 * LEVEL) / 5 + 2;
   const raw = (base * move.power * (atk / def)) / 50 + 2;
   const stab = hasStab(attacker, move) ? stabMult(attacker) : 1;
-  const abil = attackAbilityMult(attacker, move) * defendAbilityMult(defender, move);
-  const crit = rng.chance(0.0625);
+  let abil = attackAbilityMult(attacker, move) * defendAbilityMult(defender, move);
+  // Tinted Lens: lenses sharpen a resisted hit, doubling it so a "not very
+  // effective" attack lands at full strength instead.
+  if (attacker.creature.ability === 'tinted-lens' && mult > 0 && mult < 1) {
+    abil *= 2;
+  }
+  // Solid Rock: a rugged frame cushions a super-effective blow to 0.75×.
+  if (defender.creature.ability === 'solid-rock' && mult > 1) {
+    abil *= 0.75;
+  }
+  // Multiscale: untouched and at full HP, a protective veil halves the first hit.
+  if (defender.creature.ability === 'multiscale' && defender.hp >= defender.maxHp) {
+    abil *= 0.5;
+  }
+  // Draw the crit regardless so the RNG stream stays identical; Battle Armor then
+  // simply seals it shut.
+  let crit = rng.chance(0.0625);
+  if (defender.creature.ability === 'battle-armor') crit = false;
   const critMult = crit ? 1.5 : 1;
   const variance = rng.range(0.85, 1);
   const damage = Math.max(
@@ -610,8 +631,28 @@ export function simulateBattle(
     return true;
   };
 
-  const applyStage = (ownerSide: Side, stat: StageStat, delta: number) => {
+  const applyStage = (
+    ownerSide: Side,
+    stat: StageStat,
+    delta: number,
+    // Where the change came from: a self-inflicted buff/drop ('self') or one
+    // forced on it by the opponent ('opponent'). Only opponent-forced drops feed
+    // Clear Body (which blocks them) and Defiant (which retaliates).
+    source: 'self' | 'opponent' = 'self',
+  ) => {
     const b = sides[ownerSide].team[sides[ownerSide].active];
+    const enemyDrop = source === 'opponent' && delta < 0;
+    // Clear Body: keeps its cool — an opponent simply cannot lower its stats.
+    if (enemyDrop && b.creature.ability === 'clear-body') {
+      push({
+        kind: 'ability',
+        actor: ownerSide,
+        affected: ownerSide,
+        name: 'Clear Body',
+        text: `${b.creature.name}'s Clear Body prevents stat loss!`,
+      });
+      return;
+    }
     const before = b.stages[stat];
     const after = Math.max(-6, Math.min(6, before + delta));
     if (after === before) {
@@ -623,17 +664,29 @@ export function simulateBattle(
           delta > 0 ? 'higher' : 'lower'
         }!`,
       });
-      return;
+    } else {
+      b.stages[stat] = after;
+      push({
+        kind: 'stat',
+        actor: ownerSide,
+        affected: ownerSide,
+        text: `${b.creature.name}'s ${STAGE_LABEL[stat]} ${
+          delta > 0 ? 'rose' : 'fell'
+        }${Math.abs(delta) >= 2 ? ' sharply' : ''}!`,
+      });
     }
-    b.stages[stat] = after;
-    push({
-      kind: 'stat',
-      actor: ownerSide,
-      affected: ownerSide,
-      text: `${b.creature.name}'s ${STAGE_LABEL[stat]} ${
-        delta > 0 ? 'rose' : 'fell'
-      }${Math.abs(delta) >= 2 ? ' sharply' : ''}!`,
-    });
+    // Defiant: belittled by an enemy debuff, it answers with a sharp Attack spike.
+    // The retaliation is self-sourced, so it never loops back through here.
+    if (enemyDrop && b.creature.ability === 'defiant') {
+      push({
+        kind: 'ability',
+        actor: ownerSide,
+        affected: ownerSide,
+        name: 'Defiant',
+        text: `${b.creature.name}'s Defiant flared up!`,
+      });
+      applyStage(ownerSide, 'atk', 2);
+    }
   };
 
   // Battlers that have already used Ditto's Transform (once per send-out).
@@ -673,7 +726,7 @@ export function simulateBattle(
           name: 'Intimidate',
           text: `${b.creature.name} intimidates ${t.creature.name}!`,
         });
-        applyStage(opp, 'atk', -1);
+        applyStage(opp, 'atk', -1, 'opponent');
       }
     }
   };
@@ -944,16 +997,19 @@ export function simulateBattle(
 
     // Pure setup move: shift the user's (or, rarely, the foe's) stat stages.
     if (move.power === 0 && move.effect?.kind === 'stage') {
-      const owner = move.effect.target === 'self' ? side : otherSide(side);
-      applyStage(owner, move.effect.stat, move.effect.delta);
+      const toSelf = move.effect.target === 'self';
+      const owner = toSelf ? side : otherSide(side);
+      applyStage(owner, move.effect.stat, move.effect.delta, toSelf ? 'self' : 'opponent');
       return 'continue';
     }
 
     // Dual-stat setup/utility (Dragon Dance, Bulk Up, …): shift several of the
     // owner's stages in one go.
     if (move.power === 0 && move.effect?.kind === 'multistage') {
-      const owner = move.effect.target === 'self' ? side : otherSide(side);
-      for (const s of move.effect.stages) applyStage(owner, s.stat, s.delta);
+      const toSelf = move.effect.target === 'self';
+      const owner = toSelf ? side : otherSide(side);
+      for (const s of move.effect.stages)
+        applyStage(owner, s.stat, s.delta, toSelf ? 'self' : 'opponent');
       return 'continue';
     }
 
@@ -1081,6 +1137,39 @@ export function simulateBattle(
       applyStatus(side, onHitStatus);
     }
 
+    // Stamina: every blow it weathers makes it dig in, hardening its Defense a
+    // stage — the longer it stays in, the harder it is to break through.
+    if (defender.creature.ability === 'stamina' && dealt > 0) {
+      push({
+        kind: 'ability',
+        actor: otherSide(side),
+        affected: otherSide(side),
+        name: 'Stamina',
+        text: `${defender.creature.name}'s Stamina kicked in!`,
+      });
+      applyStage(otherSide(side), 'def', 1);
+    }
+
+    // Rough Skin: the attacker tears itself on the barbed hide, recoiling for a
+    // chip of its own HP. That recoil can itself be the knockout blow.
+    if (defender.creature.ability === 'rough-skin' && dealt > 0 && attacker.hp > 0) {
+      const recoil = Math.max(1, Math.floor(attacker.maxHp / 8));
+      attacker.hp -= recoil;
+      push({
+        kind: 'ability',
+        actor: otherSide(side),
+        affected: side,
+        name: 'Rough Skin',
+        text: `${attacker.creature.name} was hurt by Rough Skin!`,
+        ...snapshot(side),
+      });
+      if (attacker.hp <= 0) {
+        const survives = handleFaint(side);
+        if (!survives) return otherSide(side);
+        return 'continue';
+      }
+    }
+
     // On-hit rider effects: a status, confusion, or a stat-stage shift.
     const eff = move.effect;
     if (eff) {
@@ -1095,10 +1184,12 @@ export function simulateBattle(
       } else if (eff.kind === 'confuse' && rng.chance(eff.chance)) {
         applyConfuse(otherSide(side));
       } else if (eff.kind === 'stage' && rng.chance(eff.chance)) {
+        const toSelf = eff.target === 'self';
         applyStage(
-          eff.target === 'self' ? side : otherSide(side),
+          toSelf ? side : otherSide(side),
           eff.stat,
           eff.delta,
+          toSelf ? 'self' : 'opponent',
         );
       }
     }
@@ -1130,18 +1221,24 @@ export function simulateBattle(
       applyStage(side, 'spd', 1);
     }
 
+    // Magic Guard: indirect harm rolls off — burn and poison still tick down and
+    // expire, they just never sap any HP.
+    const magicGuard = b.creature.ability === 'magic-guard';
+
     if (b.status === 'burn') {
-      const dmg = Math.max(1, Math.floor(b.maxHp / 12));
-      b.hp -= dmg;
-      push({
-        kind: 'statusTick',
-        actor: side,
-        affected: side,
-        status: 'burn',
-        damage: dmg,
-        text: `${b.creature.name} is hurt by its burn!`,
-        ...snapshot(side),
-      });
+      if (!magicGuard) {
+        const dmg = Math.max(1, Math.floor(b.maxHp / 12));
+        b.hp -= dmg;
+        push({
+          kind: 'statusTick',
+          actor: side,
+          affected: side,
+          status: 'burn',
+          damage: dmg,
+          text: `${b.creature.name} is hurt by its burn!`,
+          ...snapshot(side),
+        });
+      }
       b.statusTurns -= 1;
       if (b.statusTurns <= 0) {
         b.status = null;
@@ -1156,19 +1253,51 @@ export function simulateBattle(
         }
       }
     } else if (b.status === 'poison') {
-      // Toxic-style escalation: each turn hurts a little more than the last.
-      const dmg = Math.max(1, Math.floor((b.maxHp * b.toxicCounter) / 16));
-      b.hp -= dmg;
+      if (b.creature.ability === 'poison-heal') {
+        // Poison Heal: it feeds on the toxin, mending HP instead of losing it.
+        if (b.hp < b.maxHp) {
+          const heal = Math.max(1, Math.floor(b.maxHp / 8));
+          b.hp = Math.min(b.maxHp, b.hp + heal);
+          push({
+            kind: 'ability',
+            actor: side,
+            affected: side,
+            name: 'Poison Heal',
+            text: `${b.creature.name} is restored by Poison Heal!`,
+            ...snapshot(side),
+          });
+        }
+      } else if (!magicGuard) {
+        // Toxic-style escalation: each turn hurts a little more than the last.
+        const dmg = Math.max(1, Math.floor((b.maxHp * b.toxicCounter) / 16));
+        b.hp -= dmg;
+        push({
+          kind: 'statusTick',
+          actor: side,
+          affected: side,
+          status: 'poison',
+          damage: dmg,
+          text: `${b.creature.name} is hurt by poison!`,
+          ...snapshot(side),
+        });
+      }
+      b.toxicCounter += 1;
+    }
+
+    // Regenerator: it quietly knits itself back together, recovering a sliver of
+    // HP each turn — slow attrition that outlasts the foe in a long grind. Runs
+    // after status ticks so it can claw back some of that chip damage.
+    if (b.creature.ability === 'regenerator' && b.hp > 0 && b.hp < b.maxHp) {
+      const heal = Math.max(1, Math.floor(b.maxHp / 16));
+      b.hp = Math.min(b.maxHp, b.hp + heal);
       push({
-        kind: 'statusTick',
+        kind: 'ability',
         actor: side,
         affected: side,
-        status: 'poison',
-        damage: dmg,
-        text: `${b.creature.name} is hurt by poison!`,
+        name: 'Regenerator',
+        text: `${b.creature.name} regenerated some health!`,
         ...snapshot(side),
       });
-      b.toxicCounter += 1;
     }
 
     if (b.hp <= 0) {

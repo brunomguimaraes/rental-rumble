@@ -124,8 +124,10 @@ export type SpecialTier = 'normal' | 'legendary' | 'mythical';
  * ability is a rule that bends the battle engine itself. We grow this union (and
  * the registry + species mapping in abilities.ts) over time, sticking to passives
  * that are clearly fair — deliberately skipping the meta-warpers (Huge Power,
- * Wonder Guard, Magic Guard, Protean…) and anything that needs systems we don't
- * model (weather, freeze, flinch, mid-battle switching).
+ * Wonder Guard, Protean…) and anything that needs systems we don't
+ * model (weather, freeze, flinch, mid-battle switching). Some entries are our own
+ * inventions or tamed riffs on canon (kept gentle on purpose), since abilities
+ * here only need to be fun and balanced — not faithful to the games.
  *
  * - `truant`       — loafs around every other turn (Slaking line). The drawback
  *                    that keeps a brute with monstrous stats honest.
@@ -153,6 +155,27 @@ export type SpecialTier = 'normal' | 'legendary' | 'mythical';
  *                    moves rally to 1.5× power.
  * - `static`/`flame-body`/`poison-point` — its body is a hazard: a foe that
  *                    lands a hit risks being paralyzed / burned / poisoned.
+ * - `regenerator`  — mends a sliver of HP (~1/16 max) at the end of every turn;
+ *                    quiet attrition that wears the foe down over a long fight.
+ * - `rough-skin`   — a foe that lands a hit recoils on its barbed hide, losing a
+ *                    chip of its own HP — punishing tempo for hitting it.
+ * - `stamina`      — every hit it weathers stiffens its guard, raising Defense a
+ *                    stage; the longer it survives, the harder it is to break.
+ * - `multiscale`   — at full HP a protective sheen halves the first blow it takes.
+ * - `solid-rock`   — its sturdy frame blunts super-effective hits to 0.75×.
+ * - `tinted-lens`  — lenses focus its weak hits: not-very-effective moves it uses
+ *                    deal double, ignoring the resistance.
+ * - `battle-armor` — hard plating seals out critical hits entirely.
+ * - `quick-feet`   — a status condition sends adrenaline surging, boosting Speed
+ *                    by half (and shrugging off paralysis' slowdown).
+ * - `magic-guard`  — takes no chip damage from burn or poison; only direct hits
+ *                    can wound it.
+ * - `poison-heal`  — thrives on toxins: while poisoned it heals each turn instead
+ *                    of taking damage.
+ * - `clear-body`   — unflappable; the foe can't lower its stats (Intimidate and
+ *                    debuffs slide right off).
+ * - `defiant`      — an enemy stat drop stings its pride into a sharp two-stage
+ *                    Attack spike.
  */
 export type AbilityId =
   | 'truant'
@@ -173,7 +196,19 @@ export type AbilityId =
   | 'swarm'
   | 'static'
   | 'flame-body'
-  | 'poison-point';
+  | 'poison-point'
+  | 'regenerator'
+  | 'rough-skin'
+  | 'stamina'
+  | 'multiscale'
+  | 'solid-rock'
+  | 'tinted-lens'
+  | 'battle-armor'
+  | 'quick-feet'
+  | 'magic-guard'
+  | 'poison-heal'
+  | 'clear-body'
+  | 'defiant';
 
 /** Raw generated dex row (see scripts/gen-pokedex.ts). */
 export interface DexEntry {
