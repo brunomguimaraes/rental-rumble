@@ -58,7 +58,12 @@ const STATUSES: { name: string; icon: string; desc: string }[] = [
   {
     name: 'Burn',
     icon: 'burn',
-    desc: 'Chips 1/12 of max HP at the end of each turn, for 4 turns.',
+    desc: 'Halves the victim’s Physical Attack and chips 1/12 of max HP each turn, for 4 turns. Guts shrugs it off.',
+  },
+  {
+    name: 'Frostbite',
+    icon: 'frostbite',
+    desc: 'Burn’s mirror on the energy side: halves Energy Attack and chips 1/12 of max HP each turn, for 4 turns. The answer to a special sweeper.',
   },
   {
     name: 'Poison',
@@ -79,6 +84,21 @@ const STATUSES: { name: string; icon: string; desc: string }[] = [
     name: 'Confusion',
     icon: 'confusion',
     desc: 'For 2–4 turns there is a 33% chance to hit itself instead of attacking.',
+  },
+  {
+    name: 'Weight Down',
+    icon: 'weight',
+    desc: 'Speed is crushed to 45% for a few turns — enough to flip the turn order. Stacks on top of any other status.',
+  },
+  {
+    name: 'Blinded',
+    icon: 'blind',
+    desc: 'The victim’s own moves land at 65% accuracy for a few turns — it can’t see to aim.',
+  },
+  {
+    name: 'Disarmed',
+    icon: 'disarm',
+    desc: 'The foe’s single strongest move is sealed for a few turns, forcing it onto weaker options.',
   },
 ];
 

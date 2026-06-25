@@ -46,8 +46,9 @@ const STAT_BOOST = {
   spd: 1.15,
 } as const;
 
-/** How much a type-booster lifts its matching move type. */
-const TYPE_BOOST = 1.1;
+/** How much a type-booster lifts its matching move type. Trimmed from 1.1 so the
+ *  flat-damage relics aren't the only pick worth making. */
+const TYPE_BOOST = 1.08;
 
 /** A type-booster relic def, generated so all 18 types share one shape. */
 function typeRelic(
@@ -108,7 +109,7 @@ export const RELICS: Record<RelicId, RelicDef> = {
     rarity: 'common',
     description: 'A small boost to all the damage your team deals.',
     apply: (m) => {
-      m.allDmgMult *= 1.1;
+      m.allDmgMult *= 1.08;
     },
   },
   shellbell: {
@@ -130,7 +131,28 @@ export const RELICS: Record<RelicId, RelicDef> = {
     minStage: 4,
     description: 'A big boost to all the damage your team deals.',
     apply: (m) => {
-      m.allDmgMult *= 1.3;
+      m.allDmgMult *= 1.2;
+    },
+  },
+  bigroot: {
+    id: 'bigroot',
+    name: 'Big Root',
+    icon: 'bigroot',
+    rarity: 'rare',
+    minStage: 2,
+    description: 'Deep roots brace your team — it takes a little less damage from every hit.',
+    apply: (m) => {
+      m.damageTakenMult *= 0.9;
+    },
+  },
+  muscleband: {
+    id: 'muscleband',
+    name: 'Muscle Band',
+    icon: 'muscleband',
+    rarity: 'common',
+    description: 'While your active Pokémon holds any stat boost, it hits noticeably harder.',
+    apply: (m) => {
+      m.boostedDmgMult *= 1.15;
     },
   },
   silkscarf: typeRelic('silkscarf', 'Silk Scarf', 'silkscarf', 'normal'),
@@ -171,6 +193,8 @@ export function identityMods(): RelicMods {
     dmgMult: {},
     lifesteal: 0,
     endTurnHeal: 0,
+    damageTakenMult: 1,
+    boostedDmgMult: 1,
   };
 }
 

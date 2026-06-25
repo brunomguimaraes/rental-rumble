@@ -70,6 +70,8 @@ export function moveEffectLabel(effect: MoveEffect): string {
       return effect.chance >= 1 ? 'Badly poisons the foe' : `${pct(effect.chance)} poison`;
     case 'sleep':
       return effect.chance >= 1 ? 'Puts the foe to sleep' : `${pct(effect.chance)} sleep`;
+    case 'frostbite':
+      return effect.chance >= 1 ? 'Frostbites the foe' : `${pct(effect.chance)} frostbite`;
     case 'confuse':
       return effect.chance >= 1 ? 'Confuses the foe' : `${pct(effect.chance)} confuse`;
     case 'heal':
@@ -80,6 +82,12 @@ export function moveEffectLabel(effect: MoveEffect): string {
       return `Cuts ${Math.round(effect.fraction * 100)}% of current HP (ignores DEF)`;
     case 'taunt':
       return 'Seals setup & heals for a few turns';
+    case 'weight':
+      return 'Weighs the foe down — a heavy Speed cut';
+    case 'blind':
+      return 'Blinds the foe, sapping its accuracy';
+    case 'disarm':
+      return 'Seals the foe’s strongest move for a few turns';
     case 'recoil':
       return `Recoils ${Math.round(effect.fraction * 100)}% of damage dealt`;
     case 'flinch':
@@ -135,7 +143,7 @@ const TYPE_MOVES: Record<PokemonType, [Move, Move]> = {
     mk('Giga Drain', 'grass', 75, 1, { kind: 'lifesteal', fraction: 0.5 }),
   ],
   ice: [
-    mk('Ice Beam', 'ice', 90, 1, { kind: 'stun', chance: 0.1 }),
+    mk('Ice Beam', 'ice', 90, 1, { kind: 'frostbite', chance: 0.1 }),
     mk('Icicle Crash', 'ice', 85, 0.9, { kind: 'stun', chance: 0.3 }, 'physical'),
   ],
   fighting: [
@@ -470,11 +478,32 @@ const SCARY_FACE = mk('Scary Face', 'normal', 0, 1, {
   target: 'foe',
 });
 
+// Three power-0 volatile disruptions (each shows its own battle badge):
+// - Weigh Down: a heavy Speed cut that flips the turn order for a slow bruiser.
+// - Sand Attack: grit in the eyes — saps the foe's own accuracy.
+// - Disable: locks down the foe's single strongest move.
+// Type matters only for immunity, the same as Will-O-Wisp/Thunder Wave: Sand
+// Attack (Ground) misses Flying/Levitate; Weigh Down (Rock) and Disable (Dark)
+// carry no immunity, so they always land. The AI skips an immune target.
+const WEIGH_DOWN = mk('Weigh Down', 'rock', 0, 1, { kind: 'weight', chance: 1 });
+const SAND_ATTACK = mk('Sand Attack', 'ground', 0, 1, { kind: 'blind', chance: 1 });
+const DISABLE = mk('Disable', 'dark', 0, 1, { kind: 'disarm', chance: 1 });
+
 // Confuse Ray: a no-damage Ghost utility that confuses the foe outright. Shares
 // the pure-status pipeline with Will-O-Wisp/Thunder Wave (confusion is already a
 // status rider kind), so the AI's "spread status" logic uses it for free.
 const CONFUSE_RAY = mk('Confuse Ray', 'ghost', 0, 1, {
   kind: 'confuse',
+  chance: 1,
+});
+
+// Frost Veil: a no-damage Ice utility that frostbites the foe outright — the
+// energy-side mirror of Will-O-Wisp. Frostbite halves the foe's Energy Attack and
+// chips its HP each turn, so it's the special sweeper's counter the way a burn
+// answers a physical one. Shares the pure-status pipeline (frostbite is a status
+// rider kind), so the AI's "spread status" logic wields it for free.
+const FROST_VEIL = mk('Frost Veil', 'ice', 0, 0.85, {
+  kind: 'frostbite',
   chance: 1,
 });
 
@@ -732,10 +761,18 @@ export function movesFor(
     add(CHARM); // defensive Fairy saps the foe's Attack
   } else if (types.includes('ghost')) {
     add(CONFUSE_RAY); // Ghosts disrupt with confusion
+  } else if (types.includes('ice')) {
+    add(FROST_VEIL); // Ice chills the foe's Energy Attack — the special-side burn
   } else if (isBulky(stats) && off >= 90) {
     add(SCREECH); // bulky attacker melts a wall's Defense
+  } else if ((types.includes('rock') || types.includes('steel')) && stats.spd <= 80) {
+    add(WEIGH_DOWN); // heavy stone/metal bears the foe down to steal the turn
+  } else if (types.includes('ground')) {
+    add(SAND_ATTACK); // ground-types kick grit to blind the foe (the canonical user)
+  } else if (types.includes('dark')) {
+    add(DISABLE); // dark-types sabotage the foe's single strongest move
   } else if (isBulky(stats) && stats.spd <= 70) {
-    add(SCARY_FACE); // slow wall flips the speed tier
+    add(SCARY_FACE); // non-heavy slow wall flips the speed tier
   }
 
   // 6) Dependable filler.

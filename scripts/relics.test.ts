@@ -52,18 +52,24 @@ console.log('\n[1] relicMods accumulator + damage mult');
     'identity mods are neutral',
     id.atkMult === 1 && id.defMult === 1 && id.spdMult === 1 &&
       id.allDmgMult === 1 && id.lifesteal === 0 && id.endTurnHeal === 0 &&
+      id.damageTakenMult === 1 && id.boostedDmgMult === 1 &&
       Object.keys(id.dmgMult).length === 0,
   );
   check('empty / undefined relics → identity', relicMods([]).atkMult === 1 && relicMods(undefined).allDmgMult === 1);
 
   const stacked = relicMods(['wiseglasses', 'lifeorb']);
-  check('Wise Glasses + Life Orb stack allDmgMult', approx(stacked.allDmgMult, 1.1 * 1.3));
+  check('Wise Glasses + Life Orb stack allDmgMult', approx(stacked.allDmgMult, 1.08 * 1.2));
 
   const fire = relicMods(['charcoal']);
-  check('Charcoal boosts fire only', approx(relicDamageMult(fire, 'fire'), 1.1) && approx(relicDamageMult(fire, 'water'), 1));
+  check('Charcoal boosts fire only', approx(relicDamageMult(fire, 'fire'), 1.08) && approx(relicDamageMult(fire, 'water'), 1));
 
   const both = relicMods(['lifeorb', 'charcoal']);
-  check('Life Orb + Charcoal compound on fire', approx(relicDamageMult(both, 'fire'), 1.3 * 1.1));
+  check('Life Orb + Charcoal compound on fire', approx(relicDamageMult(both, 'fire'), 1.2 * 1.08));
+
+  const root = relicMods(['bigroot']);
+  check('Big Root softens incoming damage', approx(root.damageTakenMult, 0.9));
+  const band = relicMods(['muscleband']);
+  check('Muscle Band sets the setup-reward mult', approx(band.boostedDmgMult, 1.15));
 
   check('Leftovers grants end-of-turn heal', relicMods(['leftovers']).endTurnHeal > 0);
   check('Shell Bell grants lifesteal', relicMods(['shellbell']).lifesteal === 0.15);

@@ -273,6 +273,10 @@ export function movePriority(attacker: Battler, move: Move): number {
   return p;
 }
 
+// Blinded volatile: the afflicted battler's own moves land at this fraction of
+// their usual accuracy until it wears off (see WEIGHT/BLIND tuning in battle.ts).
+const BLIND_ACC_MULT = 0.65;
+
 export function effectiveAccuracy(attacker: Battler, defender: Battler, move: Move): number {
   if (
     attacker.abilityPassive.noGuard ||
@@ -285,6 +289,9 @@ export function effectiveAccuracy(attacker: Battler, defender: Battler, move: Mo
   // Tempest: a living storm — its own attacks simply never miss.
   if (attacker.creature.ability === 'tempest') return 1;
   let acc = move.accuracy;
+  // Blinded: while the volatile lasts, the attacker can't aim straight — every one
+  // of its moves lands less reliably. (Set by the Blinded status move; see battle.ts.)
+  if (attacker.blindTurns > 0) acc *= BLIND_ACC_MULT;
   if (attacker.creature.ability === 'hustle' && move.power > 0) acc *= 0.8;
   if (attacker.creature.ability === 'compound-eyes') acc *= 1.15;
   if (attacker.creature.ability === 'pacifist' && move.power === 0) acc *= 1.2;

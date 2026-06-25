@@ -18,7 +18,17 @@ export type PokemonType =
   | 'steel'
   | 'fairy';
 
-export type StatusKind = 'burn' | 'stun' | 'poison' | 'sleep' | null;
+export type StatusKind = 'burn' | 'stun' | 'poison' | 'sleep' | 'frostbite' | null;
+
+/**
+ * Volatile, non-primary battle afflictions. Unlike a StatusKind they don't occupy
+ * the single `status` slot, so they stack with a primary status and with one
+ * another — each shows its own badge:
+ *   weight — Weight Down: a heavy Speed cut
+ *   blind  — Blinded: the victim's own moves lose accuracy
+ *   disarm — Disarmed: the foe's strongest move is sealed
+ */
+export type VolatileKind = 'weight' | 'blind' | 'disarm';
 
 /**
  * How a move resolves its damage. The split mirrors the real games but with our
@@ -53,6 +63,7 @@ export type MoveEffect =
   | { kind: 'stun'; chance: number }
   | { kind: 'poison'; chance: number } // escalating "toxic"-style end-of-turn damage
   | { kind: 'sleep'; chance: number } // skips a few turns, then wakes
+  | { kind: 'frostbite'; chance: number } // energy-side burn: halves Energy Attack + chips HP
   | { kind: 'confuse'; chance: number } // may hurt itself instead of acting
   | { kind: 'heal'; amount: number } // fraction of max hp
   | { kind: 'lifesteal'; fraction: number }
@@ -63,6 +74,15 @@ export type MoveEffect =
   // Seals the foe's setup/heal buttons for a few turns (Taunt): a forced trade
   // that stops a wall from fortifying or out-healing. Deals no damage itself.
   | { kind: 'taunt'; chance: number }
+  // Three volatile disruptions (power-0 utility moves, chance 1; the engine shows
+  // each with its own badge). None occupy the single primary-status slot, so they
+  // stack with burn/poison/etc and with one another:
+  //   weight — Weight Down: heavy speed cut for a few turns (flips the turn order)
+  //   blind  — Blinded: the victim's own moves lose accuracy for a few turns
+  //   disarm — Disarmed: seals the foe's single strongest move for a few turns
+  | { kind: 'weight'; chance: number }
+  | { kind: 'blind'; chance: number }
+  | { kind: 'disarm'; chance: number }
   // Recoil: a reckless, high-power hit that bites back, spending `fraction` of
   // the damage dealt as the attacker's own HP (Double-Edge, Flare Blitz, …).
   // Pure risk/reward — a real finisher that can also leave the user wide open.
@@ -511,6 +531,8 @@ export type RelicId =
   | 'wiseglasses' // small all-damage boost
   | 'shellbell' // heal a fraction of the damage you deal
   | 'lifeorb' // big all-damage boost
+  | 'bigroot' // team takes less damage (a survival/bulk axis)
+  | 'muscleband' // bonus damage while the active mon holds a stat boost (rewards setup)
   // Type boosters — only offered when the team can use them (see relics.ts).
   | 'silkscarf'
   | 'charcoal'
@@ -549,6 +571,10 @@ export interface RelicMods {
   dmgMult: Partial<Record<PokemonType, number>>;
   lifesteal: number; // fraction of damage dealt healed back (Shell Bell), 0 = none
   endTurnHeal: number; // fraction of max HP healed each end of turn (Leftovers), 0 = none
+  damageTakenMult: number; // multiplier on damage the team TAKES (Big Root), 1 = none
+  // Bonus damage applied only while the attacker holds a positive stat stage —
+  // a setup-reward relic (Muscle Band). 1 = none.
+  boostedDmgMult: number;
 }
 
 /** Raw generated dex row (see scripts/gen-pokedex.ts). */
@@ -689,6 +715,12 @@ export interface Battler {
   colorResistType: PokemonType | null;
   sealedMoveName: string | null;
   sealedTurns: number;
+  // Weight Down: while >0, Speed is cut to WEIGHT_SPD_MULT (a volatile heavy-foot
+  // status, distinct from a Speed stage so it stacks). Ticks down each end of turn.
+  weightTurns: number;
+  // Blinded: while >0, this battler's OWN moves land at BLIND_ACC_MULT accuracy
+  // (it can't see straight). Ticks down each end of turn.
+  blindTurns: number;
   perishCountdown: number;
   torchPassTurns: number;
   statusSusceptMult: number;

@@ -14,6 +14,7 @@ import type {
   Sign,
   Side,
   StatusKind,
+  VolatileKind,
 } from '../game/types';
 import { TYPE_COLORS, effectivenessLabel, typeIconUrl } from '../game/typechart';
 import { signIconUrl, signLabel, signSummary, signTier } from '../game/zodiac';
@@ -57,6 +58,14 @@ const STATUS_LABEL: Record<Exclude<StatusKind, null>, string> = {
   stun: 'Paralyzed',
   poison: 'Badly poisoned',
   sleep: 'Asleep',
+  frostbite: 'Frostbitten',
+};
+// Volatile afflictions render their own pill alongside the primary status badge.
+const volatileIconUrl = (v: VolatileKind) => `${ASSET}sprites/status/${v}.png`;
+const VOLATILE_LABEL: Record<VolatileKind, string> = {
+  weight: 'Weighed down — Speed cut',
+  blind: 'Blinded — accuracy down',
+  disarm: 'Disarmed — strongest move sealed',
 };
 
 interface ActiveView {
@@ -69,6 +78,7 @@ interface ActiveView {
   hp: number;
   maxHp: number;
   status: StatusKind;
+  volatiles: VolatileKind[];
   shiny: boolean;
   altColor: boolean;
 }
@@ -119,6 +129,7 @@ function initialView(c: Creature, side: Side): ActiveView {
     hp: 0,
     maxHp: 1,
     status: null,
+    volatiles: [],
     shiny: c.shiny,
     altColor: c.altColor,
   };
@@ -327,6 +338,15 @@ function InfoCard({
             className="h-3.5 shrink-0 object-contain [image-rendering:pixelated]"
           />
         )}
+        {view.volatiles.map((vol) => (
+          <img
+            key={vol}
+            src={volatileIconUrl(vol)}
+            alt={VOLATILE_LABEL[vol]}
+            title={VOLATILE_LABEL[vol]}
+            className="h-3.5 shrink-0 object-contain [image-rendering:pixelated]"
+          />
+        ))}
       </div>
       <div className="mt-1.5">
         <HpBar hp={view.hp} maxHp={view.maxHp} compact />
@@ -431,6 +451,19 @@ export function BattleScreen({
       const setter = e.affected === 'player' ? setPlayer : setFoe;
       setter((v) => ({ ...v, status: e.status ?? null }));
     }
+    // Volatile afflictions (Weight Down / Blinded / Disarmed) toggle their own
+    // badge: `volatileOn` true adds it, false (worn off) removes it.
+    if (e.affected && e.volatile) {
+      const setter = e.affected === 'player' ? setPlayer : setFoe;
+      const vol = e.volatile;
+      setter((v) => {
+        const has = v.volatiles.includes(vol);
+        if (e.volatileOn && !has) return { ...v, volatiles: [...v.volatiles, vol] };
+        if (!e.volatileOn && has)
+          return { ...v, volatiles: v.volatiles.filter((x) => x !== vol) };
+        return v;
+      });
+    }
     if (e.kind === 'move') {
       setBanner('');
       setBannerType(null);
@@ -458,6 +491,7 @@ export function BattleScreen({
           hp: fillBar ? 0 : full,
           maxHp,
           status: null,
+          volatiles: [],
           shiny: c.shiny,
           altColor: c.altColor,
         });

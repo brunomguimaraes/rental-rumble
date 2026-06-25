@@ -11,6 +11,7 @@ import type {
   Side,
   StageStat,
   StatusKind,
+  VolatileKind,
 } from './types.js';
 import type { Difficulty } from './run.js';
 import { identityMods, relicMods, relicDamageMult } from './relics.js';
@@ -46,10 +47,32 @@ import {
 
 const LEVEL = 50;
 
-// Striking first rewards Speed in combat: a small damage bump when the attacker
-// moves before the defender this turn (priority moves still count — they earned
-// the first strike). Kept modest so bulk teams aren't invalidated.
-const MOMENTUM_MULT = 1.07;
+// Striking first used to grant a small flat damage bump (the faster mon hit ~7%
+// harder *on top of* moving first). That double-rewarded Speed and helped pin the
+// meta to a pure race-to-hit-first, so the bonus is neutralised: moving first is
+// reward enough. Left as a tunable dial — nudge it back above 1 to re-favour speed.
+const MOMENTUM_MULT = 1.0;
+
+// A single global damage scalar. Trimming every hit a touch lengthens battles
+// across the board, which is what gives status, setup and sustain room to pay off
+// instead of everything dying in two or three turns. Symmetric (both sides), so it
+// shifts battle *length*, not who wins — the hero edge (PLAYER_STAT_MULT) and the
+// type chart still decide that. One knob: nudge toward 1 for a faster, swingier
+// meta, lower for a grindier one.
+const GLOBAL_DAMAGE_MULT = 0.9;
+
+// --- Volatile disruption tuning (Weight Down / Blinded / Disarmed) -----------
+// Three power-0 utility statuses that don't occupy the single primary-status slot
+// (so they stack with burn/poison and with each other):
+//   Weight Down — crushes Speed to 45% for a few turns, enough to flip most turn
+//                 orders (a slow bruiser's way to strike first).
+//   Blinded     — saps the victim's OWN accuracy to 65% for a few turns.
+//   Disarmed    — seals the foe's single strongest move for a few turns.
+const WEIGHT_SPD_MULT = 0.45;
+const WEIGHT_TURNS = 3;
+const BLIND_TURNS = 3;
+const DISARM_TURNS = 3;
+// (Blinded's accuracy multiplier lives with effectiveAccuracy in ability-effects.)
 
 /** Identity an active Pokémon morphs into (Ditto's Transform). */
 export interface TransformInfo {
@@ -92,6 +115,10 @@ export interface BattleEvent {
   index?: number;
   name?: string;
   status?: StatusKind;
+  // A volatile affliction toggling on/off (Weight Down / Blinded / Disarmed). The
+  // battle UI tracks these as a stack of badges separate from the primary status.
+  volatile?: VolatileKind;
+  volatileOn?: boolean;
   transform?: TransformInfo;
   winner?: Side;
 }
@@ -158,6 +185,8 @@ export function makeBattler(
     colorResistType: null,
     sealedMoveName: null,
     sealedTurns: 0,
+    weightTurns: 0,
+    blindTurns: 0,
     perishCountdown: 0,
     torchPassTurns: 0,
     statusSusceptMult: 1,
@@ -205,6 +234,17 @@ function isLocked(attacker: Battler, move: Move): boolean {
     attacker.typeLock.turns > 0 &&
     attacker.typeLock.type === move.type
   );
+}
+
+/**
+ * True if `move` is sealed on `attacker` and so cannot be used this turn — set by
+ * Disarmed (the foe's strongest move, for DISARM_TURNS) or Cursed Body (the move
+ * that struck it, for 1 turn). Checked everywhere the AI weighs or picks a move,
+ * so a sealed move drops out of consideration entirely. (This is also what makes
+ * Cursed Body bite — it sets the seal, and until now nothing read it.)
+ */
+function isSealed(attacker: Battler, move: Move): boolean {
+  return attacker.sealedTurns > 0 && attacker.sealedMoveName === move.name;
 }
 
 // Classic Pokémon stat-stage curve: +1 = 1.5×, +2 = 2×, … and the inverse on
@@ -274,6 +314,17 @@ function effectiveAtk(
   // Guts: a status condition that would normally hamper it instead fires it up,
   // boosting its attacks by half while burned / poisoned / paralyzed / asleep.
   const guts = b.status !== null && b.creature.ability === 'guts' ? 1.5 : 1;
+  // Burn saps muscle: a burned attacker's physical blows land at half strength
+  // (energy attacks are unhurt). Guts shrugs the burn off entirely — its 1.5×
+  // already reflects fighting through the pain — so it never eats this penalty.
+  // This is what lets a well-timed burn neuter a fast physical sweeper instead of
+  // merely chipping it, and what wakes up the status-payoff abilities.
+  const burn = !energy && b.status === 'burn' && b.creature.ability !== 'guts' ? 0.5 : 1;
+  // Frostbite is Burn's mirror on the energy channel: a frostbitten attacker's
+  // energy blows land at half strength (physical attacks are unhurt). Guts shrugs
+  // it off exactly as it shrugs off a burn.
+  const frostbite =
+    energy && b.status === 'frostbite' && b.creature.ability !== 'guts' ? 0.5 : 1;
   const stage = ignoreStage ? 1 : overloadStage(b, stageMult(b.stages[stageKey]));
   // Hustle muscles every blow for 1.5× (paid back in shakier accuracy);
   // Defeatist loses heart once at half HP or less, halving its offence until it
@@ -289,6 +340,8 @@ function effectiveAtk(
       mult *
       stage *
       guts *
+      burn *
+      frostbite *
       abil *
       b.teamFactor *
       relicMult,
@@ -326,13 +379,17 @@ function effectiveDef(
 function effectiveSpd(b: Battler, statMult: number): number {
   const spread = SIGN_SPREAD[b.creature.sign];
   const mult = statMult * shinyMult(b.creature);
-  const base =
+  let base =
     otherStat(b.creature.stats.spd) *
     spread.spd *
     mult *
     overloadStage(b, stageMult(b.stages.spd)) *
     b.teamFactor *
     b.mods.spdMult;
+  // Weight Down: a heavy-foot volatile that drags the battler down regardless of
+  // status (it stacks on top of paralysis). Quick Feet's status surge doesn't
+  // cover it — only stage and status do — so a weighed-down speedster really crawls.
+  if (b.weightTurns > 0) base *= WEIGHT_SPD_MULT;
   // Quick Feet: a status condition fires its nerves up rather than slowing it —
   // Speed jumps by half and the usual paralysis slowdown is ignored entirely.
   if (b.creature.ability === 'quick-feet') {
@@ -424,6 +481,26 @@ function aliveIndex(s: SideState, from = 0): number {
   return -1;
 }
 
+/** True if the battler is currently riding any positive stat stage (drives the
+ *  Muscle Band relic, which only rewards a mon that has actually set up). */
+function hasPositiveStage(b: Battler): boolean {
+  return (
+    b.stages.atk > 0 ||
+    b.stages.eatk > 0 ||
+    b.stages.def > 0 ||
+    b.stages.edef > 0 ||
+    b.stages.spd > 0
+  );
+}
+
+/** The attacker's setup-reward relic factor (Muscle Band): >1 only while it holds
+ *  a stat boost, otherwise 1. */
+function boostedRelicMult(attacker: Battler): number {
+  return attacker.mods.boostedDmgMult !== 1 && hasPositiveStage(attacker)
+    ? attacker.mods.boostedDmgMult
+    : 1;
+}
+
 // Average-case damage (no crit, mid variance) used by the AI to compare moves
 // and spot guaranteed KOs. Mirrors damageRoll but draws no randomness, so it can
 // also drive turn-order prediction without disturbing the RNG stream.
@@ -446,8 +523,11 @@ function estimateDamage(
   const abil =
     attackAbilityMult(attacker, defender, move, [attacker]) *
     defendAbilityMult(defender, move, mult);
-  const relic = relicDamageMult(attacker.mods, move.type);
-  return raw * stab * mult * abil * relic * 0.925 * move.accuracy;
+  const relic =
+    relicDamageMult(attacker.mods, move.type) *
+    boostedRelicMult(attacker) *
+    defender.mods.damageTakenMult;
+  return raw * stab * mult * abil * relic * GLOBAL_DAMAGE_MULT * 0.925 * move.accuracy;
 }
 
 /** The damaging move the AI intends to throw, KO-aware (prefers a priority KO). */
@@ -460,7 +540,7 @@ function planAttack(
   let best: Move | null = null;
   let bestDmg = -1;
   for (const mv of attacker.creature.moves) {
-    if (mv.power <= 0 || isLocked(attacker, mv)) continue;
+    if (mv.power <= 0 || isLocked(attacker, mv) || isSealed(attacker, mv)) continue;
     const d = estimateDamage(attacker, defender, mv, atkStatMult, defStatMult);
     if (d > bestDmg) {
       bestDmg = d;
@@ -470,7 +550,7 @@ function planAttack(
   // If a priority move already secures the KO, lead with it to strike first.
   if (best) {
     for (const mv of attacker.creature.moves) {
-      if ((mv.priority ?? 0) > 0 && !isLocked(attacker, mv)) {
+      if ((mv.priority ?? 0) > 0 && !isLocked(attacker, mv) && !isSealed(attacker, mv)) {
         const d = estimateDamage(attacker, defender, mv, atkStatMult, defStatMult);
         if (d > 0 && d >= defender.hp) return { move: mv, dmg: d };
       }
@@ -503,15 +583,57 @@ function foeMoveFocus(difficulty: Difficulty | undefined): number {
 }
 
 /**
+ * A small, bounded credit (≤0.12) for a matchup where `me` can do more than trade
+ * blows: cripple `foe` with a well-aimed status, or snowball with its own setup.
+ * Layered on top of the raw damage-race read in matchupScore so the AI's switch
+ * and replacement choices stop treating status/setup as worthless — it will pivot
+ * a burner in on a physical attacker, a paralyser in on a faster threat, and hold
+ * a healthy setup sweeper rather than flee an even trade. Deliberately tiny so it
+ * only breaks ties; who actually wins the damage exchange still dominates. Pure
+ * (no RNG), so it's safe to use inside the turn-order prediction like the rest of
+ * matchupScore.
+ */
+function statusMatchupBonus(
+  me: Battler,
+  foe: Battler,
+  meMult: number,
+  foeMult: number,
+): number {
+  let bonus = 0;
+  if (foe.status === null && foe.confusion === 0) {
+    const foePhysical = foe.creature.stats.atk >= foe.creature.stats.eatk;
+    const foeFaster = effectiveSpd(foe, foeMult) > effectiveSpd(me, meMult);
+    for (const mv of me.creature.moves) {
+      const eff = mv.effect;
+      // Only pure-status buttons we can actually land (a 0× type matchup means it
+      // bounces off — e.g. Thunder Wave into a Ground type).
+      if (!eff || mv.power !== 0 || typeMult(mv, foe) === 0) continue;
+      if (eff.kind === 'burn' && foePhysical) bonus = Math.max(bonus, 0.12);
+      else if (eff.kind === 'frostbite' && !foePhysical) bonus = Math.max(bonus, 0.12);
+      else if (eff.kind === 'stun' && foeFaster) bonus = Math.max(bonus, 0.12);
+      else if (eff.kind === 'sleep') bonus = Math.max(bonus, 0.1);
+      else if (eff.kind === 'poison' || eff.kind === 'confuse')
+        bonus = Math.max(bonus, 0.06);
+    }
+  }
+  // A healthy mon holding a live setup button out-values its bare trade a touch.
+  if (me.hp / me.maxHp > 0.6 && me.creature.moves.some(isSelfSetup)) {
+    bonus = Math.max(bonus, 0.06);
+  }
+  return bonus;
+}
+
+/**
  * How good a matchup `me` has against `foe`, as a single per-turn trade number:
  * the share of the foe's health our best honest hit removes, minus the share of
  * our own health the foe's best hit removes. Both halves are KO-aware estimates
  * (see estimateDamage/planAttack) normalised by max HP, so the metric is
  * comparable across mons of different bulk — a positive score means we out-trade
  * the foe, negative means we're losing the exchange. Drives both the smart
- * faint-replacement pick and the voluntary-switch decision. Status/setup plays
- * are ignored; it's a pure damage-race read, which is the honest worst case the
- * AI should plan around.
+ * faint-replacement pick and the voluntary-switch decision. The core of it is a
+ * pure damage-race read (the honest worst case), nudged by a small status/setup
+ * credit (see statusMatchupBonus) so a crippling burn or a setup sweep isn't
+ * invisible to the AI's switching.
  */
 function matchupScore(
   me: Battler,
@@ -521,7 +643,11 @@ function matchupScore(
 ): number {
   const myDmg = planAttack(me, foe, meMult, foeMult).dmg;
   const foeDmg = planAttack(foe, me, foeMult, meMult).dmg;
-  return myDmg / foe.maxHp - foeDmg / me.maxHp;
+  return (
+    myDmg / foe.maxHp -
+    foeDmg / me.maxHp +
+    statusMatchupBonus(me, foe, meMult, foeMult)
+  );
 }
 
 /**
@@ -628,7 +754,7 @@ function pickDamagingMove(
   let bestMove: Move | null = null;
   let bestValue = -1;
   for (const mv of attacker.creature.moves) {
-    if (mv.power <= 0 || isLocked(attacker, mv)) continue;
+    if (mv.power <= 0 || isLocked(attacker, mv) || isSealed(attacker, mv)) continue;
     const d = estimateDamage(attacker, defender, mv, atkStatMult, defStatMult);
     if (d <= 0) continue;
     // Don't fling a recoil nuke that would knock the user out unless it also
@@ -662,7 +788,7 @@ function pickDamagingMove(
   return options[options.length - 1].move;
 }
 
-const STATUS_RIDER_KINDS = ['burn', 'stun', 'poison', 'sleep', 'confuse'] as const;
+const STATUS_RIDER_KINDS = ['burn', 'stun', 'poison', 'sleep', 'frostbite', 'confuse'] as const;
 
 /** The stat stages a pure buff/debuff move touches (single- or multi-stat). */
 function stagedStats(move: Move): StageStat[] {
@@ -763,11 +889,17 @@ function chooseMove(
     const setup = moves.find(isSelfSetup);
     if (
       setup &&
-      attacker.hp / attacker.maxHp > 0.6 &&
-      rng.chance(0.4) &&
+      attacker.hp / attacker.maxHp > 0.5 &&
       stagedStats(setup).some((st) => attacker.stages[st] < 4)
     ) {
-      return setup;
+      // Only spend the tempo when we can weather the free turn: if the foe's best
+      // hit barely dents us, setup snowballs and is taken eagerly; if it'd cave us
+      // in, fall through and just attack. Replaces a flat 40% with a survival-aware
+      // gate, so the AI sets up on the things it actually walls instead of in front
+      // of a mon that will punish the lost turn.
+      const foeHit = planAttack(defender, attacker, defStatMult, atkStatMult).dmg;
+      const safe = foeHit < attacker.hp * 0.35;
+      if (rng.chance(safe ? 0.7 : 0.2)) return setup;
     }
   }
 
@@ -786,7 +918,12 @@ function chooseMove(
     }
   }
 
-  // Spread a status onto an as-yet-unafflicted foe.
+  // Spread a status onto an as-yet-unafflicted foe. How readily it goes out now
+  // depends on how much *this* status hurts *this* foe: a burn neuters a physical
+  // attacker, paralysis kneecaps a faster threat, sleep is always a tempo swing,
+  // and toxic wants a healthy foe with turns left to rot. A well-aimed status is
+  // thrown far more often than the old flat 35% — and any status still feeds the
+  // status-payoff abilities (Opportunist, Hex, Guts, Quick Feet, …).
   if (!taunted) {
     const statusMove = moves.find(
       (mv) =>
@@ -796,11 +933,62 @@ function chooseMove(
     );
     if (
       statusMove &&
+      statusMove.effect &&
       defender.status === null &&
       defender.confusion === 0 &&
-      rng.chance(0.35)
+      typeMult(statusMove, defender) !== 0
     ) {
-      return statusMove;
+      const kind = statusMove.effect.kind;
+      const foePhysical =
+        defender.creature.stats.atk >= defender.creature.stats.eatk;
+      const foeFaster =
+        effectiveSpd(defender, defStatMult) > effectiveSpd(attacker, atkStatMult);
+      let chance = 0.4;
+      if (kind === 'burn') chance = foePhysical ? 0.75 : 0.45;
+      else if (kind === 'frostbite') chance = foePhysical ? 0.45 : 0.75;
+      else if (kind === 'stun') chance = foeFaster ? 0.75 : 0.45;
+      else if (kind === 'sleep') chance = 0.7;
+      else if (kind === 'poison')
+        chance = defender.hp / defender.maxHp > 0.6 ? 0.6 : 0.3;
+      if (rng.chance(chance)) return statusMove;
+    }
+  }
+
+  // Volatile disruption (Weigh Down / Sand Attack / Disable), each gated on being
+  // worth a turn against THIS foe so the AI doesn't fritter tempo on a no-op:
+  //   - Weigh Down: only to steal the speed tier — throw it when the foe is
+  //     currently faster and isn't already weighed down.
+  //   - Blind: sap a still-healthy attacker's aim.
+  //   - Disarm: seal a hard hitter's best move, but only when that move genuinely
+  //     threatens us and the foe is healthy enough to keep swinging it.
+  if (!taunted) {
+    for (const mv of moves) {
+      const k = mv.effect?.kind;
+      if (k !== 'weight' && k !== 'blind' && k !== 'disarm') continue;
+      if (typeMult(mv, defender) === 0) continue;
+      if (k === 'weight') {
+        const foeFaster =
+          effectiveSpd(defender, defStatMult) > effectiveSpd(attacker, atkStatMult);
+        if (defender.weightTurns === 0 && foeFaster && rng.chance(0.7)) return mv;
+      } else if (k === 'blind') {
+        if (
+          defender.blindTurns === 0 &&
+          defender.hp / defender.maxHp > 0.4 &&
+          rng.chance(0.45)
+        ) {
+          return mv;
+        }
+      } else {
+        const foeBest = planAttack(defender, attacker, defStatMult, atkStatMult).dmg;
+        if (
+          defender.sealedTurns === 0 &&
+          foeBest > attacker.hp * 0.4 &&
+          defender.hp / defender.maxHp > 0.4 &&
+          rng.chance(0.6)
+        ) {
+          return mv;
+        }
+      }
     }
   }
 
@@ -871,13 +1059,20 @@ function damageRoll(
   }
   if (defender.creature.ability === 'battle-armor') crit = false;
   const critMult = crit ? critDamageMult(attacker) : 1;
-  // Team relics (Wise Glasses, Life Orb, the type boosters) lift the whole hit.
-  const relic = relicDamageMult(attacker.mods, move.type);
+  // Team relics: the attacker's flat/type damage (Wise Glasses, Life Orb, type
+  // boosters) and setup-reward (Muscle Band) lift the hit; the defender's bulk
+  // relic (Big Root) softens it.
+  const relic =
+    relicDamageMult(attacker.mods, move.type) *
+    boostedRelicMult(attacker) *
+    defender.mods.damageTakenMult;
   const variance = rng.range(0.85, 1);
   const momentum = movedFirst && move.power > 0 ? MOMENTUM_MULT : 1;
   const damage = Math.max(
     1,
-    Math.floor(raw * stab * mult * abil * critMult * relic * momentum * variance),
+    Math.floor(
+      raw * stab * mult * abil * critMult * relic * momentum * variance * GLOBAL_DAMAGE_MULT,
+    ),
   );
   return { damage, mult, crit };
 }
@@ -887,6 +1082,7 @@ const STATUS_LABEL: Record<Exclude<StatusKind, null>, string> = {
   stun: 'is paralyzed',
   poison: 'was badly poisoned',
   sleep: 'fell asleep',
+  frostbite: 'was frostbitten',
 };
 
 const STAGE_LABEL: Record<StageStat, string> = {
@@ -984,6 +1180,7 @@ export function simulateBattle(
     t.status = kind;
     if (kind === 'stun') t.statusTurns = 3;
     else if (kind === 'burn') t.statusTurns = 4;
+    else if (kind === 'frostbite') t.statusTurns = 4;
     else if (kind === 'sleep') t.statusTurns = rng.int(1, 3);
     else if (kind === 'poison') {
       t.statusTurns = 0;
@@ -1607,6 +1804,88 @@ export function simulateBattle(
       return 'continue';
     }
 
+    // Weight Down / Blinded / Disarmed: power-0 volatile disruptions laid on the
+    // foe. Each respects a 0× type immunity like the other status moves, and is
+    // announced so the log and the status badge can pick it up. None occupy the
+    // primary-status slot, so they stack with whatever else the foe is carrying.
+    if (
+      move.power === 0 &&
+      move.effect &&
+      (move.effect.kind === 'weight' ||
+        move.effect.kind === 'blind' ||
+        move.effect.kind === 'disarm')
+    ) {
+      const vk = move.effect.kind;
+      const tSide = otherSide(side);
+      if (typeMult(move, defender) === 0) {
+        push({
+          kind: 'noeffect',
+          actor: side,
+          text: `It doesn't affect ${defender.creature.name}…`,
+        });
+        return 'continue';
+      }
+      const alreadyOn =
+        (vk === 'weight' && defender.weightTurns > 0) ||
+        (vk === 'blind' && defender.blindTurns > 0) ||
+        (vk === 'disarm' && defender.sealedTurns > 0);
+      if (alreadyOn) {
+        push({ kind: 'noeffect', actor: side, text: 'But it failed!' });
+        return 'continue';
+      }
+      if (vk === 'weight') {
+        defender.weightTurns = WEIGHT_TURNS;
+        push({
+          kind: 'status',
+          actor: side,
+          affected: tSide,
+          volatile: 'weight',
+          volatileOn: true,
+          text: `${defender.creature.name} was weighed down!`,
+        });
+      } else if (vk === 'blind') {
+        defender.blindTurns = BLIND_TURNS;
+        push({
+          kind: 'status',
+          actor: side,
+          affected: tSide,
+          volatile: 'blind',
+          volatileOn: true,
+          text: `${defender.creature.name} was blinded!`,
+        });
+      } else {
+        // Disarm: seal the foe's single best move — highest estimated damage, with
+        // raw power as a tiebreaker so it still bites a foe we resist. Nothing to
+        // seal if it carries no damaging move (a pure staller); that just fails.
+        let target: Move | null = null;
+        let best = -1;
+        for (const mv of defender.creature.moves) {
+          if (mv.power <= 0) continue;
+          const d = estimateDamage(defender, attacker, mv, foe.statMult, me.statMult);
+          const sc = d > 0 ? d : mv.power;
+          if (sc > best) {
+            best = sc;
+            target = mv;
+          }
+        }
+        if (!target) {
+          push({ kind: 'noeffect', actor: side, text: 'But it failed!' });
+          return 'continue';
+        }
+        defender.sealedMoveName = target.name;
+        defender.sealedTurns = DISARM_TURNS;
+        push({
+          kind: 'status',
+          actor: side,
+          affected: tSide,
+          volatile: 'disarm',
+          volatileOn: true,
+          text: `${defender.creature.name} was disarmed — its ${target.name} was sealed!`,
+        });
+      }
+      return 'continue';
+    }
+
     // Pure setup move: shift the user's (or, rarely, the foe's) stat stages.
     if (move.power === 0 && move.effect?.kind === 'stage') {
       const toSelf = move.effect.target === 'self';
@@ -2170,7 +2449,8 @@ export function simulateBattle(
         (eff.kind === 'burn' ||
           eff.kind === 'stun' ||
           eff.kind === 'poison' ||
-          eff.kind === 'sleep') &&
+          eff.kind === 'sleep' ||
+          eff.kind === 'frostbite') &&
         rng.chance(eff.chance)
       ) {
         applyStatus(otherSide(side), eff.kind);
@@ -2260,7 +2540,46 @@ export function simulateBattle(
     if (b.torchPassTurns > 0) b.torchPassTurns -= 1;
     if (b.sealedTurns > 0) {
       b.sealedTurns -= 1;
-      if (b.sealedTurns <= 0) b.sealedMoveName = null;
+      if (b.sealedTurns <= 0) {
+        const freed = b.sealedMoveName;
+        b.sealedMoveName = null;
+        push({
+          kind: 'status',
+          actor: side,
+          affected: side,
+          volatile: 'disarm',
+          volatileOn: false,
+          text: freed
+            ? `${b.creature.name} can use ${freed} again!`
+            : `${b.creature.name} is rearmed!`,
+        });
+      }
+    }
+    if (b.weightTurns > 0) {
+      b.weightTurns -= 1;
+      if (b.weightTurns <= 0) {
+        push({
+          kind: 'status',
+          actor: side,
+          affected: side,
+          volatile: 'weight',
+          volatileOn: false,
+          text: `${b.creature.name} shook off the weight.`,
+        });
+      }
+    }
+    if (b.blindTurns > 0) {
+      b.blindTurns -= 1;
+      if (b.blindTurns <= 0) {
+        push({
+          kind: 'status',
+          actor: side,
+          affected: side,
+          volatile: 'blind',
+          volatileOn: false,
+          text: `${b.creature.name}'s sight cleared.`,
+        });
+      }
     }
     if (b.statusSuspectTurns > 0) {
       b.statusSuspectTurns -= 1;
@@ -2374,6 +2693,35 @@ export function simulateBattle(
             affected: side,
             status: null,
             text: `${b.creature.name}'s burn faded.`,
+          });
+        }
+      }
+    } else if (b.status === 'frostbite') {
+      if (!magicGuard) {
+        // Overload runs hot — the frostbite gnaws 50% deeper, same as its burn.
+        const overload = b.creature.ability === 'overload' ? 1.5 : 1;
+        const dmg = Math.max(1, Math.floor((b.maxHp / 12) * overload));
+        b.hp -= dmg;
+        push({
+          kind: 'statusTick',
+          actor: side,
+          affected: side,
+          status: 'frostbite',
+          damage: dmg,
+          text: `${b.creature.name} is nipped by frostbite!`,
+          ...snapshot(side),
+        });
+      }
+      b.statusTurns -= 1;
+      if (b.statusTurns <= 0) {
+        b.status = null;
+        if (b.hp > 0) {
+          push({
+            kind: 'status',
+            actor: side,
+            affected: side,
+            status: null,
+            text: `${b.creature.name}'s frostbite thawed.`,
           });
         }
       }
