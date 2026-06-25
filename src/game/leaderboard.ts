@@ -1,4 +1,5 @@
-import type { AbilityId, Creature, Sign } from './types.js';
+import type { AbilityId, Creature, RelicId, Sign } from './types.js';
+import { sanitizeRelics } from './relics.js';
 import {
   CREATURES_BY_ID,
   withSign,
@@ -97,6 +98,11 @@ export interface SubmissionPayload {
   stage: number; // the Champion's index in the gauntlet
   clearedStages: number;
   team: SubmissionMon[];
+  // The team-wide passive relics the run collected (see relics.ts). Trusted the
+  // same way `sign`/`ability` are: the server re-applies them in its own re-sim
+  // (so the verified fight matches the client's) and validates each id is real,
+  // dropping anything bogus. Omitted on a relic-free run / legacy payload.
+  relics?: RelicId[];
   // Signed proof that the server authorised this run (binds the seed). Null on
   // runs the server never issued a token for (offline/legacy) — those can't be
   // verified once enforcement is on.
@@ -116,6 +122,10 @@ export interface LeaderboardEntry {
   at: number; // epoch ms of the verified win
   clearedStages: number;
   team: SubmissionMon[]; // species + sign, enough to re-fight the team
+  // The relics this run carried (see relics.ts), so a saved team re-fights with
+  // its run-long passives in a Throne Challenge. Omitted on relic-free / legacy
+  // rows (re-fought as a relic-free team).
+  relics?: RelicId[];
   // Set when this slot was claimed by dethroning the reigning Master #1 in a
   // Throne Challenge — the name of the champion they beat to take the crown.
   defeated?: string;
@@ -195,7 +205,7 @@ export interface LeaderboardHistory {
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
 export type VerifyResult =
-  | { ok: true; team: Creature[]; difficulty: Difficulty }
+  | { ok: true; team: Creature[]; difficulty: Difficulty; relics: RelicId[] }
   | { ok: false; reason: string };
 
 /**
@@ -326,18 +336,22 @@ export function verifyChampionWin(payload: SubmissionPayload): VerifyResult {
     CHAMPION_TEAM_SIZE,
     bracketDex(bracket),
   );
+  // Re-apply the run's claimed relics (validated to real ids, capped) so the
+  // server's re-sim matches the client's relic-buffed Champion fight exactly.
+  const relics = sanitizeRelics(payload.relics);
   const result = simulateBattle(playerTeam, foeTeam, `${seed}#${stage}`, {
     playerStatMult: PLAYER_STAT_MULT,
     foeStatMult: TIER_STAT_MULT.champion ?? 1,
     // Must match the client's Champion fight: on Master the foe plays perfectly,
     // on Easy it plays sloppily, so verification has to use the same difficulty.
     difficulty,
+    playerRelics: relics,
   });
 
   if (result.winner !== 'player') {
     return { ok: false, reason: 'simulation did not produce a win' };
   }
-  return { ok: true, team: playerTeam, difficulty };
+  return { ok: true, team: playerTeam, difficulty, relics };
 }
 
 /**
@@ -384,6 +398,11 @@ export function verifyThroneWin(args: {
   challengerTeam: SubmissionMon[];
   kingTeam: SubmissionMon[];
   seed: string;
+  // Each side's collected relics (see relics.ts), re-applied so the title fight
+  // re-sims with the same run-long passives both players actually carried.
+  // Sanitised here, so a stale/forged row simply fights relic-free.
+  challengerRelics?: RelicId[];
+  kingRelics?: RelicId[];
 }): { ok: boolean; reason?: string } {
   const challenger = teamFromMons(args.challengerTeam);
   const king = teamFromMons(args.kingTeam);
@@ -396,6 +415,8 @@ export function verifyThroneWin(args: {
   const result = simulateBattle(challenger, king, throneBattleSeed(args.seed), {
     playerStatMult: PLAYER_STAT_MULT,
     foeStatMult: PLAYER_STAT_MULT,
+    playerRelics: sanitizeRelics(args.challengerRelics),
+    foeRelics: sanitizeRelics(args.kingRelics),
   });
   if (result.winner !== 'player') {
     return { ok: false, reason: 'challenger did not win' };
@@ -413,8 +434,10 @@ export function buildSubmission(args: {
   stage: number;
   clearedStages: number;
   team: Creature[];
+  relics?: RelicId[];
   token?: string | null;
 }): SubmissionPayload {
+  const relics = sanitizeRelics(args.relics);
   return {
     name: args.name.trim().slice(0, 24),
     date: args.date,
@@ -424,6 +447,7 @@ export function buildSubmission(args: {
     stage: args.stage,
     clearedStages: args.clearedStages,
     team: args.team.map(monToRecord),
+    ...(relics.length > 0 ? { relics } : {}),
     token: args.token ?? null,
   };
 }

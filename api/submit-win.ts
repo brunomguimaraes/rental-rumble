@@ -170,6 +170,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // (shiny / alt colour / emotion) is the validated one — never raw client
       // input. `monToRecord` keeps it byte-for-byte aligned with the payload.
       team: verdict.team.map(monToRecord),
+      // The validated relic list the re-sim actually used (bogus ids dropped),
+      // so a Throne Challenge re-fights this team with the same passives.
+      ...(verdict.relics.length > 0 ? { relics: verdict.relics } : {}),
       at: now,
     };
     // Upstash serializes objects to JSON automatically (and parses on read).

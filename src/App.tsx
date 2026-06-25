@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
-import type { Creature, Opponent, Side } from './game/types';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import type { Creature, Opponent, RelicId, Side } from './game/types';
 import { randomSeed } from './game/rng';
+import { itemEventStages } from './game/relics';
 import {
   buildGauntlet,
   challengeOpponent,
@@ -32,32 +33,68 @@ import { TitleScreen } from './components/TitleScreen';
 import { DraftScreen } from './components/DraftScreen';
 import { MapScreen } from './components/MapScreen';
 import { BattleScreen } from './components/BattleScreen';
+import { ItemEventScreen } from './components/ItemEventScreen';
 import { RecruitScreen } from './components/RecruitScreen';
 import { ResultScreen } from './components/ResultScreen';
 import { ThroneResultScreen } from './components/ThroneResultScreen';
 import { LadderScreen } from './components/LadderScreen';
 import { HistoryScreen } from './components/HistoryScreen';
+import { hashIsGuide } from './guide/hash';
 import { DevPanel } from './components/DevPanel';
+
+// The guide bundles the whole MDX runtime + every doc page; lazy-load it so it
+// stays out of the initial download and only arrives when a player opens it.
+const GuideScreen = lazy(() =>
+  import('./components/Guide').then((m) => ({ default: m.GuideScreen })),
+);
+
+/** Quiet placeholder shown while a lazy screen's chunk is fetched. */
+function ScreenFallback() {
+  return (
+    <div className="grid min-h-[100dvh] place-items-center">
+      <img
+        src={`${import.meta.env.BASE_URL}sprites/ui/pokeball.png`}
+        alt="Loading"
+        className="h-12 w-12 animate-spin object-contain [image-rendering:pixelated] opacity-70"
+      />
+    </div>
+  );
+}
 
 type Phase =
   | 'title'
   | 'ladder'
   | 'history'
+  | 'guide'
   | 'draft'
   | 'map'
   | 'battle'
+  | 'item'
   | 'recruit'
   | 'over'
   | 'throneBattle'
   | 'throneOver';
 
 export default function App() {
-  const [phase, setPhase] = useState<Phase>('title');
+  const [phase, setPhase] = useState<Phase>(() =>
+    typeof window !== 'undefined' && hashIsGuide() ? 'guide' : 'title',
+  );
+
+  // Honour a cold-load deep link (e.g. a shared `#guide/zodiac` URL) by opening
+  // the guide page straight away.
+  useEffect(() => {
+    if (phase === 'title' && hashIsGuide()) setPhase('guide');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [seed, setSeed] = useState<string>(() => randomSeed());
   // Signed proof the server authorised this run's seed. Required to rank on the
   // leaderboard; null on offline/custom-seed runs (still fully playable).
   const [runToken, setRunToken] = useState<string | null>(null);
   const [team, setTeam] = useState<Creature[]>([]);
+  // Team-wide passive "relics" collected from item events this run (see
+  // relics.ts). Applied to every battle and carried into the verified
+  // leaderboard/Throne payloads so a relic run stays reproducible & rankable.
+  const [relics, setRelics] = useState<RelicId[]>([]);
   const [stage, setStage] = useState(0);
   const [won, setWon] = useState(false);
   const [defeated, setDefeated] = useState<Creature[]>([]);
@@ -91,6 +128,14 @@ export default function App() {
     [seed, difficulty, bracket],
   );
   const opponent = gauntlet[stage];
+
+  // The stage indices an item event appears *before* this run (interstitial —
+  // never part of the gauntlet array, so the ladder length & Champion index are
+  // untouched). Pinned to the seed so the run stays reproducible.
+  const itemEvents = useMemo(
+    () => itemEventStages(seed, difficulty, gauntlet.length),
+    [seed, difficulty, gauntlet.length],
+  );
 
   // The species pool for this run, restricted to the selected generation
   // bracket. Drives the draft and every foe — including the Champion — so a
@@ -131,11 +176,12 @@ export default function App() {
         playerStatMult: PLAYER_STAT_MULT,
         foeStatMult: TIER_STAT_MULT[opponent.tier] ?? 1,
         difficulty,
+        playerRelics: relics,
       });
       return { foeTeam, result };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [phase, seed, stage, dex, bracket, difficulty],
+    [phase, seed, stage, dex, bracket, difficulty, relics],
   );
 
   // A throne fight is a fair mirror, replayed from the server-issued seed so the
@@ -145,8 +191,10 @@ export default function App() {
     return simulateBattle(team, throne.foeTeam, throneBattleSeed(throneSeed), {
       playerStatMult: PLAYER_STAT_MULT,
       foeStatMult: PLAYER_STAT_MULT,
+      playerRelics: relics,
+      foeRelics: throneKing?.relics ?? [],
     });
-  }, [phase, throne, throneSeed, team]);
+  }, [phase, throne, throneSeed, team, relics, throneKing]);
 
   const startThrone = (grant: ThroneGrant, king: LeaderboardEntry) => {
     const foeTeam = teamFromMons(king.team);
@@ -192,6 +240,7 @@ export default function App() {
     setDifficulty(diff);
     setBracket(chosenBracket);
     setTeam([]);
+    setRelics([]);
     setStage(0);
     setWon(false);
 
@@ -239,6 +288,7 @@ export default function App() {
           onStart={startRun}
           onViewLadder={() => setPhase('ladder')}
           onViewHistory={() => setPhase('history')}
+          onViewGuide={() => setPhase('guide')}
         />
       );
 
@@ -247,6 +297,9 @@ export default function App() {
 
     case 'history':
       return <HistoryScreen onBack={() => setPhase('title')} />;
+
+    case 'guide':
+      return <GuideScreen onBack={() => setPhase('title')} />;
 
     case 'draft':
       return (
@@ -267,13 +320,15 @@ export default function App() {
         <MapScreen
           gauntlet={gauntlet}
           team={team}
+          relics={relics}
           stage={stage}
           seed={seed}
           difficulty={difficulty}
           onFight={() => setPhase('battle')}
           onSkip={() => {
-            setStage((s) => s + 1);
-            setPhase('map');
+            const next = stage + 1;
+            setStage(next);
+            setPhase(itemEvents.has(next) ? 'item' : 'map');
           }}
           onQuit={() => setPhase('title')}
           onReorder={setTeam}
@@ -307,12 +362,28 @@ export default function App() {
           abilityRerollSeed={`ability-reroll:${seed}:${stage}`}
           onConfirm={(newTeam) => {
             setTeam(newTeam);
-            setStage((s) => s + 1);
-            setPhase('map');
+            const next = stage + 1;
+            setStage(next);
+            setPhase(itemEvents.has(next) ? 'item' : 'map');
           }}
         />
       );
     }
+
+    case 'item':
+      return (
+        <ItemEventScreen
+          seed={seed}
+          stage={stage}
+          team={team}
+          owned={relics}
+          nextLabel={`On to ${TIER_LABEL[opponent.tier]} ${opponent.name}`}
+          onConfirm={(picked) => {
+            if (picked) setRelics((r) => [...r, picked]);
+            setPhase('map');
+          }}
+        />
+      );
 
     case 'over':
       // Every bracket has its own daily Champion and leaderboard, so a finished
@@ -326,6 +397,7 @@ export default function App() {
           runToken={runToken}
           bracket={bracket}
           difficulty={difficulty}
+          relics={relics}
           clearedStages={won ? gauntlet.length : stage}
           lostToTeam={lostToTeam}
           onPlayAgain={() => setPhase('title')}
@@ -362,7 +434,7 @@ export default function App() {
 
   return (
     <>
-      {renderScreen()}
+      <Suspense fallback={<ScreenFallback />}>{renderScreen()}</Suspense>
       {/* Statically gated so Vite tree-shakes the whole dev panel out of any
           production build — the cheats simply don't exist there. */}
       {import.meta.env.DEV && <DevPanel />}

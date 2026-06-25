@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Creature } from '../game/types';
+import type { Creature, RelicId } from '../game/types';
 import { TeamPortrait } from './TeamPortrait';
 import { dailyKey } from '../game/opponents';
 import { GEN_BRACKETS, bracketById, type BracketId } from '../game/gens';
@@ -83,6 +83,9 @@ export function Leaderboard({
     stage: number;
     clearedStages: number;
     team: Creature[];
+    /** Team-wide relics this run collected (see relics.ts), submitted so the
+     *  server re-sims the verified Champion fight with the same passives. */
+    relics?: RelicId[];
     /** Signed run token proving the server authorised this run. */
     token?: string | null;
   };

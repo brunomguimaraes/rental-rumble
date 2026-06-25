@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Creature, Opponent } from '../game/types';
+import type { Creature, Opponent, RelicId } from '../game/types';
 import type { Difficulty } from '../game/run';
 import { TIER_LABEL, isTypeThemed, opponentAccent } from '../game/opponents';
 import { TypeBadge } from './TypeBadge';
 import { TrainerSprite } from './TrainerSprite';
 import { LineupEditor } from './LineupEditor';
+import { RelicStrip } from './RelicStrip';
 import { DEV } from '../game/dev';
 
 export function MapScreen({
   gauntlet,
   team,
+  relics = [],
   stage,
   seed,
   difficulty,
@@ -20,6 +22,8 @@ export function MapScreen({
 }: {
   gauntlet: Opponent[];
   team: Creature[];
+  /** Team-wide relics collected so far this run (see relics.ts). */
+  relics?: RelicId[];
   stage: number;
   seed: string;
   difficulty: Difficulty;
@@ -66,6 +70,7 @@ export function MapScreen({
       {/* Your team — arrange the lineup (slot 1 leads) */}
       <div className="mt-6">
         <LineupEditor team={team} onChange={onReorder} />
+        <RelicStrip relics={relics} className="mt-3 justify-center sm:justify-start" />
       </div>
 
       {/* Gauntlet ladder */}

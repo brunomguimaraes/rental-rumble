@@ -2,6 +2,7 @@ import { Redis } from '@upstash/redis';
 import type { SubmissionMon } from '../src/game/leaderboard.js';
 import type { BracketId } from '../src/game/gens.js';
 import type { Difficulty } from '../src/game/run.js';
+import type { RelicId } from '../src/game/types.js';
 
 // Reads UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN from the environment
 // (set them in the Vercel project, or .env.local for `vercel dev`).
@@ -60,6 +61,9 @@ export interface BoardEntryData {
   difficulty: Difficulty; // the mode this win was earned on (drives rank)
   clearedStages: number;
   team: SubmissionMon[]; // species + sign, so the team can be re-fought
+  // The run's collected relics (see relics.ts), kept so a Throne Challenge
+  // re-fights this team with its run-long passives. Omitted on relic-free rows.
+  relics?: RelicId[];
   at: number;
   // Set when this slot was taken by dethroning the Master #1 in a Throne
   // Challenge — the name of the champion that was beaten for the crown.

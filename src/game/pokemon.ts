@@ -179,6 +179,15 @@ export function miniUrl(dexId: number): string {
   return `${ASSET}sprites/icons/${dexId}.png`;
 }
 
+/**
+ * Held-item / relic icon, served locally from public/sprites/items. The `icon`
+ * is the lowercased item-art filename (e.g. `leftovers`), drawn from the Gen 9
+ * Essentials item pack. Used by the team-passive "relic" system (see relics.ts).
+ */
+export function itemUrl(icon: string): string {
+  return `${ASSET}sprites/items/${icon}.png`;
+}
+
 export const CREATURES: Creature[] = RAW_DEX.map((e) => {
   const sign = defaultSign(e.stats);
   return {
@@ -194,7 +203,7 @@ export const CREATURES: Creature[] = RAW_DEX.map((e) => {
     sign,
     eligibleSigns: signsByFit(e.stats),
     stats: e.stats,
-    moves: movesFor(e.types, e.stats, sign, abilitiesForDex(e.id)),
+    moves: movesFor(e.types, e.stats, sign, abilitiesForDex(e.id), e.id),
     ability: defaultAbilityForDex(e.id),
     pokeball: DEFAULT_BALL,
     shiny: false,
@@ -218,7 +227,13 @@ export function withSign(creature: Creature, sign: Sign): Creature {
   return {
     ...creature,
     sign,
-    moves: movesFor(creature.types, creature.stats, sign, abilitiesForDex(creature.dexId)),
+    moves: movesFor(
+      creature.types,
+      creature.stats,
+      sign,
+      abilitiesForDex(creature.dexId),
+      creature.dexId,
+    ),
   };
 }
 

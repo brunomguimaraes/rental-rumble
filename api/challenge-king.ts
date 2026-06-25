@@ -240,11 +240,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .json({ ok: false, error: 'submit your Master win before challenging' });
     }
 
-    // The honest part: re-simulate the title fight server-side.
+    // The honest part: re-simulate the title fight server-side — each side with
+    // the relics their saved row carried, so the mirror is faithful.
     const verdict = verifyThroneWin({
       challengerTeam: challengerData.team as SubmissionMon[],
       kingTeam: (kingData.team ?? []) as SubmissionMon[],
       seed,
+      challengerRelics: challengerData.relics,
+      kingRelics: kingData.relics,
     });
     if (!verdict.ok) {
       return res
@@ -294,6 +297,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       difficulty: 'master',
       clearedStages: Number(challengerData.clearedStages) || 0,
       team: challengerData.team as SubmissionMon[],
+      // Carry the challenger's relics onto their promoted row so a later title
+      // shot re-fights them with the same passives they hold now.
+      ...(Array.isArray(challengerData.relics) && challengerData.relics.length > 0
+        ? { relics: challengerData.relics }
+        : {}),
       at: newAt,
       defeated: kingName,
     };

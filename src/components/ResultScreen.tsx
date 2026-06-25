@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Creature, Opponent } from '../game/types';
+import type { Creature, Opponent, RelicId } from '../game/types';
 import { renderShareBlob } from '../game/shareCard';
 import { dailyKey } from '../game/opponents';
 import type { LeaderboardEntry, ThroneGrant } from '../game/leaderboard';
 import type { BracketId } from '../game/gens';
 import type { Difficulty } from '../game/run';
 import { Leaderboard } from './Leaderboard';
+import { RelicStrip } from './RelicStrip';
 import { SupportLinks } from './SupportLinks';
 
 export function ResultScreen({
@@ -17,6 +18,7 @@ export function ResultScreen({
   clearedStages,
   bracket,
   difficulty,
+  relics = [],
   lostToTeam = [],
   onPlayAgain,
   onChallengeThrone,
@@ -28,6 +30,8 @@ export function ResultScreen({
   /** Signed run token from the server — proves the run was authorised. */
   runToken?: string | null;
   clearedStages: number;
+  /** Team-wide relics collected this run (see relics.ts), submitted with the win. */
+  relics?: RelicId[];
   /** The generation bracket this run was locked to (drives which board it ranks on). */
   bracket: BracketId;
   /** The mode this run was played on (drives leaderboard rank). */
@@ -194,6 +198,8 @@ export function ResultScreen({
       </div>
       <div className="mt-2 h-4 text-xs text-white/45">{shareNote}</div>
 
+      <RelicStrip relics={relics} className="mt-6 justify-center" />
+
       <Leaderboard
         date={dailyKey()}
         runBracket={bracket}
@@ -204,6 +210,7 @@ export function ResultScreen({
           stage: gauntlet.length - 1,
           clearedStages,
           team,
+          relics,
           token: runToken,
         }}
         onChallengeThrone={onChallengeThrone}
