@@ -14,6 +14,7 @@ import {
 } from '../game/zodiac';
 import { TypeBadges } from './TypeBadge';
 import { MovesModal } from './MovesModal';
+import { SHOW_BUILD_TAG } from '../ui-flags';
 
 const GOLD = '#f5c542';
 
@@ -347,10 +348,7 @@ export function CreatureCard({
               />
               <span className="truncate">{signLabel(creature.sign)}</span>
             </span>
-            {/* Build (Physical/Energy) badge hidden for now — let players discover
-                their Pokémon's lean themselves. The build still drives stats/moves;
-                restore this block to surface the tag again. */}
-            {false && creature.build && (
+            {SHOW_BUILD_TAG && creature.build && (
               <span
                 title={`${creature.build === 'physical' ? 'Physical' : 'Energy'} build — this mixed attacker's stats were rolled to favour ${creature.build === 'physical' ? 'Physical' : 'Energy'} Attack, and its moves lean that way`}
                 className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${

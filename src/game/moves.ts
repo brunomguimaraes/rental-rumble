@@ -11,6 +11,7 @@ import type {
   StageStat,
 } from './types.js';
 import { SIGN_INFO, type Element } from './zodiac.js';
+import { RNG } from './rng.js';
 
 const STAT_LABEL: Record<StageStat, string> = {
   atk: 'ATK',
@@ -889,6 +890,27 @@ export function candidateMovesFor(types: PokemonType[], dexId?: number): Move[] 
     add(m);
   }
   return out;
+}
+
+/**
+ * Roll a small, seed-pinned set of replacement moves for the post-battle "Tweak a
+ * Move" reward. Draws from the species' full legal pool (candidateMovesFor), drops
+ * any move the mon already runs, then shuffles with a seeded RNG so the same
+ * (run, stage, team-slot, move-slot) always rolls the same options — a genuine
+ * gamble that can't be re-fished by leaving and re-entering, mirroring the
+ * sign/ability rerolls. The player sees a fresh set only by choosing a different
+ * move to replace. Returns up to `count` moves (fewer only if the pool is small).
+ */
+export function rollMoveOptions(
+  types: PokemonType[],
+  dexId: number | undefined,
+  exclude: readonly string[],
+  seed: string,
+  count = 3,
+): Move[] {
+  const skip = new Set(exclude);
+  const pool = candidateMovesFor(types, dexId).filter((m) => !skip.has(m.name));
+  return new RNG(seed).shuffle(pool).slice(0, count);
 }
 
 // Every move the game can hand out, indexed by name — the authority the move

@@ -378,6 +378,7 @@ export default function App() {
           rerollStrong={opponent.signRerollStrong ?? false}
           rerollSeed={`reroll:${seed}:${stage}`}
           abilityRerollSeed={`ability-reroll:${seed}:${stage}`}
+          moveRollSeed={`move-roll:${seed}:${stage}`}
           onConfirm={(newTeam) => {
             setTeam(newTeam);
             const next = stage + 1;

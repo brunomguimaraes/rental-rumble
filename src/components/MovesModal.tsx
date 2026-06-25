@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { Creature, Move } from '../game/types';
 import { moveCategory, moveEffectLabel, moveSelfNote } from '../game/moves';
 import { TYPE_COLORS, typeIconUrl, typeLabel } from '../game/typechart';
+import { SHOW_BUILD_TAG } from '../ui-flags';
 
 /**
  * Full-screen modal listing a Pokémon's full move pool. Unlike the games' fixed
@@ -56,7 +57,7 @@ export function MovesModal({
                 {creature.moves.length === 1 ? '' : 's'} — the AI picks the best each
                 turn
               </p>
-              {creature.build && (
+              {SHOW_BUILD_TAG && creature.build && (
                 <p
                   className={`mt-0.5 text-[11px] font-semibold ${
                     creature.build === 'physical' ? 'text-rose-200/80' : 'text-sky-200/80'

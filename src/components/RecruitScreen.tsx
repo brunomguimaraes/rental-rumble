@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AbilityId, Creature, Move, Sign } from '../game/types';
+import type { AbilityId, Creature, Move, MoveCategory, Sign } from '../game/types';
 import type { BracketId } from '../game/gens';
 import {
   canEvolve,
@@ -15,11 +15,13 @@ import {
   sameFamily,
 } from '../game/pokemon';
 import {
-  candidateMovesFor,
+  rollMoveOptions,
+  moveCategory,
   moveCategoryLabel,
   moveEffectLabel,
   moveSelfNote,
 } from '../game/moves';
+import { TYPE_COLORS, typeIconUrl, typeLabel } from '../game/typechart';
 import {
   rerollSign,
   rerollRareSign,
@@ -118,6 +120,7 @@ export function RecruitScreen({
   rerollStrong = false,
   rerollSeed,
   abilityRerollSeed,
+  moveRollSeed,
   onConfirm,
 }: {
   opponentName: string;
@@ -139,6 +142,10 @@ export function RecruitScreen({
   // Seed pinning the random ability-reroll outcome (weak special). Same idea as
   // `rerollSeed`: fixed per run+stage so it can't be re-fished.
   abilityRerollSeed?: string;
+  // Seed pinning the "Tweak a Move" reward's roll: the three replacement moves on
+  // offer are drawn from this per run+stage, so the gamble can't be re-fished by
+  // leaving and re-entering — only by choosing a different move to replace.
+  moveRollSeed?: string;
   onConfirm: (team: Creature[]) => void;
 }) {
   const [mode, setMode] = useState<Mode>('choose');
@@ -278,6 +285,20 @@ export function RecruitScreen({
       return withAbility(c, abilityResultFor(i));
     return c;
   });
+
+  // The locked roll of replacement moves for the current (Pokémon, move-slot)
+  // pick — seed-pinned, so re-entering can't re-fish it, and deterministic, so
+  // selecting one option never reshuffles the rest. A fresh set comes only from
+  // choosing a different move to replace (each slot rolls its own three).
+  const moveRollOptions =
+    mode === 'move' && moveTeamSlot !== null && moveSlotIdx !== null
+      ? rollMoveOptions(
+          currentTeam[moveTeamSlot].types,
+          currentTeam[moveTeamSlot].dexId,
+          currentTeam[moveTeamSlot].moves.map((m) => m.name),
+          `${moveRollSeed ?? 'move-roll'}:${moveTeamSlot}:${moveSlotIdx}:${currentTeam[moveTeamSlot].dexId}`,
+        )
+      : [];
 
   // Entering a reward is a one-way door (no "change reward" once inside), so a
   // gate confirms the pick first — unless the player has chosen to skip it.
@@ -617,9 +638,9 @@ export function RecruitScreen({
                 {currentTeam[moveTeamSlot].name}'s moves
                 <span className="ml-2 text-white/35">tap the move to replace</span>
               </h3>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {currentTeam[moveTeamSlot].moves.map((m, idx) => (
-                  <MoveChip
+                  <MoveCard
                     key={`${m.name}-${idx}`}
                     move={m}
                     selected={moveSlotIdx === idx}
@@ -633,28 +654,24 @@ export function RecruitScreen({
             </div>
           )}
 
-          {/* Pick the replacement from the species' legal pool. */}
+          {/* Roll the replacement: three seed-pinned options from the legal pool. */}
           {moveTeamSlot !== null && moveSlotIdx !== null && (
             <div className="mt-7">
               <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
-                Choose a new move for {currentTeam[moveTeamSlot].name}
+                Roll · pick 1 of {moveRollOptions.length} for {currentTeam[moveTeamSlot].name}
+                <span className="ml-2 normal-case tracking-normal text-white/35">
+                  tap a different move above to roll a new set
+                </span>
               </h3>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                {candidateMovesFor(
-                  currentTeam[moveTeamSlot].types,
-                  currentTeam[moveTeamSlot].dexId,
-                )
-                  .filter(
-                    (m) => !currentTeam[moveTeamSlot].moves.some((x) => x.name === m.name),
-                  )
-                  .map((m) => (
-                    <MoveChip
-                      key={m.name}
-                      move={m}
-                      selected={moveChoice?.name === m.name}
-                      onClick={() => setMoveChoice(m)}
-                    />
-                  ))}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {moveRollOptions.map((m) => (
+                  <MoveCard
+                    key={m.name}
+                    move={m}
+                    selected={moveChoice?.name === m.name}
+                    onClick={() => setMoveChoice(m)}
+                  />
+                ))}
               </div>
             </div>
           )}
@@ -1461,7 +1478,20 @@ function PreviewRow({ creatures }: { creatures: Creature[] }) {
 // A tappable move card for the "Tweak a Move" reward — names the move, its
 // damage category & power, its type, and any secondary effect or self-cost rider
 // so the player can weigh a swap the same way the moveset modal presents it.
-function MoveChip({
+const CATEGORY_ICON: Record<MoveCategory, string> = {
+  physical: '💥',
+  energy: '✦',
+  status: '◇',
+};
+
+// A tappable, type-tinted move card for the "Tweak a Move" reward. Its border,
+// background wash and corner glow take the move's elemental colour; a damage move
+// shows a power bar, a status move says so plainly, and any secondary effect or
+// self-cost rider reads as a pill — the same facts the moveset modal presents,
+// dressed up so a roll of three is easy to weigh at a glance. Selecting one lays
+// an emerald ring (the screen's "chosen" colour) over the type tint, so the pick
+// is unmistakable across all eighteen type hues.
+function MoveCard({
   move,
   selected,
   onClick,
@@ -1470,30 +1500,88 @@ function MoveChip({
   selected: boolean;
   onClick: () => void;
 }) {
+  const color = TYPE_COLORS[move.type];
+  const cat = moveCategory(move);
   const effect = move.effect ? moveEffectLabel(move.effect) : null;
   const self = moveSelfNote(move);
-  const typeName = move.type.charAt(0).toUpperCase() + move.type.slice(1);
+  const isDamage = move.power > 0;
+  const fill = Math.max(0.1, Math.min(1, move.power / 130));
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-2xl border p-3 text-left transition-all ${
-        selected
-          ? 'border-emerald-300/60 bg-emerald-300/[0.1]'
-          : 'border-white/10 bg-white/[0.03] hover:border-white/30 hover:bg-white/[0.07]'
-      }`}
+      style={{
+        borderColor: selected ? color : `${color}59`,
+        backgroundColor: selected ? `${color}24` : `${color}12`,
+        boxShadow: selected
+          ? `0 0 0 2px #34d399, 0 12px 30px -12px ${color}cc`
+          : `0 8px 22px -16px ${color}cc`,
+      }}
+      className="group relative flex flex-col gap-2.5 overflow-hidden rounded-2xl border p-3.5 text-left transition-all duration-150 hover:-translate-y-0.5 hover:brightness-110"
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-sm font-bold text-white">{move.name}</span>
-        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/40">
-          {move.power > 0 ? `${moveCategoryLabel(move)} · ${move.power}` : moveCategoryLabel(move)}
+      {/* Type-coloured glow bleeding in from the top corner. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full opacity-40 blur-2xl"
+        style={{ backgroundColor: color }}
+      />
+
+      {/* Type badge (left) + damage category (right, with a tick once chosen). */}
+      <div className="relative flex items-center justify-between gap-2">
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+          style={{ backgroundColor: `${color}26`, color }}
+        >
+          <img src={typeIconUrl(move.type)} alt="" className="h-3.5 w-3.5 object-contain" />
+          {typeLabel(move.type)}
+        </span>
+        <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/45">
+          {selected && <span className="text-sm font-black text-emerald-300">✓</span>}
+          <span>
+            {CATEGORY_ICON[cat]} {moveCategoryLabel(move)}
+          </span>
         </span>
       </div>
-      <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-white/40">
-        {typeName}
+
+      {/* Move name. */}
+      <div className="relative text-[15px] font-extrabold leading-tight text-white">
+        {move.name}
       </div>
-      {effect && <p className="mt-1 text-xs text-sky-200/80">{effect}</p>}
-      {self && <p className="mt-0.5 text-xs text-amber-200/80">{self}</p>}
+
+      {/* Power bar for damage moves; a quiet tag for status moves. */}
+      {isDamage ? (
+        <div className="relative flex items-center gap-2">
+          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+            <span
+              className="block h-full rounded-full"
+              style={{ width: `${fill * 100}%`, backgroundColor: color }}
+            />
+          </span>
+          <span className="shrink-0 text-[11px] font-bold tabular-nums text-white/70">
+            {move.power} POW
+          </span>
+        </div>
+      ) : (
+        <div className="relative text-[11px] font-semibold uppercase tracking-wide text-white/40">
+          No direct damage
+        </div>
+      )}
+
+      {/* Secondary effect + any self-cost rider, as pills. */}
+      {(effect || self) && (
+        <div className="relative flex flex-wrap gap-1.5">
+          {effect && (
+            <span className="rounded-md bg-sky-300/10 px-1.5 py-0.5 text-[11px] font-medium text-sky-200/90">
+              {effect}
+            </span>
+          )}
+          {self && (
+            <span className="rounded-md bg-amber-300/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-200/90">
+              {self}
+            </span>
+          )}
+        </div>
+      )}
     </button>
   );
 }
