@@ -115,30 +115,28 @@ export function canBeAltColor(dexId: number): boolean {
 }
 
 /**
- * Return a copy of the creature wearing a random emotion portrait, chosen from
- * the seeded RNG so a given run is reproducible. Adds visual variety to each
- * rolled rental Pokémon. Falls back to the creature unchanged (Normal portrait)
- * when no portraits exist for the species.
+ * Return a copy of the creature wearing an emotion portrait. Pass `prefer` to
+ * keep a specific face when the species ships it (used to carry an emotion theme
+ * through evolution); otherwise — or when `prefer` isn't available — the face is
+ * a seeded random pick, so a given run stays reproducible while rentals get
+ * visual variety. The pick is colour-aware: a shiny / alt-colour creature draws
+ * from its own recoloured emotion set, so the face always lands on a portrait
+ * that exists. Falls back to the creature unchanged (Normal portrait) when no
+ * portraits exist for the species.
  */
-export function withRandomPortrait(creature: Creature, rng: RNG): Creature {
-  // A special colouring (shiny / alt colour) draws from its own recoloured
-  // emotion set, so the random face still lands on a portrait that exists.
-  if (creature.shiny) {
-    const shinyEmotions = shinyPortraitEmotions(creature.dexId);
-    if (shinyEmotions.length === 0) return creature;
-    const emotion = rng.pick(shinyEmotions);
-    return { ...creature, portrait: shinyPortraitUrl(creature.dexId, emotion) };
-  }
-  if (creature.altColor) {
-    const altEmotions = altColorPortraitEmotions(creature.dexId);
-    if (altEmotions.length === 0) return creature;
-    const emotion = rng.pick(altEmotions);
-    return { ...creature, portrait: altColorPortraitUrl(creature.dexId, emotion) };
-  }
-  const emotions = portraitEmotions(creature.dexId);
+export function withRandomPortrait(
+  creature: Creature,
+  rng: RNG,
+  prefer?: string,
+): Creature {
+  const [emotions, url] = creature.shiny
+    ? [shinyPortraitEmotions(creature.dexId), shinyPortraitUrl]
+    : creature.altColor
+      ? [altColorPortraitEmotions(creature.dexId), altColorPortraitUrl]
+      : [portraitEmotions(creature.dexId), portraitUrl];
   if (emotions.length === 0) return creature;
-  const emotion = rng.pick(emotions);
-  return { ...creature, portrait: portraitUrl(creature.dexId, emotion) };
+  const emotion = prefer && emotions.includes(prefer) ? prefer : rng.pick(emotions);
+  return { ...creature, portrait: url(creature.dexId, emotion) };
 }
 
 /**
@@ -396,7 +394,13 @@ export function evolveCreature(creature: Creature, targetDexId: number): Creatur
   // A special colouring carries over through evolution (shiny stays shiny, an
   // alt colour stays an alt colour) — falling back to the base palette if the
   // evolved species has no matching recolour.
-  if (creature.shiny) return asShiny(evolved);
-  if (creature.altColor) return asAltColor(evolved);
-  return evolved;
+  if (creature.shiny) evolved = asShiny(evolved);
+  else if (creature.altColor) evolved = asAltColor(evolved);
+  // Carry the emotion theme across: keep the same face when the evolved species
+  // ships it, else fall back to a random one (withRandomPortrait). The RNG is
+  // seeded purely from the evolution + carried emotion so this stays a pure
+  // function — the evolve preview and the committed result always match.
+  const emotion = portraitEmotionFromUrl(creature.portrait);
+  const rng = new RNG(`evolve:${creature.dexId}->${targetDexId}:${emotion ?? ''}`);
+  return withRandomPortrait(evolved, rng, emotion);
 }
