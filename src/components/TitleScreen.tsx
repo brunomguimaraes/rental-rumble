@@ -27,6 +27,7 @@ import { Credits } from './Credits';
 import { PrivacyPolicy } from './PrivacyPolicy';
 import { SupportLinks } from './SupportLinks';
 import { DiscordLink } from './DiscordLink';
+import { DailyCountdown } from './DailyCountdown';
 import {
   ChampionSpotlight,
   BracketRankCard,
@@ -38,6 +39,7 @@ export function TitleScreen({
   onViewLadder,
   onViewHistory,
   onViewGuide,
+  onViewDex,
 }: {
   onStart: (
     difficulty: Difficulty,
@@ -50,6 +52,8 @@ export function TitleScreen({
   onViewHistory: () => void;
   /** Open the standalone "how battles work" guide page. */
   onViewGuide: () => void;
+  /** Open the standalone Pokédex browser. */
+  onViewDex: () => void;
 }) {
   // Custom seed feature disabled: letting players paste a seed added UI/UX
   // complexity (extra input, validation, share copy) for little payoff. Runs
@@ -151,6 +155,11 @@ export function TitleScreen({
           era's daily boss, auto-rotating. Falls back to boss hype when no board
           has been cleared yet. Tapping it opens the full ladder. */}
       <ChampionSpotlight onViewLadder={onViewLadder} summary={summary} />
+
+      {/* Live countdown to the next daily boss/board reset. */}
+      <div className="mt-4">
+        <DailyCountdown />
+      </div>
 
       {/* Generation bracket picker — locks the whole run (draft pool and every
           foe, Champion included) to an era's dex, with its own daily board. */}
@@ -326,28 +335,42 @@ export function TitleScreen({
       </div>
       */}
 
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+      {/* Champions tier — the ladder & hall are the headline destinations
+          after the game itself, so they get matched medium emphasis. */}
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
         <button
           type="button"
           onClick={onViewLadder}
-          className="inline-flex items-center gap-1.5 rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/75 transition hover:bg-white/10"
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/[0.05] px-5 py-2.5 text-sm font-semibold text-white/90 transition hover:bg-white/10"
         >
           <CupIcon cup="cool" className="h-4 w-4" /> Today’s ladder
         </button>
         <button
           type="button"
           onClick={onViewHistory}
-          className="inline-flex items-center gap-1.5 rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/75 transition hover:bg-white/10"
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/[0.05] px-5 py-2.5 text-sm font-semibold text-white/90 transition hover:bg-white/10"
         >
           <CupIcon cup="tough" className="h-4 w-4" /> Hall of Champions
+        </button>
+      </div>
+
+      {/* Everything else — muted, lower-priority pills. */}
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={onViewDex}
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-4 py-1.5 text-xs font-medium text-white/55 transition hover:bg-white/[0.06] hover:text-white/80"
+        >
+          📕 Pokédex
         </button>
         <button
           type="button"
           onClick={onViewGuide}
-          className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/75 transition hover:bg-white/10"
+          className="rounded-full border border-white/15 px-4 py-1.5 text-xs font-medium text-white/55 transition hover:bg-white/[0.06] hover:text-white/80"
         >
           ❔ How battles work
         </button>
+        <DiscordLink pill />
       </div>
 
       {/* Seed-sharing blurb hidden alongside the disabled custom seed feature —
@@ -361,7 +384,6 @@ export function TitleScreen({
       <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
         <Credits />
         <PrivacyPolicy />
-        <DiscordLink />
         <SupportLinks />
       </div>
 

@@ -1,14 +1,23 @@
 const DISCORD_URL = 'https://discord.gg/qtXYk6CuSs';
 
-/** Small footer link to the game's Discord server. Uses the official Discord
- *  glyph and matches the muted footer-link styling used beside Credits/Privacy. */
-export function DiscordLink({ className = '' }: { className?: string }) {
+/** Link to the game's Discord server. Renders as a muted footer link by default,
+ *  or as a rounded pill button (matching the title-screen nav pills) when `pill`. */
+export function DiscordLink({
+  className = '',
+  pill = false,
+}: {
+  className?: string;
+  pill?: boolean;
+}) {
+  const base = pill
+    ? 'inline-flex items-center gap-1.5 rounded-full border border-[#5865F2]/60 px-4 py-1.5 text-xs font-medium text-[#9da9ff] transition hover:bg-[#5865F2]/10'
+    : 'inline-flex items-center gap-1.5 text-xs font-semibold text-white/45 underline-offset-4 transition hover:text-[#9da9ff] hover:underline';
   return (
     <a
       href={DISCORD_URL}
       target="_blank"
       rel="noreferrer"
-      className={`inline-flex items-center gap-1.5 text-xs font-semibold text-white/45 underline-offset-4 transition hover:text-[#9da9ff] hover:underline ${className}`}
+      className={`${base} ${className}`}
     >
       <DiscordIcon className="h-4 w-4" />
       Discord
