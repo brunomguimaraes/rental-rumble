@@ -377,12 +377,16 @@ export function BattleScreen({
   foeTeam,
   result,
   onComplete,
+  lockSpeed = false,
 }: {
   opponent: Opponent;
   playerTeam: Creature[];
   foeTeam: Creature[];
   result: BattleResult;
   onComplete: (winner: Side) => void;
+  // PvP (Throne) fights always play at 1× — the climactic mirror match is meant
+  // to be watched, not skipped — so the speed toggle is forced off and hidden.
+  lockSpeed?: boolean;
 }) {
   const events = result.events;
 
@@ -404,7 +408,7 @@ export function BattleScreen({
   const [banner, setBanner] = useState('');
   const [bannerType, setBannerType] = useState<PokemonType | null>(null);
   const [hitFx, setHitFx] = useState<HitFx | null>(null);
-  const [speed, setSpeed] = useState(readStoredSpeed);
+  const [speed, setSpeed] = useState(() => (lockSpeed ? 1 : readStoredSpeed()));
   const [showGuide, setShowGuide] = useState(false);
   const [finished, setFinished] = useState(false);
   const [pAnim, setPAnim] = useState<AnimState>(IDLE);
@@ -640,23 +644,25 @@ export function BattleScreen({
           >
             ?
           </button>
-          <button
-            type="button"
-            onClick={() =>
-              setSpeed((s) => {
-                const next =
-                  SPEED_CYCLE[
-                    (SPEED_CYCLE.indexOf(s) + 1) % SPEED_CYCLE.length
-                  ];
-                if (typeof window !== 'undefined')
-                  window.localStorage.setItem(SPEED_KEY, String(next));
-                return next;
-              })
-            }
-            className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold transition hover:bg-white/10"
-          >
-            {speed}× speed
-          </button>
+          {!lockSpeed && (
+            <button
+              type="button"
+              onClick={() =>
+                setSpeed((s) => {
+                  const next =
+                    SPEED_CYCLE[
+                      (SPEED_CYCLE.indexOf(s) + 1) % SPEED_CYCLE.length
+                    ];
+                  if (typeof window !== 'undefined')
+                    window.localStorage.setItem(SPEED_KEY, String(next));
+                  return next;
+                })
+              }
+              className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold transition hover:bg-white/10"
+            >
+              {speed}× speed
+            </button>
+          )}
           {import.meta.env.DEV && !finished && (
             <>
               <button

@@ -440,6 +440,7 @@ export default function App() {
           foeTeam={throne.foeTeam}
           result={throneBattle}
           onComplete={finishThrone}
+          lockSpeed
         />
       );
 
