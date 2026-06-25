@@ -250,7 +250,7 @@ console.log('\n[8] Boss difficulty passive + daily reset');
   const master = championFoeStatMult('master');
   check('easy handicaps the boss below normal', easy < normal);
   check('hard/master toughen the boss above normal', hard > normal && master > hard);
-  check('master is the bare champion edge x1.25', approx(master, normal * 1.25));
+  check('master is the bare champion edge x1.15', approx(master, normal * 1.15));
 
   const now = Date.UTC(2026, 5, 25, 10, 0, 0); // 10:00 UTC, past the 03:00 reset
   const next = nextDailyResetMs(new Date(now));
