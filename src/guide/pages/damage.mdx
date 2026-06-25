@@ -1,0 +1,33 @@
+---
+title: The damage formula
+slug: damage
+order: 6
+icon: 🧮
+summary: The exact math, for the curious.
+---
+
+# The damage formula
+
+Every Pokémon fights at **Level 50**, so the stat lines simplify to:
+
+```text
+HP  = base + 60
+Atk/Def/Spd = (base + 5) × sign × stage
+stage(+n) = (2+n)/2     stage(−n) = 2/(2+n)
+```
+
+A single hit then resolves as:
+
+```text
+raw = (22 × power × Atk/Def) / 50 + 2
+dmg = raw × STAB × type × crit × rand
+```
+
+- **STAB** = 1.5× if the move shares the user's type, else 1×.
+- **type** = the type-effectiveness product (0, ¼, ½, 1, 2 or 4×).
+- **crit** = 1.5× on a 6.25% roll.
+- **rand** = a uniform 0.85–1.0 spread, so identical hits vary ±15%.
+- The result is floored, with a minimum of 1 damage on any non-immune hit.
+
+The AI sizes up moves with the same formula at mid-roll (×0.925) and multiplies
+by accuracy, so it can spot guaranteed KOs without rolling the dice.

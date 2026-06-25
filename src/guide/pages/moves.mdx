@@ -1,0 +1,27 @@
+---
+title: Move pools
+slug: moves
+order: 4
+icon: ⚔️
+summary: What each Pokémon can throw, and why.
+---
+
+import { MOVE_SLOTS } from '../../game/moves';
+
+# Move pools
+
+Forget the four-move limit: every Pokémon walks in with up to **{MOVE_SLOTS}
+moves** and the AI decides which to throw each turn.
+
+A pool layers:
+
+- Its own **STAB attacks** — moves that share the user's type.
+- **Element-themed coverage**, which shifts with the sign, so the same species
+  plays differently run to run.
+- A **priority jab** for fast attackers.
+- Exactly **one defensive button** for bulky mons — either **Iron Defense** (for
+  defence-heavy walls) or **Recover** (for HP-heavy ones), never both, so a wall
+  can't fortify and out-heal at once.
+
+Hard-hitting attackers instead pack anti-wall tools — **Super Fang**
+(DEF-ignoring chip) and **Taunt** (stall-breaker).

@@ -27,7 +27,6 @@ import { Credits } from './Credits';
 import { PrivacyPolicy } from './PrivacyPolicy';
 import { SupportLinks } from './SupportLinks';
 import { DiscordLink } from './DiscordLink';
-import { BattleGuide } from './BattleGuide';
 import {
   ChampionSpotlight,
   BracketRankCard,
@@ -38,6 +37,7 @@ export function TitleScreen({
   onStart,
   onViewLadder,
   onViewHistory,
+  onViewGuide,
 }: {
   onStart: (
     difficulty: Difficulty,
@@ -48,6 +48,8 @@ export function TitleScreen({
   onViewLadder: () => void;
   /** Open the past-days "hall of champions" page. */
   onViewHistory: () => void;
+  /** Open the standalone "how battles work" guide page. */
+  onViewGuide: () => void;
 }) {
   // Custom seed feature disabled: letting players paste a seed added UI/UX
   // complexity (extra input, validation, share copy) for little payoff. Runs
@@ -57,7 +59,6 @@ export function TitleScreen({
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [bracket, setBracket] = useState<BracketId>(DEFAULT_BRACKET);
   const [showChampion, setShowChampion] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
   // Starting a run asks the server for a signed seed first; keep the button
   // honest (and unclickable twice) while that round-trip is in flight.
   const [starting, setStarting] = useState(false);
@@ -342,7 +343,7 @@ export function TitleScreen({
         </button>
         <button
           type="button"
-          onClick={() => setShowGuide(true)}
+          onClick={onViewGuide}
           className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/75 transition hover:bg-white/10"
         >
           ❔ How battles work
@@ -372,8 +373,6 @@ export function TitleScreen({
         such are used with admiration, for commentary and informational purposes
         only. 💛
       </p>
-
-      {showGuide && <BattleGuide onClose={() => setShowGuide(false)} />}
     </div>
   );
 }

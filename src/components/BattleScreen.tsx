@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import type { BattleEvent, BattleResult } from '../game/battle';
 import type {
   Creature,
@@ -18,7 +25,12 @@ import { HpBar } from './HpBar';
 import { TypeBadges } from './TypeBadge';
 import { TrainerSprite } from './TrainerSprite';
 import { PmdSprite } from './PmdSprite';
-import { BattleGuide } from './BattleGuide';
+
+// Lazy so the MDX guide bundle never ships with the battle screen — it loads
+// only if a player taps "How battles work" mid-fight.
+const GuideModal = lazy(() =>
+  import('./Guide').then((m) => ({ default: m.GuideModal })),
+);
 
 const REDUCED_MOTION =
   typeof window !== 'undefined' &&
@@ -717,7 +729,11 @@ export function BattleScreen({
         </div>
       </div>
 
-      {showGuide && <BattleGuide onClose={() => setShowGuide(false)} />}
+      {showGuide && (
+        <Suspense fallback={null}>
+          <GuideModal onClose={() => setShowGuide(false)} />
+        </Suspense>
+      )}
     </div>
   );
 }

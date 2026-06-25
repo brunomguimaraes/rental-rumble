@@ -1,0 +1,37 @@
+---
+title: Turn order & the AI
+slug: turn-order
+order: 5
+icon: 🔀
+summary: Who acts first, and the checklist the AI follows.
+---
+
+# Turn order & the AI
+
+Higher move priority (e.g. Quick Attack) always strikes first; otherwise the
+faster Pokémon goes, with ties broken by a coin flip.
+
+Each turn the AI walks a fixed checklist, taking the first option that applies:
+
+1. **Guaranteed KO** — if any move (priority first) is forecast to faint the foe,
+   take it.
+2. **Taunt a staller** — if the foe packs a heal or setup button, a 50% chance to
+   Taunt it, sealing its setup, heals and status moves for a few turns so it has
+   to trade damage instead of fortifying.
+3. **Heal** — below 35% HP, a 60% chance to use a sustain move like Recover. Each
+   heal restores less than the last (the first is biggest), and Recover runs out
+   after 3 uses, so two walls can no longer out-heal each other forever. Blocked
+   while taunted.
+4. **Crack a wall** — when the foe is still above half HP and the best honest hit
+   barely dents it, a 70% chance to use Super Fang, lopping off half the foe's
+   current HP, ignoring Defense and bulk entirely.
+5. **Set up** — above 60% HP and not yet stacked, a 40% chance to buff its stats
+   (Swords Dance, Agility, Iron Defense, or a dual-stat Dragon Dance / Bulk Up).
+   Blocked while taunted.
+6. **Lower the foe's stats** — while the foe is still above half HP, a 35% chance
+   to drop one of its stats (Charm saps Attack, Screech melts Defense, Scary Face
+   tanks Speed). Blocked while taunted.
+7. **Spread status** — against an unafflicted foe, a 35% chance to fish for burn /
+   paralysis / poison / sleep / confusion. Blocked while taunted.
+8. **Best damage** — otherwise throw the move with the highest forecast damage vs.
+   this defender (coverage matters).
