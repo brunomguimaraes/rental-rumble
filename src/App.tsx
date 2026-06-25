@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import type { Creature, Opponent, RelicId, Side } from './game/types';
 import { randomSeed } from './game/rng';
 import { itemEventStages } from './game/relics';
@@ -457,6 +458,7 @@ export default function App() {
       {/* Statically gated so Vite tree-shakes the whole dev panel out of any
           production build — the cheats simply don't exist there. */}
       {import.meta.env.DEV && <DevPanel />}
+      <Analytics />
     </>
   );
 }
