@@ -6,6 +6,7 @@ import type { LeaderboardEntry, ThroneGrant } from '../game/leaderboard';
 import type { BracketId } from '../game/gens';
 import type { Difficulty } from '../game/run';
 import { Leaderboard } from './Leaderboard';
+import { HallOfShame } from './HallOfShame';
 import { RelicStrip } from './RelicStrip';
 import { SupportLinks } from './SupportLinks';
 
@@ -200,21 +201,38 @@ export function ResultScreen({
 
       <RelicStrip relics={relics} className="mt-6 justify-center" />
 
-      <Leaderboard
-        date={dailyKey()}
-        runBracket={bracket}
-        canSubmit={won}
-        run={{
-          difficulty,
-          seed,
-          stage: gauntlet.length - 1,
-          clearedStages,
-          team,
-          relics,
-          token: runToken,
-        }}
-        onChallengeThrone={onChallengeThrone}
-      />
+      {won ? (
+        <Leaderboard
+          date={dailyKey()}
+          runBracket={bracket}
+          canSubmit={won}
+          run={{
+            difficulty,
+            seed,
+            stage: gauntlet.length - 1,
+            clearedStages,
+            team,
+            relics,
+            token: runToken,
+          }}
+          onChallengeThrone={onChallengeThrone}
+        />
+      ) : (
+        // A lost run never ranks on the win board — instead it's auto-enshrined
+        // in the Hall of Shame (with a goofy gag name if you didn't leave one).
+        <HallOfShame
+          date={dailyKey()}
+          seed={seed}
+          run={{
+            bracket,
+            difficulty,
+            clearedStages,
+            team,
+            fellTo: fellTo?.name ?? 'the unknown',
+            fellToTeam: lostToTeam,
+          }}
+        />
+      )}
 
       <div className="mt-8">
         <p className="mb-2 text-xs text-white/40">

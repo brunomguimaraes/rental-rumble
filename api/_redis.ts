@@ -51,6 +51,26 @@ export const boardKey = (date: string, bracket: BracketId = 'all') =>
 export const boardDataKey = (date: string, bracket: BracketId = 'all') =>
   `lb:${date}${suffix(bracket)}:data`;
 
+// The Hall of Shame is a single combined daily board (every era's flops together
+// — funnier and livelier than splitting it per bracket), so its keys carry no
+// bracket suffix. It shares the boards' ~40-day TTL.
+export const shameKey = (date: string) => `hos:${date}`;
+export const shameDataKey = (date: string) => `hos:${date}:data`;
+
+/** One row's stored data on the Hall of Shame. */
+export interface ShameEntryData {
+  // The player's display name (a gag alias when they left it blank). Optional so
+  // a malformed legacy row falls back to the sorted-set member on read.
+  name?: string;
+  difficulty: Difficulty; // the mode this run was played on (display only)
+  bracket: BracketId; // the era it was locked to (display only)
+  clearedStages: number; // how far they got before the wipe (drives shame rank)
+  team: SubmissionMon[]; // their roster at the moment of defeat
+  fellTo: string; // the trainer who ended the run
+  fellToTeam?: SubmissionMon[]; // that trainer's roster, for mini portraits
+  at: number; // epoch ms of the defeat
+}
+
 export interface BoardEntryData {
   // The player's display name. Since there's no account system, the board is an
   // arcade-style high-score table: the same name may hold many rows, so the
