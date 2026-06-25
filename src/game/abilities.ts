@@ -1388,6 +1388,657 @@ export const SIGNATURES: Record<number, AbilityId[]> = {
   355: ['legacy', 'levitate'], // Duskull
   356: ['legacy', 'levitate'], // Dusclops
   359: ['fortune', 'super-luck', 'sniper', 'steadfast'], // Absol
+
+  // ===== Gen IV — Sinnoh =====
+  387: ['grass-warden', 'shell-shield', 'overgrow'], // Turtwig
+  388: ['grass-warden', 'earth-warden', 'overgrow'], // Grotle
+  389: ['earth-warden', 'grass-warden', 'stone-council'], // Torterra
+  390: ['roaring-flame', 'blaze'], // Chimchar
+  391: ['roaring-flame', 'rebel-spirit', 'blaze'], // Monferno
+  392: ['roaring-flame', 'rebel-spirit', 'pack-alpha'], // Infernape
+  393: ['tide-matriarch', 'torrent'], // Piplup
+  394: ['tide-matriarch', 'torrent'], // Prinplup
+  395: ['iron-marshal', 'tide-matriarch', 'torrent'], // Empoleon
+  396: ['sky-lord', 'opening-act', 'intimidate'], // Starly
+  397: ['sky-lord', 'intimidate', 'opening-act'], // Staravia
+  398: ['sky-lord', 'reckless', 'opening-act'], // Staraptor
+  399: ['moody', 'simple', 'unaware'], // Bidoof
+  400: ['pickup', 'simple', 'unaware'], // Bibarel
+  401: ['lullaby', 'swarm'], // Kricketot
+  402: ['lullaby', 'swarm', 'technician'], // Kricketune
+  403: ['volt-squad', 'static', 'volt-absorb'], // Shinx
+  404: ['volt-squad', 'static', 'guts'], // Luxio
+  405: ['volt-squad', 'intimidate', 'static'], // Luxray
+  406: ['thorn-wreath', 'poison-point', 'overgrow'], // Budew
+  407: ['thorn-wreath', 'grass-warden', 'toxic-crown'], // Roserade
+  408: ['momentum', 'glass-cannon', 'sheer-force'], // Cranidos
+  409: ['momentum', 'heavy-hitter', 'glass-cannon'], // Rampardos
+  410: ['shell-shield', 'sturdy', 'stamina'], // Shieldon
+  411: ['shell-shield', 'counterweight', 'sturdy'], // Bastiodon
+  412: ['cocoon-guard', 'latent-power', 'swarm'], // Burmy
+  413: ['cocoon-guard', 'overgrow', 'sturdy'], // Wormadam
+  414: ['treasure-hound', 'swarm', 'moxie'], // Mothim
+  415: ['scout', 'swarm', 'quick-feet'], // Combee
+  416: ['hive-queen', 'rally', 'pressure'], // Vespiquen
+  417: ['cheek-pouch', 'bargain', 'static'], // Pachirisu
+  418: ['first-strike', 'torrent', 'quick-feet'], // Buizel
+  419: ['first-strike', 'sniper', 'torrent'], // Floatzel
+  420: ['verdant', 'overgrow', 'sap-sipper'], // Cherubi
+  421: ['verdant', 'grass-warden', 'sap-sipper'], // Cherrim
+  422: ['gluttony', 'shed-skin', 'water-absorb'], // Shellos
+  423: ['gluttony', 'regenerator', 'rough-skin'], // Gastrodon
+  424: ['first-strike', 'technician', 'scrappy'], // Ambipom
+  425: ['aftermath', 'levitate', 'unburden'], // Drifloon
+  426: ['aftermath', 'unburden', 'levitate'], // Drifblim
+  427: ['first-strike', 'quick-feet', 'scrappy'], // Buneary
+  428: ['first-strike', 'scrappy', 'sniper'], // Lopunny
+  429: ['jinx', 'eerie-aura', 'magic-guard'], // Mismagius
+  430: ['shadow-cabinet', 'moxie', 'super-luck'], // Honchkrow
+  431: ['glory-hog', 'limber', 'quick-feet'], // Glameow
+  432: ['glory-hog', 'intimidate', 'thick-fat'], // Purugly
+  433: ['lullaby', 'magic-guard', 'levitate'], // Chingling
+  434: ['corrosion', 'aftermath', 'poison-point'], // Stunky
+  435: ['corrosion', 'aftermath', 'poison-point'], // Skuntank
+  436: ['gravity', 'levitate', 'heatproof'], // Bronzor
+  437: ['gravity', 'levitate', 'heatproof'], // Bronzong
+  438: ['disguise', 'sturdy', 'solid-rock'], // Bonsly
+  439: ['magic-bounce', 'magic-guard', 'levitate'], // Mime Jr.
+  440: ['transfusion', 'renewal', 'den-mother'], // Happiny
+  441: ['lullaby', 'tailwind', 'moxie'], // Chatot
+  442: ['wraith-choir', 'eerie-aura', 'pressure'], // Spiritomb
+  443: ['first-strike', 'rough-skin', 'sturdy'], // Gible
+  444: ['first-strike', 'rough-skin', 'sturdy'], // Gabite
+  445: ['first-strike', 'predator', 'sand-rush'], // Garchomp
+  446: ['gluttony', 'thick-fat', 'immunity'], // Munchlax
+  447: ['pack-alpha', 'inner-focus', 'steadfast'], // Riolu
+  448: ['pack-alpha', 'justified', 'rival'], // Lucario
+  449: ['earth-warden', 'sturdy', 'stamina'], // Hippopotas
+  450: ['earth-warden', 'stamina', 'sturdy'], // Hippowdon
+  451: ['corrosion', 'battle-armor', 'poison-point'], // Skorupi
+  452: ['corrosion', 'sniper', 'moxie'], // Drapion
+  453: ['first-strike', 'toxic-boost', 'poison-point'], // Croagunk
+  454: ['first-strike', 'toxic-boost', 'opportunist'], // Toxicroak
+  455: ['vampiric', 'overgrow', 'guts'], // Carnivine
+  456: ['scout', 'speed-boost', 'water-absorb'], // Finneon
+  457: ['scout', 'quick-feet', 'water-absorb'], // Lumineon
+  458: ['tailwind', 'water-absorb', 'intimidate'], // Mantyke
+  459: ['permafrost', 'thick-fat', 'overgrow'], // Snover
+  460: ['permafrost', 'grass-warden', 'thick-fat'], // Abomasnow
+  461: ['first-strike', 'shadow-cabinet', 'finisher'], // Weavile
+  462: ['iron-marshal', 'download', 'static'], // Magnezone
+  463: ['gluttony', 'own-tempo', 'thick-fat'], // Lickilicky
+  464: ['cannoneer', 'stone-council', 'solid-rock'], // Rhyperior
+  465: ['verdant', 'regenerator', 'overgrow'], // Tangrowth
+  466: ['giant-slayer', 'motor-drive', 'volt-fury'], // Electivire
+  467: ['cannoneer', 'roaring-flame', 'torch-pass'], // Magmortar
+  468: ['fairy-court', 'magic-guard', 'tailwind'], // Togekiss
+  469: ['first-strike', 'speed-boost', 'tinted-lens'], // Yanmega
+  470: ['verdant', 'grass-warden', 'sap-sipper'], // Leafeon
+  471: ['permafrost', 'thick-fat', 'battle-armor'], // Glaceon
+  472: ['earth-warden', 'sky-lord', 'poison-heal'], // Gliscor
+  473: ['permafrost', 'thick-fat', 'sturdy'], // Mamoswine
+  474: ['download', 'analytic', 'overload'], // Porygon-Z
+  475: ['riposte', 'justified', 'steadfast'], // Gallade
+  476: ['stone-council', 'iron-marshal', 'sturdy'], // Probopass
+  477: ['legacy', 'soul-battery', 'pressure'], // Dusknoir
+  478: ['permafrost', 'wraith-choir', 'cursed-body'], // Froslass
+  479: ['trickster', 'levitate', 'prankster'], // Rotom
+  480: ['diviner', 'psi-network', 'magic-guard'], // Uxie
+  481: ['psi-network', 'magic-guard', 'sheer-force'], // Mesprit
+  482: ['overmind', 'psi-network', 'guts'], // Azelf
+  483: ['dragonlord', 'iron-marshal', 'clear-body'], // Dialga
+  484: ['dragonlord', 'tide-matriarch', 'torrent'], // Palkia
+  485: ['flame-emperor', 'iron-marshal', 'flash-fire'], // Heatran
+  486: ['slow-start', 'den-mother', 'stamina'], // Regigigas
+  487: ['dragonlord', 'wraith-choir', 'levitate'], // Giratina
+  488: ['renewal', 'magic-bounce', 'psi-network'], // Cresselia
+  489: ['tide-matriarch', 'torrent', 'water-absorb'], // Phione
+  490: ['tide-matriarch', 'transfusion', 'torrent'], // Manaphy
+  491: ['lullaby', 'shadow-cabinet', 'jinx'], // Darkrai
+  492: ['grass-warden', 'verdant', 'natural-cure'], // Shaymin
+  493: ['genome', 'overmind', 'adaptability'], // Arceus
+
+  // ===== Gen V — Unova =====
+  494: ['fortune', 'roaring-flame'], // Victini
+  495: ['grass-warden', 'contrary'], // Snivy
+  496: ['grass-warden', 'contrary'], // Servine
+  497: ['grass-warden', 'contrary'], // Serperior
+  498: ['roaring-flame', 'blaze'], // Tepig
+  499: ['roaring-flame', 'rebel-spirit'], // Pignite
+  500: ['roaring-flame', 'rebel-spirit'], // Emboar
+  501: ['first-strike', 'torrent'], // Oshawott
+  502: ['first-strike', 'torrent'], // Dewott
+  503: ['first-strike', 'tide-matriarch'], // Samurott
+  504: ['scout', 'moxie'], // Patrat
+  505: ['scout', 'inner-focus'], // Watchog
+  506: ['den-mother', 'guts'], // Lillipup
+  507: ['den-mother', 'guts'], // Herdier
+  508: ['den-mother', 'scrappy'], // Stoutland
+  509: ['trickster', 'unburden'], // Purrloin
+  510: ['trickster', 'prankster'], // Liepard
+  511: ['verdant', 'sap-sipper'], // Pansage
+  512: ['verdant', 'sap-sipper'], // Simisage
+  513: ['roaring-flame', 'flash-fire'], // Pansear
+  514: ['roaring-flame', 'flash-fire'], // Simisear
+  515: ['tide-matriarch', 'water-absorb'], // Panpour
+  516: ['tide-matriarch', 'water-absorb'], // Simipour
+  517: ['lullaby', 'magic-guard'], // Munna
+  518: ['lullaby', 'psi-network'], // Musharna
+  519: ['sky-lord', 'intimidate'], // Pidove
+  520: ['sky-lord', 'intimidate'], // Tranquill
+  521: ['sky-lord', 'intimidate'], // Unfezant
+  522: ['momentum', 'static'], // Blitzle
+  523: ['momentum', 'motor-drive'], // Zebstrika
+  524: ['stone-council', 'sturdy'], // Roggenrola
+  525: ['stone-council', 'sturdy'], // Boldore
+  526: ['stone-council', 'sturdy'], // Gigalith
+  527: ['tailwind', 'unaware'], // Woobat
+  528: ['tailwind', 'simple'], // Swoobat
+  529: ['earth-warden', 'sand-rush'], // Drilbur
+  530: ['earth-warden', 'sand-rush'], // Excadrill
+  531: ['renewal', 'rally'], // Audino
+  532: ['pack-alpha', 'guts'], // Timburr
+  533: ['pack-alpha', 'guts'], // Gurdurr
+  534: ['pack-alpha', 'guts'], // Conkeldurr
+  535: ['tide-matriarch', 'water-absorb'], // Tympole
+  536: ['earth-warden', 'water-absorb'], // Palpitoad
+  537: ['earth-warden', 'hydration'], // Seismitoad
+  538: ['giant-slayer', 'guts'], // Throh
+  539: ['first-strike', 'inner-focus'], // Sawk
+  540: ['verdant', 'swarm'], // Sewaddle
+  541: ['cocoon-guard', 'verdant'], // Swadloon
+  542: ['hive-queen', 'swarm'], // Leavanny
+  543: ['corrosion', 'poison-point'], // Venipede
+  544: ['cocoon-guard', 'corrosion'], // Whirlipede
+  545: ['corrosion', 'speed-boost'], // Scolipede
+  546: ['prankster', 'magic-guard'], // Cottonee
+  547: ['prankster', 'magic-guard'], // Whimsicott
+  548: ['verdant', 'sap-sipper'], // Petilil
+  549: ['verdant', 'moxie'], // Lilligant
+  550: ['first-strike', 'moxie'], // Basculin
+  551: ['menace', 'intimidate'], // Sandile
+  552: ['menace', 'intimidate'], // Krokorok
+  553: ['menace', 'shadow-cabinet'], // Krookodile
+  554: ['roaring-flame', 'hustle'], // Darumaka
+  555: ['roaring-flame', 'hustle'], // Darmanitan
+  556: ['thorn-wreath', 'sap-sipper'], // Maractus
+  557: ['shell-shield', 'sturdy'], // Dwebble
+  558: ['stone-council', 'sturdy'], // Crustle
+  559: ['swagger-king', 'intimidate'], // Scraggy
+  560: ['swagger-king', 'moxie'], // Scrafty
+  561: ['magic-bounce', 'magic-guard'], // Sigilyph
+  562: ['legacy', 'levitate'], // Yamask
+  563: ['wraith-choir', 'legacy'], // Cofagrigus
+  564: ['shell-shield', 'sturdy'], // Tirtouga
+  565: ['shell-shield', 'stone-council'], // Carracosta
+  566: ['defeatist', 'first-strike'], // Archen
+  567: ['defeatist', 'first-strike'], // Archeops
+  568: ['corrosion', 'poison-point'], // Trubbish
+  569: ['corrosion', 'gluttony'], // Garbodor
+  570: ['disguise', 'rival'], // Zorua
+  571: ['disguise', 'rival'], // Zoroark
+  572: ['pickup', 'technician'], // Minccino
+  573: ['fortune', 'technician'], // Cinccino
+  574: ['diviner', 'magic-guard'], // Gothita
+  575: ['diviner', 'levitate'], // Gothorita
+  576: ['psi-network', 'diviner'], // Gothitelle
+  577: ['backlash', 'magic-guard'], // Solosis
+  578: ['backlash', 'magic-guard'], // Duosion
+  579: ['backlash', 'psi-network'], // Reuniclus
+  580: ['tide-matriarch', 'water-absorb'], // Ducklett
+  581: ['sky-lord', 'water-absorb'], // Swanna
+  582: ['permafrost', 'thick-fat'], // Vanillite
+  583: ['permafrost', 'thick-fat'], // Vanillish
+  584: ['permafrost', 'snow-cloak'], // Vanilluxe
+  585: ['verdant', 'sap-sipper'], // Deerling
+  586: ['verdant', 'sap-sipper'], // Sawsbuck
+  587: ['tailwind', 'motor-drive'], // Emolga
+  588: ['first-strike', 'swarm'], // Karrablast
+  589: ['iron-marshal', 'first-strike'], // Escavalier
+  590: ['lullaby', 'effect-spore'], // Foongus
+  591: ['lullaby', 'effect-spore'], // Amoonguss
+  592: ['wraith-choir', 'water-absorb'], // Frillish
+  593: ['wraith-choir', 'water-absorb'], // Jellicent
+  594: ['transfusion', 'renewal'], // Alomomola
+  595: ['tempest', 'static'], // Joltik
+  596: ['tempest', 'sticky'], // Galvantula
+  597: ['thorn-wreath', 'stamina'], // Ferroseed
+  598: ['grass-warden', 'iron-marshal'], // Ferrothorn
+  599: ['iron-marshal', 'sturdy'], // Klink
+  600: ['iron-marshal', 'stamina'], // Klang
+  601: ['iron-marshal', 'momentum'], // Klinklang
+  602: ['volt-squad', 'volt-absorb'], // Tynamo
+  603: ['volt-squad', 'levitate'], // Eelektrik
+  604: ['volt-squad', 'tempest'], // Eelektross
+  605: ['psi-network', 'magic-guard'], // Elgyem
+  606: ['psi-network', 'download'], // Beheeyem
+  607: ['vampiric', 'flash-fire'], // Litwick
+  608: ['soul-battery', 'flash-fire'], // Lampent
+  609: ['wraith-choir', 'flash-fire'], // Chandelure
+  610: ['dragonlord', 'sheer-force'], // Axew
+  611: ['dragonlord', 'sheer-force'], // Fraxure
+  612: ['dragonlord', 'heavy-hitter'], // Haxorus
+  613: ['permafrost', 'thick-fat'], // Cubchoo
+  614: ['permafrost', 'thick-fat'], // Beartic
+  615: ['permafrost', 'levitate'], // Cryogonal
+  616: ['shell-shield', 'battle-armor'], // Shelmet
+  617: ['first-strike', 'moxie'], // Accelgor
+  618: ['wild-card', 'regenerator'], // Stunfisk
+  619: ['pack-alpha', 'regenerator'], // Mienfoo
+  620: ['pack-alpha', 'regenerator'], // Mienshao
+  621: ['riposte', 'rough-skin'], // Druddigon
+  622: ['earth-warden', 'iron-marshal'], // Golett
+  623: ['earth-warden', 'iron-marshal'], // Golurk
+  624: ['first-strike', 'defiant'], // Pawniard
+  625: ['iron-marshal', 'first-strike'], // Bisharp
+  626: ['giant-slayer', 'sap-sipper'], // Bouffalant
+  627: ['sky-lord', 'defiant'], // Rufflet
+  628: ['sky-lord', 'defiant'], // Braviary
+  629: ['vampiric', 'intimidate'], // Vullaby
+  630: ['vampiric', 'sky-lord'], // Mandibuzz
+  631: ['roaring-flame', 'flash-fire'], // Heatmor
+  632: ['iron-marshal', 'hustle'], // Durant
+  633: ['dragonlord', 'hustle'], // Deino
+  634: ['dragonlord', 'sheer-force'], // Zweilous
+  635: ['dragonlord', 'predator'], // Hydreigon
+  636: ['roaring-flame', 'flame-body'], // Larvesta
+  637: ['flame-emperor', 'torch-pass'], // Volcarona
+  638: ['pack-alpha', 'iron-marshal', 'justified'], // Cobalion
+  639: ['pack-alpha', 'stone-council'], // Terrakion
+  640: ['pack-alpha', 'grass-warden'], // Virizion
+  641: ['sky-lord', 'tempest'], // Tornadus
+  642: ['tempest', 'sky-lord'], // Thundurus
+  643: ['dragonlord', 'flame-emperor', 'roaring-flame'], // Reshiram
+  644: ['dragonlord', 'tempest'], // Zekrom
+  645: ['earth-warden', 'sky-lord'], // Landorus
+  646: ['dragonlord', 'permafrost', 'sheer-cold'], // Kyurem
+  647: ['tide-matriarch', 'rebel-spirit'], // Keldeo
+  648: ['lullaby', 'psi-network'], // Meloetta
+  649: ['iron-marshal', 'download', 'first-strike'], // Genesect
+
+  // ===== Gen VI — Kalos =====
+  650: ['thorn-wreath', 'overgrow'], // Chespin
+  651: ['counterweight', 'thorn-wreath', 'overgrow'], // Quilladin
+  652: ['grass-warden', 'pack-alpha', 'counterweight'], // Chesnaught
+  653: ['roaring-flame', 'blaze'], // Fennekin
+  654: ['roaring-flame', 'psi-network', 'blaze'], // Braixen
+  655: ['roaring-flame', 'psi-network'], // Delphox
+  656: ['first-strike', 'torrent'], // Froakie
+  657: ['first-strike', 'tide-matriarch', 'torrent'], // Frogadier
+  658: ['tide-matriarch', 'first-strike', 'torrent'], // Greninja
+  659: ['pickup', 'scrappy', 'scout'], // Bunnelby
+  660: ['treasure-hound', 'pickup', 'heavy-hitter'], // Diggersby
+  661: ['tailwind', 'big-pecks', 'scout'], // Fletchling
+  662: ['roaring-flame', 'flame-body', 'tailwind'], // Fletchinder
+  663: ['flame-emperor', 'sky-lord', 'flame-body'], // Talonflame
+  664: ['daunt', 'shield-dust', 'swarm'], // Scatterbug
+  665: ['cocoon-guard', 'shed-skin', 'sturdy'], // Spewpa
+  666: ['tailwind', 'lullaby', 'shield-dust'], // Vivillon
+  667: ['glory-hog', 'roaring-flame', 'moxie'], // Litleo
+  668: ['glory-hog', 'moxie', 'showboat'], // Pyroar
+  669: ['verdant', 'fairy-court', 'magic-guard'], // Flabebe
+  670: ['fairy-court', 'verdant', 'magic-guard'], // Floette
+  671: ['fairy-court', 'grass-warden'], // Florges
+  672: ['verdant', 'sap-sipper', 'overgrow'], // Skiddo
+  673: ['verdant', 'sap-sipper'], // Gogoat
+  674: ['giant-slayer', 'guts', 'moxie'], // Pancham
+  675: ['pack-alpha', 'shadow-cabinet', 'guts'], // Pangoro
+  676: ['counterweight', 'fur-coat', 'quick-feet'], // Furfrou
+  677: ['latent-power', 'magic-guard', 'levitate'], // Espurr
+  678: ['psi-network', 'prankster', 'magic-guard'], // Meowstic Male
+  679: ['cursed-body', 'levitate', 'battle-armor'], // Honedge
+  680: ['riposte', 'cursed-body', 'iron-marshal'], // Doublade
+  681: ['iron-marshal', 'stall', 'no-guard'], // Aegislash Shield
+  682: ['lullaby', 'thick-fat', 'magic-guard'], // Spritzee
+  683: ['eerie-aura', 'lullaby', 'magic-guard'], // Aromatisse
+  684: ['gluttony', 'magic-guard', 'stamina'], // Swirlix
+  685: ['treasure-hound', 'gluttony', 'unburden'], // Slurpuff
+  686: ['trickster', 'contrary', 'own-tempo'], // Inkay
+  687: ['trickster', 'contrary', 'own-tempo'], // Malamar
+  688: ['shell-shield', 'counterweight', 'sturdy'], // Binacle
+  689: ['stone-council', 'counterweight', 'solid-rock'], // Barbaracle
+  690: ['corrosion', 'poison-point', 'adaptability'], // Skrelp
+  691: ['toxic-crown', 'corrosion', 'poison-point'], // Dragalge
+  692: ['cannoneer', 'water-absorb', 'sturdy'], // Clauncher
+  693: ['cannoneer', 'water-absorb', 'torrent'], // Clawitzer
+  694: ['tempest', 'cheek-pouch', 'static'], // Helioptile
+  695: ['tempest', 'cheek-pouch', 'static'], // Heliolisk
+  696: ['first-strike', 'dragonlord', 'moxie'], // Tyrunt
+  697: ['dragonlord', 'stone-council', 'first-strike'], // Tyrantrum
+  698: ['permafrost', 'thick-fat', 'sturdy'], // Amaura
+  699: ['stone-council', 'permafrost', 'thick-fat'], // Aurorus
+  700: ['fairy-court', 'magic-guard'], // Sylveon
+  701: ['sky-lord', 'rebel-spirit', 'giant-slayer'], // Hawlucha
+  702: ['cheek-pouch', 'fairy-court', 'static'], // Dedenne
+  703: ['stone-council', 'fairy-court', 'sturdy'], // Carbink
+  704: ['renewal', 'marvel-scale', 'multiscale'], // Goomy
+  705: ['renewal', 'marvel-scale', 'stamina'], // Sliggoo
+  706: ['dragonlord', 'marvel-scale', 'renewal'], // Goodra
+  707: ['iron-marshal', 'prankster', 'curator'], // Klefki
+  708: ['lullaby', 'levitate', 'overgrow'], // Phantump
+  709: ['wraith-choir', 'grass-warden', 'levitate'], // Trevenant
+  710: ['lullaby', 'sturdy', 'levitate'], // Pumpkaboo Average
+  711: ['wraith-choir', 'gluttony', 'lullaby'], // Gourgeist Average
+  712: ['counterweight', 'permafrost', 'thick-fat'], // Bergmite
+  713: ['permafrost', 'counterweight', 'thick-fat'], // Avalugg
+  714: ['screech', 'gale-force', 'intimidate'], // Noibat
+  715: ['dragonlord', 'sky-lord', 'gale-force'], // Noivern
+  716: ['fairy-court', 'renewal', 'magic-guard'], // Xerneas
+  717: ['shadow-cabinet', 'vampiric', 'sky-lord'], // Yveltal
+  718: ['dragonlord', 'earth-warden', 'marvel-scale'], // Zygarde 50
+  719: ['stone-council', 'fairy-court', 'magic-guard'], // Diancie
+  720: ['psi-network', 'wraith-choir', 'magic-bounce'], // Hoopa
+  721: ['flame-emperor', 'tide-matriarch', 'roaring-flame'], // Volcanion
+
+  // ===== Gen VII — Alola =====
+  722: ['scout', 'overgrow'], // Rowlet
+  723: ['first-strike', 'overgrow', 'regenerator'], // Dartrix
+  724: ['first-strike', 'wraith-choir', 'long-reach'], // Decidueye
+  725: ['roaring-flame', 'flash-fire', 'blaze'], // Litten
+  726: ['roaring-flame', 'speed-boost', 'blaze'], // Torracat
+  727: ['roaring-flame', 'shadow-cabinet', 'intimidate'], // Incineroar
+  728: ['tide-matriarch', 'torrent'], // Popplio
+  729: ['tailwind', 'torrent'], // Brionne
+  730: ['tide-matriarch', 'fairy-court', 'lullaby'], // Primarina
+  731: ['cannoneer', 'sky-lord'], // Pikipek
+  732: ['cannoneer', 'sky-lord', 'intimidate'], // Trumbeak
+  733: ['cannoneer', 'sky-lord', 'sheer-force'], // Toucannon
+  734: ['first-strike', 'predator', 'scrappy'], // Yungoos
+  735: ['first-strike', 'predator', 'scrappy'], // Gumshoos
+  736: ['cheek-pouch', 'swarm'], // Grubbin
+  737: ['cheek-pouch', 'cocoon-guard', 'static'], // Charjabug
+  738: ['tempest', 'cheek-pouch', 'static'], // Vikavolt
+  739: ['riposte', 'guts', 'justified'], // Crabrawler
+  740: ['pack-alpha', 'permafrost', 'guts'], // Crabominable
+  741: ['tailwind', 'wild-card'], // Oricorio
+  742: ['tailwind', 'magic-guard'], // Cutiefly
+  743: ['fairy-court', 'tailwind', 'magic-guard'], // Ribombee
+  744: ['first-strike', 'stone-council', 'sturdy'], // Rockruff
+  745: ['first-strike', 'stone-council', 'sand-rush'], // Lycanroc
+  746: ['giant-slayer', 'tide-matriarch'], // Wishiwashi
+  747: ['corrosion', 'poison-point', 'stamina'], // Mareanie
+  748: ['corrosion', 'filter', 'pressure'], // Toxapex
+  749: ['counterweight', 'stamina', 'sturdy'], // Mudbray
+  750: ['earth-warden', 'stamina', 'sturdy'], // Mudsdale
+  751: ['shell-shield', 'torrent', 'battle-armor'], // Dewpider
+  752: ['backlash', 'tide-matriarch', 'shell-shield'], // Araquanid
+  753: ['first-strike', 'overgrow', 'sap-sipper'], // Fomantis
+  754: ['grass-warden', 'first-strike', 'sheer-force'], // Lurantis
+  755: ['lullaby', 'magic-guard', 'effect-spore'], // Morelull
+  756: ['vampiric', 'lullaby', 'magic-guard'], // Shiinotic
+  757: ['corrosion', 'poison-point', 'blaze'], // Salandit
+  758: ['corrosion', 'toxic-boost', 'opportunist'], // Salazzle
+  759: ['riposte', 'fur-coat', 'guts'], // Stufful
+  760: ['pack-alpha', 'den-mother', 'guts'], // Bewear
+  761: ['renewal', 'sap-sipper'], // Bounsweet
+  762: ['first-strike', 'speed-boost', 'sap-sipper'], // Steenee
+  763: ['first-strike', 'rebel-spirit', 'sheer-force'], // Tsareena
+  764: ['renewal', 'parting-gift', 'natural-cure'], // Comfey
+  765: ['psi-network', 'analytic', 'veteran'], // Oranguru
+  766: ['pack-alpha', 'momentum', 'rally'], // Passimian
+  767: ['treasure-hound', 'scout', 'torrent'], // Wimpod
+  768: ['first-strike', 'backlash', 'stamina'], // Golisopod
+  769: ['cursed-body', 'levitate', 'rough-skin'], // Sandygast
+  770: ['wraith-choir', 'earth-warden', 'vampiric'], // Palossand
+  771: ['counterweight', 'stall', 'aftermath'], // Pyukumuku
+  772: ['genome', 'overmind', 'adaptability'], // Type: Null
+  773: ['genome', 'overmind', 'adaptability'], // Silvally
+  774: ['shell-shield', 'stone-council', 'sturdy'], // Minior
+  775: ['lullaby', 'oblivious'], // Komala
+  776: ['roaring-flame', 'backlash', 'sturdy'], // Turtonator
+  777: ['cheek-pouch', 'iron-barbs', 'static'], // Togedemaru
+  778: ['disguise', 'plot-armor', 'trickster'], // Mimikyu
+  779: ['first-strike', 'psi-network', 'screech'], // Bruxish
+  780: ['dragonlord', 'den-mother', 'marvel-scale'], // Drampa
+  781: ['wraith-choir', 'long-reach', 'vampiric'], // Dhelmise
+  782: ['first-strike', 'marvel-scale', 'sturdy'], // Jangmo-o
+  783: ['menace', 'marvel-scale', 'guts'], // Hakamo-o
+  784: ['dragonlord', 'pack-alpha', 'marvel-scale'], // Kommo-o
+  785: ['fairy-court', 'tempest', 'volt-squad'], // Tapu Koko
+  786: ['fairy-court', 'psi-network', 'renewal'], // Tapu Lele
+  787: ['fairy-court', 'grass-warden', 'verdant'], // Tapu Bulu
+  788: ['fairy-court', 'tide-matriarch', 'natural-cure'], // Tapu Fini
+  789: ['latent-power', 'counterweight', 'levitate'], // Cosmog
+  790: ['latent-power', 'counterweight', 'sturdy'], // Cosmoem
+  791: ['iron-marshal', 'psi-network', 'first-strike'], // Solgaleo
+  792: ['wraith-choir', 'psi-network', 'lullaby'], // Lunala
+  793: ['corrosion', 'stone-council', 'eerie-aura'], // Nihilego
+  794: ['pack-alpha', 'giant-slayer', 'vampiric'], // Buzzwole
+  795: ['first-strike', 'glass-cannon', 'speed-boost'], // Pheromosa
+  796: ['tempest', 'cheek-pouch', 'overload'], // Xurkitree
+  797: ['iron-marshal', 'sky-lord', 'heavy-hitter'], // Celesteela
+  798: ['first-strike', 'iron-marshal', 'giant-slayer'], // Kartana
+  799: ['vampiric', 'shadow-cabinet', 'gluttony'], // Guzzlord
+  800: ['overmind', 'first-strike', 'psi-network'], // Necrozma
+  801: ['iron-marshal', 'fairy-court', 'soul-battery'], // Magearna
+  802: ['first-strike', 'wraith-choir', 'pack-alpha'], // Marshadow
+  803: ['corrosion', 'cannoneer', 'poison-point'], // Poipole
+  804: ['cannoneer', 'corrosion', 'sniper'], // Naganadel
+  805: ['stone-council', 'counterweight', 'sturdy'], // Stakataka
+  806: ['aftermath', 'roaring-flame', 'levitate'], // Blacephalon
+  807: ['tempest', 'first-strike', 'volt-fury'], // Zeraora
+  808: ['iron-marshal', 'heavy-hitter', 'heatproof'], // Meltan
+  809: ['iron-marshal', 'heavy-hitter', 'counterweight'], // Melmetal
+
+  // ===== Gen VIII — Galar =====
+  810: ['grass-warden', 'overgrow', 'sap-sipper'], // Grookey
+  811: ['grass-warden', 'momentum', 'overgrow'], // Thwackey
+  812: ['grass-warden', 'pack-alpha'], // Rillaboom
+  813: ['roaring-flame', 'first-strike', 'blaze'], // Scorbunny
+  814: ['roaring-flame', 'first-strike', 'blaze'], // Raboot
+  815: ['roaring-flame', 'first-strike'], // Cinderace
+  816: ['cannoneer', 'sniper', 'torrent'], // Sobble
+  817: ['cannoneer', 'sniper', 'first-strike'], // Drizzile
+  818: ['cannoneer', 'first-strike', 'sniper'], // Inteleon
+  819: ['treasure-hound', 'pickup', 'gluttony'], // Skwovet
+  820: ['treasure-hound', 'pickup'], // Greedent
+  821: ['first-strike', 'sky-lord', 'intimidate'], // Rookidee
+  822: ['first-strike', 'sky-lord', 'intimidate'], // Corvisquire
+  823: ['iron-marshal', 'sky-lord'], // Corviknight
+  824: ['scout', 'swarm', 'compound-eyes'], // Blipbug
+  825: ['psi-network', 'scout', 'magic-guard'], // Dottler
+  826: ['psi-network', 'magic-bounce'], // Orbeetle
+  827: ['fortune', 'shadow-cabinet', 'pickup'], // Nickit
+  828: ['shadow-cabinet', 'fortune'], // Thievul
+  829: ['verdant', 'renewal', 'sap-sipper'], // Gossifleur
+  830: ['grass-warden', 'renewal'], // Eldegoss
+  831: ['counterweight', 'fur-coat', 'stamina'], // Wooloo
+  832: ['counterweight', 'fur-coat'], // Dubwool
+  833: ['first-strike', 'predator', 'guts'], // Chewtle
+  834: ['stone-council', 'first-strike'], // Drednaw
+  835: ['tempest', 'first-strike', 'pickup'], // Yamper
+  836: ['tempest', 'first-strike'], // Boltund
+  837: ['stone-council', 'roaring-flame', 'sturdy'], // Rolycoly
+  838: ['stone-council', 'roaring-flame', 'sturdy'], // Carkol
+  839: ['stone-council', 'roaring-flame'], // Coalossal
+  840: ['cocoon-guard', 'dragonlord', 'grass-warden'], // Applin
+  841: ['dragonlord', 'grass-warden'], // Flapple
+  842: ['dragonlord', 'grass-warden', 'thick-fat'], // Appletun
+  843: ['earth-warden', 'stamina', 'rough-skin'], // Silicobra
+  844: ['earth-warden', 'stamina'], // Sandaconda
+  845: ['gluttony', 'tide-matriarch'], // Cramorant
+  846: ['first-strike', 'predator', 'speed-boost'], // Arrokuda
+  847: ['first-strike', 'tide-matriarch'], // Barraskewda
+  848: ['corrosion', 'tempest', 'poison-point'], // Toxel
+  849: ['tempest', 'corrosion'], // Toxtricity Amped
+  850: ['roaring-flame', 'backlash', 'swarm'], // Sizzlipede
+  851: ['roaring-flame', 'backlash'], // Centiskorch
+  852: ['pack-alpha', 'riposte', 'guts'], // Clobbopus
+  853: ['pack-alpha', 'riposte'], // Grapploct
+  854: ['wraith-choir', 'disguise', 'eerie-aura'], // Sinistea
+  855: ['wraith-choir', 'eerie-aura'], // Polteageist
+  856: ['magic-bounce', 'fairy-court', 'magic-guard'], // Hatenna
+  857: ['magic-bounce', 'fairy-court', 'sheer-force'], // Hattrem
+  858: ['magic-bounce', 'fairy-court'], // Hatterene
+  859: ['prankster', 'shadow-cabinet', 'fairy-court'], // Impidimp
+  860: ['trickster', 'prankster', 'fairy-court'], // Morgrem
+  861: ['shadow-cabinet', 'fairy-court', 'prankster'], // Grimmsnarl
+  862: ['swagger-king', 'first-strike', 'defiant'], // Obstagoon
+  863: ['iron-marshal', 'pickup'], // Perrserker
+  864: ['perish-body', 'wraith-choir', 'cursed-body'], // Cursola
+  865: ['first-strike', 'pack-alpha', 'guts'], // Sirfetch'd
+  866: ['magic-bounce', 'permafrost', 'thick-fat'], // Mr. Rime
+  867: ['perish-body', 'wraith-choir', 'sturdy'], // Runerigus
+  868: ['renewal', 'fairy-court', 'magic-guard'], // Milcery
+  869: ['fairy-court', 'renewal'], // Alcremie
+  870: ['pack-alpha', 'rally', 'counterweight'], // Falinks
+  871: ['backlash', 'tempest', 'static'], // Pincurchin
+  872: ['cocoon-guard', 'permafrost', 'swarm'], // Snom
+  873: ['permafrost', 'lullaby'], // Frosmoth
+  874: ['stone-council', 'counterweight', 'sturdy'], // Stonjourner
+  875: ['permafrost', 'shell-shield', 'thick-fat'], // Eiscue Ice
+  876: ['psi-network', 'fairy-court', 'renewal'], // Indeedee Male
+  877: ['cheek-pouch', 'wild-card', 'quick-feet'], // Morpeko Full Belly
+  878: ['iron-marshal', 'earth-warden', 'heatproof'], // Cufant
+  879: ['iron-marshal', 'earth-warden'], // Copperajah
+  880: ['first-strike', 'earth-warden', 'tempest'], // Dracozolt
+  881: ['permafrost', 'tempest', 'static'], // Arctozolt
+  882: ['first-strike', 'predator', 'vampiric'], // Dracovish
+  883: ['permafrost', 'predator', 'thick-fat'], // Arctovish
+  884: ['iron-marshal', 'dragonlord', 'clear-body'], // Duraludon
+  885: ['latent-power', 'dragonlord', 'cursed-body'], // Dreepy
+  886: ['dragonlord', 'first-strike', 'cursed-body'], // Drakloak
+  887: ['dragonlord', 'predator', 'cursed-body'], // Dragapult
+  888: ['first-strike', 'fairy-court', 'iron-marshal'], // Zacian
+  889: ['pack-alpha', 'iron-marshal', 'counterweight'], // Zamazenta
+  890: ['toxic-crown', 'dragonlord', 'corrosion'], // Eternatus
+  891: ['pack-alpha', 'first-strike', 'guts'], // Kubfu
+  892: ['pack-alpha', 'first-strike', 'shadow-cabinet'], // Urshifu Single Strike
+  893: ['shadow-cabinet', 'grass-warden', 'renewal'], // Zarude
+  894: ['tempest', 'volt-fury', 'motor-drive'], // Regieleki
+  895: ['dragonlord', 'heavy-hitter', 'multiscale'], // Regidrago
+  896: ['permafrost', 'counterweight', 'sturdy'], // Glastrier
+  897: ['wraith-choir', 'first-strike', 'vampiric'], // Spectrier
+  898: ['psi-network', 'grass-warden', 'renewal'], // Calyrex
+  899: ['den-mother', 'psi-network', 'adaptability'], // Wyrdeer
+  900: ['first-strike', 'heavy-hitter', 'sturdy'], // Kleavor
+  901: ['giant-slayer', 'guts', 'quick-feet'], // Ursaluna
+  902: ['vampiric', 'adaptability', 'moxie'], // Basculegion Male
+  903: ['first-strike', 'technician', 'poison-point'], // Sneasler
+  904: ['corrosion', 'poison-point', 'intimidate'], // Overqwil
+  905: ['fairy-court', 'sky-lord', 'fairy-wrath'], // Enamorus Incarnate
+
+  // ===== Gen IX — Paldea =====
+  906: ['first-strike', 'grass-warden', 'overgrow'], // Sprigatito
+  907: ['first-strike', 'grass-warden', 'overgrow'], // Floragato
+  908: ['shadow-cabinet', 'first-strike', 'overgrow'], // Meowscarada
+  909: ['roaring-flame', 'blaze', 'flash-fire'], // Fuecoco
+  910: ['roaring-flame', 'blaze', 'flash-fire'], // Crocalor
+  911: ['roaring-flame', 'wraith-choir', 'blaze'], // Skeledirge
+  912: ['tide-matriarch', 'first-strike', 'torrent'], // Quaxly
+  913: ['tide-matriarch', 'first-strike', 'torrent'], // Quaxwell
+  914: ['tide-matriarch', 'pack-alpha', 'first-strike'], // Quaquaval
+  915: ['gluttony', 'thick-fat', 'scrappy'], // Lechonk
+  916: ['gluttony', 'thick-fat', 'scrappy'], // Oinkologne
+  917: ['riposte', 'swarm', 'technician'], // Tarountula
+  918: ['riposte', 'swarm', 'technician'], // Spidops
+  919: ['first-strike', 'swarm', 'technician'], // Nymble
+  920: ['first-strike', 'shadow-cabinet', 'swarm'], // Lokix
+  921: ['cheek-pouch', 'static', 'volt-absorb'], // Pawmi
+  922: ['cheek-pouch', 'first-strike', 'static'], // Pawmo
+  923: ['cheek-pouch', 'first-strike', 'static'], // Pawmot
+  924: ['den-mother', 'fortune', 'adaptability'], // Tandemaus
+  925: ['den-mother', 'fortune', 'adaptability'], // Maushold
+  926: ['fairy-court', 'den-mother', 'magic-guard'], // Fidough
+  927: ['fairy-court', 'den-mother', 'heatproof'], // Dachsbun
+  928: ['grass-warden', 'verdant', 'overgrow'], // Smoliv
+  929: ['grass-warden', 'verdant', 'overgrow'], // Dolliv
+  930: ['grass-warden', 'verdant', 'overgrow'], // Arboliva
+  931: ['first-strike', 'sky-lord', 'intimidate'], // Squawkabilly
+  932: ['stone-council', 'renewal', 'sturdy'], // Nacli
+  933: ['stone-council', 'renewal', 'sturdy'], // Naclstack
+  934: ['stone-council', 'renewal', 'sturdy'], // Garganacl
+  935: ['roaring-flame', 'blaze', 'flash-fire'], // Charcadet
+  936: ['roaring-flame', 'psi-network', 'blaze'], // Armarouge
+  937: ['wraith-choir', 'roaring-flame', 'blaze'], // Ceruledge
+  938: ['tempest', 'static', 'volt-absorb'], // Tadbulb
+  939: ['tempest', 'backlash', 'static'], // Bellibolt
+  940: ['tempest', 'sky-lord', 'static'], // Wattrel
+  941: ['tempest', 'sky-lord', 'static'], // Kilowattrel
+  942: ['shadow-cabinet', 'intimidate', 'moxie'], // Maschiff
+  943: ['shadow-cabinet', 'intimidate', 'moxie'], // Mabosstiff
+  944: ['corrosion', 'poison-point', 'adaptability'], // Shroodle
+  945: ['corrosion', 'wild-card', 'poison-point'], // Grafaiai
+  946: ['wraith-choir', 'grass-warden', 'levitate'], // Bramblin
+  947: ['wraith-choir', 'grass-warden', 'levitate'], // Brambleghast
+  948: ['earth-warden', 'grass-warden', 'rough-skin'], // Toedscool
+  949: ['earth-warden', 'grass-warden', 'rough-skin'], // Toedscruel
+  950: ['stone-council', 'counterweight', 'sturdy'], // Klawf
+  951: ['corrosion', 'overgrow', 'sap-sipper'], // Capsakid
+  952: ['roaring-flame', 'corrosion', 'overgrow'], // Scovillain
+  953: ['momentum', 'swarm', 'technician'], // Rellor
+  954: ['psi-network', 'magic-guard', 'swarm'], // Rabsca
+  955: ['psi-network', 'magic-guard', 'levitate'], // Flittle
+  956: ['psi-network', 'magic-guard', 'speed-boost'], // Espathra
+  957: ['fairy-court', 'giant-slayer', 'magic-guard'], // Tinkatink
+  958: ['fairy-court', 'giant-slayer', 'magic-guard'], // Tinkatuff
+  959: ['fairy-court', 'giant-slayer', 'magic-guard'], // Tinkaton
+  960: ['first-strike', 'tide-matriarch', 'water-absorb'], // Wiglett
+  961: ['first-strike', 'tide-matriarch', 'water-absorb'], // Wugtrio
+  962: ['sky-lord', 'predator', 'intimidate'], // Bombirdier
+  963: ['tide-matriarch', 'torrent', 'water-absorb'], // Finizen
+  964: ['giant-slayer', 'tide-matriarch', 'transform'], // Palafin
+  965: ['iron-marshal', 'momentum', 'poison-point'], // Varoom
+  966: ['iron-marshal', 'momentum', 'poison-point'], // Revavroom
+  967: ['first-strike', 'dragonlord', 'momentum'], // Cyclizar
+  968: ['iron-marshal', 'counterweight', 'sturdy'], // Orthworm
+  969: ['stone-council', 'corrosion', 'poison-point'], // Glimmet
+  970: ['stone-council', 'corrosion', 'poison-point'], // Glimmora
+  971: ['wraith-choir', 'legacy', 'levitate'], // Greavard
+  972: ['wraith-choir', 'legacy', 'levitate'], // Houndstone
+  973: ['pack-alpha', 'sky-lord', 'intimidate'], // Flamigo
+  974: ['permafrost', 'gluttony', 'thick-fat'], // Cetoddle
+  975: ['permafrost', 'gluttony', 'thick-fat'], // Cetitan
+  976: ['first-strike', 'psi-network', 'torrent'], // Veluza
+  977: ['den-mother', 'counterweight', 'water-absorb'], // Dondozo
+  978: ['tide-matriarch', 'trickster', 'disguise'], // Tatsugiri
+  979: ['revenge-cry', 'rebel-spirit', 'guts'], // Annihilape
+  980: ['earth-warden', 'corrosion', 'poison-point'], // Clodsire
+  981: ['psi-network', 'den-mother', 'regenerator'], // Farigiraf
+  982: ['wild-card', 'sturdy', 'thick-fat'], // Dudunsparce
+  983: ['iron-marshal', 'steel-heart', 'pack-alpha'], // Kingambit
+  984: ['earth-warden', 'giant-slayer', 'latent-power'], // Great Tusk
+  985: ['fairy-court', 'latent-power', 'lullaby'], // Scream Tail
+  986: ['shadow-cabinet', 'vampiric', 'latent-power'], // Brute Bonnet
+  987: ['wraith-choir', 'latent-power', 'fairy-court'], // Flutter Mane
+  988: ['pack-alpha', 'latent-power', 'swarm'], // Slither Wing
+  989: ['tempest', 'earth-warden', 'latent-power'], // Sandy Shocks
+  990: ['iron-marshal', 'earth-warden', 'latent-power'], // Iron Treads
+  991: ['permafrost', 'first-strike', 'latent-power'], // Iron Bundle
+  992: ['pack-alpha', 'cheek-pouch', 'latent-power'], // Iron Hands
+  993: ['shadow-cabinet', 'sky-lord', 'latent-power'], // Iron Jugulis
+  994: ['roaring-flame', 'corrosion', 'latent-power'], // Iron Moth
+  995: ['stone-council', 'tempest', 'latent-power'], // Iron Thorns
+  996: ['dragonlord', 'permafrost', 'marvel-scale'], // Frigibax
+  997: ['dragonlord', 'permafrost', 'marvel-scale'], // Arctibax
+  998: ['dragonlord', 'permafrost', 'thick-fat'], // Baxcalibur
+  999: ['fortune', 'treasure-hound', 'levitate'], // Gimmighoul
+  1000: ['fortune', 'pickup', 'treasure-hound'], // Gholdengo
+  1001: ['ruin', 'shadow-cabinet', 'grass-warden'], // Wo-Chien
+  1002: ['ruin', 'permafrost', 'first-strike'], // Chien-Pao
+  1003: ['ruin', 'earth-warden', 'counterweight'], // Ting-Lu
+  1004: ['ruin', 'roaring-flame', 'shadow-cabinet'], // Chi-Yu
+  1005: ['dragonlord', 'shadow-cabinet', 'latent-power'], // Roaring Moon
+  1006: ['fairy-court', 'first-strike', 'latent-power'], // Iron Valiant
+  1007: ['dragonlord', 'pack-alpha', 'first-strike'], // Koraidon
+  1008: ['dragonlord', 'tempest', 'volt-squad'], // Miraidon
+  1009: ['deluge', 'dragonlord', 'latent-power'], // Walking Wake
+  1010: ['grass-warden', 'first-strike', 'latent-power'], // Iron Leaves
+  1011: ['dragonlord', 'grass-warden', 'overgrow'], // Dipplin
+  1012: ['wraith-choir', 'renewal', 'levitate'], // Poltchageist
+  1013: ['wraith-choir', 'renewal', 'levitate'], // Sinistcha
+  1014: ['pack-alpha', 'shadow-cabinet', 'guts'], // Okidogi
+  1015: ['psi-network', 'wraith-choir', 'corrosion'], // Munkidori
+  1016: ['fairy-court', 'fortune', 'corrosion'], // Fezandipiti
+  1017: ['grass-warden', 'first-strike', 'sap-sipper'], // Ogerpon
+  1018: ['iron-marshal', 'dragonlord', 'cannoneer'], // Archaludon
+  1019: ['dragonlord', 'grass-warden', 'overgrow'], // Hydrapple
+  1020: ['roaring-flame', 'dragonlord', 'latent-power'], // Gouging Fire
+  1021: ['tempest', 'dragonlord', 'latent-power'], // Raging Bolt
+  1022: ['stone-council', 'first-strike', 'latent-power'], // Iron Boulder
+  1023: ['psi-network', 'iron-marshal', 'latent-power'], // Iron Crown
+  1024: ['overmind', 'stone-council', 'multiscale'], // Terapagos
+  1025: ['wraith-choir', 'corrosion', 'toxic-crown'], // Pecharunt
 };
 
 /**
