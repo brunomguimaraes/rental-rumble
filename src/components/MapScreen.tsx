@@ -8,6 +8,7 @@ import { TrainerSprite } from './TrainerSprite';
 import { LineupEditor } from './LineupEditor';
 import { RelicStrip } from './RelicStrip';
 import { DEV } from '../game/dev';
+import { scrollToSection } from '../ui-scroll';
 
 export function MapScreen({
   gauntlet,
@@ -35,6 +36,14 @@ export function MapScreen({
 }) {
   const [confirmingQuit, setConfirmingQuit] = useState(false);
   const currentOpp = gauntlet[stage];
+
+  // On harder modes the gauntlet runs long enough that the trainer you're about
+  // to fight starts below the fold — so bring it into view when the map opens and
+  // whenever the stage advances. (No-op when it's already visible, e.g. stage 1.)
+  const currentTrainerRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    scrollToSection(currentTrainerRef.current, 'center');
+  }, [stage]);
   // Skippable foes (the rare bonus challenge) don't count toward the mandatory
   // tally — you can wave them off and still be crowned Champion.
   const required = gauntlet.filter((o) => !o.skippable).length;
@@ -83,6 +92,7 @@ export function MapScreen({
           return (
             <li
               key={opp.id}
+              ref={current ? currentTrainerRef : undefined}
               className={`flex items-center gap-3 rounded-2xl border p-2.5 transition sm:gap-4 sm:p-3 ${
                 current
                   ? 'border-white/50 bg-white/[0.07]'

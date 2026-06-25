@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AbilityId, Creature, Move, MoveCategory, Sign } from '../game/types';
 import type { BracketId } from '../game/gens';
@@ -46,6 +46,7 @@ import { shinyChanceForTeam } from '../game/run';
 import { RNG } from '../game/rng';
 import { CreatureCard } from './CreatureCard';
 import { CupIcon } from './CupIcon';
+import { scrollToSection } from '../ui-scroll';
 
 type Mode = 'choose' | 'recruit' | 'evolve' | 'move' | 'reroll' | 'ability';
 type RewardMode = Exclude<Mode, 'choose'>;
@@ -179,6 +180,14 @@ export function RecruitScreen({
   // flourish (and a clear way out) instead of silently flipping the card.
   const [revealEvolve, setRevealEvolve] = useState(false);
 
+  // Refs to the "next step" sections of the multi-step reward flows. On a phone
+  // each pick and its follow-up don't share a screen, so once a pick is made the
+  // effects below scroll the next step into view.
+  const recruitTeamRef = useRef<HTMLDivElement>(null);
+  const evolveBranchRef = useRef<HTMLDivElement>(null);
+  const moveDropRef = useRef<HTMLDivElement>(null);
+  const moveRollRef = useRef<HTMLDivElement>(null);
+
   // Reward 2.5 — tweak a move: replace one move on one of YOUR Pokémon with
   // another from the species' legal pool (a deliberate, build-it-yourself pick —
   // no gamble). Three steps: which Pokémon, which move slot, the replacement.
@@ -262,6 +271,41 @@ export function RecruitScreen({
     currentTeam.some((_, slot) => recruitSlotAllowed(foe, slot));
 
   const anyEvolvable = currentTeam.some((c) => canEvolve(c, bracket));
+
+  // A branched line (e.g. Eevee) shows its evolution choices in a section below
+  // the team grid; this gates both that section and the scroll-to-it effect.
+  const showEvolveBranches =
+    mode === 'evolve' &&
+    evolveSlot !== null &&
+    !evolveCommitted &&
+    evolutionTargets(currentTeam[evolveSlot].dexId, bracket).length > 1;
+
+  // Recruit step 2: once a foe is armed the player taps a slot on their own team,
+  // which sits below the foe grid — so scroll it into view after the first pick.
+  useEffect(() => {
+    if (mode === 'recruit' && foeIdx !== null && recruitSlot === null) {
+      scrollToSection(recruitTeamRef.current, 'start');
+    }
+  }, [mode, foeIdx, recruitSlot]);
+
+  // Evolve step 2: when a branched line reveals its choices, scroll them in too.
+  useEffect(() => {
+    if (showEvolveBranches) scrollToSection(evolveBranchRef.current, 'center');
+  }, [showEvolveBranches, evolveSlot]);
+
+  // Tweak-a-move step 2: picking the Pokémon reveals its move list below.
+  useEffect(() => {
+    if (mode === 'move' && moveTeamSlot !== null) {
+      scrollToSection(moveDropRef.current, 'start');
+    }
+  }, [mode, moveTeamSlot]);
+
+  // Tweak-a-move step 3: picking the move to drop reveals the replacement roll.
+  useEffect(() => {
+    if (mode === 'move' && moveSlotIdx !== null) {
+      scrollToSection(moveRollRef.current, 'start');
+    }
+  }, [mode, moveSlotIdx]);
 
   const recruitDone = foeIdx !== null && recruitSlot !== null;
   // An evolution only counts once the player has passed the confirm gate — until
@@ -465,7 +509,43 @@ export function RecruitScreen({
         <>
           <RewardHeader label="Recruiting from defeated team" />
 
+          {/* Pick the foe to recruit first — it's the entry point, so it leads;
+              arming one then scrolls the player down to their own team below. */}
           <div className="mt-5">
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
+              {opponentName}'s Pokémon
+              {foeIdx === null && (
+                <span className="ml-2 text-white/35">tap one to recruit</span>
+              )}
+            </h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {defeatedView.map((c, i) => {
+                // Every team slot already belongs to this foe's line, so taking it
+                // would unavoidably duplicate that line — it can't be recruited.
+                const recruitable = canRecruitFoe(c);
+                return (
+                  <div key={i} className="relative rounded-2xl">
+                    <CreatureCard
+                      creature={c}
+                      selected={foeIdx === i}
+                      disabled={!recruitable}
+                      onClick={
+                        recruitable
+                          ? () => {
+                              setFoeIdx(foeIdx === i ? null : i);
+                              setRecruitSlot(null);
+                            }
+                          : undefined
+                      }
+                    />
+                    {!recruitable && <Tag color="slate" text="ON TEAM" />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div ref={recruitTeamRef} className="mt-7 scroll-mt-6">
             <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
               Your team
               {foeIdx !== null && recruitSlot === null && (
@@ -498,37 +578,6 @@ export function RecruitScreen({
                       onClick={allowed ? () => setRecruitSlot(i) : undefined}
                     />
                     {swapped && <Tag color="emerald" text="RECRUITED" />}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="mt-7">
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
-              {opponentName}'s Pokémon
-            </h3>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              {defeatedView.map((c, i) => {
-                // Every team slot already belongs to this foe's line, so taking it
-                // would unavoidably duplicate that line — it can't be recruited.
-                const recruitable = canRecruitFoe(c);
-                return (
-                  <div key={i} className="relative rounded-2xl">
-                    <CreatureCard
-                      creature={c}
-                      selected={foeIdx === i}
-                      disabled={!recruitable}
-                      onClick={
-                        recruitable
-                          ? () => {
-                              setFoeIdx(foeIdx === i ? null : i);
-                              setRecruitSlot(null);
-                            }
-                          : undefined
-                      }
-                    />
-                    {!recruitable && <Tag color="slate" text="ON TEAM" />}
                   </div>
                 );
               })}
@@ -574,10 +623,8 @@ export function RecruitScreen({
           {/* Branched lines: choose which evolution to take. The species, types and
               stats are shown (you need them to pick a branch) but the resulting
               ability stays hidden until you commit — so you can't fish for it. */}
-          {evolveSlot !== null &&
-            !evolveCommitted &&
-            evolutionTargets(currentTeam[evolveSlot].dexId, bracket).length > 1 && (
-              <div className="mt-7">
+          {showEvolveBranches && evolveSlot !== null && (
+              <div ref={evolveBranchRef} className="mt-7 scroll-mt-6">
                 <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
                   Choose an evolution for {currentTeam[evolveSlot].name}
                 </h3>
@@ -633,7 +680,7 @@ export function RecruitScreen({
 
           {/* Pick which move to drop. */}
           {moveTeamSlot !== null && (
-            <div className="mt-7">
+            <div ref={moveDropRef} className="mt-7 scroll-mt-6">
               <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
                 {currentTeam[moveTeamSlot].name}'s moves
                 <span className="ml-2 text-white/35">tap the move to replace</span>
@@ -656,7 +703,7 @@ export function RecruitScreen({
 
           {/* Roll the replacement: three seed-pinned options from the legal pool. */}
           {moveTeamSlot !== null && moveSlotIdx !== null && (
-            <div className="mt-7">
+            <div ref={moveRollRef} className="mt-7 scroll-mt-6">
               <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">
                 Roll · pick 1 of {moveRollOptions.length} for {currentTeam[moveTeamSlot].name}
                 <span className="ml-2 normal-case tracking-normal text-white/35">

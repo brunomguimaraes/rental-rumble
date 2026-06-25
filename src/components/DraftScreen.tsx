@@ -22,6 +22,20 @@ import {
 
 type DraftMove = { kind: 'pick' } | { kind: 'skip' };
 
+// The coverage tip is a collapsible banner under the picker; the player can tuck
+// it away and the preference sticks across drafts and reloads via localStorage,
+// mirroring the recruit screen's opt-out gates.
+const COVERAGE_COLLAPSE_KEY = 'draft-coverage-collapsed';
+const readCoverageCollapsed = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(COVERAGE_COLLAPSE_KEY) === '1';
+};
+const writeCoverageCollapsed = (collapsed: boolean) => {
+  if (typeof window === 'undefined') return;
+  if (collapsed) window.localStorage.setItem(COVERAGE_COLLAPSE_KEY, '1');
+  else window.localStorage.removeItem(COVERAGE_COLLAPSE_KEY);
+};
+
 export function DraftScreen({
   seed,
   difficulty,
@@ -41,6 +55,7 @@ export function DraftScreen({
   // a pick or a skip — and let you choose that set again.
   const [history, setHistory] = useState<DraftMove[]>([]);
   const [confirmingSkip, setConfirmingSkip] = useState(false);
+  const [coverageCollapsed, setCoverageCollapsed] = useState(readCoverageCollapsed);
 
   const setBall = (index: number, ball: string) => {
     setPicked((prev) =>
@@ -91,6 +106,31 @@ export function DraftScreen({
 
   const showCoverageTip =
     (difficulty === 'easy' || difficulty === 'normal') && !done;
+
+  // The banner's always-visible header line. Type chips only exist once you've
+  // picked at least one mon and still have holes, so that's the only state with
+  // an expandable body — the other two are a static one-liner.
+  const coverageHasDetails = picked.length > 0 && coverage.uncovered.length > 0;
+  const coverageHeadline =
+    picked.length === 0
+      ? {
+          label: 'Coverage tip',
+          tone: 'text-white/40',
+          summary: 'Pick a Pokémon to see which types you can\'t hit super-effectively yet.',
+        }
+      : coverage.uncovered.length === 0
+        ? {
+            label: 'Great coverage',
+            tone: 'text-emerald-300/80',
+            summary: 'Your picks already hit every type super-effectively.',
+          }
+        : {
+            label: 'Coverage tip',
+            tone: 'text-white/40',
+            summary: `${coverage.uncovered.length} type${
+              coverage.uncovered.length === 1 ? '' : 's'
+            } you can't hit super-effectively yet.`,
+          };
 
   // Build the trio on offer by walking the deterministic deck. A team can't hold
   // an ancestor and its descendant (same line), but branch siblings (different
@@ -179,51 +219,6 @@ export function DraftScreen({
           </span>
         </div>
       </div>
-
-      {showCoverageTip && (
-        <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-          {picked.length === 0 ? (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white/55">
-              <span className="font-bold uppercase tracking-wider text-white/40">
-                Coverage tip
-              </span>
-              Pick a Pokémon to see which types your team can't hit
-              super-effectively yet.
-            </div>
-          ) : coverage.uncovered.length === 0 ? (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white/55">
-              <span className="font-bold uppercase tracking-wider text-emerald-300/80">
-                Great coverage
-              </span>
-              Your picks already hit every type super-effectively.
-            </div>
-          ) : (
-            <>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-white/40">
-                  Coverage tip
-                </span>
-                <span className="text-xs text-white/55">
-                  Can't hit super-effectively yet:
-                </span>
-                {coverage.uncovered.map((t) => (
-                  <TypeChip key={t} type={t} muted />
-                ))}
-              </div>
-              {coverage.recommended.length > 0 && (
-                <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                  <span className="text-xs text-white/55">
-                    Good picks to cover them:
-                  </span>
-                  {coverage.recommended.map((r) => (
-                    <TypeChip key={r.type} type={r.type} />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
 
       {done ? (
         <div className="mt-10 text-center">
@@ -321,6 +316,81 @@ export function DraftScreen({
             ))}
           </div>
         </>
+      )}
+
+      {/* Coverage tip — a collapsible banner *below* the picker, so its size
+          changing as you draft never pushes the cards above it around. The header
+          line stays fixed; only the type-chip detail expands and collapses. */}
+      {showCoverageTip && (
+        <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+          {coverageHasDetails ? (
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  setCoverageCollapsed((v) => {
+                    writeCoverageCollapsed(!v);
+                    return !v;
+                  })
+                }
+                aria-expanded={!coverageCollapsed}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition hover:bg-white/[0.03]"
+              >
+                <span
+                  className={`text-xs font-bold uppercase tracking-wider ${coverageHeadline.tone}`}
+                >
+                  {coverageHeadline.label}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-xs text-white/55">
+                  {coverageHeadline.summary}
+                </span>
+                <span
+                  aria-hidden
+                  className={`shrink-0 text-[10px] text-white/40 transition-transform ${
+                    coverageCollapsed ? '' : 'rotate-180'
+                  }`}
+                >
+                  ▾
+                </span>
+              </button>
+              {!coverageCollapsed && (
+                <div className="px-3 pb-3">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                    <span className="text-xs text-white/55">
+                      Can't hit super-effectively yet:
+                    </span>
+                    {coverage.uncovered.map((t) => (
+                      <TypeChip key={t} type={t} muted />
+                    ))}
+                  </div>
+                  {coverage.recommended.length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                      <span className="text-xs text-white/55">
+                        Good picks to cover them:
+                      </span>
+                      {coverage.recommended.map((r) => (
+                        <TypeChip key={r.type} type={r.type} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            // No chips to show yet (no picks, or already-complete coverage): a
+            // static one-liner with nothing to expand.
+            <div className="flex items-center gap-2 px-3 py-2.5">
+              <span
+                className={`text-xs font-bold uppercase tracking-wider ${coverageHeadline.tone}`}
+              >
+                {coverageHeadline.label}
+              </span>
+              <span className="min-w-0 flex-1 text-xs text-white/55">
+                {coverageHeadline.summary}
+              </span>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Sticky team tray */}
