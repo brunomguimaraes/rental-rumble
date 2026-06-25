@@ -67,6 +67,21 @@ const PINCH_ABILITIES: Partial<Record<AbilityId, PokemonType>> = {
 /** Roster-wide ability modifiers baked at fight start. */
 export function applyRosterAbilities(team: Battler[]): void {
   const has = (id: AbilityId) => team.some((b) => b.creature.ability === id);
+  // A type/team commander led by a legendary or mythical runs stronger — the
+  // premium anchor outshines a common carrier of the same aura. The *bonus slice*
+  // (the distance from 1) is scaled up, which lands right for both the damage-up
+  // commanders (1.1 → 1.15) and the damage-taken-down ones (0.9 → 0.85); the base
+  // aura is untouched when an ordinary mon leads it. Glory Hog is excluded — it's a
+  // selfish star, not a team commander.
+  const LEGEND_CMD_SCALE = 1.5;
+  const ledByLegend = (id: AbilityId) =>
+    team.some(
+      (b) =>
+        b.creature.ability === id &&
+        (b.creature.tier === 'legendary' || b.creature.tier === 'mythical'),
+    );
+  const cmd = (id: AbilityId, mult: number) =>
+    ledByLegend(id) ? 1 + LEGEND_CMD_SCALE * (mult - 1) : mult;
 
   if (has('glory-hog')) {
     for (const b of team) {
@@ -74,37 +89,43 @@ export function applyRosterAbilities(team: Battler[]): void {
     }
   }
   if (has('dragonlord')) {
+    const k = cmd('dragonlord', 1.1);
     for (const b of team) {
-      if (b.creature.types.includes('dragon')) b.teamFactor *= 1.1;
+      if (b.creature.types.includes('dragon')) b.teamFactor *= k;
     }
   }
   if (has('flame-emperor')) {
+    const k = cmd('flame-emperor', 1.1);
     for (const b of team) {
-      if (b.creature.types.includes('fire')) b.teamFactor *= 1.1;
+      if (b.creature.types.includes('fire')) b.teamFactor *= k;
     }
   }
   if (has('tide-matriarch')) {
+    const k = cmd('tide-matriarch', 1.08);
     for (const b of team) {
-      if (b.creature.types.includes('water')) b.teamFactor *= 1.08;
+      if (b.creature.types.includes('water')) b.teamFactor *= k;
     }
   }
   if (has('iron-marshal')) {
+    const k = cmd('iron-marshal', 0.92);
     for (const b of team) {
-      if (b.creature.types.includes('steel')) b.damageTakenMult *= 0.92;
+      if (b.creature.types.includes('steel')) b.damageTakenMult *= k;
     }
   }
   if (has('fairy-court')) {
+    const k = cmd('fairy-court', 1.08);
     for (const b of team) {
       if (b.creature.types.includes('fairy')) {
-        b.damageDealtMult *= 1.08;
+        b.damageDealtMult *= k;
         b.abilityPassive.clearBody = true;
       }
     }
   }
   if (has('pack-alpha')) {
+    const k = cmd('pack-alpha', 1.1);
     for (const b of team) {
       if (b.creature.types.includes('fighting')) {
-        b.teamFactor *= 1.1;
+        b.teamFactor *= k;
         b.abilityPassive.ignoreIntimidate = true;
       }
     }
@@ -112,27 +133,34 @@ export function applyRosterAbilities(team: Battler[]): void {
   if (has('hive-queen')) {
     const bugs = team.filter((b) => b.creature.types.includes('bug')).length;
     if (bugs >= 2) {
-      for (const b of team) b.teamFactor *= 1.06;
+      const k = cmd('hive-queen', 1.06);
+      for (const b of team) b.teamFactor *= k;
     }
   }
   if (has('cocoon-guard')) {
-    for (const b of team) b.damageTakenMult *= 0.95;
+    const k = cmd('cocoon-guard', 0.95);
+    for (const b of team) b.damageTakenMult *= k;
   }
   // --- Gen I type commanders ---
   if (has('stone-council')) {
-    for (const b of team) if (b.creature.types.includes('rock')) b.damageTakenMult *= 0.9;
+    const k = cmd('stone-council', 0.9);
+    for (const b of team) if (b.creature.types.includes('rock')) b.damageTakenMult *= k;
   }
   if (has('den-mother')) {
-    for (const b of team) if (b.creature.types.includes('normal')) b.damageTakenMult *= 0.92;
+    const k = cmd('den-mother', 0.92);
+    for (const b of team) if (b.creature.types.includes('normal')) b.damageTakenMult *= k;
   }
   if (has('earth-warden')) {
-    for (const b of team) if (b.creature.types.includes('ground')) b.teamFactor *= 1.08;
+    const k = cmd('earth-warden', 1.08);
+    for (const b of team) if (b.creature.types.includes('ground')) b.teamFactor *= k;
   }
   if (has('permafrost')) {
-    for (const b of team) if (b.creature.types.includes('ice')) b.damageDealtMult *= 1.1;
+    const k = cmd('permafrost', 1.1);
+    for (const b of team) if (b.creature.types.includes('ice')) b.damageDealtMult *= k;
   }
   if (has('toxic-crown')) {
-    for (const b of team) if (b.creature.types.includes('poison')) b.damageDealtMult *= 1.1;
+    const k = cmd('toxic-crown', 1.1);
+    for (const b of team) if (b.creature.types.includes('poison')) b.damageDealtMult *= k;
   }
 }
 
