@@ -465,12 +465,10 @@ export type AbilityId =
 export type RelicId =
   // General-purpose passives.
   | 'leftovers' // active mon recovers a sliver of HP every turn
-  | 'muscleband' // team Attack up
   | 'assaultvest' // team Defense up
   | 'quickclaw' // team Speed up
   | 'wiseglasses' // small all-damage boost
   | 'shellbell' // heal a fraction of the damage you deal
-  | 'bigroot' // all healing (Leftovers, Shell Bell, heal moves) hits harder
   | 'lifeorb' // big all-damage boost
   // Type boosters — only offered when the team can use them (see relics.ts).
   | 'silkscarf'
@@ -499,8 +497,8 @@ export type RelicId =
  * an ordinary fight is unaffected.
  */
 export interface RelicMods {
-  atkMult: number; // Physical Attack multiplier (Muscle Band)
-  eatkMult: number; // Energy Attack multiplier
+  atkMult: number; // Physical Attack multiplier (no relic currently sets it)
+  eatkMult: number; // Energy Attack multiplier (no relic currently sets it)
   defMult: number; // Physical Defense multiplier (Assault Vest)
   edefMult: number; // Energy Defense multiplier (Assault Vest)
   spdMult: number; // Speed multiplier (Quick Claw)
@@ -510,7 +508,6 @@ export interface RelicMods {
   dmgMult: Partial<Record<PokemonType, number>>;
   lifesteal: number; // fraction of damage dealt healed back (Shell Bell), 0 = none
   endTurnHeal: number; // fraction of max HP healed each end of turn (Leftovers), 0 = none
-  healMult: number; // multiplier applied to every heal (Big Root)
 }
 
 /** Raw generated dex row (see scripts/gen-pokedex.ts). */

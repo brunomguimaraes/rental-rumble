@@ -1314,8 +1314,7 @@ export function simulateBattle(
     if (move.effect?.kind === 'heal') {
       const amount = move.effect.amount * HEAL_DECAY ** attacker.healsUsed;
       attacker.healsUsed += 1;
-      // Big Root (a relic) makes every heal land harder.
-      const heal = Math.floor(attacker.maxHp * amount * attacker.mods.healMult);
+      const heal = Math.floor(attacker.maxHp * amount);
       attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal);
       push({
         kind: 'heal',
@@ -1640,7 +1639,7 @@ export function simulateBattle(
     }
 
     if (move.effect?.kind === 'lifesteal' && dealt > 0) {
-      const drained = Math.floor(dealt * move.effect.fraction * attacker.mods.healMult);
+      const drained = Math.floor(dealt * move.effect.fraction);
       if (defender.creature.ability === 'liquid-ooze') {
         // Liquid Ooze: the fluids it siphoned are toxic — the would-be heal is
         // turned into damage on the attacker (and can be the death of it).
@@ -1672,10 +1671,10 @@ export function simulateBattle(
     }
 
     // Shell Bell (a relic): the attacker siphons back a slice of the damage it
-    // just dealt. Big Root boosts the siphon too. Distinct from a lifesteal move
-    // (both can apply on the same hit), and never revives a fainted attacker.
+    // just dealt. Distinct from a lifesteal move (both can apply on the same
+    // hit), and never revives a fainted attacker.
     if (attacker.mods.lifesteal > 0 && dealt > 0 && attacker.hp > 0) {
-      const drained = Math.floor(dealt * attacker.mods.lifesteal * attacker.mods.healMult);
+      const drained = Math.floor(dealt * attacker.mods.lifesteal);
       if (drained > 0 && attacker.hp < attacker.maxHp) {
         attacker.hp = Math.min(attacker.maxHp, attacker.hp + drained);
         push({
@@ -2106,10 +2105,10 @@ export function simulateBattle(
     }
 
     // Leftovers (a relic): the active member nibbles back a sliver of HP each
-    // turn. Big Root sweetens it. Runs after status ticks, like Regenerator, so
-    // it can offset that chip — but never the turn it would otherwise faint.
+    // turn. Runs after status ticks, like Regenerator, so it can offset that
+    // chip — but never the turn it would otherwise faint.
     if (b.mods.endTurnHeal > 0 && b.hp > 0 && b.hp < b.maxHp) {
-      const heal = Math.max(1, Math.floor(b.maxHp * b.mods.endTurnHeal * b.mods.healMult));
+      const heal = Math.max(1, Math.floor(b.maxHp * b.mods.endTurnHeal));
       b.hp = Math.min(b.maxHp, b.hp + heal);
       push({
         kind: 'heal',

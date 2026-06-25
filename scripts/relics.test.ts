@@ -52,25 +52,21 @@ console.log('\n[1] relicMods accumulator + damage mult');
     'identity mods are neutral',
     id.atkMult === 1 && id.defMult === 1 && id.spdMult === 1 &&
       id.allDmgMult === 1 && id.lifesteal === 0 && id.endTurnHeal === 0 &&
-      id.healMult === 1 && Object.keys(id.dmgMult).length === 0,
+      Object.keys(id.dmgMult).length === 0,
   );
   check('empty / undefined relics → identity', relicMods([]).atkMult === 1 && relicMods(undefined).allDmgMult === 1);
-
-  const m = relicMods(['muscleband']);
-  check('Muscle Band lifts atkMult', approx(m.atkMult, 1.12));
 
   const stacked = relicMods(['wiseglasses', 'lifeorb']);
   check('Wise Glasses + Life Orb stack allDmgMult', approx(stacked.allDmgMult, 1.1 * 1.3));
 
   const fire = relicMods(['charcoal']);
-  check('Charcoal boosts fire only', approx(relicDamageMult(fire, 'fire'), 1.2) && approx(relicDamageMult(fire, 'water'), 1));
+  check('Charcoal boosts fire only', approx(relicDamageMult(fire, 'fire'), 1.1) && approx(relicDamageMult(fire, 'water'), 1));
 
   const both = relicMods(['lifeorb', 'charcoal']);
-  check('Life Orb + Charcoal compound on fire', approx(relicDamageMult(both, 'fire'), 1.3 * 1.2));
+  check('Life Orb + Charcoal compound on fire', approx(relicDamageMult(both, 'fire'), 1.3 * 1.1));
 
   check('Leftovers grants end-of-turn heal', relicMods(['leftovers']).endTurnHeal > 0);
   check('Shell Bell grants lifesteal', relicMods(['shellbell']).lifesteal === 0.15);
-  check('Big Root lifts healMult', approx(relicMods(['bigroot']).healMult, 1.4));
 }
 
 console.log('\n[2] Relics change battle outcomes (mirror match)');
@@ -86,7 +82,7 @@ console.log('\n[2] Relics change battle outcomes (mirror match)');
   const team = teamFromMons(mirror);
   const seed = 'relic-mirror#7';
   const opts = { playerStatMult: PLAYER_STAT_MULT, foeStatMult: PLAYER_STAT_MULT };
-  const strong: RelicId[] = ['lifeorb', 'muscleband', 'assaultvest'];
+  const strong: RelicId[] = ['lifeorb', 'wiseglasses', 'assaultvest'];
 
   const playerBuffed = simulateBattle(team, team, seed, { ...opts, playerRelics: strong });
   check('player with strong relics wins the mirror', playerBuffed.winner === 'player');
@@ -126,7 +122,7 @@ console.log('\n[3] Client/server re-sim parity (verifyChampionWin)');
     { id: '250', sign: 'leo' },
     { id: '643', sign: 'leo' },
   ]);
-  const relics: RelicId[] = ['lifeorb', 'muscleband', 'leftovers'];
+  const relics: RelicId[] = ['lifeorb', 'wiseglasses', 'leftovers'];
 
   const payload = buildSubmission({
     name: 'Tester',
@@ -197,7 +193,7 @@ console.log('\n[5] rollRelicOffer — determinism + criteria');
   check('never offers a type booster the team can\'t use', !sawWaterBooster);
 
   // Owned relics are excluded.
-  const owned: RelicId[] = ['leftovers', 'muscleband'];
+  const owned: RelicId[] = ['leftovers', 'wiseglasses'];
   let offeredOwned = false;
   for (let s = 0; s < 40; s++) {
     const offer = rollRelicOffer(`own:${s}`, 5, CREATURES.slice(0, 6), owned);

@@ -42,13 +42,12 @@ export interface RelicDef {
 }
 
 const STAT_BOOST = {
-  atk: 1.12,
   def: 1.18,
   spd: 1.15,
 } as const;
 
 /** How much a type-booster lifts its matching move type. */
-const TYPE_BOOST = 1.2;
+const TYPE_BOOST = 1.1;
 
 /** A type-booster relic def, generated so all 18 types share one shape. */
 function typeRelic(
@@ -63,7 +62,7 @@ function typeRelic(
     icon,
     rarity: 'common',
     boostType: type,
-    description: `Powers up the team's ${type}-type moves (×${TYPE_BOOST}).`,
+    description: `Powers up the team's ${type}-type moves.`,
     apply: (m) => {
       m.dmgMult[type] = (m.dmgMult[type] ?? 1) * TYPE_BOOST;
     },
@@ -81,22 +80,12 @@ export const RELICS: Record<RelicId, RelicDef> = {
       m.endTurnHeal += 1 / 16;
     },
   },
-  muscleband: {
-    id: 'muscleband',
-    name: 'Muscle Band',
-    icon: 'muscleband',
-    rarity: 'common',
-    description: `Raises the whole team's Attack (×${STAT_BOOST.atk}).`,
-    apply: (m) => {
-      m.atkMult *= STAT_BOOST.atk;
-    },
-  },
   assaultvest: {
     id: 'assaultvest',
     name: 'Assault Vest',
     icon: 'assaultvest',
     rarity: 'common',
-    description: `Raises the whole team's Physical & Energy Defense (×${STAT_BOOST.def}).`,
+    description: `Toughens the whole team's Physical & Energy Defense.`,
     apply: (m) => {
       m.defMult *= STAT_BOOST.def;
       m.edefMult *= STAT_BOOST.def;
@@ -107,7 +96,7 @@ export const RELICS: Record<RelicId, RelicDef> = {
     name: 'Quick Claw',
     icon: 'quickclaw',
     rarity: 'common',
-    description: `Raises the whole team's Speed (×${STAT_BOOST.spd}).`,
+    description: `Quickens the whole team's Speed.`,
     apply: (m) => {
       m.spdMult *= STAT_BOOST.spd;
     },
@@ -117,7 +106,7 @@ export const RELICS: Record<RelicId, RelicDef> = {
     name: 'Wise Glasses',
     icon: 'wiseglasses',
     rarity: 'common',
-    description: 'A small boost to all the damage your team deals (×1.1).',
+    description: 'A small boost to all the damage your team deals.',
     apply: (m) => {
       m.allDmgMult *= 1.1;
     },
@@ -128,20 +117,9 @@ export const RELICS: Record<RelicId, RelicDef> = {
     icon: 'shellbell',
     rarity: 'rare',
     minStage: 2,
-    description: 'Heals your active Pokémon for 15% of the damage it deals.',
+    description: 'Heals your active Pokémon for a portion of the damage it deals.',
     apply: (m) => {
       m.lifesteal += 0.15;
-    },
-  },
-  bigroot: {
-    id: 'bigroot',
-    name: 'Big Root',
-    icon: 'bigroot',
-    rarity: 'rare',
-    minStage: 2,
-    description: 'All of your healing — Leftovers, Shell Bell and heal moves — is 40% stronger.',
-    apply: (m) => {
-      m.healMult *= 1.4;
     },
   },
   lifeorb: {
@@ -150,7 +128,7 @@ export const RELICS: Record<RelicId, RelicDef> = {
     icon: 'lifeorb',
     rarity: 'legendary',
     minStage: 4,
-    description: 'A big boost to all the damage your team deals (×1.3).',
+    description: 'A big boost to all the damage your team deals.',
     apply: (m) => {
       m.allDmgMult *= 1.3;
     },
@@ -193,7 +171,6 @@ export function identityMods(): RelicMods {
     dmgMult: {},
     lifesteal: 0,
     endTurnHeal: 0,
-    healMult: 1,
   };
 }
 
