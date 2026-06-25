@@ -386,14 +386,16 @@ export function verifyChampionWin(payload: SubmissionPayload): VerifyResult {
       return { ok: false, reason: `mon ${mon.id} is out of bracket` };
     }
     let built = withSign(base, mon.sign);
-    // Apply the claimed ability, but only if it's one the species can legally be
-    // born with — otherwise reject, so a forged payload can't grant, say,
-    // Adaptability to a mon that never has it. A missing ability keeps the
-    // species default (legacy payloads).
-    if (mon.ability !== undefined) {
-      if (!isAbilityOption(base.dexId, mon.ability)) {
-        return { ok: false, reason: `bad ability for ${mon.id}` };
-      }
+    // Apply the claimed ability only when it's one the species can legally be
+    // born with — so a forged payload can't grant, say, Adaptability to a mon
+    // that never has it. An illegal (or missing) ability simply keeps the
+    // species default rather than rejecting the run: a forger gains nothing (the
+    // claimed ability is never applied, and the re-sim below still has to produce
+    // a genuine win), while an honest win isn't thrown away when its ability
+    // predates a pool change. The signature rollout re-curated several species'
+    // options, so a run begun on an older bundle can legitimately carry an
+    // ability the current pool no longer lists. Mirrors teamFromMons.
+    if (mon.ability !== undefined && isAbilityOption(base.dexId, mon.ability)) {
       built = withAbility(built, mon.ability);
     }
     const applied = applyBuildAndMoves(built, base, mon, true);
