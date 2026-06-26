@@ -10,6 +10,14 @@ import { RelicStrip } from './RelicStrip';
 import { DEV } from '../game/dev';
 import { scrollToSection } from '../ui-scroll';
 
+// On Master an un-fought foe's type is concealed, so its type-coloured accent
+// (the avatar tile + the current-foe glow) would leak it. Swap in a generic
+// rainbow wash instead — kept faint to match the normal ~12%-alpha tile, so the
+// row reads as "a mystery" rather than a specific type.
+const CONCEALED_TILE =
+  'conic-gradient(from 0deg, rgba(248,113,113,0.16), rgba(251,191,36,0.16), rgba(52,211,153,0.16), rgba(96,165,250,0.16), rgba(167,139,250,0.16), rgba(244,114,182,0.16), rgba(248,113,113,0.16))';
+const CONCEALED_GLOW = '0 0 0 1px rgba(255,255,255,0.30)';
+
 export function MapScreen({
   gauntlet,
   team,
@@ -89,6 +97,9 @@ export function MapScreen({
           const done = i < stage;
           const current = i === stage;
           const color = opponentAccent(opp);
+          // A type-themed foe you haven't fought yet on Master hides its type, so
+          // its type-coloured accent + badge are swapped for generic stand-ins.
+          const concealed = concealTypes && !done && isTypeThemed(opp);
           return (
             <li
               key={opp.id}
@@ -100,25 +111,35 @@ export function MapScreen({
                     ? 'border-emerald-400/30 bg-emerald-400/[0.04]'
                     : 'border-white/10 bg-white/[0.02] opacity-60'
               }`}
-              style={current ? { boxShadow: `0 0 0 1px ${color}66` } : undefined}
+              style={
+                current
+                  ? { boxShadow: concealed ? CONCEALED_GLOW : `0 0 0 1px ${color}66` }
+                  : undefined
+              }
             >
               <div className="relative shrink-0">
                 <div
                   className="grid h-12 w-12 place-items-center overflow-hidden rounded-xl sm:h-14 sm:w-14"
-                  style={{ background: `${color}1f` }}
+                  style={{ background: concealed ? CONCEALED_TILE : `${color}1f` }}
                 >
                   <TrainerSprite
                     opponent={opp}
                     className={`h-12 w-12 sm:h-14 sm:w-14 ${done ? 'opacity-40 grayscale' : ''}`}
                   />
                 </div>
-                <img
-                  src={opp.badge}
-                  alt=""
-                  className={`absolute -bottom-1 -right-1 z-10 h-5 w-5 object-contain drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] sm:h-6 sm:w-6 ${
-                    done ? 'opacity-40 grayscale' : ''
-                  }`}
-                />
+                {/* The corner badge is the foe's type icon, so it would give away
+                    an un-fought foe's type on Master. Hidden for concealed foes;
+                    the Champion's crown badge (not a type) and already-beaten foes
+                    still show theirs. */}
+                {!concealed && (
+                  <img
+                    src={opp.badge}
+                    alt=""
+                    className={`absolute -bottom-1 -right-1 z-10 h-5 w-5 object-contain drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] sm:h-6 sm:w-6 ${
+                      done ? 'opacity-40 grayscale' : ''
+                    }`}
+                  />
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
