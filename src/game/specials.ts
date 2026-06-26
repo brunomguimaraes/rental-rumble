@@ -614,7 +614,7 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
     team: [45, 71, 114], // Vileplume, Victreebel, Tangela
   },
   {
-    id: 'flint',
+    id: 'brock-dad',
     name: 'Flint',
     title: "Brock's Father",
     slot: 'special',
@@ -848,16 +848,6 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
     type: 'normal',
     quote: 'Lumiose will be a city where humans and Pokémon coexist.',
     team: [143, 242, 531, 113], // Snorlax, Blissey, Audino, Chansey
-  },
-  {
-    id: 'vinnie',
-    strong: true,
-    name: 'Vinnie',
-    title: 'Quastelar S.A.',
-    slot: 'special',
-    type: 'steel',
-    quote: 'Efficiency wins battles. I am very efficient.',
-    team: [376, 306, 448, 530], // Metagross, Aggron, Lucario, Excadrill
   },
   {
     id: 'mable',

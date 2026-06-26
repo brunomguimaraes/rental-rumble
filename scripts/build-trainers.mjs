@@ -243,7 +243,6 @@ const LEGENDS_ZA_SPECIAL = [
   ['GISO', 'giso', 'Giso', 'm'],
   ['DELPHIA', 'delphia', 'Delphia', 'f'],
   ['VIONA', 'viona', 'Viona', 'f'],
-  ['AIRÉN', 'vinnie', 'Vinnie', 'm'],
   ['MELIA', 'mable', 'Mable', 'f'],
   ['GRISEL', 'grisel', 'Grisel', 'm'],
   ['GRISELA', 'grisela', 'Griselle', 'f'],
@@ -303,7 +302,7 @@ const EXTRA_FAMOUS = [
   // Silver → HGSS sheet (see HGSS_SPECIAL).
   [animeDir, 'Anime Officer Jenny', 'jenny', 'Officer Jenny', 'f'],
   [animeDir, 'Anime Prof Ivy', 'ivy', 'Prof. Ivy', 'f'],
-  [animeDir, 'Anime Brockfather', 'flint', 'Flint', 'm'],
+  [animeDir, 'Anime Brockfather', 'brock-dad', 'Flint', 'm'],
   [otherDir, 'trainer_HILBERT', 'hilbert', 'Hilbert', 'm'],
   [otherDir, 'trainer_HILDA', 'hilda', 'Hilda', 'f'],
   [otherDir, 'trainer_SAGE', 'sage', 'Plasma Sage', 'm'],
