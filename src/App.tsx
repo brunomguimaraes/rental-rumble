@@ -30,6 +30,7 @@ import {
   type BattleResult,
 } from './game/battle';
 import type { Difficulty } from './game/run';
+import { pikachuRecruitReward } from './game/specials';
 import { bracketDex, DEFAULT_BRACKET, type BracketId } from './game/gens';
 import { TitleScreen } from './components/TitleScreen';
 import { DraftScreen } from './components/DraftScreen';
@@ -307,7 +308,12 @@ export default function App() {
       setPhase('over');
       return;
     }
-    setDefeated(battle?.foeTeam ?? []);
+    if (opponent.famousId === 'pikachu') {
+      const reward = pikachuRecruitReward(`${seed}#${stage}`, dex);
+      setDefeated(reward ? [reward] : (battle?.foeTeam ?? []));
+    } else {
+      setDefeated(battle?.foeTeam ?? []);
+    }
     setPhase('recruit');
   };
 

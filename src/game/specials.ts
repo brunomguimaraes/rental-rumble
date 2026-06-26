@@ -1,5 +1,7 @@
 import type { Creature, PokemonType } from './types.js';
-import { CREATURES_BY_ID } from './pokemon.js';
+import { CREATURES_BY_ID, withAbility, withSign } from './pokemon.js';
+import { rollAbility } from './abilities.js';
+import { rollOpponentBall } from './balls.js';
 import { RNG } from './rng.js';
 
 /**
@@ -58,6 +60,12 @@ export interface FamousTrainer {
   pool?: number[];
   /** How many to draw from `pool` each run (default 6). Ignored when using `team`. */
   draw?: number;
+  /**
+   * When set alongside `pool`, each slot is an independent random pick from the
+   * pool (duplicates allowed). Used by gag cameos that field a full squad of the
+   * same evolution line at random stages (e.g. six Pikachu-line mons).
+   */
+  poolWithReplacement?: boolean;
   rarity?: number; // 0..1 per-run appearance chance (default: always eligible)
   /**
    * Hidden difficulty class for `special` cameos, used to size the sign-reroll
@@ -475,7 +483,9 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
     slot: 'special',
     type: 'electric',
     quote: 'Pika pika! (Translation: bring it on.)',
-    team: [25, 25, 25, 172], // three Pikachu and a Pichu (gag)
+    pool: [172, 25, 26], // Pichu / Pikachu / Raichu — six random stages
+    draw: 6,
+    poolWithReplacement: true,
   },
   {
     id: 'cassidy',
@@ -1099,11 +1109,40 @@ export function famousTeamCreatures(
   };
 
   if (spec.pool) {
+    const n = size ?? spec.draw ?? 6;
+    if (spec.poolWithReplacement) {
+      const ids = spec.pool.filter((id) => allowed.has(id));
+      if (ids.length === 0) return [];
+      const out: Creature[] = [];
+      for (let i = 0; i < n; i++) {
+        const dexId = rng ? rng.pick(ids) : ids[i % ids.length];
+        const base = CREATURES_BY_ID[String(dexId)];
+        if (base) out.push(base);
+      }
+      return out;
+    }
     const available = resolve(spec.pool);
-    const n = Math.min(size ?? spec.draw ?? 6, available.length);
+    const count = Math.min(n, available.length);
     const ordered = rng ? rng.shuffle(available) : available;
-    return ordered.slice(0, n);
+    return ordered.slice(0, count);
   }
   if (spec.team) return resolve(spec.team);
   return [];
+}
+
+/**
+ * The recruit reward after beating the special Pikachu cameo: a single Pikachu
+ * bearing the mythic Abhijit sign (not the six-mon battle squad). Seeded per
+ * run/stage so the preview and the Pokémon you receive always match.
+ */
+export function pikachuRecruitReward(seed: string, dex: Creature[]): Creature | null {
+  const allowed = new Set(dex.map((c) => c.dexId));
+  if (!allowed.has(25)) return null;
+  const base = CREATURES_BY_ID['25'];
+  if (!base) return null;
+  const rng = new RNG(`pikachu-recruit:${seed}`);
+  return {
+    ...withAbility(withSign(base, 'abhijit'), rollAbility(25, rng)),
+    pokeball: rollOpponentBall(rng),
+  };
 }
