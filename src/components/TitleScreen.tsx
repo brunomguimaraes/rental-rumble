@@ -154,6 +154,10 @@ export function TitleScreen({
         <TypeMarquee />
       </div>
 
+      <div className="mt-4 w-full max-w-md">
+        <DiscordLink variant="banner" />
+      </div>
+
       {/* Live "today's champions" teaser — the first players to topple each
           era's daily boss, auto-rotating. Falls back to boss hype when no board
           has been cleared yet. Tapping it opens the full ladder. */}
@@ -380,7 +384,7 @@ export function TitleScreen({
         >
           ❔ How battles work
         </button>
-        <DiscordLink pill />
+        <DiscordLink variant="pill" />
       </div>
 
       {/* Seed-sharing blurb hidden alongside the disabled custom seed feature —

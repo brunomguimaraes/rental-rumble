@@ -18,14 +18,16 @@
 //   • the "FRLG Accurate NPC Megapack" (Relic Castle Edition) — which adds extra
 //     Gen-1-flavoured roadside classes (Bug Catcher, Biker, Burglar, …) and, most
 //     importantly, the anime overworld cast (James, Jessie, Meowth, Brock, Misty,
-//     Gary, Sabrina, …). Those anime sprites back the game's "special" trainers,
-//     who field hand-picked teams straight from the show (see src/game/specials.ts).
+//     Gary, Sabrina, …). Each famous face is filed into the manifest tier that
+//     matches its ladder slot in src/game/specials.ts (gym / elite / champion /
+//     special) so procedural Gym & Elite slots can draw cross-gen leader faces,
+//     not just the BW-era numbered rips. Sprite keys stay special-<id>.
 //
 // All charsets are RMXP 4×4 grids (top row = front-facing walk), so the same
 // slicer handles every source regardless of cell size.
 //
 // Requires ImageMagick (`magick`). Run: node scripts/build-trainers.mjs
-import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, readdirSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -36,6 +38,30 @@ const OWPACK = process.env.OWPACK_DIR || '/Users/milano/Downloads/OW PACK';
 const MEGAPACK =
   process.env.MEGAPACK_DIR ||
   '/Users/milano/Downloads/FRLG Accurate NPC Megapack (Relic Castle Edition)';
+const EMERALD_RED =
+  process.env.EMERALD_RED_DIR ||
+  '/Users/milano/Downloads/Emerald Red Sprites';
+const HORIZONTES_DIR =
+  process.env.HORIZONTES_DIR ||
+  '/Users/milano/Downloads/HORIZONTES';
+const LEGENDS_ZA_DIR =
+  process.env.LEGENDS_ZA_DIR ||
+  '/Users/milano/Downloads/( 11 ) POKÉMON LEYENDA ZA';
+const HGSS_SHEET =
+  process.env.HGSS_SHEET ||
+  join(root, 'assets/hgss-trainer-overworlds.png');
+const EMERALD_NPC_DIR =
+  process.env.EMERALD_NPC_DIR ||
+  '/Users/milano/Downloads/Emerald Characters Set in FRLG style/NPC';
+const GEN4_OW_DIR =
+  process.env.GEN4_OW_DIR ||
+  '/Users/milano/Downloads/Gen 4 OWs v1.5 - Vanilla Sunshine (3)';
+const HGSS_SUBCOLS = 24;
+const HGSS_ROWS = 9;
+// Default down-walk frame indices after splitting a charset block (see buildHgss).
+const HGSS_DOWN_STRIP = [3, 2, 3, 2]; // 1×4 vertical: up, side, walk, down
+const HGSS_DOWN_GRID2X2 = [1, 3, 1, 3]; // right column stand + walk
+const HGSS_DOWN_GRID2X4 = [7, 6, 7, 6]; // bottom-right down stand + walk
 const animeDir = join(MEGAPACK, 'Anime NPCs', 'Characters');
 const frlgDir = join(MEGAPACK, 'FRLG NPCs', 'Characters');
 const playableDir = join(MEGAPACK, 'Playable Characters', 'Characters');
@@ -149,13 +175,11 @@ const SPECIAL = [
   ['Anime James', 'james', 'James', 'm'],
   ['Anime Jessie', 'jessie', 'Jessie', 'f'],
   ['Anime Meowth', 'meowth', 'Meowth', 'x'],
+  ['Anime Gary Oak', 'gary', 'Gary Oak', 'm'],
+  ['Anime Lorelei', 'lorelei', 'Lorelei', 'f'],
   ['Anime Brock', 'brock', 'Brock', 'm'],
   ['Anime Misty', 'misty', 'Misty', 'f'],
-  ['Anime Gary Oak', 'gary', 'Gary Oak', 'm'],
   ['Anime Sabrina', 'sabrina', 'Sabrina', 'f'],
-  ['Anime Blaine in Disguise', 'blaine', 'Blaine', 'm'],
-  ['Anime Lorelei', 'lorelei', 'Lorelei', 'f'],
-  ['Anime Bruno', 'bruno', 'Bruno', 'm'],
   ['Anime Cassidy', 'cassidy', 'Cassidy', 'f'],
   ['Anime Butch', 'butch', 'Butch', 'm'],
   ['Anime Samurai', 'samurai', 'Samurai', 'm'],
@@ -175,6 +199,84 @@ const PLAYABLE = [
   ['trainer_TRAINER_Ethan', 'ethan', 'Ethan', 'm'],
   ['trainer_TRAINER_Lyra', 'lyra', 'Lyra', 'f'],
 ];
+
+// Emerald-style Red OW rip → Champion cosmetic face (disabled: sprite export is
+// buggy). Re-enable alongside specials.ts `red` when fixed.
+// [sourceFile (sans .png), key, name, sex, down-facing frame ids (0-based)].
+const EMERALD_RED_FACES = [];
+
+// Pokémon Horizons cast (256×256 RMXP 4×4) → famous cameos + roadside variety.
+// `special` keys match src/game/specials.ts; `random` folds into the generic
+// roadside pool (given names drawn at runtime, `cls` when set).
+const HORIZONTES_SPECIAL = [
+  ['LIKO', 'liko', 'Liko', 'f'],
+  ['URUTO', 'roy', 'Roy', 'm'],
+  ['FRIEDE', 'friede', 'Friede', 'm'],
+  ['AMETHIO', 'amethio', 'Amethio', 'm'],
+  ['CORAL', 'coral', 'Coral', 'f'],
+  ['MOLLIE', 'mollie', 'Mollie', 'f'],
+  ['MURDOCK', 'murdock', 'Murdock', 'm'],
+  ['DOTI', 'dot', 'Dot', 'f'],
+  ['HAMBER', 'hamber', 'Hamber', 'm'],
+  ['SIDIAN', 'sid', 'Sid', 'm'],
+  ['ZIR', 'zirc', 'Zirc', 'm'],
+  ['NITODOTINA', 'nidotina', "Dot's Nidorina", 'f'],
+];
+const HORIZONTES_RANDOM = [
+  ['DOTI CALLE', 'dot-street', 'f', 'Rising Volt Tacklers'],
+  ['DOTI TEMP 3', 'dot-alt', 'f', 'Rising Volt Tacklers'],
+  ['DOTI RECOGIDO', 'dot-caught', 'f', 'Rising Volt Tacklers'],
+  ['LANDON', 'landon', 'm', 'Sage'],
+  ['LANDON SUPER G', 'landon-cool', 'm', 'Ace Trainer'],
+  ['ORIA', 'oria', 'f', 'Picnicker'],
+  ['ROD', 'rod', 'm', 'Ace Trainer'],
+  ['CALCI', 'calci', 'f', 'Bird Keeper'],
+  ['CONIA', 'conia', 'f', 'Explorers'],
+];
+
+// Legends Z-A cast (256×N RMXP 4×4, 64×64 cells) → cameos + protagonist faces.
+// Source files are `<PREFIX> - TobalCrv.png`; prefixes match Spanish sheet names.
+const LEGENDS_ZA_SPECIAL = [
+  ['LILETTE', 'lilette', 'Jacinthe', 'f'],
+  ['NARIA', 'naria', 'Naria', 'f'],
+  ['MATIERE', 'emma', 'Emma', 'f'],
+  ['BÁRBARA', 'adira', 'Adira', 'f'],
+  ['ACRIS', 'naveen', 'Naveen', 'm'],
+  ['MUNI', 'taunie', 'Taunie', 'f'],
+  ['URBI', 'urbain', 'Urbain', 'm'],
+  ['ESTRAGÓN', 'tarragon', 'Tarragon', 'm'],
+  ['CÓRAX', 'corax', 'Corax', 'm'],
+  ['GISO', 'giso', 'Giso', 'm'],
+  ['DELPHIA', 'delphia', 'Delphia', 'f'],
+  ['VIONA', 'viona', 'Viona', 'f'],
+  ['AIRÉN', 'vinnie', 'Vinnie', 'm'],
+  ['MELIA', 'mable', 'Mable', 'f'],
+  ['GRISEL', 'grisel', 'Grisel', 'm'],
+  ['GRISELA', 'grisela', 'Griselle', 'f'],
+  ['LYSSON', 'lysandre', 'Lysandre', 'm'],
+];
+const LEGENDS_ZA_CHAMPION = [
+  ['PAXTON', 'paxton', 'Paxton', 'm'],
+  ['HARMONY', 'harmony', 'Harmony', 'f'],
+];
+
+// Emerald Characters Set in FRLG style (ChromusSama / Poffin_Case) — 4×4 RMXP
+// charsets replacing the broken HGSS master-sheet rips. [file (sans .png), key,
+// name, sex].
+const EMERALD_FAMOUS = [
+  ['emNPC-089', 'silver', 'Silver', 'm'],
+  ['emNPC-070', 'red-hgss', 'Red', 'm'],
+  ['emNPC-096', 'eusine', 'Eusine', 'm'],
+  ['emNPC-035', 'proton', 'Proton', 'm'],
+  ['emNPC-092', 'petrel', 'Petrel', 'm'],
+];
+
+// Gen 4 OW Collection (Vanilla Sunshine) — individual 4×4 charsets.
+const GEN4_FAMOUS = [['NPC 83', 'looker', 'Looker', 'm']];
+
+// HGSS master sheet rips disabled — sub-column slicing produced broken sprites.
+const HGSS_SPECIAL = [];
+const HGSS_RANDOM = [];
 
 // Hoenn Gym Leaders & Elite Four (Megapack "RSE NPCs") → famous fixed-pool
 // trainers. Unlike the numbered Gen-5 Gym rips (which are cosmetic faces over
@@ -204,12 +306,11 @@ const HOENN = [
 // bosses, rivals, anime cameos). Mixed source folders, so each entry names its
 // own directory. [sourceDir, sourceFile (sans .png), key, name, sex].
 const EXTRA_FAMOUS = [
-  [rseDir, 'trainer_STEVEN', 'steven', 'Steven', 'm'],
   [otherDir, 'trainer_CYNTHIA', 'cynthia', 'Cynthia', 'f'],
   [rseDir, 'trainer_ARCHIE', 'archie', 'Archie', 'm'],
   [rseDir, 'trainer_MAXIE', 'maxie', 'Maxie', 'm'],
   [rseDir, 'trainer_WALLY', 'wally', 'Wally', 'm'],
-  [hgssDir, 'trainer_SILVER', 'silver', 'Silver', 'm'],
+  // Silver → HGSS sheet (see HGSS_SPECIAL).
   [animeDir, 'Anime Officer Jenny', 'jenny', 'Officer Jenny', 'f'],
   [animeDir, 'Anime Prof Ivy', 'ivy', 'Prof. Ivy', 'f'],
   [animeDir, 'Anime Brockfather', 'flint', 'Flint', 'm'],
@@ -265,6 +366,13 @@ function cellSize(file) {
   return [Math.floor(w / 4), Math.floor(h / 4)];
 }
 
+function imageSize(file) {
+  const out = execFileSync('magick', ['identify', '-format', '%w %h', file], {
+    encoding: 'utf8',
+  });
+  return out.trim().split(/\s+/).map(Number);
+}
+
 // Slice a charset into a static front icon + idle gif under `key`.
 function build(srcFile, key) {
   const [cw, ch] = cellSize(srcFile);
@@ -277,12 +385,296 @@ function build(srcFile, key) {
     '-background', 'none', join(tmp, 'f_%02d.png'),
   ]);
 
-  // Static icon: trim transparent padding, then re-center on a square canvas so
-  // every trainer lines up regardless of how tall their sprite sits in-cell.
+  emitTrainerSprite(key, cw, ch, ['f_00', 'f_01', 'f_02', 'f_03']);
+}
+
+// Repo-local 4×4 charsets on a black matte. [filename under assets/, key, name, sex].
+const LOCAL_CHARSETS = [
+  ['whitney-overworld.png', 'whitney', 'Whitney', 'f'],
+  ['blaine-overworld.png', 'blaine', 'Blaine', 'm'],
+  ['falkner-overworld.png', 'falkner', 'Falkner', 'm'],
+  ['chuck-overworld.png', 'chuck', 'Chuck', 'm'],
+  ['pryce-overworld.png', 'pryce', 'Pryce', 'm'],
+  ['surge-overworld.png', 'surge', 'Lt. Surge', 'm'],
+  ['erika-overworld.png', 'erika', 'Erika', 'f'],
+  ['janine-overworld.png', 'janine', 'Janine', 'f'],
+  ['bruno-overworld.png', 'bruno', 'Bruno', 'm'],
+  ['lance-overworld.png', 'lance', 'Lance', 'm'],
+  ['will-overworld.png', 'will', 'Will', 'm'],
+  ['steven-overworld.png', 'steven', 'Steven', 'm'],
+  ['koga-overworld.png', 'koga', 'Koga', 'm'],
+  ['agatha-overworld.png', 'agatha', 'Agatha', 'f'],
+  ['pikachu-overworld.png', 'pikachu', 'Pikachu', 'm'],
+  ['giovanni-overworld.png', 'giovanni', 'Giovanni', 'm'],
+];
+
+// Repo-local 4×4 charsets for roadside trainers (HGSS sheet rips are unreliable).
+// [filename under assets/, key suffix, gender, trainer class].
+const LOCAL_RANDOM_CHARSETS = [
+  ['rocket-grunt-m-overworld.png', 'rocket-grunt-m', 'm', 'Team Rocket'],
+  ['rocket-grunt-f-overworld.png', 'rocket-grunt-f', 'f', 'Team Rocket'],
+];
+
+// Pre-built static PNG + animated GIF pairs (HGSS rips supplied as finished assets).
+// [static file, anim file, key, name, sex]
+const LOCAL_PREBUILT = [
+  ['blaine-disguise-static.png', 'blaine-disguise-animated.gif', 'blaine-disguise', 'Blaine', 'm'],
+];
+
+function buildLocalCharset(srcFile, key) {
+  const [cw, ch] = cellSize(srcFile);
+  rmSync(tmp, { recursive: true, force: true });
+  mkdirSync(tmp, { recursive: true });
+
   magick([
-    join(tmp, 'f_00.png'), '-trim', '+repage', '-background', 'none',
-    '-gravity', 'south', '-extent', `${cw}x${ch}`, join(outDir, `${key}.png`),
+    srcFile, '-crop', `${cw}x${ch}`, '+repage',
+    '-background', 'none', join(tmp, 'f_%02d.png'),
   ]);
+
+  for (let i = 0; i < 16; i++) {
+    const frame = join(tmp, `f_${String(i).padStart(2, '0')}.png`);
+    magick([frame, '-fuzz', '12%', '-transparent', 'black', frame]);
+  }
+
+  emitTrainerSprite(key, cw, ch, ['f_00', 'f_01', 'f_02', 'f_03']);
+}
+
+// Static icon + multi-frame GIF already exported at the correct cell size.
+function buildPrebuiltPair(staticSrc, animSrc, outKey) {
+  const [cw, ch] = imageSize(staticSrc);
+  rmSync(tmp, { recursive: true, force: true });
+  mkdirSync(tmp, { recursive: true });
+
+  magick([
+    staticSrc, '-fuzz', '12%', '-transparent', 'black',
+    '-background', 'none', '-gravity', 'south',
+    '-extent', `${cw}x${ch}`, join(outDir, `${outKey}.png`),
+  ]);
+
+  magick([animSrc, '+adjoin', '-background', 'none', join(tmp, 'f_%02d.png')]);
+
+  const frames = readdirSync(tmp)
+    .filter((f) => /^f_\d+\.png$/.test(f))
+    .sort();
+
+  for (const f of frames) {
+    const frame = join(tmp, f);
+    magick([frame, '-fuzz', '12%', '-transparent', 'black', frame]);
+  }
+
+  const frameTags = frames.map((f) => f.replace('.png', ''));
+
+  const KEY = '#FF00FF';
+  const keyed = frameTags.map((tag) => {
+    const dst = join(tmp, `k_${tag}.png`);
+    magick([
+      join(tmp, `${tag}.png`), '-background', KEY,
+      '-alpha', 'remove', '-alpha', 'off', dst,
+    ]);
+    return dst;
+  });
+  magick([
+    '-dispose', 'background', '-delay', '18', '-loop', '0',
+    ...keyed, '-transparent', KEY, join(outDir, `${outKey}.gif`),
+  ]);
+}
+
+// Gen-3 Emerald OW charsets (128×128, 4×4) often leave the top row blank and
+// park the down-facing walk cycle on row 2 — so we pass explicit frame ids.
+function buildEmeraldOw(srcFile, key, frames) {
+  const [cw, ch] = cellSize(srcFile);
+  rmSync(tmp, { recursive: true, force: true });
+  mkdirSync(tmp, { recursive: true });
+
+  magick([
+    srcFile, '-crop', `${cw}x${ch}`, '+repage',
+    '-background', 'none', join(tmp, 'f_%02d.png'),
+  ]);
+
+  const tags = frames.map((i) => `f_${String(i).padStart(2, '0')}`);
+  emitTrainerSprite(key, cw, ch, tags);
+}
+
+// Legends Z-A sheets share 64×64 cells but vary in height (256, 384, 512 px).
+function buildZa(srcFile, key) {
+  const cw = 64;
+  const ch = 64;
+  rmSync(tmp, { recursive: true, force: true });
+  mkdirSync(tmp, { recursive: true });
+
+  magick([
+    srcFile, '-crop', `${cw}x${ch}`, '+repage',
+    '-background', 'none', join(tmp, 'f_%02d.png'),
+  ]);
+
+  emitTrainerSprite(key, cw, ch, ['f_00', 'f_01', 'f_02', 'f_03']);
+}
+
+function zaSrc(prefix) {
+  if (!existsSync(LEGENDS_ZA_DIR)) return null;
+  const want = prefix.normalize('NFC');
+  const hit = readdirSync(LEGENDS_ZA_DIR).find((f) => {
+    if (!f.endsWith('.png')) return false;
+    const base = f.split(' - ')[0];
+    return base.normalize('NFC') === want;
+  });
+  return hit ? join(LEGENDS_ZA_DIR, hit) : null;
+}
+
+let hgssMetricsCache;
+function hgssMetrics() {
+  if (hgssMetricsCache) return hgssMetricsCache;
+  const out = execFileSync('magick', ['identify', '-format', '%w %h', HGSS_SHEET], {
+    encoding: 'utf8',
+  });
+  const [w, h] = out.trim().split(/\s+/).map(Number);
+  hgssMetricsCache = { w, h };
+  return hgssMetricsCache;
+}
+
+function hgssSubcolRect(subcol, row, band = 'full', span = 1) {
+  const { w, h } = hgssMetrics();
+  const x0 = Math.floor((subcol * w) / HGSS_SUBCOLS);
+  const x1 = Math.floor(((subcol + span) * w) / HGSS_SUBCOLS);
+  let y0 = Math.floor((row * h) / HGSS_ROWS);
+  let y1 = Math.floor(((row + 1) * h) / HGSS_ROWS);
+  const bh = y1 - y0;
+  if (band === 'top') y1 = y0 + Math.floor(bh / 2);
+  else if (band === 'bottom') y0 = y0 + Math.floor(bh / 2);
+  else if (band === 'third') y1 = y0 + Math.floor(bh / 3);
+  const bw = x1 - x0;
+  const sliceH = y1 - y0;
+  return {
+    crop: `${bw}x${sliceH}+${x0}+${y0}`,
+    bw,
+    bh: sliceH,
+  };
+}
+
+function hgssSplit(layout, bw, bh) {
+  switch (layout) {
+    case 'strip':
+      return { cols: 1, rows: 4, fw: bw, fh: bh / 4 };
+    case 'grid2x2':
+      return { cols: 2, rows: 2, fw: bw / 2, fh: bh / 2 };
+    case 'grid2x4':
+      return { cols: 2, rows: 4, fw: bw / 2, fh: bh / 4 };
+    case 'dual-strip': {
+      const halfW = Math.floor(bw / 2);
+      return { cols: 2, rows: 4, fw: halfW, fh: bh / 4, dualStrip: true, halfW };
+    }
+    case 'band-h2':
+      return { cols: 2, rows: 1, fw: bw / 2, fh: bh };
+    case 'band-h3':
+      return { cols: 3, rows: 1, fw: bw / 3, fh: bh };
+    case 'band-single':
+      return { cols: 1, rows: 1, fw: bw, fh: bh };
+    default:
+      throw new Error(`unknown HGSS layout: ${layout}`);
+  }
+}
+
+function hgssDownFrames(layout, override) {
+  if (override) return override;
+  switch (layout) {
+    case 'strip':
+      return HGSS_DOWN_STRIP;
+    case 'grid2x2':
+      return HGSS_DOWN_GRID2X2;
+    case 'grid2x4':
+      return HGSS_DOWN_GRID2X4;
+    case 'dual-strip':
+      return [7, 6, 7, 6];
+    case 'band-h2':
+      return [1, 1, 1, 1];
+    case 'band-h3':
+      return [2, 2, 2, 2];
+    case 'band-single':
+      return [0, 0, 0, 0];
+    default:
+      return HGSS_DOWN_STRIP;
+  }
+}
+
+// Rip one sub-column from the HGSS master sheet (Dragoons/TSR rip).
+function buildHgss(subcol, row, key, layout, band = 'full', downOverride, span = 1) {
+  const { crop, bw, bh } = hgssSubcolRect(subcol, row, band, span);
+  const { cols, rows, fw, fh } = hgssSplit(layout, bw, bh);
+  const downFrames = hgssDownFrames(layout, downOverride);
+  rmSync(tmp, { recursive: true, force: true });
+  mkdirSync(tmp, { recursive: true });
+
+  const block = join(tmp, 'block.png');
+  magick([HGSS_SHEET, '-crop', crop, '+repage', block]);
+
+  const bgRaw = execFileSync('magick', [block, '-format', '%[hex:p{0,0}]', 'info:'], {
+    encoding: 'utf8',
+  }).trim();
+  const bg = bgRaw.startsWith('#') ? bgRaw : `#${bgRaw}`;
+
+  if (layout === 'band-single') {
+    magick([block, '-background', 'none', join(tmp, 'raw_00.png')]);
+  } else if (layout === 'dual-strip') {
+    const halfW = Math.floor(bw / 2);
+    const left = join(tmp, 'left.png');
+    const right = join(tmp, 'right.png');
+    magick([block, '-crop', `${halfW}x${bh}+0+0`, '+repage', left]);
+    magick([block, '-crop', `${bw - halfW}x${bh}+${halfW}+0`, '+repage', right]);
+    // Row 3 packs the previous row's feet into the top quarter — skip that bleed.
+    const stripInset = row === 3 ? Math.floor(bh / 4) : 0;
+    const stripH = bh - stripInset;
+    for (const [side, src] of [['L', left], ['R', right]]) {
+      for (let r = 0; r < 4; r++) {
+        const y0 = stripInset + Math.floor((r * stripH) / 4);
+        const y1 = stripInset + Math.floor(((r + 1) * stripH) / 4);
+        const idx = r * 2 + (side === 'L' ? 0 : 1);
+        magick([
+          src, '-crop', `${halfW}x${y1 - y0}+0+${y0}`, '+repage',
+          '-background', 'none', join(tmp, `raw_${String(idx).padStart(2, '0')}.png`),
+        ]);
+      }
+    }
+  } else {
+    magick([
+      block, '-crop', `${cols}x${rows}@`, '+repage', '-background', 'none',
+      join(tmp, 'raw_%02d.png'),
+    ]);
+  }
+
+  const tags = [];
+  for (let i = 0; i < downFrames.length; i++) {
+    const idx = downFrames[i];
+    const tag = `f_${String(i).padStart(2, '0')}`;
+    tags.push(tag);
+    magick([
+      join(tmp, `raw_${String(idx).padStart(2, '0')}.png`),
+      '-fuzz', '18%', '-transparent', bg,
+      '-filter', 'point', '-resize', '300%',
+      '-background', 'none', join(tmp, `${tag}.png`),
+    ]);
+  }
+
+  const cw = Math.round(fw * 3);
+  const ch = Math.round(fh * 3);
+  emitTrainerSprite(key, cw, ch, tags);
+}
+
+function emitTrainerSprite(key, cw, ch, frameTags, opts = {}) {
+  const iconTag = frameTags[0];
+  const iconSrc = join(tmp, `${iconTag}.png`);
+  if (opts.skipTrim) {
+    magick([
+      iconSrc, '-background', 'none',
+      '-gravity', 'south', '-extent', `${cw}x${ch}`, join(outDir, `${key}.png`),
+    ]);
+  } else {
+    // Static icon: trim transparent padding, then re-center on a square canvas so
+    // every trainer lines up regardless of how tall their sprite sits in-cell.
+    magick([
+      iconSrc, '-trim', '+repage', '-background', 'none',
+      '-gravity', 'south', '-extent', `${cw}x${ch}`, join(outDir, `${key}.png`),
+    ]);
+  }
 
   // Idle gif: the four front-facing frames, looping. GIF has no alpha channel,
   // and these rips hide a blue matte color *underneath* their transparent
@@ -291,10 +683,10 @@ function build(srcFile, key) {
   // whatever matte is hidden), drop the alpha, then flag that key transparent.
   // `-dispose background` keeps frames from smearing into one another.
   const KEY = '#FF00FF';
-  const keyed = ['f_00', 'f_01', 'f_02', 'f_03'].map((f) => {
-    const dst = join(tmp, `k_${f}.png`);
+  const keyed = frameTags.map((tag) => {
+    const dst = join(tmp, `k_${tag}.png`);
     magick([
-      join(tmp, `${f}.png`), '-background', KEY,
+      join(tmp, `${tag}.png`), '-background', KEY,
       '-alpha', 'remove', '-alpha', 'off', dst,
     ]);
     return dst;
@@ -315,6 +707,35 @@ mkdirSync(outDir, { recursive: true });
 
 const manifest = { random: [], gym: [], elite: [], champion: [], special: [] };
 const slug = (s) => s.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+
+/** Famous-trainer ladder slots from src/game/specials.ts (source of truth). */
+function loadFamousSlots() {
+  const src = readFileSync(join(root, 'src/game/specials.ts'), 'utf8');
+  /** @type {Record<string, string>} */
+  const slots = {};
+  for (const m of src.matchAll(/\bid:\s*'([^']+)'[\s\S]*?\bslot:\s*'([^']+)'/g)) {
+    slots[m[1]] = m[2];
+  }
+  return slots;
+}
+
+const famousSlots = loadFamousSlots();
+
+/** Which manifest bucket a famous sprite belongs in (sprite keys stay special-*). */
+function manifestCategoryFor(key, override) {
+  if (override) return override;
+  const slot = famousSlots[key];
+  if (slot === 'gym' || slot === 'elite' || slot === 'champion') return slot;
+  return 'special';
+}
+
+/** Build a famous face and file it under gym / elite / champion / special. */
+function addFamous(key, name, g, buildOut, catOverride) {
+  const outKey = `special-${key}`;
+  buildOut(outKey);
+  const cat = manifestCategoryFor(key, catOverride);
+  manifest[cat].push({ key: outKey, gender: g, name });
+}
 
 // --- Roadside "random" trainers: gendered class sprites. ---------------------
 for (const [base, title, sex] of CLASSES) {
@@ -370,9 +791,7 @@ if (existsSync(animeDir)) {
       console.warn(`skip missing ${src}`);
       continue;
     }
-    const outKey = `special-${key}`;
-    build(src, outKey);
-    manifest.special.push({ key: outKey, gender: g, name });
+    addFamous(key, name, g, (outKey) => build(src, outKey));
   }
 } else {
   console.warn(`Megapack Anime NPCs not found at ${animeDir} — skipping.`);
@@ -386,9 +805,7 @@ if (existsSync(playableDir)) {
       console.warn(`skip missing ${src}`);
       continue;
     }
-    const outKey = `special-${key}`;
-    build(src, outKey);
-    manifest.special.push({ key: outKey, gender: g, name });
+    addFamous(key, name, g, (outKey) => build(src, outKey));
   }
 } else {
   console.warn(`Megapack Playable Characters not found at ${playableDir} — skipping.`);
@@ -402,12 +819,70 @@ if (existsSync(rseDir)) {
       console.warn(`skip missing ${src}`);
       continue;
     }
-    const outKey = `special-${key}`;
-    build(src, outKey);
-    manifest.special.push({ key: outKey, gender: g, name });
+    addFamous(key, name, g, (outKey) => build(src, outKey));
   }
 } else {
   console.warn(`Megapack RSE NPCs not found at ${rseDir} — skipping.`);
+}
+
+// --- Emerald Red OW (custom rips): Champion cosmetic face. ------------------
+if (existsSync(EMERALD_RED)) {
+  for (const [file, key, name, g, frames] of EMERALD_RED_FACES) {
+    const src = join(EMERALD_RED, `${file}.png`);
+    if (!existsSync(src)) {
+      console.warn(`skip missing ${src}`);
+      continue;
+    }
+    addFamous(key, name, g, (outKey) => buildEmeraldOw(src, outKey, frames));
+  }
+} else {
+  console.warn(`Emerald Red sprites not found at ${EMERALD_RED} — skipping.`);
+}
+
+// --- Pokémon Horizons (Tobal_Crv rips): cast cameos + crowd variety. ---------
+if (existsSync(HORIZONTES_DIR)) {
+  for (const [file, key, name, g] of HORIZONTES_SPECIAL) {
+    const src = join(HORIZONTES_DIR, `${file} - Tobal_Crv.png`);
+    if (!existsSync(src)) {
+      console.warn(`skip missing ${src}`);
+      continue;
+    }
+    addFamous(key, name, g, (outKey) => build(src, outKey));
+  }
+  for (const [file, key, g, cls] of HORIZONTES_RANDOM) {
+    const src = join(HORIZONTES_DIR, `${file} - Tobal_Crv.png`);
+    if (!existsSync(src)) {
+      console.warn(`skip missing ${src}`);
+      continue;
+    }
+    const outKey = `random-horizons-${key}`;
+    build(src, outKey);
+    manifest.random.push({ key: outKey, gender: g, cls });
+  }
+} else {
+  console.warn(`Horizons sprites not found at ${HORIZONTES_DIR} — skipping.`);
+}
+
+// --- Legends Z-A (TobalCrv rips): Lumiose cast + protagonist faces. ---------
+if (existsSync(LEGENDS_ZA_DIR)) {
+  for (const [prefix, key, name, g] of LEGENDS_ZA_SPECIAL) {
+    const src = zaSrc(prefix);
+    if (!src) {
+      console.warn(`skip missing ${prefix} in ${LEGENDS_ZA_DIR}`);
+      continue;
+    }
+    addFamous(key, name, g, (outKey) => buildZa(src, outKey));
+  }
+  for (const [prefix, key, name, g] of LEGENDS_ZA_CHAMPION) {
+    const src = zaSrc(prefix);
+    if (!src) {
+      console.warn(`skip missing ${prefix} in ${LEGENDS_ZA_DIR}`);
+      continue;
+    }
+    addFamous(key, name, g, (outKey) => buildZa(src, outKey));
+  }
+} else {
+  console.warn(`Legends Z-A sprites not found at ${LEGENDS_ZA_DIR} — skipping.`);
 }
 
 // --- Misc famous faces (Champions, team bosses, rivals, anime cameos). --------
@@ -417,9 +892,83 @@ for (const [dir, file, key, name, g] of EXTRA_FAMOUS) {
     console.warn(`skip missing ${src}`);
     continue;
   }
-  const outKey = `special-${key}`;
-  build(src, outKey);
-  manifest.special.push({ key: outKey, gender: g, name });
+  addFamous(key, name, g, (outKey) => build(src, outKey));
+}
+
+// --- Repo-local charsets (override HGSS rips when present). -----------------
+for (const [file, key, name, g] of LOCAL_CHARSETS) {
+  const src = join(root, 'assets', file);
+  if (!existsSync(src)) {
+    console.warn(`skip missing ${src}`);
+    continue;
+  }
+  addFamous(key, name, g, (outKey) => buildLocalCharset(src, outKey));
+}
+
+for (const [file, key, g, cls] of LOCAL_RANDOM_CHARSETS) {
+  const src = join(root, 'assets', file);
+  if (!existsSync(src)) {
+    console.warn(`skip missing ${src}`);
+    continue;
+  }
+  const outKey = `random-hgss-${key}`;
+  buildLocalCharset(src, outKey);
+  manifest.random.push({ key: outKey, gender: g, cls });
+}
+
+for (const [staticFile, animFile, key, name, g] of LOCAL_PREBUILT) {
+  const staticSrc = join(root, 'assets', staticFile);
+  const animSrc = join(root, 'assets', animFile);
+  if (!existsSync(staticSrc) || !existsSync(animSrc)) {
+    console.warn(`skip missing ${staticSrc} or ${animSrc}`);
+    continue;
+  }
+  addFamous(key, name, g, (outKey) => buildPrebuiltPair(staticSrc, animSrc, outKey));
+}
+
+// --- Emerald FRLG-style NPC rips (ChromusSama / Poffin_Case). --------------
+if (existsSync(EMERALD_NPC_DIR)) {
+  for (const [file, key, name, g] of EMERALD_FAMOUS) {
+    const src = join(EMERALD_NPC_DIR, `${file}.png`);
+    if (!existsSync(src)) {
+      console.warn(`skip missing ${src}`);
+      continue;
+    }
+    addFamous(key, name, g, (outKey) => build(src, outKey));
+  }
+} else {
+  console.warn(`Emerald NPC sprites not found at ${EMERALD_NPC_DIR} — skipping.`);
+}
+
+// --- Gen 4 OW collection (Vanilla Sunshine). --------------------------------
+if (existsSync(GEN4_OW_DIR)) {
+  for (const [file, key, name, g] of GEN4_FAMOUS) {
+    const src = join(GEN4_OW_DIR, `${file}.png`);
+    if (!existsSync(src)) {
+      console.warn(`skip missing ${src}`);
+      continue;
+    }
+    addFamous(key, name, g, (outKey) => build(src, outKey));
+  }
+} else {
+  console.warn(`Gen 4 OW sprites not found at ${GEN4_OW_DIR} — skipping.`);
+}
+
+// --- HGSS trainer overworld sheet (24×9 Dragoons/TSR rip). -----------------
+if (existsSync(HGSS_SHEET)) {
+  for (const entry of HGSS_SPECIAL) {
+    const [subcol, row, key, name, g, layout, band = 'full', downFrames, span = 1] = entry;
+    addFamous(key, name, g, (outKey) =>
+      buildHgss(subcol, row, outKey, layout, band, downFrames, span));
+  }
+  for (const entry of HGSS_RANDOM) {
+    const [subcol, row, key, g, cls, layout, band = 'full', downFrames, span = 1] = entry;
+    const outKey = `random-hgss-${key}`;
+    buildHgss(subcol, row, outKey, layout, band, downFrames, span);
+    manifest.random.push({ key: outKey, gender: g, cls });
+  }
+} else {
+  console.warn(`HGSS trainer sheet not found at ${HGSS_SHEET} — skipping.`);
 }
 
 // --- Famous tiers: numbered role rips bound to their canonical character. -----

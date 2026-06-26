@@ -385,9 +385,10 @@ export function buildGauntlet(
     };
   });
 
-  // Gym Leaders: famous anime leaders (Brock, Misty, Sabrina, Blaine) blend in
-  // with their real type + hand-picked team; the rest are procedural, type-themed
-  // leaders whose displayed name follows the sprite (e.g. the cowboy is Clay).
+  // Gym Leaders: famous leaders (Brock, Surge, Falkner, Roxanne…) blend in with
+  // their real type + on-theme pool; procedural slots draw a gym-leader face from
+  // TRAINER_SPRITES.gym (Unova rips + every gen's famous leader sprite) and pair
+  // it with a random type theme — the sprite's name wins when set (e.g. Clay).
   const gyms: Opponent[] = Array.from({ length: shape.gyms }, (_, i) => {
     const famous =
       famousGymPool.length > 0 && rng.chance(0.6) ? famousGymPool.shift()! : null;

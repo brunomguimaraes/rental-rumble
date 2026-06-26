@@ -166,7 +166,9 @@ export function Leaderboard({
   const [playerName, setPlayerName] = useState<string | null>(null);
 
   const refresh = (fresh = false) => {
-    setLoading(true);
+    const keepBoard =
+      fresh && !!board && board.bracket === activeBracket;
+    if (!keepBoard) setLoading(true);
     fetchLeaderboard(date, activeBracket, { fresh })
       .then(setBoard)
       .finally(() => setLoading(false));
@@ -221,13 +223,6 @@ export function Leaderboard({
   // tidy "posting as X" confirmation; first-timers (no saved name) edit upfront.
   const [editingName, setEditingName] = useState(!savedName);
 
-  // The name-entry step belongs on a fresh, not-yet-submitted win.
-  const showNameStep =
-    canSubmit &&
-    activeBracket === runBracket &&
-    !submittedRef.current &&
-    status === 'name';
-
   // The reigning Master #1 — the de-facto top of the board (Master is the top
   // rank tier) and the only target for a Throne Challenge.
   const king = board?.entries.find((e) => e.difficulty === 'master') ?? null;
@@ -246,6 +241,25 @@ export function Leaderboard({
     !!king &&
     king.team.length > 0 &&
     !isKingMe;
+
+  // One stable card for name → submit → result so the block doesn't resize
+  // between steps (the old separate panels had mismatched padding/heights).
+  const showClaimFlow =
+    canSubmit &&
+    activeBracket === runBracket &&
+    (status === 'name' ||
+      status === 'submitting' ||
+      status === 'error' ||
+      (status === 'done' && placement?.rank != null));
+
+  const claimCardClass =
+    status === 'name'
+      ? 'border-amber-300/30 bg-amber-300/[0.06]'
+      : status === 'submitting'
+        ? 'border-white/10 bg-white/[0.03]'
+        : status === 'error'
+          ? 'border-rose-300/30 bg-rose-300/[0.06]'
+          : 'border-emerald-300/30 bg-emerald-300/[0.06]';
 
   return (
     <div className="mt-8 w-full max-w-lg text-left">
@@ -342,86 +356,97 @@ export function Leaderboard({
         </ul>
       </details>
 
-      {showNameStep && (
-        <div className="mt-3 rounded-2xl border border-amber-300/30 bg-amber-300/[0.06] p-3">
-          <p className="text-sm font-semibold text-amber-200">
-            You beat today’s boss!{' '}
-            {editingName ? 'Put your name on the board.' : 'Claim your spot.'}
-          </p>
-          {editingName ? (
-            <div className="mt-2 flex gap-2">
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') confirmName();
-                }}
-                maxLength={24}
-                placeholder="Your name"
-                autoFocus
-                className="min-w-0 flex-1 rounded-full border border-white/15 bg-black/30 px-4 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-amber-300/60"
-              />
-              <button
-                type="button"
-                onClick={confirmName}
-                className="rounded-full bg-amber-300 px-4 py-2 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
-              >
-                Claim spot
-              </button>
-            </div>
-          ) : (
-            <div className="mt-2 flex items-center gap-2">
-              <p className="min-w-0 flex-1 text-sm text-white/80">
-                Posting as{' '}
-                <span className="font-bold text-white">{savedName}</span>
-                {' · '}
-                <button
-                  type="button"
-                  onClick={() => setEditingName(true)}
-                  className="font-semibold text-amber-300 underline-offset-2 hover:underline"
-                >
-                  change
-                </button>
+      {showClaimFlow && (
+        <div
+          className={`mt-3 flex min-h-[5.75rem] flex-col justify-center rounded-2xl border p-3 transition-[background-color,border-color] duration-200 ${claimCardClass}`}
+        >
+          {status === 'name' && (
+            <>
+              <p className="text-sm font-semibold text-amber-200">
+                You beat today’s boss!{' '}
+                {editingName ? 'Put your name on the board.' : 'Claim your spot.'}
+              </p>
+              {editingName ? (
+                <div className="mt-2 flex gap-2">
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') confirmName();
+                    }}
+                    maxLength={24}
+                    placeholder="Your name"
+                    autoFocus
+                    className="min-w-0 flex-1 rounded-full border border-white/15 bg-black/30 px-4 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-amber-300/60"
+                  />
+                  <button
+                    type="button"
+                    onClick={confirmName}
+                    className="rounded-full bg-amber-300 px-4 py-2 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
+                  >
+                    Claim spot
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-2 flex items-center gap-2">
+                  <p className="min-w-0 flex-1 text-sm text-white/80">
+                    Posting as{' '}
+                    <span className="font-bold text-white">{savedName}</span>
+                    {' · '}
+                    <button
+                      type="button"
+                      onClick={() => setEditingName(true)}
+                      className="font-semibold text-amber-300 underline-offset-2 hover:underline"
+                    >
+                      change
+                    </button>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={confirmName}
+                    className="shrink-0 rounded-full bg-amber-300 px-4 py-2 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
+                  >
+                    Claim spot
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {status === 'submitting' && (
+            <>
+              <p className="text-sm font-semibold text-white/80">
+                You beat today’s boss!
+              </p>
+              <p className="mt-2 text-sm font-semibold text-white/60">
+                Posting your win to the board…
+              </p>
+            </>
+          )}
+
+          {status === 'error' && (
+            <>
+              <p className="text-sm font-semibold text-rose-200">
+                {error ?? 'Could not submit your win.'}
               </p>
               <button
                 type="button"
-                onClick={confirmName}
-                className="shrink-0 rounded-full bg-amber-300 px-4 py-2 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
+                onClick={() => playerName && submitUnder(playerName)}
+                className="mt-2 self-start rounded-full bg-amber-300 px-4 py-2 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
               >
-                Claim spot
+                Try again
               </button>
-            </div>
+            </>
+          )}
+
+          {status === 'done' && placement?.rank && (
+            <p className="text-sm font-semibold text-emerald-200">
+              You were #{placement.rank}
+              {placement.total ? ` of ${placement.total}` : ''} to beat the boss
+              today! 🎉
+            </p>
           )}
         </div>
-      )}
-
-      {status === 'submitting' && (
-        <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white/70">
-          Posting your win to the board…
-        </p>
-      )}
-
-      {status === 'error' && (
-        <div className="mt-3 rounded-2xl border border-rose-300/30 bg-rose-300/[0.06] p-3">
-          <p className="text-sm font-semibold text-rose-200">
-            {error ?? 'Could not submit your win.'}
-          </p>
-          <button
-            type="button"
-            onClick={() => playerName && submitUnder(playerName)}
-            className="mt-2 rounded-full bg-amber-300 px-4 py-2 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
-          >
-            Try again
-          </button>
-        </div>
-      )}
-
-      {status === 'done' && placement?.rank && (
-        <p className="mt-3 rounded-2xl border border-emerald-300/30 bg-emerald-300/[0.06] px-4 py-3 text-sm font-semibold text-emerald-200">
-          You were #{placement.rank}
-          {placement.total ? ` of ${placement.total}` : ''} to beat the boss
-          today! 🎉
-        </p>
       )}
 
       {canChallengeThrone && king && throne && (
@@ -452,8 +477,12 @@ export function Leaderboard({
         </p>
       )}
 
-      <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-        {loading ? (
+      <div
+        className={`mt-3 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] transition-opacity duration-200 ${
+          loading && board && board.bracket === activeBracket ? 'opacity-60' : ''
+        }`}
+      >
+        {loading && (!board || board.bracket !== activeBracket) ? (
           <p className="px-4 py-6 text-center text-sm text-white/40">
             Loading the board…
           </p>

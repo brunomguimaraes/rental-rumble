@@ -62,7 +62,7 @@ const ACCENT: Record<string, { on: string; dot: string }> = {
  * underlying flags read false in production regardless, so cheats can never leak
  * to a real build even if a flag lingers in localStorage.
  */
-export function DevPanel() {
+export function DevPanel({ onViewTrainerSprites }: { onViewTrainerSprites?: () => void }) {
   const [open, setOpen] = useState(false);
   // Local mirror of the persisted flags so the toggles re-render on tap.
   const [state, setState] = useState(() => TOGGLES.map((t) => t.get()));
@@ -94,6 +94,21 @@ export function DevPanel() {
             </button>
           </div>
           <div className="flex flex-col gap-2">
+            {onViewTrainerSprites && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onViewTrainerSprites();
+                }}
+                className="rounded-xl border border-sky-400/40 bg-sky-400/10 px-3 py-2 text-left text-xs font-semibold text-sky-200 transition hover:bg-sky-400/20"
+              >
+                Trainer sprite sheet
+                <span className="mt-0.5 block text-[10px] font-normal leading-tight text-sky-200/60">
+                  Browse every overworld trainer sprite.
+                </span>
+              </button>
+            )}
             {TOGGLES.map((t, i) => {
               const accent = ACCENT[t.accent];
               return (

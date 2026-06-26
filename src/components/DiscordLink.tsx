@@ -1,17 +1,48 @@
 const DISCORD_URL = 'https://discord.gg/qtXYk6CuSs';
 
-/** Link to the game's Discord server. Renders as a muted footer link by default,
- *  or as a rounded pill button (matching the title-screen nav pills) when `pill`. */
+/** Link to the game's Discord server. */
 export function DiscordLink({
   className = '',
-  pill = false,
+  variant = 'link',
 }: {
   className?: string;
-  pill?: boolean;
+  /** `banner` — title-screen community card; `pill` — compact nav pill; `link` — muted text link. */
+  variant?: 'link' | 'pill' | 'banner';
 }) {
-  const base = pill
-    ? 'inline-flex items-center gap-1.5 rounded-full border border-[#5865F2]/60 px-4 py-1.5 text-xs font-medium text-[#9da9ff] transition hover:bg-[#5865F2]/10'
-    : 'inline-flex items-center gap-1.5 text-xs font-semibold text-white/45 underline-offset-4 transition hover:text-[#9da9ff] hover:underline';
+  if (variant === 'banner') {
+    return (
+      <a
+        href={DISCORD_URL}
+        target="_blank"
+        rel="noreferrer"
+        className={`group flex w-full items-center gap-3 rounded-2xl border border-[#5865F2]/35 bg-[#5865F2]/[0.08] px-4 py-3 text-left transition hover:border-[#5865F2]/55 hover:bg-[#5865F2]/[0.12] ${className}`}
+      >
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#5865F2]/20">
+          <DiscordIcon className="h-6 w-6 text-[#9da9ff]" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-[#9da9ff]/80">
+            Community
+          </div>
+          <div className="font-bold text-white/90">Join us on Discord</div>
+          <p className="mt-0.5 text-xs text-white/50">
+            Share runs, compare ladder clears, and help shape what we build next.
+          </p>
+        </div>
+        <span
+          aria-hidden
+          className="shrink-0 text-sm font-semibold text-[#9da9ff] transition group-hover:translate-x-0.5"
+        >
+          →
+        </span>
+      </a>
+    );
+  }
+
+  const base =
+    variant === 'pill'
+      ? 'inline-flex items-center gap-1.5 rounded-full border border-[#5865F2]/60 px-4 py-1.5 text-xs font-medium text-[#9da9ff] transition hover:bg-[#5865F2]/10'
+      : 'inline-flex items-center gap-1.5 text-xs font-semibold text-white/45 underline-offset-4 transition hover:text-[#9da9ff] hover:underline';
   return (
     <a
       href={DISCORD_URL}

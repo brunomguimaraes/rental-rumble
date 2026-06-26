@@ -57,6 +57,14 @@ const PokedexScreen = lazy(() =>
   import('./components/PokedexScreen').then((m) => ({ default: m.PokedexScreen })),
 );
 
+const TrainerSpritesScreen = import.meta.env.DEV
+  ? lazy(() =>
+      import('./components/TrainerSpritesScreen').then((m) => ({
+        default: m.TrainerSpritesScreen,
+      })),
+    )
+  : null;
+
 /** Quiet placeholder shown while a lazy screen's chunk is fetched. */
 function ScreenFallback() {
   return (
@@ -77,6 +85,7 @@ type Phase =
   | 'history'
   | 'guide'
   | 'dex'
+  | 'trainerSprites'
   | 'draft'
   | 'map'
   | 'battle'
@@ -325,6 +334,10 @@ export default function App() {
     case 'dex':
       return <PokedexScreen onBack={() => setPhase('title')} />;
 
+    case 'trainerSprites':
+      if (!TrainerSpritesScreen) return null;
+      return <TrainerSpritesScreen onBack={() => setPhase('title')} />;
+
     case 'history':
       return <HistoryScreen onBack={() => setPhase('title')} />;
 
@@ -477,7 +490,9 @@ export default function App() {
       <Suspense fallback={<ScreenFallback />}>{renderScreen()}</Suspense>
       {/* Statically gated so Vite tree-shakes the whole dev panel out of any
           production build — the cheats simply don't exist there. */}
-      {import.meta.env.DEV && <DevPanel />}
+      {import.meta.env.DEV && (
+        <DevPanel onViewTrainerSprites={() => setPhase('trainerSprites')} />
+      )}
       <Analytics />
     </>
   );
