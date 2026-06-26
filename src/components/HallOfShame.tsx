@@ -232,7 +232,7 @@ export function HallOfShame({
   const myTotal = placement?.total ?? board?.total;
 
   return (
-    <div className="mt-8 w-full max-w-lg text-left">
+    <div className="mt-8 w-full max-w-2xl text-left">
       <div className="flex items-baseline justify-between">
         <h3 className="text-lg font-black text-white">
           💀 {isToday ? 'Today’s Hall of Shame' : 'Hall of Shame'}
@@ -333,50 +333,56 @@ export function HallOfShame({
 function ShameRow({ entry, mine }: { entry: ShameEntry; mine: boolean }) {
   return (
     <li
-      className={`flex items-center gap-2 px-3 py-2 ${
+      className={`px-3 py-2.5 ${
         mine ? 'bg-rose-300/[0.08] ring-1 ring-inset ring-rose-300/30' : ''
       }`}
     >
-      <RankNum rank={entry.rank} />
-      <div className="min-w-[4rem] max-w-[10rem] flex-1">
-        <span
-          title={entry.name}
-          className="block truncate text-sm font-semibold text-white"
-        >
-          {entry.name}
-          {mine && <span className="ml-1 text-[10px] text-rose-300/80">(you)</span>}
-        </span>
-        {entry.ragequit ? (
-          <span className="block truncate text-[10px] font-semibold text-red-300/70">
-            🏳 rage quit the run
-          </span>
-        ) : (
-          entry.fellTo && (
+      <div className="flex items-start gap-2">
+        <RankNum rank={entry.rank} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-3">
             <span
-              title={`Fell to ${entry.fellTo}`}
-              className="block truncate text-[10px] font-semibold text-rose-300/70"
+              title={entry.name}
+              className="min-w-0 truncate text-sm font-semibold text-white"
             >
-              ☠ fell to {entry.fellTo}
+              {entry.name}
+              {mine && <span className="ml-1 text-[10px] text-rose-300/80">(you)</span>}
             </span>
-          )
-        )}
+            <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-white/40">
+              {timeLabel(entry.at)}
+            </span>
+          </div>
+          {entry.ragequit ? (
+            <span className="mt-0.5 block truncate text-[10px] font-semibold text-red-300/70">
+              🏳 rage quit the run
+            </span>
+          ) : (
+            entry.fellTo && (
+              <span
+                title={`Fell to ${entry.fellTo}`}
+                className="mt-0.5 block truncate text-[10px] font-semibold text-rose-300/70"
+              >
+                ☠ fell to {entry.fellTo}
+              </span>
+            )
+          )}
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {entry.ragequit && <RagequitBadge />}
+            <DifficultyBadge difficulty={entry.difficulty} />
+            <span
+              title="Stages cleared before the wipe"
+              className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white/60"
+            >
+              {entry.clearedStages} cleared
+            </span>
+            <div className="flex items-center gap-1">
+              {entry.team.slice(0, 6).map((mon, i) => (
+                <TeamPortrait key={i} mon={mon} />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
-      {entry.ragequit && <RagequitBadge />}
-      <DifficultyBadge difficulty={entry.difficulty} />
-      <span
-        title="Stages cleared before the wipe"
-        className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white/60"
-      >
-        {entry.clearedStages} cleared
-      </span>
-      <div className="hidden shrink-0 items-center gap-1 sm:flex">
-        {entry.team.slice(0, 6).map((mon, i) => (
-          <TeamPortrait key={i} mon={mon} />
-        ))}
-      </div>
-      <span className="hidden shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-white/40 sm:block">
-        {timeLabel(entry.at)}
-      </span>
     </li>
   );
 }

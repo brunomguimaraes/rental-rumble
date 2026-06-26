@@ -10,7 +10,7 @@ import { SupportLinks } from './SupportLinks';
  */
 export function ShameScreen({ onBack }: { onBack: () => void }) {
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-xl flex-col items-center px-4 py-8 text-center sm:px-6">
+    <div className="mx-auto flex min-h-[100dvh] max-w-2xl flex-col items-center px-4 py-8 text-center sm:px-6">
       <img
         src={`${import.meta.env.BASE_URL}sprites/ui/cubone-skull.png`}
         alt="Skull"

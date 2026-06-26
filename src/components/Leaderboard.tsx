@@ -77,7 +77,7 @@ function EntryRelics({ relics }: { relics?: RelicId[] }) {
   if (!relics || relics.length === 0) return null;
   return (
     <div
-      className="hidden shrink-0 items-center gap-0.5 sm:flex"
+      className="flex shrink-0 items-center gap-0.5"
       title={`Relics: ${relics.map((id) => RELICS[id]?.name ?? id).join(', ')}`}
     >
       {relics.map((id, i) => {
@@ -93,6 +93,46 @@ function EntryRelics({ relics }: { relics?: RelicId[] }) {
         );
       })}
     </div>
+  );
+}
+
+function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
+  return (
+    <li className="px-3 py-2.5">
+      <div className="flex items-start gap-2">
+        <RankNum rank={entry.rank} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-3">
+            <span
+              title={entry.name}
+              className="min-w-0 truncate text-sm font-semibold text-white"
+            >
+              {entry.name}
+            </span>
+            <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-white/40">
+              {timeLabel(entry.wonAt ?? entry.at)}
+            </span>
+          </div>
+          {entry.defeated && (
+            <span
+              title={`Took the throne from ${entry.defeated}`}
+              className="mt-0.5 block truncate text-[10px] font-semibold text-amber-300/80"
+            >
+              ⚔ defeated {entry.defeated}
+            </span>
+          )}
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <DifficultyBadge difficulty={entry.difficulty} />
+            <div className="flex items-center gap-1">
+              {entry.team.slice(0, 6).map((mon, i) => (
+                <TeamPortrait key={i} mon={mon} />
+              ))}
+            </div>
+            <EntryRelics relics={entry.relics} />
+          </div>
+        </div>
+      </div>
+    </li>
   );
 }
 
@@ -262,7 +302,7 @@ export function Leaderboard({
           : 'border-emerald-300/30 bg-emerald-300/[0.06]';
 
   return (
-    <div className="mt-8 w-full max-w-lg text-left">
+    <div className="mt-8 w-full max-w-2xl text-left">
       <div className="flex items-baseline justify-between">
         <h3 className="text-lg font-black text-white">
           {isToday ? 'Today’s first clears' : 'First clears'}
@@ -495,38 +535,7 @@ export function Leaderboard({
         ) : (
           <ul className="divide-y divide-white/5">
             {board.entries.map((e) => (
-              <li
-                key={`${e.rank}-${e.name}`}
-                className="flex items-center gap-2 px-3 py-2"
-              >
-                <RankNum rank={e.rank} />
-                <div className="min-w-[4rem] max-w-[10rem] flex-1">
-                  <span
-                    title={e.name}
-                    className="block truncate text-sm font-semibold text-white"
-                  >
-                    {e.name}
-                  </span>
-                  {e.defeated && (
-                    <span
-                      title={`Took the throne from ${e.defeated}`}
-                      className="block truncate text-[10px] font-semibold text-amber-300/80"
-                    >
-                      ⚔ defeated {e.defeated}
-                    </span>
-                  )}
-                </div>
-                <DifficultyBadge difficulty={e.difficulty} />
-                <div className="hidden shrink-0 items-center gap-1 sm:flex">
-                  {e.team.slice(0, 6).map((mon, i) => (
-                    <TeamPortrait key={i} mon={mon} />
-                  ))}
-                </div>
-                <EntryRelics relics={e.relics} />
-                <span className="hidden shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-white/40 sm:block">
-                  {timeLabel(e.wonAt ?? e.at)}
-                </span>
-              </li>
+              <LeaderboardRow key={`${e.rank}-${e.name}`} entry={e} />
             ))}
           </ul>
         )}
