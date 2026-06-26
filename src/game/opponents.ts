@@ -413,23 +413,54 @@ export function buildGauntlet(
   });
 
   // Special cameo trainers: villains & gag faces from the anime (Team Rocket,
-  // Ash's mom, a rare Prof. Oak) who field a fixed, hand-picked team. The first
-  // drops in just before the Gym Leaders; a second (on the longer ladders) waits
-  // right before the Champion. Beating the LAST special — the single one, or the
-  // pre-Champion one when there are two — unlocks the sign-reroll reward.
-  const specials: Opponent[] = Array.from(
-    { length: shape.specials ?? 0 },
-    (_, i): Opponent => {
-      const spec =
-        specialsPool[i % Math.max(1, specialsPool.length)] ??
-        rng.pick(famousForSlot('special'));
-      const isLast = i === (shape.specials ?? 0) - 1;
+  // Ash's mom, a rare Prof. Oak). The first drops in just before the Gym Leaders
+  // as a light 3-mon warm-up; a second (on the longer ladders) waits right before
+  // the Champion as a full 6-mon gatekeeper. Every special is a real reward stop —
+  // beating ANY of them unlocks the FULL reward choice set (sign & ability reroll
+  // included), so the first special is as rewarding as the pre-Champion one.
+  //
+  // The pre-Champion gatekeeper must field a genuine 6 from its OWN roster, never
+  // a fixed-team gag padded up — so it's drawn only from pool-based bosses
+  // (villain leaders, Frontier Brains…), which fill six from a deep species pool.
+  // The pre-Gym warm-up can be any cameo (it's trimmed to 3). `specialsPool` is
+  // already in the run's random order, so filtering it keeps that without
+  // re-rolling. A boss is reserved for the gate FIRST, so the warm-up can never
+  // use up the last eligible one.
+  const specialCount = shape.specials ?? 0;
+  const bossCandidates = specialsPool.filter((t) => t.pool);
+  const usedIds = new Set<string>();
+  const takeBoss = (): FamousTrainer | undefined => {
+    const t = bossCandidates.find((b) => !usedIds.has(b.id));
+    if (t) usedIds.add(t.id);
+    return t;
+  };
+  const takeAny = (): FamousTrainer => {
+    const t =
+      specialsPool.find((s) => !usedIds.has(s.id)) ?? rng.pick(famousForSlot('special'));
+    usedIds.add(t.id);
+    return t;
+  };
+  const preChampionCount = Math.max(0, specialCount - 1);
+  const championSpecs = Array.from(
+    { length: preChampionCount },
+    () => takeBoss() ?? takeAny(),
+  );
+  const gymSpecs = Array.from({ length: specialCount - preChampionCount }, () => takeAny());
+
+  const specials: Opponent[] = [...gymSpecs, ...championSpecs].map(
+    (spec, i): Opponent => {
+      // Slot 0 is the pre-Gym warm-up (always 3 mons); any later special is the
+      // pre-Champion gatekeeper (always 6). The head-count is fixed by the slot,
+      // not the cameo: buildFamousTeam trims a longer roster (keeping its
+      // signature leads) or tops up a shorter one to hit the slot's size.
+      const isPreChampion = i >= gymSpecs.length;
       return {
         ...famousOpponent(spec, `special-${i}-${spec.id}`, 'special'),
-        signRerollReward: isLast,
+        teamSize: isPreChampion ? 6 : 3,
+        signRerollReward: true,
         // The reward's hidden tier rides along on the special's `strong` flag:
         // a tough cameo's win guarantees a rare sign, a gag cameo's a plain roll.
-        signRerollStrong: isLast ? (spec.strong ?? false) : undefined,
+        signRerollStrong: spec.strong ?? false,
       };
     },
   );

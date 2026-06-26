@@ -3070,5 +3070,21 @@ export function buildFamousTeam(
   if (roster.length === 0) {
     return buildOpponentTeam(fallbackType, Math.max(1, size), tier, seed, dex);
   }
-  return assignSigns(roster, rng, signOptsForTier(tier));
+  // Some rungs fix the head-count regardless of the cameo's authored roster — the
+  // special slots do this (a 3-mon pre-Gym warm-up, a 6-mon pre-Champion
+  // gatekeeper). Pool draws already come back at `size`, so this only bites the
+  // fixed-team gag cameos: trim a too-long team in send-out order (keeping its
+  // signature leads) or top up a too-short one with on-theme mons, so the slot's
+  // size is always honoured.
+  let final = roster;
+  if (roster.length > size) {
+    final = roster.slice(0, size);
+  } else if (roster.length < size) {
+    const have = new Set(roster.map((c) => c.dexId));
+    const filler = buildOpponentTeam(fallbackType, size, tier, `${seed}:fill`, dex)
+      .filter((c) => !have.has(c.dexId))
+      .slice(0, size - roster.length);
+    final = [...roster, ...filler];
+  }
+  return assignSigns(final, rng, signOptsForTier(tier));
 }

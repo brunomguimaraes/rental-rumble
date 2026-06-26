@@ -776,10 +776,10 @@ export interface Opponent {
    */
   skippable?: boolean;
   /**
-   * Whether beating this opponent unlocks the "reroll a sign" reward on the
-   * recruit screen. Set only on the run's *last* special trainer (the single
-   * special, or the second one when a run fields two), so the gamble is a
-   * once-per-run treat.
+   * Whether beating this opponent unlocks the "reroll a sign" (and sibling
+   * "reroll an ability") reward on the recruit screen. Set on every special
+   * trainer, so each special win is a full reward stop — the pre-Gym warm-up and
+   * the pre-Champion gatekeeper alike.
    */
   signRerollReward?: boolean;
   /**

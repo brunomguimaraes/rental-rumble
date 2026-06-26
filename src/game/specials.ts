@@ -60,13 +60,13 @@ export interface FamousTrainer {
   draw?: number;
   rarity?: number; // 0..1 per-run appearance chance (default: always eligible)
   /**
-   * Hidden difficulty class for `special` cameos, used only to size the
-   * sign-reroll reward when this trainer is the run's *last* special (see
-   * buildGauntlet / RecruitScreen). `true` marks the tougher faces (villain
-   * bosses, rivals, Frontier Brains) whose win grants the better reward — a
-   * *guaranteed rare* sign. Omitted/`false` = a "weak" gag cameo, whose win
-   * grants the ordinary random reroll. This is deliberately NOT surfaced to the
-   * player anywhere: from the outside every special is just "a special".
+   * Hidden difficulty class for `special` cameos, used to size the sign-reroll
+   * reward every special win now grants (see buildGauntlet / RecruitScreen).
+   * `true` marks the tougher faces (villain bosses, rivals, Frontier Brains)
+   * whose win grants the better reward — a *guaranteed rare* sign. Omitted/`false`
+   * = a "weak" gag cameo, whose win grants the ordinary random reroll. This is
+   * deliberately NOT surfaced to the player anywhere: from the outside every
+   * special is just "a special".
    */
   strong?: boolean;
 }

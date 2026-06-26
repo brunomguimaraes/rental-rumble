@@ -129,10 +129,10 @@ export function RecruitScreen({
   bracket: BracketId;
   currentTeam: Creature[];
   defeatedTeam: Creature[];
-  // Whether the rare "reroll a sign" reward is offered (set after the run's last
-  // special trainer). `rerollSeed` pins the outcome deterministically so the
-  // gamble can't be re-rolled by leaving and re-entering the screen. The same
-  // gate also unlocks the sibling "reroll an ability" reward.
+  // Whether the "reroll a sign" reward is offered (set after any special-trainer
+  // win). `rerollSeed` pins the outcome deterministically so the gamble can't be
+  // re-rolled by leaving and re-entering the screen. The same gate also unlocks
+  // the sibling "reroll an ability" reward.
   allowSignReroll?: boolean;
   // Hidden reward tier (from the special trainer's `strong` flag). For signs a
   // "strong" special guarantees a rare; for abilities it lets the player *pick*
