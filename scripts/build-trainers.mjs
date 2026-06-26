@@ -216,16 +216,10 @@ const HORIZONTES_SPECIAL = [
   ['CORAL', 'coral', 'Coral', 'f'],
   ['MOLLIE', 'mollie', 'Mollie', 'f'],
   ['MURDOCK', 'murdock', 'Murdock', 'm'],
-  ['DOTI', 'dot', 'Dot', 'f'],
   ['HAMBER', 'hamber', 'Hamber', 'm'],
-  ['SIDIAN', 'sid', 'Sid', 'm'],
   ['ZIR', 'zirc', 'Zirc', 'm'],
-  ['NITODOTINA', 'nidotina', "Dot's Nidorina", 'f'],
 ];
 const HORIZONTES_RANDOM = [
-  ['DOTI CALLE', 'dot-street', 'f', 'Rising Volt Tacklers'],
-  ['DOTI TEMP 3', 'dot-alt', 'f', 'Rising Volt Tacklers'],
-  ['DOTI RECOGIDO', 'dot-caught', 'f', 'Rising Volt Tacklers'],
   ['LANDON', 'landon', 'm', 'Sage'],
   ['LANDON SUPER G', 'landon-cool', 'm', 'Ace Trainer'],
   ['ORIA', 'oria', 'f', 'Picnicker'],
@@ -264,11 +258,7 @@ const LEGENDS_ZA_CHAMPION = [
 // charsets replacing the broken HGSS master-sheet rips. [file (sans .png), key,
 // name, sex].
 const EMERALD_FAMOUS = [
-  ['emNPC-089', 'silver', 'Silver', 'm'],
-  ['emNPC-070', 'red-hgss', 'Red', 'm'],
   ['emNPC-096', 'eusine', 'Eusine', 'm'],
-  ['emNPC-035', 'proton', 'Proton', 'm'],
-  ['emNPC-092', 'petrel', 'Petrel', 'm'],
 ];
 
 // Gen 4 OW Collection (Vanilla Sunshine) — individual 4×4 charsets.
@@ -385,7 +375,23 @@ function build(srcFile, key) {
     '-background', 'none', join(tmp, 'f_%02d.png'),
   ]);
 
+  if (key.endsWith('zirc')) patchZircFrames(tmp);
+
   emitTrainerSprite(key, cw, ch, ['f_00', 'f_01', 'f_02', 'f_03']);
+}
+
+// ZIR rip leaves purple matte pixels on walk frames 0 and 2 (chest flickers pink).
+function patchZircFrames(dir) {
+  const drawChest = (file, color) =>
+    magick([
+      join(dir, file),
+      '-fill', color,
+      '-draw', 'point 26,22', '-draw', 'point 27,22',
+      '-draw', 'point 26,23', '-draw', 'point 27,23',
+      join(dir, file),
+    ]);
+  drawChest('f_00.png', '#F6CEB7');
+  drawChest('f_02.png', '#F8D0B8');
 }
 
 // Repo-local 4×4 charsets on a black matte. [filename under assets/, key, name, sex].
@@ -402,6 +408,9 @@ const LOCAL_CHARSETS = [
   ['lance-overworld.png', 'lance', 'Lance', 'm'],
   ['will-overworld.png', 'will', 'Will', 'm'],
   ['steven-overworld.png', 'steven', 'Steven', 'm'],
+  ['silver-overworld.png', 'silver', 'Silver', 'm'],
+  ['petrel-overworld.png', 'petrel', 'Petrel', 'm'],
+  ['proton-overworld.png', 'proton', 'Proton', 'm'],
   ['koga-overworld.png', 'koga', 'Koga', 'm'],
   ['agatha-overworld.png', 'agatha', 'Agatha', 'f'],
   ['pikachu-overworld.png', 'pikachu', 'Pikachu', 'm'],
@@ -475,7 +484,7 @@ function buildPrebuiltPair(staticSrc, animSrc, outKey) {
   });
   magick([
     '-dispose', 'background', '-delay', '18', '-loop', '0',
-    ...keyed, '-transparent', KEY, join(outDir, `${outKey}.gif`),
+    ...keyed, '-fuzz', '5%', '-transparent', KEY, join(outDir, `${outKey}.gif`),
   ]);
 }
 
@@ -681,7 +690,9 @@ function emitTrainerSprite(key, cw, ch, frameTags, opts = {}) {
   // pixels, which a naive export re-exposes as an ugly blue background. So we
   // composite each frame onto a magenta key (using its alpha, which neutralizes
   // whatever matte is hidden), drop the alpha, then flag that key transparent.
-  // `-dispose background` keeps frames from smearing into one another.
+  // A small fuzz catches near-key edge pixels that ImageMagick quantizes away
+  // from exact #FF00FF (notably on some Horizons rips). `-dispose background`
+  // keeps frames from smearing into one another.
   const KEY = '#FF00FF';
   const keyed = frameTags.map((tag) => {
     const dst = join(tmp, `k_${tag}.png`);
@@ -693,7 +704,7 @@ function emitTrainerSprite(key, cw, ch, frameTags, opts = {}) {
   });
   magick([
     '-dispose', 'background', '-delay', '18', '-loop', '0',
-    ...keyed, '-transparent', KEY, join(outDir, `${key}.gif`),
+    ...keyed, '-fuzz', '5%', '-transparent', KEY, join(outDir, `${key}.gif`),
   ]);
 }
 

@@ -430,7 +430,6 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
   { id: 'paxton', name: 'Paxton', title: 'Champion', slot: 'champion', type: 'normal', quote: 'Lumiose runs on peace — and my team.' },
   { id: 'harmony', name: 'Harmony', title: 'Champion', slot: 'champion', type: 'normal', quote: 'Humans and Pokémon belong together. Prove it.' },
   { id: 'lance', name: 'Lance', title: 'Champion', slot: 'champion', type: 'dragon', quote: 'I am the Dragon Master. Show me your worth!' },
-  { id: 'red-hgss', name: 'Red', title: 'Champion', slot: 'champion', type: 'normal', quote: '…' },
 
   // --- Specials: villains & gag cameos (the "for fun" rung) -----------------
   {
@@ -701,15 +700,6 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
     team: [143, 289, 115], // Snorlax, Slaking, Kangaskhan
   },
   {
-    id: 'dot',
-    name: 'Dot',
-    title: 'Rising Volt Tacklers',
-    slot: 'special',
-    type: 'water',
-    quote: 'Quagsire and I have been through worse.',
-    team: [195, 921, 958], // Quagsire, Pawmi, Tinkatink
-  },
-  {
     id: 'amethio',
     strong: true,
     name: 'Amethio',
@@ -738,15 +728,6 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
     team: [197, 461, 430], // Umbreon, Weavile, Honchkrow
   },
   {
-    id: 'sid',
-    name: 'Sid',
-    title: 'Explorers',
-    slot: 'special',
-    type: 'fighting',
-    quote: 'Amethio picked me for a reason. Back off.',
-    team: [448, 68, 106], // Lucario, Machamp, Hitmonlee
-  },
-  {
     id: 'zirc',
     name: 'Zirc',
     title: 'Explorers',
@@ -754,15 +735,6 @@ export const FAMOUS_TRAINERS: FamousTrainer[] = [
     type: 'steel',
     quote: 'Try to keep up with the Explorers.',
     team: [376, 306, 208], // Metagross, Aggron, Steelix
-  },
-  {
-    id: 'nidotina',
-    name: "Dot's Nidorina",
-    title: 'Rising Volt Tacklers',
-    slot: 'special',
-    type: 'poison',
-    quote: 'Nidorina! Nido! (Dot is busy streaming.)',
-    team: [30, 30, 33, 33], // Nidorina ×2, Nidorino ×2 (gag)
   },
   // --- Pokémon Legends: Z-A (Lumiose Z-A Royale cast) ---------------------
   {
