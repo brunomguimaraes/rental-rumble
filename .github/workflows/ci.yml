@@ -1,0 +1,29 @@
+name: CI
+
+# Guards the branches: nothing broken can land on development/main or ship in a
+# release. Mirrors the gates the local release script runs.
+on:
+  push:
+    branches: [development, main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref (e.g. rapid pushes to development).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: lint · test · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24 # matches Vercel's nodeVersion (24.x)
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build

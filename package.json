@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test": "tsx scripts/throne.test.ts && tsx scripts/moves.test.ts && tsx scripts/relics.test.ts && tsx scripts/species-lock.test.ts",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "release": "node scripts/release.mjs",
+    "release:dry": "node scripts/release.mjs --dry-run"
   },
   "dependencies": {
     "@upstash/redis": "^1.38.0",
