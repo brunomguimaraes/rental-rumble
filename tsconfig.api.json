@@ -1,0 +1,18 @@
+{
+  "//": "Type-checks the serverless functions in api/. Vercel compiles them with esbuild (no type-check), and the default `tsc -b` build only covers src/ + vite.config, so this config is run separately (npx tsc -p tsconfig.api.json) to catch API type errors. It mirrors the app's bundler resolution (so shared src/game modules that use Vite's import.meta.env and extensionless imports resolve) while adding Node types for the serverless runtime.",
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "types": ["node", "vite/client"],
+    "skipLibCheck": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["api"]
+}

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import type { Creature, Opponent, RelicId, Side } from './game/types';
 import { randomSeed } from './game/rng';
@@ -13,6 +13,7 @@ import {
 import {
   requestRunToken,
   teamFromMons,
+  monToRecord,
   challengeKing,
   throneBattleSeed,
   type LeaderboardEntry,
@@ -30,6 +31,12 @@ import {
   type BattleResult,
 } from './game/battle';
 import type { Difficulty } from './game/run';
+import { fetchMe, type AccountUser } from './game/account';
+import {
+  recordRun,
+  unionTeamForms,
+  type RunOutcome,
+} from './game/progression';
 import { pikachuRecruitReward } from './game/specials';
 import { bracketDex, DEFAULT_BRACKET, type BracketId } from './game/gens';
 import { TitleScreen } from './components/TitleScreen';
@@ -56,6 +63,16 @@ const GuideScreen = lazy(() =>
 // it stays out of the title screen's initial download.
 const PokedexScreen = lazy(() =>
   import('./components/PokedexScreen').then((m) => ({ default: m.PokedexScreen })),
+);
+
+// The account hub (sign in / progress) is opt-in and rarely the first thing a
+// player opens, so it's lazy-loaded too.
+const AccountScreen = lazy(() =>
+  import('./components/AccountScreen').then((m) => ({ default: m.AccountScreen })),
+);
+
+const MyRunsScreen = lazy(() =>
+  import('./components/MyRunsScreen').then((m) => ({ default: m.MyRunsScreen })),
 );
 
 const TrainerSpritesScreen = import.meta.env.DEV
@@ -86,6 +103,8 @@ type Phase =
   | 'history'
   | 'guide'
   | 'dex'
+  | 'account'
+  | 'myRuns'
   | 'trainerSprites'
   | 'draft'
   | 'map'
@@ -105,6 +124,51 @@ export default function App() {
   // the guide page straight away.
   useEffect(() => {
     if (phase === 'title' && hashIsGuide()) setPhase('guide');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Hydrate the optional account on load, and honour an email-link landing:
+  // `?reset=` opens the Account screen on the new-password step; `?verified=`
+  // shows a one-off note. Both params are then stripped so a refresh or share
+  // doesn't replay them.
+  useEffect(() => {
+    fetchMe().then(setMe);
+    const params = new URLSearchParams(window.location.search);
+    const reset = params.get('reset');
+    const verified = params.get('verified');
+    const oauth = params.get('oauth');
+    if (reset) {
+      setAccountResetToken(reset);
+      setPhase('account');
+    }
+    if (verified) {
+      setVerifiedNote(
+        verified === '1'
+          ? 'Email verified — thanks!'
+          : 'That verification link was invalid or expired.',
+      );
+    }
+    if (oauth) {
+      const notes: Record<string, string> = {
+        ok: 'Signed in — welcome!',
+        error: 'Sign-in failed. Please try again.',
+        email_taken:
+          'That email already has an account — sign in with your password first.',
+        unconfigured: 'That sign-in option isn’t set up yet.',
+      };
+      if (notes[oauth]) setVerifiedNote(notes[oauth]);
+    }
+    if (reset || verified || oauth) {
+      params.delete('reset');
+      params.delete('verified');
+      params.delete('oauth');
+      const qs = params.toString();
+      window.history.replaceState(
+        {},
+        '',
+        window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash,
+      );
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [seed, setSeed] = useState<string>(() => randomSeed());
@@ -127,6 +191,20 @@ export default function App() {
   const [lostToTeam, setLostToTeam] = useState<Creature[]>([]);
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [bracket, setBracket] = useState<BracketId>(DEFAULT_BRACKET);
+
+  // The optional account (opt-in). `null` = signed out / anonymous, which is the
+  // default and keeps the whole game playable without ever signing in.
+  const [me, setMe] = useState<AccountUser | null>(null);
+  // A password-reset token lifted from an email link's `?reset=` param, handed
+  // to the Account screen so it opens straight into "set a new password".
+  const [accountResetToken, setAccountResetToken] = useState<string | null>(null);
+  // A one-off note shown after returning from the email-verification link.
+  const [verifiedNote, setVerifiedNote] = useState<string | null>(null);
+  // Every (dexId, variant) the team has worn this run — the Pokédex journal that
+  // gets flushed to the account when the run ends.
+  const [ownedForms, setOwnedForms] = useState<Set<string>>(() => new Set());
+  // The runId we've already flushed, so the end-of-run effect fires exactly once.
+  const flushedRef = useRef<string | null>(null);
 
   // The king-of-the-hill endgame: a Master champion's one shot at the reigning
   // Master #1. Unlike an exhibition, a win here is server-verified and takes the
@@ -152,6 +230,45 @@ export default function App() {
     [seed, difficulty, bracket],
   );
   const opponent = gauntlet[stage];
+
+  // Accumulate every (dexId, variant) the team has worn this run. Because draft,
+  // recruit and evolution all flow through `team`, unioning on each change
+  // captures intermediate evolution forms automatically (Squirtle → Wartortle →
+  // Blastoise). `unionTeamForms` returns the same Set when nothing's new, so this
+  // never loops.
+  useEffect(() => {
+    setOwnedForms((prev) => unionTeamForms(prev, team));
+  }, [team]);
+
+  // When a run ends, flush its owned forms + summary to the account (exactly
+  // once). A no-op for anonymous players and for runs with no server token; the
+  // server verifies the token and re-derives what was legitimately reachable
+  // before crediting anything.
+  useEffect(() => {
+    if (phase !== 'over' || !me || !runToken) return;
+    const runId = `${dailyKey()}:${seed}`;
+    if (flushedRef.current === runId) return;
+    flushedRef.current = runId;
+    const outcome: RunOutcome = won ? 'win' : ragequit ? 'ragequit' : 'loss';
+    recordRun({
+      seed,
+      token: runToken,
+      date: dailyKey(),
+      bracket,
+      difficulty,
+      outcome,
+      clearedStages: won ? gauntlet.length : stage,
+      stage,
+      team: team.map(monToRecord),
+      relics,
+      fellTo: won ? undefined : opponent?.name,
+      forms: [...ownedForms],
+    }).then((r) => {
+      // Reflect the new run/dex in the title pill + account screen.
+      if (r.ok) fetchMe().then(setMe);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
   // The stage indices an item event appears *before* this run (interstitial —
   // never part of the gauntlet array, so the ladder length & Champion index are
@@ -274,6 +391,8 @@ export default function App() {
     setStage(0);
     setWon(false);
     setRagequit(false);
+    setOwnedForms(new Set());
+    flushedRef.current = null;
 
     // The server picks the seed and signs a token for it — that's what keeps the
     // leaderboard honest. A custom/shared seed (or an offline failure) is local
@@ -317,6 +436,15 @@ export default function App() {
     setPhase('recruit');
   };
 
+  // Adopt a freshly signed-in/created account. Keeping the public board name in
+  // sync (without linking board rows) means a logged-in player's submitted runs
+  // show their account name.
+  const handleAuthed = (user: AccountUser) => {
+    setMe(user);
+    if (user.displayName) localStorage.setItem('lb-name', user.displayName);
+    setAccountResetToken(null);
+  };
+
   const renderScreen = () => {
     switch (phase) {
     case 'title':
@@ -328,6 +456,8 @@ export default function App() {
           onViewHistory={() => setPhase('history')}
           onViewGuide={() => setPhase('guide')}
           onViewDex={() => setPhase('dex')}
+          onViewAccount={() => setPhase('account')}
+          me={me}
         />
       );
 
@@ -338,7 +468,25 @@ export default function App() {
       return <ShameScreen onBack={() => setPhase('title')} />;
 
     case 'dex':
-      return <PokedexScreen onBack={() => setPhase('title')} />;
+      return <PokedexScreen onBack={() => setPhase('title')} me={me} />;
+
+    case 'account':
+      return (
+        <AccountScreen
+          // Re-key on auth state so the screen re-initialises to the right step
+          // (profile when signed in, sign-in form when signed out / after reset).
+          key={`${me?.id ?? 'anon'}:${accountResetToken ?? ''}`}
+          me={me}
+          resetToken={accountResetToken}
+          onBack={() => setPhase('title')}
+          onAuthed={handleAuthed}
+          onSignedOut={() => setMe(null)}
+          onViewMyRuns={me ? () => setPhase('myRuns') : undefined}
+        />
+      );
+
+    case 'myRuns':
+      return <MyRunsScreen onBack={() => setPhase('account')} />;
 
     case 'trainerSprites':
       if (!TrainerSpritesScreen) return null;
@@ -494,6 +642,17 @@ export default function App() {
   return (
     <>
       <Suspense fallback={<ScreenFallback />}>{renderScreen()}</Suspense>
+      {verifiedNote && (
+        <div className="fixed inset-x-0 top-4 z-50 mx-auto w-fit max-w-[90vw]">
+          <button
+            type="button"
+            onClick={() => setVerifiedNote(null)}
+            className="rounded-full border border-white/15 bg-black/80 px-4 py-2 text-sm font-medium text-white shadow-lg backdrop-blur transition hover:bg-black/90"
+          >
+            {verifiedNote} <span className="ml-2 text-white/40">✕</span>
+          </button>
+        </div>
+      )}
       {/* Statically gated so Vite tree-shakes the whole dev panel out of any
           production build — the cheats simply don't exist there. */}
       {import.meta.env.DEV && (

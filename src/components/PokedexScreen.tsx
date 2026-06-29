@@ -13,6 +13,12 @@ import {
 } from '../game/typechart';
 import { signIconUrl, signLabel, signSummary } from '../game/zodiac';
 import { TypeBadges } from './TypeBadge';
+import {
+  fetchPokedex,
+  hasForm,
+  type OwnedDex,
+  type AccountUser,
+} from '../game/account';
 
 const GOLD = '#f5c542';
 
@@ -56,10 +62,45 @@ function bst(c: Creature): number {
   return s.hp + s.atk + s.eatk + s.def + s.edef + s.spd;
 }
 
-/** A compact dex tile — normal portrait, number, name, types. */
-function DexTile({ creature, onSelect }: { creature: Creature; onSelect: () => void }) {
+/** Which variant layers a player has caught for one species. */
+type VariantMarks = { n: boolean; a: boolean; s: boolean };
+
+/** Three lit/dim pips — normal / alt-colour / shiny — for a caught species. */
+function VariantPips({ marks }: { marks: VariantMarks }) {
+  const dot = (on: boolean, color: string, title: string) => (
+    <span
+      title={title}
+      className="h-1.5 w-1.5 rounded-full"
+      style={{
+        background: on ? color : 'transparent',
+        border: `1px solid ${on ? color : 'rgba(255,255,255,0.22)'}`,
+      }}
+    />
+  );
+  return (
+    <div className="flex items-center gap-1">
+      {dot(marks.n, '#ffffff', 'Normal')}
+      {dot(marks.a, '#5eead4', 'Alt colour')}
+      {dot(marks.s, GOLD, 'Shiny')}
+    </div>
+  );
+}
+
+/** A compact dex tile — normal portrait, number, name, types. When `marks` is
+ *  given (signed in), an uncaught species dims out and a small pip row shows
+ *  which variant layers are filled. */
+function DexTile({
+  creature,
+  onSelect,
+  marks,
+}: {
+  creature: Creature;
+  onSelect: () => void;
+  marks?: VariantMarks | null;
+}) {
   const color = TYPE_COLORS[creature.types[0]];
   const special = creature.tier !== 'normal';
+  const caughtAny = marks ? marks.n || marks.a || marks.s : true;
   return (
     <button
       type="button"
@@ -75,7 +116,9 @@ function DexTile({ creature, onSelect }: { creature: Creature; onSelect: () => v
           alt={creature.name}
           loading="lazy"
           onError={(e) => handleImgError(e, creature.sprite)}
-          className="h-16 w-16 object-cover [image-rendering:auto]"
+          className={`h-16 w-16 object-cover [image-rendering:auto] transition ${
+            marks && !caughtAny ? 'opacity-25 grayscale' : ''
+          }`}
         />
       </div>
       <div className="text-[9px] tabular-nums text-white/35">{dexNo(creature.dexId)}</div>
@@ -91,6 +134,7 @@ function DexTile({ creature, onSelect }: { creature: Creature; onSelect: () => v
           />
         ))}
       </div>
+      {marks && <VariantPips marks={marks} />}
     </button>
   );
 }
@@ -103,6 +147,7 @@ function DexDetail({
   onNext,
   hasPrev,
   hasNext,
+  marks,
 }: {
   creature: Creature;
   onClose: () => void;
@@ -110,6 +155,7 @@ function DexDetail({
   onNext: () => void;
   hasPrev: boolean;
   hasNext: boolean;
+  marks?: VariantMarks | null;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -200,6 +246,44 @@ function DexDetail({
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+          {marks && (
+            <section>
+              <h4 className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-white/45">
+                Your collection
+              </h4>
+              <div className="flex flex-wrap gap-1.5 text-[11px]">
+                {(
+                  [
+                    ['Normal', marks.n, '#ffffff'],
+                    ['Alt colour', marks.a, '#5eead4'],
+                    ['Shiny', marks.s, GOLD],
+                  ] as const
+                ).map(([label, on, color]) => (
+                  <span
+                    key={label}
+                    className="inline-flex items-center gap-1.5 rounded-md px-2 py-1"
+                    style={{
+                      background: on ? `${color}22` : 'rgba(255,255,255,0.04)',
+                      color: on ? color : 'rgba(255,255,255,0.4)',
+                    }}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{
+                        background: on ? color : 'transparent',
+                        border: `1px solid ${on ? color : 'rgba(255,255,255,0.3)'}`,
+                      }}
+                    />
+                    {on ? label : `${label} — not yet`}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[10px] leading-snug text-white/35">
+                Own a species on a run — and evolve it — to fill these in.
+              </p>
+            </section>
+          )}
+
           <section>
             <div className="mb-1.5 flex items-center justify-between">
               <h4 className="text-[11px] font-bold uppercase tracking-widest text-white/45">
@@ -287,11 +371,58 @@ function DexDetail({
   );
 }
 
-export function PokedexScreen({ onBack }: { onBack: () => void }) {
+export function PokedexScreen({
+  onBack,
+  me,
+}: {
+  onBack: () => void;
+  me?: AccountUser | null;
+}) {
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<PokemonType | null>(null);
   const [visible, setVisible] = useState(PAGE);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+
+  // The signed-in player's owned dex (null when anonymous → plain read-only dex).
+  const [owned, setOwned] = useState<OwnedDex | null>(null);
+  useEffect(() => {
+    if (!me) {
+      setOwned(null);
+      return;
+    }
+    let alive = true;
+    fetchPokedex().then((d) => {
+      if (alive) setOwned(d);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [me]);
+
+  // Species caught in any layer — the headline completion number.
+  const caughtCount = useMemo(() => {
+    if (!owned) return 0;
+    let n = 0;
+    for (const c of CREATURES) {
+      if (
+        hasForm(owned.n, c.dexId) ||
+        hasForm(owned.a, c.dexId) ||
+        hasForm(owned.s, c.dexId)
+      ) {
+        n += 1;
+      }
+    }
+    return n;
+  }, [owned]);
+
+  const marksFor = (dexId: number): VariantMarks | null =>
+    owned
+      ? {
+          n: hasForm(owned.n, dexId),
+          a: hasForm(owned.a, dexId),
+          s: hasForm(owned.s, dexId),
+        }
+      : null;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -344,6 +475,23 @@ export function PokedexScreen({ onBack }: { onBack: () => void }) {
             Every species in play — base stats, abilities, possible moves, and sign fit.
           </p>
         </div>
+        {owned && (
+          <div className="ml-auto text-right">
+            <div className="text-sm font-black tabular-nums">
+              {caughtCount}
+              <span className="text-white/40"> / {CREATURES.length}</span>
+            </div>
+            <div className="text-[10px] uppercase tracking-wide text-white/40">
+              caught · ✨ {owned.counts.s} · 🎨 {owned.counts.a}
+            </div>
+            <div className="mt-1 h-1.5 w-28 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-emerald-400/70"
+                style={{ width: `${(caughtCount / CREATURES.length) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
       </header>
 
       <div className="mb-3 flex flex-col gap-2">
@@ -390,7 +538,12 @@ export function PokedexScreen({ onBack }: { onBack: () => void }) {
 
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7">
         {shown.map((c, idx) => (
-          <DexTile key={c.id} creature={c} onSelect={() => setSelectedIdx(idx)} />
+          <DexTile
+            key={c.id}
+            creature={c}
+            onSelect={() => setSelectedIdx(idx)}
+            marks={marksFor(c.dexId)}
+          />
         ))}
       </div>
 
@@ -418,6 +571,7 @@ export function PokedexScreen({ onBack }: { onBack: () => void }) {
           onNext={goNext}
           hasPrev={selectedIdx > 0}
           hasNext={selectedIdx < filtered.length - 1}
+          marks={marksFor(filtered[selectedIdx].dexId)}
         />
       )}
     </div>

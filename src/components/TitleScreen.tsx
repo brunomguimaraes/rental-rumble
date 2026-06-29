@@ -18,6 +18,7 @@ import {
   type BracketId,
 } from '../game/gens';
 import { buildChampion, championSeed, dailyKey } from '../game/opponents';
+import type { AccountUser } from '../game/account';
 import { buildChampionTeam } from '../game/battle';
 import { TypeMarquee } from './TypeMarquee';
 import { CupIcon } from './CupIcon';
@@ -41,6 +42,8 @@ export function TitleScreen({
   onViewHistory,
   onViewGuide,
   onViewDex,
+  onViewAccount,
+  me,
 }: {
   onStart: (
     difficulty: Difficulty,
@@ -57,6 +60,10 @@ export function TitleScreen({
   onViewGuide: () => void;
   /** Open the standalone Pokédex browser. */
   onViewDex: () => void;
+  /** Open the optional account hub (sign in / progress). */
+  onViewAccount: () => void;
+  /** The signed-in account, or null when anonymous (drives the pill label). */
+  me: AccountUser | null;
 }) {
   // Custom seed feature disabled: letting players paste a seed added UI/UX
   // complexity (extra input, validation, share copy) for little payoff. Runs
@@ -370,6 +377,13 @@ export function TitleScreen({
 
       {/* Everything else — muted, lower-priority pills. */}
       <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={onViewAccount}
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-4 py-1.5 text-xs font-medium text-white/55 transition hover:bg-white/[0.06] hover:text-white/80"
+        >
+          👤 {me ? me.displayName || 'Account' : 'Sign in'}
+        </button>
         <button
           type="button"
           onClick={onViewDex}
