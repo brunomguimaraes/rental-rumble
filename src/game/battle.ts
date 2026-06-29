@@ -501,10 +501,12 @@ function boostedRelicMult(attacker: Battler): number {
     : 1;
 }
 
-// Average-case damage (no crit, mid variance) used by the AI to compare moves
-// and spot guaranteed KOs. Mirrors damageRoll but draws no randomness, so it can
-// also drive turn-order prediction without disturbing the RNG stream.
-function estimateDamage(
+// The full-roll, always-hits, non-crit damage of a single move — the scale that
+// damageRoll then multiplies by its 0.85–1.0 variance. estimateDamage layers the
+// mid-roll and accuracy back on for an average; koChance splits the variance and
+// accuracy out to read an actual KO probability. Draws no randomness, so both can
+// drive turn-order prediction without disturbing the RNG stream.
+function moveHitScale(
   attacker: Battler,
   defender: Battler,
   move: Move,
@@ -527,7 +529,54 @@ function estimateDamage(
     relicDamageMult(attacker.mods, move.type) *
     boostedRelicMult(attacker) *
     defender.mods.damageTakenMult;
-  return raw * stab * mult * abil * relic * GLOBAL_DAMAGE_MULT * 0.925 * move.accuracy;
+  return raw * stab * mult * abil * relic * GLOBAL_DAMAGE_MULT;
+}
+
+// Average-case damage (no crit, mid variance) used by the AI to compare moves
+// and spot guaranteed KOs. Mirrors damageRoll but draws no randomness.
+function estimateDamage(
+  attacker: Battler,
+  defender: Battler,
+  move: Move,
+  atkStatMult: number,
+  defStatMult: number,
+): number {
+  return moveHitScale(attacker, defender, move, atkStatMult, defStatMult) * 0.925 * move.accuracy;
+}
+
+// Probability that `attacker` KOs `defender` outright this turn with its best
+// option — the things estimateDamage averages over, read as odds instead: the
+// move can miss (accuracy), the damage roll lands uniformly in 0.85–1.0×, and a
+// crit can push a near-miss over the line. Lets the switch AI hold a sweeper in
+// for a likely kill rather than pivot away from it.
+function koChance(
+  attacker: Battler,
+  defender: Battler,
+  atkStatMult: number,
+  defStatMult: number,
+): number {
+  const pc = Math.min(1, Math.max(0, critChance(attacker, defender)));
+  const critMult = critDamageMult(attacker);
+  const hp = defender.hp;
+  // Share of the 0.85–1.0 variance band whose roll reaches the foe's HP at a
+  // given damage scale: 1 = KO on every roll, 0 = KO on none.
+  const band = (scale: number): number => {
+    if (scale <= 0) return 0;
+    const v = hp / scale; // the variance roll we'd need to land the KO
+    if (v <= 0.85) return 1;
+    if (v >= 1) return 0;
+    return (1 - v) / 0.15;
+  };
+  let best = 0;
+  for (const mv of attacker.creature.moves) {
+    if (mv.power <= 0 || isLocked(attacker, mv) || isSealed(attacker, mv)) continue;
+    const scale = moveHitScale(attacker, defender, mv, atkStatMult, defStatMult);
+    if (scale <= 0) continue;
+    const hitKO = (1 - pc) * band(scale) + pc * band(scale * critMult);
+    const chance = mv.accuracy * hitKO;
+    if (chance > best) best = chance;
+  }
+  return best;
 }
 
 /** The damaging move the AI intends to throw, KO-aware (prefers a priority KO). */
@@ -672,16 +721,21 @@ interface SwitchTuning {
   triggerThreshold: number;
   /** And only when a bench mon beats our score by at least this margin. */
   improveThreshold: number;
+  /** Hold for the kill instead of pivoting when our chance to KO the foe this
+   * turn is at least this (provided we'll get to swing — see planSwitch). */
+  koHoldChance: number;
 }
 
 function switchTuning(focus: number): SwitchTuning {
-  // Master: perfect movers also pivot decisively.
+  // Master: perfect movers also pivot decisively — and press a favourable kill,
+  // holding for it at even odds.
   if (!Number.isFinite(focus)) {
     return {
       smartReplace: true,
       maxSwitches: 3,
       triggerThreshold: -0.1,
       improveThreshold: 0.3,
+      koHoldChance: 0.5,
     };
   }
   // Easy: dull — next-in-line replacement, no voluntary switching.
@@ -691,6 +745,7 @@ function switchTuning(focus: number): SwitchTuning {
       maxSwitches: 0,
       triggerThreshold: -Infinity,
       improveThreshold: Infinity,
+      koHoldChance: 0.6,
     };
   }
   // Normal / Hard, and the player's own team: competent but sparing.
@@ -699,6 +754,7 @@ function switchTuning(focus: number): SwitchTuning {
     maxSwitches: 2,
     triggerThreshold: -0.2,
     improveThreshold: 0.4,
+    koHoldChance: 0.6,
   };
 }
 
@@ -1417,9 +1473,17 @@ export function simulateBattle(
     const foeActive = sides[oppSide].team[sides[oppSide].active];
     const active = s.team[s.active];
     const oppMult = sides[oppSide].statMult;
-    // Never bail when we can close out the foe right now.
-    const myPlan = planAttack(active, foeActive, s.statMult, oppMult);
-    if (myPlan.dmg > 0 && myPlan.dmg >= foeActive.hp) return -1;
+    // Don't pivot away from a kill. If we've a real shot at KOing the foe this
+    // turn (≥ the side's hold threshold) AND we'll actually get to swing for it
+    // — we outspeed it, or we'll survive its hit and answer back — stand and take
+    // the shot instead of fleeing. Stops a set-up sweeper (e.g. a +2 Gyarados)
+    // bailing on a foe it could just kill, while still letting it pivot when it'd
+    // be flattened before it could attack.
+    if (koChance(active, foeActive, s.statMult, oppMult) >= tuning.koHoldChance) {
+      const foeFaster = effectiveSpd(foeActive, oppMult) > effectiveSpd(active, s.statMult);
+      const foeHit = planAttack(foeActive, active, oppMult, s.statMult).dmg;
+      if (!foeFaster || foeHit < active.hp) return -1;
+    }
     const activeScore = matchupScore(active, foeActive, s.statMult, oppMult);
     if (activeScore >= tuning.triggerThreshold) return -1;
     let best = -1;

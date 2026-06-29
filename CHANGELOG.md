@@ -38,4 +38,13 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 - **Difficulty modes** — Easy/Normal/Hard/Master set the skip budget; draft pools
   are reproducible and shareable by seed.
 
+### Changed
+
+- **Switch AI holds for the kill** — the voluntary-switch logic now reads a real
+  KO _probability_ (accuracy, the 0.85–1.0 damage roll, and crits) instead of a
+  single average hit, and stands its ground when it can likely KO the foe this
+  turn and will actually get to swing (it outspeeds, or survives the hit). Stops
+  a set-up sweeper like a +2 Gyarados from pivoting away from a foe it could just
+  kill. Hold threshold: 60% on Normal/Hard, 50% on Master.
+
 [Unreleased]: https://github.com/brunomguimaraes/rental-rumble/commits/development
