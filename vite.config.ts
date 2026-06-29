@@ -5,6 +5,11 @@ import mdx from '@mdx-js/rollup'
 import remarkFrontmatter from 'remark-frontmatter'
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
 import remarkGfm from 'remark-gfm'
+import { readFileSync } from 'node:fs'
+
+// Stamp the build with the package.json version so the app can show what's
+// deployed (exposed as the `__APP_VERSION__` global; see src/vite-env.d.ts).
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -23,4 +28,8 @@ export default defineConfig({
     react({ include: /\.(jsx|js|mdx|md|tsx|ts)$/ }),
     tailwindcss(),
   ],
+  define: {
+    // Replaced at build time with the literal version string, e.g. "0.1.0".
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
 })

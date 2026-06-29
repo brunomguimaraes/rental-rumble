@@ -409,6 +409,10 @@ export function TitleScreen({
         such are used with admiration, for commentary and informational purposes
         only. 💛
       </p>
+
+      <p className="mt-3 text-[10px] font-medium tracking-widest text-white/20">
+        v{__APP_VERSION__}
+      </p>
     </div>
   );
 }
