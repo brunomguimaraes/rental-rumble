@@ -11,6 +11,8 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-06-29
+
 ### Added
 
 - **Draft & gauntlet roguelite** over all **1025 Pokémon** (Gens I–IX) with real
@@ -47,4 +49,5 @@ them into a dated, versioned section and opens a fresh Unreleased. See
   a set-up sweeper like a +2 Gyarados from pivoting away from a foe it could just
   kill. Hold threshold: 60% on Normal/Hard, 50% on Master.
 
-[Unreleased]: https://github.com/brunomguimaraes/rental-rumble/commits/development
+[Unreleased]: https://github.com/brunomguimaraes/rental-rumble/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/brunomguimaraes/rental-rumble/releases/tag/v0.1.0
