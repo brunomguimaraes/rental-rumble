@@ -37,6 +37,7 @@ import {
 
 export function TitleScreen({
   onStart,
+  onBack,
   onViewLadder,
   onViewShame,
   onViewHistory,
@@ -50,6 +51,8 @@ export function TitleScreen({
     bracket: BracketId,
     seed?: string,
   ) => void | Promise<void>;
+  /** Return to the hub (the app home). Optional so the screen still works alone. */
+  onBack?: () => void;
   /** Open the standalone "today's ladder" page. */
   onViewLadder: () => void;
   /** Open the standalone "hall of shame" page (today's biggest flops). */
@@ -142,7 +145,16 @@ export function TitleScreen({
   );
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-3xl flex-col items-center justify-center px-5 py-10 text-center sm:px-6">
+    <div className="relative mx-auto flex min-h-[100dvh] max-w-3xl flex-col items-center justify-center px-5 py-10 text-center sm:px-6">
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="absolute left-4 top-4 rounded-full border border-white/15 bg-white/[0.03] px-4 py-1.5 text-xs font-semibold text-white/70 transition hover:bg-white/[0.08]"
+        >
+          ← Hub
+        </button>
+      )}
       <img
         src={`${import.meta.env.BASE_URL}sprites/ui/pokeball.png`}
         alt="Poké Ball"

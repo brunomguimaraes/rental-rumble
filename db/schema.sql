@@ -68,3 +68,32 @@ create table if not exists auth_tokens (
   expires_at integer not null
 );
 create index if not exists auth_tokens_expiry_idx on auth_tokens (expires_at);
+
+-- One row per PERMANENTLY-OWNED Pokémon (the "box"). Unlike pokedex_cells (a
+-- species/variant completion overlay), each catch mints its own unique
+-- individual here, with its own level/exp and rolled identity. The server is the
+-- sole writer (via api/catch/*): the client can neither invent a row nor edit a
+-- level. `sign`/`ability`/`build`/`shiny`/`alt_color`/`emotion` round-trip the
+-- same rolled identity the draft uses, so an owned mon rebuilds into an
+-- identical battle Creature. `origin` distinguishes the one-time tutorial gift
+-- from ordinary catches. Timestamps are epoch ms.
+--
+-- Tutorial state is derived, not stored: an empty box means "needs the tutorial
+-- catch" (catch runs are owned-only, and there is no release feature in this
+-- slice, so an empty box uniquely identifies a brand-new player).
+create table if not exists owned_pokemon (
+  id         text primary key,
+  user_id    text not null,
+  dex_id     integer not null,
+  level      integer not null default 1,
+  exp        integer not null default 0,
+  sign       text not null default '',
+  ability    text,
+  build      text,
+  shiny      integer not null default 0,
+  alt_color  integer not null default 0,
+  emotion    text,
+  origin     text not null default 'catch',     -- 'tutorial' | 'catch'
+  caught_at  integer not null default 0
+);
+create index if not exists owned_user_idx on owned_pokemon (user_id, caught_at desc);

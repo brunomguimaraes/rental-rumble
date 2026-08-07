@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import type { BracketId } from '../src/game/gens.js';
 import type { Difficulty } from '../src/game/run.js';
 import type { SubmissionMon } from '../src/game/leaderboard.js';
+import type { AbilityId, Build, Sign } from '../src/game/types.js';
+import type { CatchOrigin, MintSpec, OwnedMon } from '../src/game/box.js';
 
 // Turso (libSQL / SQLite) holds the optional account layer (users, Pokédex,
 // run history, single-use auth tokens). It's fast, has no autosuspend
@@ -160,4 +162,123 @@ export async function readUserByEmail(
   return rs.rows.length > 0
     ? rowToUser(rs.rows[0] as unknown as Record<string, unknown>)
     : null;
+}
+
+// --- Owned Pokémon (the "box") ----------------------------------------------
+
+/** How many owned mons one account may hold (guards a runaway box). */
+export const BOX_LIMIT = 600;
+
+/** Build an OwnedMon from a raw SQLite row (snake_case columns, 0/1 booleans). */
+export function rowToOwned(r: Record<string, unknown>): OwnedMon {
+  return {
+    id: String(r.id),
+    dexId: Number(r.dex_id) || 0,
+    level: Number(r.level) || 1,
+    exp: Number(r.exp) || 0,
+    sign: String(r.sign ?? '') as Sign,
+    ...(r.ability ? { ability: String(r.ability) as AbilityId } : {}),
+    ...(r.build ? { build: String(r.build) as Build } : {}),
+    shiny: Number(r.shiny) === 1,
+    altColor: Number(r.alt_color) === 1,
+    ...(r.emotion ? { emotion: String(r.emotion) } : {}),
+    origin: (String(r.origin ?? 'catch') as CatchOrigin),
+    caughtAt: Number(r.caught_at) || 0,
+  };
+}
+
+/** Every mon a user owns, newest first. */
+export async function readOwnedByUser(db: Db, uid: string): Promise<OwnedMon[]> {
+  const rs = await db.execute({
+    sql: 'select * from owned_pokemon where user_id = ? order by caught_at desc',
+    args: [uid],
+  });
+  return (rs.rows as unknown as Record<string, unknown>[]).map(rowToOwned);
+}
+
+/** Count a user's owned mons (used both for the box cap and tutorial gating). */
+export async function countOwned(db: Db, uid: string): Promise<number> {
+  const rs = await db.execute({
+    sql: 'select count(*) as n from owned_pokemon where user_id = ?',
+    args: [uid],
+  });
+  return Number((rs.rows[0] as unknown as { n: number })?.n) || 0;
+}
+
+/**
+ * Load the specified owned ids, but ONLY those that belong to `uid`. The caller
+ * can compare the returned length against the requested ids to reject a party
+ * that claims a mon the user doesn't own.
+ */
+export async function readOwnedByIds(
+  db: Db,
+  uid: string,
+  ids: string[],
+): Promise<OwnedMon[]> {
+  if (ids.length === 0) return [];
+  const placeholders = ids.map(() => '?').join(', ');
+  const rs = await db.execute({
+    sql: `select * from owned_pokemon where user_id = ? and id in (${placeholders})`,
+    args: [uid, ...ids],
+  });
+  return (rs.rows as unknown as Record<string, unknown>[]).map(rowToOwned);
+}
+
+/** Mint a new owned mon from a rolled spec. Returns the stored row. */
+export async function insertOwned(
+  db: Db,
+  uid: string,
+  spec: MintSpec,
+  origin: CatchOrigin,
+  now: number,
+): Promise<OwnedMon> {
+  const id = newId();
+  await db.execute({
+    sql: `insert into owned_pokemon
+          (id, user_id, dex_id, level, exp, sign, ability, build, shiny, alt_color, emotion, origin, caught_at)
+          values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      id,
+      uid,
+      spec.dexId,
+      spec.level,
+      0,
+      spec.sign,
+      spec.ability ?? null,
+      spec.build ?? null,
+      spec.shiny ? 1 : 0,
+      spec.altColor ? 1 : 0,
+      spec.emotion ?? null,
+      origin,
+      now,
+    ],
+  });
+  return {
+    id,
+    dexId: spec.dexId,
+    level: spec.level,
+    exp: 0,
+    sign: spec.sign,
+    ...(spec.ability ? { ability: spec.ability } : {}),
+    ...(spec.build ? { build: spec.build } : {}),
+    shiny: spec.shiny,
+    altColor: spec.altColor,
+    ...(spec.emotion ? { emotion: spec.emotion } : {}),
+    origin,
+    caughtAt: now,
+  };
+}
+
+/** Persist a mon's new level/exp after a run (the sole EXP writer). */
+export async function updateOwnedGrowth(
+  db: Db,
+  uid: string,
+  id: string,
+  level: number,
+  exp: number,
+): Promise<void> {
+  await db.execute({
+    sql: 'update owned_pokemon set level = ?, exp = ? where id = ? and user_id = ?',
+    args: [level, exp, id, uid],
+  });
 }

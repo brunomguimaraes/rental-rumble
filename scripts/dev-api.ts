@@ -66,7 +66,10 @@ function resolveRoute(
   if (parts.some((p) => !p || p === '..' || p === '.' || p.startsWith('_'))) {
     return null;
   }
-  if (parts.length === 2 && (parts[0] === 'auth' || parts[0] === 'me')) {
+  if (
+    parts.length === 2 &&
+    (parts[0] === 'auth' || parts[0] === 'me' || parts[0] === 'catch')
+  ) {
     return { file: `api/${parts[0]}/[action].ts`, params: { action: parts[1] } };
   }
   if (parts.length === 1) {

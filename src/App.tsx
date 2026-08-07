@@ -52,6 +52,20 @@ import { ShameScreen } from './components/ShameScreen';
 import { HistoryScreen } from './components/HistoryScreen';
 import { hashIsGuide } from './guide/hash';
 import { DevPanel } from './components/DevPanel';
+import { LoginScreen } from './components/LoginScreen';
+import { HubScreen } from './components/HubScreen';
+import { CatchSetupScreen } from './components/CatchSetupScreen';
+import { CatchResultScreen } from './components/CatchResultScreen';
+import {
+  fetchBox,
+  startCatch,
+  completeCatch,
+  ownedMonToCreature,
+  type OwnedMon,
+  type CatchResult,
+} from './game/box';
+import { simulateCatchMission, type CatchBattle } from './game/catch';
+import type { CatchZone } from './game/zones';
 
 // The guide bundles the whole MDX runtime + every doc page; lazy-load it so it
 // stays out of the initial download and only arrives when a player opens it.
@@ -97,6 +111,10 @@ function ScreenFallback() {
 }
 
 type Phase =
+  | 'hub'
+  | 'catchSetup'
+  | 'catchBattle'
+  | 'catchResult'
   | 'title'
   | 'ladder'
   | 'shame'
@@ -117,13 +135,13 @@ type Phase =
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>(() =>
-    typeof window !== 'undefined' && hashIsGuide() ? 'guide' : 'title',
+    typeof window !== 'undefined' && hashIsGuide() ? 'guide' : 'hub',
   );
 
   // Honour a cold-load deep link (e.g. a shared `#guide/zodiac` URL) by opening
   // the guide page straight away.
   useEffect(() => {
-    if (phase === 'title' && hashIsGuide()) setPhase('guide');
+    if (phase === 'hub' && hashIsGuide()) setPhase('guide');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -132,7 +150,11 @@ export default function App() {
   // shows a one-off note. Both params are then stripped so a refresh or share
   // doesn't replay them.
   useEffect(() => {
-    fetchMe().then(setMe);
+    fetchMe().then((u) => {
+      setMe(u);
+      setAuthChecked(true);
+      if (u) fetchBox().then(setBox);
+    });
     const params = new URLSearchParams(window.location.search);
     const reset = params.get('reset');
     const verified = params.get('verified');
@@ -195,6 +217,21 @@ export default function App() {
   // The optional account (opt-in). `null` = signed out / anonymous, which is the
   // default and keeps the whole game playable without ever signing in.
   const [me, setMe] = useState<AccountUser | null>(null);
+  // Whether the initial `fetchMe()` has resolved. Until it has we show a neutral
+  // loader instead of flashing the login screen for a signed-in player.
+  const [authChecked, setAuthChecked] = useState(false);
+  // The signed-in player's box of permanently-owned Pokémon (server-authored).
+  const [box, setBox] = useState<OwnedMon[]>([]);
+  // Catch-run state: the chosen zone, the signed token binding it, the locally
+  // simulated battle sequence (for playback) and its index, and the final
+  // server-authoritative result shown on the result screen.
+  const [catchZone, setCatchZone] = useState<CatchZone | null>(null);
+  const [catchToken, setCatchToken] = useState<string | null>(null);
+  const [catchParty, setCatchParty] = useState<Creature[]>([]);
+  const [catchBattles, setCatchBattles] = useState<CatchBattle[]>([]);
+  const [catchIndex, setCatchIndex] = useState(0);
+  const [catchResult, setCatchResult] = useState<CatchResult | null>(null);
+  const [catchBusy, setCatchBusy] = useState(false);
   // A password-reset token lifted from an email link's `?reset=` param, handed
   // to the Account screen so it opens straight into "set a new password".
   const [accountResetToken, setAccountResetToken] = useState<string | null>(null);
@@ -443,14 +480,149 @@ export default function App() {
     setMe(user);
     if (user.displayName) localStorage.setItem('lb-name', user.displayName);
     setAccountResetToken(null);
+    fetchBox().then(setBox);
+    setPhase(hashIsGuide() ? 'guide' : 'hub');
+  };
+
+  // --- Catch runs ------------------------------------------------------------
+
+  // Cash in the signed token: the server re-simulates the mission and, only on a
+  // genuine clear, mints the reward + grants EXP. The returned box/result are
+  // authoritative — the client never decides what was caught.
+  const finishCatch = async (token: string) => {
+    setCatchBusy(true);
+    const res = await completeCatch(token);
+    setCatchBusy(false);
+    setCatchResult(res);
+    if (res.box) setBox(res.box);
+    fetchMe().then(setMe);
+    setPhase('catchResult');
+  };
+
+  const startCatchRun = async (zone: CatchZone, partyIds: string[]) => {
+    if (catchBusy) return;
+    setCatchBusy(true);
+    const start = await startCatch({ zone: zone.id, party: partyIds });
+    if (!start) {
+      setCatchBusy(false);
+      setCatchZone(zone);
+      setCatchResult({
+        ok: false,
+        cleared: false,
+        error: 'Could not start the run — please try again.',
+      });
+      setPhase('catchResult');
+      return;
+    }
+    setCatchZone(zone);
+    setCatchToken(start.token);
+
+    // The tutorial is a guided catch with no battle — complete it straight away.
+    if (zone.id === 'tutorial') {
+      await finishCatch(start.token);
+      return;
+    }
+
+    // Rebuild the party as battle creatures and locally simulate the mission for
+    // playback. The server independently re-simulates the same seed on complete.
+    const party = partyIds
+      .map((id) => box.find((m) => m.id === id))
+      .filter((m): m is OwnedMon => Boolean(m))
+      .map((m) => ownedMonToCreature(m))
+      .filter((c): c is Creature => Boolean(c));
+    const outcome = simulateCatchMission(party, start.seed, zone);
+    setCatchParty(party);
+    setCatchBattles(outcome.battles);
+    setCatchIndex(0);
+    setCatchBusy(false);
+    setPhase('catchBattle');
+  };
+
+  const onCatchBattleComplete = (winner: Side) => {
+    // A loss ends the mission immediately; otherwise advance to the next foe,
+    // and cash the token in once the last battle is won.
+    if (winner === 'foe' || catchIndex + 1 >= catchBattles.length) {
+      if (catchToken) finishCatch(catchToken);
+      return;
+    }
+    setCatchIndex((i) => i + 1);
   };
 
   const renderScreen = () => {
     switch (phase) {
+    case 'hub':
+      if (!me) return null;
+      return (
+        <HubScreen
+          me={me}
+          box={box}
+          onCatch={() => {
+            setCatchResult(null);
+            setPhase('catchSetup');
+          }}
+          onRental={() => setPhase('title')}
+          onViewDex={() => setPhase('dex')}
+          onViewLadder={() => setPhase('ladder')}
+          onViewGuide={() => setPhase('guide')}
+          onViewAccount={() => setPhase('account')}
+        />
+      );
+
+    case 'catchSetup':
+      return (
+        <CatchSetupScreen
+          box={box}
+          busy={catchBusy}
+          onStart={startCatchRun}
+          onBack={() => setPhase('hub')}
+        />
+      );
+
+    case 'catchBattle': {
+      const cb = catchBattles[catchIndex];
+      if (!cb || !catchZone) return null;
+      // Catch foes are wild, not real trainers; BattleScreen only reads name +
+      // title, so a lightweight synthetic Opponent is enough.
+      const wild: Opponent = {
+        id: `wild-${catchIndex}`,
+        name: 'Wild Pokémon',
+        title: `${catchZone.name} · Battle ${catchIndex + 1}/${catchBattles.length}`,
+        sprite: '🌿',
+        badge: '',
+        art: '',
+        artGif: '',
+        type: cb.foeTeam[0]?.types[0] ?? 'normal',
+        teamSize: cb.foeTeam.length,
+        tier: 'trainer',
+        quote: '',
+      };
+      return (
+        <BattleScreen
+          key={catchIndex}
+          opponent={wild}
+          playerTeam={catchParty}
+          foeTeam={cb.foeTeam}
+          result={cb.result}
+          onComplete={onCatchBattleComplete}
+        />
+      );
+    }
+
+    case 'catchResult':
+      if (!catchResult) return null;
+      return (
+        <CatchResultScreen
+          result={catchResult}
+          onDone={() => setPhase('hub')}
+          onAgain={() => setPhase('catchSetup')}
+        />
+      );
+
     case 'title':
       return (
         <TitleScreen
           onStart={startRun}
+          onBack={() => setPhase('hub')}
           onViewLadder={() => setPhase('ladder')}
           onViewShame={() => setPhase('shame')}
           onViewHistory={() => setPhase('history')}
@@ -462,13 +634,13 @@ export default function App() {
       );
 
     case 'ladder':
-      return <LadderScreen onBack={() => setPhase('title')} />;
+      return <LadderScreen onBack={() => setPhase('hub')} />;
 
     case 'shame':
-      return <ShameScreen onBack={() => setPhase('title')} />;
+      return <ShameScreen onBack={() => setPhase('hub')} />;
 
     case 'dex':
-      return <PokedexScreen onBack={() => setPhase('title')} me={me} />;
+      return <PokedexScreen onBack={() => setPhase('hub')} me={me} />;
 
     case 'account':
       return (
@@ -478,9 +650,12 @@ export default function App() {
           key={`${me?.id ?? 'anon'}:${accountResetToken ?? ''}`}
           me={me}
           resetToken={accountResetToken}
-          onBack={() => setPhase('title')}
+          onBack={() => setPhase('hub')}
           onAuthed={handleAuthed}
-          onSignedOut={() => setMe(null)}
+          onSignedOut={() => {
+            setMe(null);
+            setBox([]);
+          }}
           onViewMyRuns={me ? () => setPhase('myRuns') : undefined}
         />
       );
@@ -490,13 +665,13 @@ export default function App() {
 
     case 'trainerSprites':
       if (!TrainerSpritesScreen) return null;
-      return <TrainerSpritesScreen onBack={() => setPhase('title')} />;
+      return <TrainerSpritesScreen onBack={() => setPhase('hub')} />;
 
     case 'history':
-      return <HistoryScreen onBack={() => setPhase('title')} />;
+      return <HistoryScreen onBack={() => setPhase('hub')} />;
 
     case 'guide':
-      return <GuideScreen onBack={() => setPhase('title')} />;
+      return <GuideScreen onBack={() => setPhase('hub')} />;
 
     case 'draft':
       return (
@@ -606,7 +781,7 @@ export default function App() {
           clearedStages={won ? gauntlet.length : stage}
           lostToTeam={lostToTeam}
           ragequit={ragequit}
-          onPlayAgain={() => setPhase('title')}
+          onPlayAgain={() => setPhase('hub')}
           onChallengeThrone={startThrone}
         />
       );
@@ -633,15 +808,25 @@ export default function App() {
           kingTeam={throne.foeTeam}
           submitting={throneSubmitting}
           result={throneResult}
-          onHome={() => setPhase('title')}
+          onHome={() => setPhase('hub')}
         />
       );
     }
   };
 
+  // Accounts are required: until the initial session check resolves show a
+  // neutral loader, and a signed-out visitor only ever sees the login front door.
+  const gatedScreen = !authChecked ? (
+    <ScreenFallback />
+  ) : !me ? (
+    <LoginScreen resetToken={accountResetToken} onAuthed={handleAuthed} />
+  ) : (
+    renderScreen()
+  );
+
   return (
     <>
-      <Suspense fallback={<ScreenFallback />}>{renderScreen()}</Suspense>
+      <Suspense fallback={<ScreenFallback />}>{gatedScreen}</Suspense>
       {verifiedNote && (
         <div className="fixed inset-x-0 top-4 z-50 mx-auto w-fit max-w-[90vw]">
           <button

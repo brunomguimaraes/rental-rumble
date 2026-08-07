@@ -7,6 +7,7 @@ import {
   RUNS_LIMIT,
   DEX_LAYERS,
   DEX_MAX_ID,
+  readOwnedByUser,
   type Db,
   type RunOutcome,
 } from '../_db.js';
@@ -39,6 +40,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return pokedex(req, res);
     case 'runs':
       return runs(req, res);
+    case 'box':
+      return box(req, res);
     default:
       return res.status(404).json({ ok: false, error: 'not found' });
   }
@@ -332,5 +335,23 @@ async function runs(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     console.error('[me/runs] failed:', err);
     return res.status(200).json({ ok: true, runs: [] });
+  }
+}
+
+// --- box: the player's owned Pokémon -----------------------------------------
+
+async function box(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Cache-Control', 'no-store');
+  const uid = readSession(req);
+  if (!uid) return res.status(200).json({ ok: true, box: [] });
+  const db: Db | null = getDb();
+  if (!db) return res.status(200).json({ ok: true, box: [] });
+
+  try {
+    const owned = await readOwnedByUser(db, uid);
+    return res.status(200).json({ ok: true, box: owned });
+  } catch (err) {
+    console.error('[me/box] failed:', err);
+    return res.status(200).json({ ok: true, box: [] });
   }
 }
