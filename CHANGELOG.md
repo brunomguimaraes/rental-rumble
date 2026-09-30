@@ -22,6 +22,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 
 ### Fixed
 - **Existing accounts finish the tutorial** — accounts that owned Pokémon before onboarding no longer stall at the guided first catch.
+- **First battle header** — the tutorial battle shows the wild Pokémon's portrait instead of a broken image.
 
 ### Removed
 - The Rental draft gauntlet, relics, the daily Champion board, the Throne, the Hall of Shame and My Runs.

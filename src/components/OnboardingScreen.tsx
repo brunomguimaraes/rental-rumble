@@ -20,8 +20,10 @@ type Step = 'profession' | 'professor' | 'starter' | 'battle' | 'catch' | 'done'
 
 const TUTORIAL_WILDS = [19, 16, 161, 263, 399]; // Rattata, Pidgey, Sentret, Zigzagoon, Bidoof
 
-function wildOpponent(name: string, title: string, type: Creature['types'][number]): Opponent {
-  return { id: `wild-${name}`, name, title, sprite: '🌿', badge: '', art: '', artGif: '', type, teamSize: 1, tier: 'trainer', quote: '' };
+// A wild encounter has no trainer, so the battle header shows the wild's own portrait.
+function wildOpponent(wild: Creature, title: string): Opponent {
+  const name = `Wild ${wild.name}`;
+  return { id: `wild-${wild.dexId}`, name, title, sprite: '🌿', badge: '', art: wild.portrait, artGif: '', type: wild.types[0], teamSize: 1, tier: 'trainer', quote: '' };
 }
 
 export function OnboardingScreen({
@@ -118,7 +120,7 @@ export function OnboardingScreen({
   if (step === 'battle' && tutorialBattle && starterCreature) {
     return (
       <BattleScreen
-        opponent={wildOpponent('Wild ' + tutorialBattle.wild.name, 'Route 1 · Your first battle', tutorialBattle.wild.types[0])}
+        opponent={wildOpponent(tutorialBattle.wild, 'Route 1 · Your first battle')}
         playerTeam={[starterCreature]}
         foeTeam={[tutorialBattle.wild]}
         result={tutorialBattle.result}

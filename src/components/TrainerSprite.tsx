@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import type { Opponent } from '../game/types';
 
 /**
- * Overworld trainer icon. Renders the front-facing PNG by default, or the
- * looping idle GIF when `animated`. Falls back to the static PNG if the GIF is
- * missing. Pixel-art is scaled crisply.
+ * Overworld trainer icon. Renders the looping idle GIF when `animated`, else
+ * the front-facing PNG; a GIF that fails falls back to the PNG. An opponent
+ * with no art (or art that fails to load) shows its emoji `sprite` instead of
+ * a broken image. Pixel-art is scaled crisply.
  */
 export function TrainerSprite({
   opponent,
@@ -14,15 +16,22 @@ export function TrainerSprite({
   animated?: boolean;
   className?: string;
 }) {
+  const [broken, setBroken] = useState<ReadonlySet<string>>(() => new Set());
+  const src = [animated ? opponent.artGif : '', opponent.art].find((s) => s && !broken.has(s));
+
+  if (!src) {
+    return (
+      <span role="img" aria-label={opponent.name} title={opponent.name} className={`grid place-items-center text-2xl leading-none ${className}`}>
+        {opponent.sprite}
+      </span>
+    );
+  }
   return (
     <img
-      src={animated ? opponent.artGif : opponent.art}
+      src={src}
       alt={opponent.name}
       title={opponent.name}
-      onError={(e) => {
-        const img = e.currentTarget;
-        if (img.src.endsWith('.gif')) img.src = opponent.art;
-      }}
+      onError={() => setBroken((b) => new Set(b).add(src))}
       className={`object-contain [image-rendering:pixelated] ${className}`}
     />
   );
