@@ -1,4 +1,4 @@
-import type { AbilityId, Build, Creature, Sign } from './types.js';
+import type { AbilityId, BaseStats, Build, Creature, Sign } from './types.js';
 import { CREATURES_BY_ID } from './pokemon.js';
 import {
   withSign,
@@ -15,7 +15,8 @@ import {
 import { isAbilityOption } from './abilities.js';
 import { canRollBuild } from './moves.js';
 import { ALL_SIGNS } from './zodiac.js';
-import { clampLevel, scaleCreatureToLevel } from './levels.js';
+import { clampLevel } from './levels.js';
+import { expectedStats, isBaseStats, toEngineStats } from './growth.js';
 
 export type CatchOrigin = 'starter' | 'tutorial' | 'catch';
 
@@ -23,8 +24,11 @@ export type CatchOrigin = 'starter' | 'tutorial' | 'catch';
 export interface OwnedMon {
   id: string;
   dexId: number;
+  /** Hidden: paces EXP and evolution; no screen prints it. */
   level: number;
   exp: number;
+  /** The six current stats on the growth model's scale (growth.ts); × 2.5 is what the engine sees. */
+  stats: BaseStats;
   sign: Sign;
   ability?: AbilityId;
   build?: Build;
@@ -41,6 +45,7 @@ export interface OwnedMon {
 export interface MintSpec {
   dexId: number;
   level: number;
+  stats: BaseStats;
   sign: Sign;
   ability?: AbilityId;
   build?: Build;
@@ -52,7 +57,8 @@ export interface MintSpec {
 /**
  * Rebuild a battle-ready Creature from an owned row: re-apply the rolled
  * identity (sign / ability / build / colour / portrait) exactly as the draft
- * would, then scale its base stats to the mon's level. Pure and DOM-free, so the
+ * would, then hand the engine the
+ * individual's current stats (× 2.5). Pure and DOM-free, so the
  * server re-simulation reconstructs the identical creature the client fields.
  * Returns null for an unknown dex id.
  */
@@ -77,15 +83,10 @@ export function ownedMonToCreature(mon: OwnedMon): Creature | null {
     c = { ...c, portrait: url(base.dexId, mon.emotion) };
   }
   if (mon.nickname) c = { ...c, name: mon.nickname };
-  return scaleCreatureToLevel(c, clampLevel(mon.level));
-}
-
-/** Sum of a creature's base stats — a quick "how strong" proxy for the box UI. */
-export function ownedPower(mon: OwnedMon): number {
-  const c = CREATURES_BY_ID[String(mon.dexId)];
-  if (!c) return 0;
-  const s = c.stats;
-  return Math.round((s.hp + s.atk + s.eatk + s.def + s.edef + s.spd) * (mon.level / 50));
+  // A row that arrived without stats (an older server mid-deploy) fights as the
+  // average individual of its level; the server backfills the same way.
+  const stats = isBaseStats(mon.stats) ? mon.stats : expectedStats(base.dexId, clampLevel(mon.level), mon.build);
+  return { ...c, stats: toEngineStats(stats) };
 }
 
 // --- Client wrappers (same-origin; session cookie rides along) ---------------

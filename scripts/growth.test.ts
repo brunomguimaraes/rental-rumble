@@ -25,6 +25,7 @@ import { lineLength, stageOf } from '../src/game/lines.js';
 import { expPercent, MAX_LEVEL } from '../src/game/levels.js';
 import { RAW_DEX } from '../src/game/pokedex.gen.js';
 import { CREATURES_BY_ID } from '../src/game/pokemon.js';
+import { ownedMonToCreature } from '../src/game/box.js';
 import { simulateBattle } from '../src/game/battle.js';
 import { RNG } from '../src/game/rng.js';
 import type { BaseStats, Creature } from '../src/game/types.js';
@@ -189,6 +190,18 @@ console.log('\n[6] the Caterpie promise through the engine (100 seeds)');
   check(`a Caterpie at its ceilings beats a fresh Butterfree at least 85 of 100 (got ${promise})`, promise >= 85);
   const identity = wins(at(BUTTERFREE, g(BUTTERFREE).ceiling), at(CATERPIE, g(CATERPIE).ceiling));
   check(`a Butterfree at its ceilings beats a Caterpie at its ceilings at least 95 of 100 (got ${identity})`, identity >= 95);
+}
+
+console.log('\n[7] the creature the engine fights with');
+{
+  const base = { id: 'o1', dexId: BUTTERFREE, level: 32, exp: 0, sign: 'aries' as const, shiny: false, altColor: false, origin: 'catch' as const, caughtAt: 0 };
+  const trained = ownedMonToCreature({ ...base, stats: g(BUTTERFREE).ceiling });
+  check('a Butterfree at its ceilings fights with its real base stats', trained !== null && eq(trained.stats, CREATURES_BY_ID[String(BUTTERFREE)].stats));
+  const fresh = ownedMonToCreature({ ...base, level: 1, stats: g(BUTTERFREE).floor });
+  check('a fresh one fights at a fifth of that', fresh !== null && fresh.stats.eatk === toEngineStats(g(BUTTERFREE).floor).eatk);
+  const stale = ownedMonToCreature({ ...base, stats: undefined as unknown as BaseStats });
+  check('a row without stats fights as the average individual of its level', stale !== null && eq(stale.stats, toEngineStats(expectedStats(BUTTERFREE, 32))));
+  check('an unknown species is null', ownedMonToCreature({ ...base, dexId: 99999, stats: g(BUTTERFREE).floor }) === null);
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

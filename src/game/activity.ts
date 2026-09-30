@@ -5,6 +5,7 @@ import type { WildView } from './wilds.js';
 import type { CheckpointView, TrailEntry, TrailOutcome } from './expedition.js';
 import { ownedMonToCreature } from './box.js';
 import { applyGrowthWithEvolution } from './evolution.js';
+import { expectedStats, isBaseStats } from './growth.js';
 import { CREATURES_BY_ID } from './pokemon.js';
 import { RNG } from './rng.js';
 import {
@@ -97,14 +98,17 @@ export function normaliseSnapshot(raw: unknown): OwnedMon[] | null {
     if (!isInt(m.level) || m.level < 1 || m.level > 50 || !isInt(m.exp) || m.exp < 0) return null;
     if (!isStr(m.sign) || typeof m.shiny !== 'boolean' || typeof m.altColor !== 'boolean') return null;
     if (!ORIGINS.includes(m.origin as CatchOrigin)) return null;
+    const build: Build | undefined = m.build === 'physical' || m.build === 'energy' ? m.build : undefined;
     out.push({
       id: m.id,
       dexId: m.dexId,
       level: m.level,
       exp: m.exp,
+      // A snapshot frozen before the growth system has no stats: the average individual.
+      stats: isBaseStats(m.stats) ? m.stats : expectedStats(m.dexId, m.level, build),
       sign: m.sign as Sign,
       ...(isStr(m.ability) ? { ability: m.ability as AbilityId } : {}),
-      ...(m.build === 'physical' || m.build === 'energy' ? { build: m.build as Build } : {}),
+      ...(build ? { build } : {}),
       shiny: m.shiny,
       altColor: m.altColor,
       ...(isStr(m.emotion) ? { emotion: m.emotion } : {}),

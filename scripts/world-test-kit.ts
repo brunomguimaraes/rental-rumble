@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applySchema, insertOwned, insertProfileWithStarter, type Db } from '../api/_db.js';
+import { expectedStats } from '../src/game/growth.js';
 import type { CatchOrigin, MintSpec, OwnedMon } from '../src/game/box.js';
 
 const SCHEMA = join(dirname(fileURLToPath(import.meta.url)), '..', 'db', 'schema.sql');
@@ -67,7 +68,7 @@ export async function mintMon(
   origin: CatchOrigin = 'catch',
   now = 1,
 ): Promise<OwnedMon> {
-  return insertOwned(db, uid, { sign: 'aries', shiny: false, altColor: false, ...spec }, origin, now);
+  return insertOwned(db, uid, { sign: 'aries', shiny: false, altColor: false, stats: expectedStats(spec.dexId, spec.level, spec.build), ...spec }, origin, now);
 }
 
 /** Onboard `uid` with a starter (Caterpie Lv 5 by default); returns the starter row. */
@@ -75,7 +76,7 @@ export async function onboardUser(db: Db, uid: string, dexId = 10, level = 5): P
   return insertProfileWithStarter(
     db,
     { userId: uid, profession: 'trainer', mentor: 'oak', currentRoute: 'r1', createdAt: 1 },
-    { dexId, level, sign: 'aries', shiny: false, altColor: false },
+    { dexId, level, stats: expectedStats(dexId, level), sign: 'aries', shiny: false, altColor: false },
     1,
   );
 }

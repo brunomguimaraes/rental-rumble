@@ -3,8 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import type { AbilityId, Build, Sign } from '../src/game/types.js';
+import type { AbilityId, BaseStats, Build, Sign } from '../src/game/types.js';
 import type { CatchOrigin, MintSpec, OwnedMon } from '../src/game/box.js';
+import { expectedStats, isBaseStats } from '../src/game/growth.js';
 
 // Turso (libSQL / SQLite) holds the optional account layer (users, Pokédex,
 // run history, single-use auth tokens). It's fast, has no autosuspend
@@ -46,6 +47,9 @@ const SCHEMA_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', 'db', 's
 /** Statements that add columns to existing tables; each is a no-op on re-run. */
 const COLUMN_ADDS = [
   'alter table owned_pokemon add column nickname text',
+  // The six current stats on the growth model's scale, JSON text. Null on rows
+  // minted before the growth system; rowToOwned backfills those on read.
+  'alter table owned_pokemon add column stats text',
   // The saved party (JSON array of owned ids, lead first).
   'alter table profiles add column party text',
   // idle_sessions now holds every activity: training and exploration.
@@ -229,16 +233,35 @@ export async function readUserByEmail(
 /** How many owned mons one account may hold (guards a runaway box). */
 export const BOX_LIMIT = 600;
 
-/** Build an OwnedMon from a raw SQLite row (snake_case columns, 0/1 booleans). */
+/** Stored `stats` JSON → BaseStats, or null when absent or malformed. */
+function parseStats(raw: unknown): BaseStats | null {
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  try {
+    const v: unknown = JSON.parse(raw);
+    return isBaseStats(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build an OwnedMon from a raw SQLite row (snake_case columns, 0/1 booleans).
+ * A row without usable `stats` (minted before the growth system) reads as an
+ * average individual of its species at its level; the next growth persists it.
+ */
 export function rowToOwned(r: Record<string, unknown>): OwnedMon {
+  const dexId = Number(r.dex_id) || 0;
+  const level = Number(r.level) || 1;
+  const build = r.build ? (String(r.build) as Build) : undefined;
   return {
     id: String(r.id),
-    dexId: Number(r.dex_id) || 0,
-    level: Number(r.level) || 1,
+    dexId,
+    level,
     exp: Number(r.exp) || 0,
+    stats: parseStats(r.stats) ?? expectedStats(dexId, level, build),
     sign: String(r.sign ?? '') as Sign,
     ...(r.ability ? { ability: String(r.ability) as AbilityId } : {}),
-    ...(r.build ? { build: String(r.build) as Build } : {}),
+    ...(build ? { build } : {}),
     shiny: Number(r.shiny) === 1,
     altColor: Number(r.alt_color) === 1,
     ...(r.emotion ? { emotion: String(r.emotion) } : {}),
@@ -282,6 +305,7 @@ function ownedFromSpec(id: string, spec: MintSpec, origin: CatchOrigin, now: num
     dexId: spec.dexId,
     level: spec.level,
     exp: 0,
+    stats: spec.stats,
     sign: spec.sign,
     ...(spec.ability ? { ability: spec.ability } : {}),
     ...(spec.build ? { build: spec.build } : {}),
@@ -304,14 +328,15 @@ export async function insertOwned(
   const id = newId();
   await db.execute({
     sql: `insert into owned_pokemon
-          (id, user_id, dex_id, level, exp, sign, ability, build, shiny, alt_color, emotion, origin, caught_at)
-          values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (id, user_id, dex_id, level, exp, stats, sign, ability, build, shiny, alt_color, emotion, origin, caught_at)
+          values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       id,
       uid,
       spec.dexId,
       spec.level,
       0,
+      JSON.stringify(spec.stats),
       spec.sign,
       spec.ability ?? null,
       spec.build ?? null,
@@ -391,9 +416,9 @@ export async function insertProfileWithStarter(
       },
       {
         sql: `insert into owned_pokemon
-              (id, user_id, dex_id, level, exp, sign, ability, build, shiny, alt_color, emotion, origin, caught_at)
-              values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [id, p.userId, spec.dexId, spec.level, 0, spec.sign, spec.ability ?? null, spec.build ?? null, spec.shiny ? 1 : 0, spec.altColor ? 1 : 0, spec.emotion ?? null, 'starter', now],
+              (id, user_id, dex_id, level, exp, stats, sign, ability, build, shiny, alt_color, emotion, origin, caught_at)
+              values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [id, p.userId, spec.dexId, spec.level, 0, JSON.stringify(spec.stats), spec.sign, spec.ability ?? null, spec.build ?? null, spec.shiny ? 1 : 0, spec.altColor ? 1 : 0, spec.emotion ?? null, 'starter', now],
       },
     ],
     'write',
@@ -404,14 +429,14 @@ export async function insertProfileWithStarter(
 // --- Owned growth --------------------------------------------------------------
 
 /**
- * Persist what an activity's growth changed: species, ability (evolution
- * re-rolls it), level and EXP. Nothing else on the row is touched, so a
- * nickname set while the party was out survives.
+ * Persist what a growth changed: species, ability (evolution re-rolls it),
+ * hidden level, EXP and stats. Nothing else on the row is touched, so a
+ * nickname set while the party was out survives. Scoped to the owner.
  */
 export async function updateOwnedGrowth(db: Executor, uid: string, mon: OwnedMon): Promise<void> {
   await db.execute({
-    sql: 'update owned_pokemon set dex_id = ?, ability = ?, level = ?, exp = ? where id = ? and user_id = ?',
-    args: [mon.dexId, mon.ability ?? null, mon.level, mon.exp, mon.id, uid],
+    sql: 'update owned_pokemon set dex_id = ?, ability = ?, level = ?, exp = ?, stats = ? where id = ? and user_id = ?',
+    args: [mon.dexId, mon.ability ?? null, mon.level, mon.exp, JSON.stringify(mon.stats), mon.id, uid],
   });
 }
 

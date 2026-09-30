@@ -3,11 +3,12 @@ import type { GuardianSpec, PoolEntry, WildRules } from './world.js';
 import type { RNG } from './rng.js';
 import { CREATURES_BY_ID, withSign, withAbility, withBuild, asShiny, asAltColor } from './pokemon.js';
 import { rollIdentity } from './identity.js';
-import { clampLevel, scaleCreatureToLevel } from './levels.js';
+import { clampLevel } from './levels.js';
+import { mintStats, toEngineStats } from './growth.js';
 
 // Wild Pokémon for training and expeditions. Every wild and guardian becomes a
-// battle creature in buildWild, the one place the growth overhaul will change
-// (it mints per-individual stats instead of scaling the species by level).
+// battle creature in buildWild, which mints the individual's stats the way a
+// catch would (growth.ts) and hands the engine those × 2.5.
 
 /** What the player may see of a wild: never its seed or rolled sign. */
 export interface WildView {
@@ -40,7 +41,7 @@ export function buildWild(
   if (id.build) c = withBuild(c, id.build);
   if (id.shiny) c = asShiny(c);
   else if (id.altColor) c = asAltColor(c);
-  return { creature: scaleCreatureToLevel(c, clampLevel(level)), shiny: c.shiny, altColor: c.altColor };
+  return { creature: { ...c, stats: toEngineStats(mintStats(dexId, clampLevel(level), rng, id.build)) }, shiny: c.shiny, altColor: c.altColor };
 }
 
 /** Weighted pick; `rareBoost` multiplies the weight of rare entries. */

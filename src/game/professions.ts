@@ -3,6 +3,7 @@ import { CREATURES_BY_ID } from './pokemon.js';
 import { EVOLUTIONS } from './evolutions.gen.js';
 import { RNG } from './rng.js';
 import { rollIdentity } from './identity.js';
+import { mintStats } from './growth.js';
 
 // The role-play frame. A profession is the lens the game is played through;
 // only the trainer route ships, the rest are locked teasers so the data model
@@ -127,5 +128,9 @@ export function starterFromOffer(uid: string, dexId: unknown): MintSpec | null {
   const species = CREATURES_BY_ID[String(dexId)];
   if (!species) return null;
   const rng = new RNG(`starter:${uid}:${dexId}`);
-  return { dexId: species.dexId, level: STARTER_LEVEL, ...rollIdentity(species, rng) };
+  const identity = rollIdentity(species, rng);
+  // Same stream, after the identity draws: an existing account's starter keeps
+  // its sign, ability, build and colour, and now gets its four growths too.
+  const stats = mintStats(species.dexId, STARTER_LEVEL, rng, identity.build);
+  return { dexId: species.dexId, level: STARTER_LEVEL, ...identity, stats };
 }

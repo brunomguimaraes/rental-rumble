@@ -32,6 +32,7 @@ import { fileURLToPath } from 'node:url';
 import { CREATURES_BY_ID } from '../src/game/pokemon.js';
 import { RNG } from '../src/game/rng.js';
 import type { OwnedMon } from '../src/game/box.js';
+import { expectedStats } from '../src/game/growth.js';
 import type { Creature } from '../src/game/types.js';
 import { buildWild, pickFromPool, rollPoolWild, rollGuardian } from '../src/game/wilds.js';
 import { simulateTraining, trainingFoe } from '../src/game/training.js';
@@ -202,6 +203,7 @@ check('non-strings are not places', placeById(7) === null && routeById(null) ===
 
 const mon = (over: Partial<OwnedMon> & { id: string; dexId: number; level: number }): OwnedMon => ({
   exp: 0,
+  stats: expectedStats(over.dexId, over.level),
   sign: 'aries',
   shiny: false,
   altColor: false,

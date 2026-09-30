@@ -17,6 +17,7 @@ import {
   starterFromOffer,
 } from '../src/game/professions.js';
 import { CREATURES_BY_ID } from '../src/game/pokemon.js';
+import { STAT_KEYS, speciesGrowth } from '../src/game/growth.js';
 
 let passed = 0;
 let failed = 0;
@@ -72,6 +73,8 @@ check('an offered line mints its base form', pick?.dexId === offer[1]);
 check(`at level ${STARTER_LEVEL}`, pick?.level === STARTER_LEVEL);
 const again = starterFromOffer('user-1', offer[1]);
 check('same account + pick -> same individual', pick?.sign === again?.sign && pick?.ability === again?.ability && pick?.shiny === again?.shiny);
+check('carries four growths of stats', pick !== null && STAT_KEYS.reduce((n, k) => n + pick.stats[k] - speciesGrowth(pick.dexId, pick.build)!.floor[k], 0) >= 4);
+check('stats are deterministic too', pick !== null && again !== null && STAT_KEYS.every((k) => pick.stats[k] === again.stats[k]));
 const outside = STARTER_POOL.find((id) => !offer.includes(id))!;
 check('a pool line outside the offer is refused', starterFromOffer('user-1', outside) === null);
 check('a species outside the pool is refused', starterFromOffer('user-1', 25) === null);
