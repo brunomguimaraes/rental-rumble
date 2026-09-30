@@ -1,8 +1,8 @@
 # Rental Rumble
 
-A web-based, login-based idle collecting game using **real Pokémon**. Pick a
-profession and a professor, raise your starter, and send your trainer out on
-idle routes to battle, grow and evolve while you're away.
+A web-based, login-based collecting game using **real Pokémon**. Pick a
+profession, choose one of three weak starters from Professor Oak, and build your
+box. The idle routes are paused while the core loop is reworked.
 
 > Private project for me and my friends — not for commercial use. Pokémon data
 > comes from [PokeAPI](https://pokeapi.co/). The static fallback battle sprites
@@ -36,16 +36,12 @@ idle routes to battle, grow and evolve while you're away.
 
 ## How it plays
 
-1. **Onboard** — pick the Trainer profession and one of four professors (Oak,
-   Elm, Birch, Rowan); receive a fixed, weak, three-stage starter and fight a
-   guided first battle and first catch.
-2. **Send out** — your trainer walks Route 1 for up to 8 hours of real time,
-   auto-battling wild Pokémon. Results are simulated on the server from a fixed
-   seed.
-3. **Claim** — come back to read the encounter log, collect EXP, level-ups and
-   evolutions.
-4. **Box** — nickname your Pokémon; starters evolve at 8 and 16, others at 16
-   and 32.
+1. **Onboard** — pick the Trainer profession. Professor Oak offers three weak,
+   three-stage starters drawn from a pool of ten (Caterpie, Weedle, Pidgey,
+   Oddish, Poliwag, Geodude, Mareep, Hoppip, Lotad, Starly). The three are fixed
+   per account; the server checks the pick and mints a level 5 starter.
+2. **Box** — nickname your Pokémon and see when each one evolves (starters at 8
+   and 16, others at 16 and 32). Nothing grants EXP until the next loop lands.
 
 Under it all: **1025 Pokémon** with real base stats and types
 (`scripts/gen-pokedex.ts` into `src/game/pokedex.gen.ts`), the real 18-type chart

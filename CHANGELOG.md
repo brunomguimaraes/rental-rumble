@@ -12,17 +12,12 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 ## [Unreleased]
 
 ### Added
-- **Trainer route** — pick the Trainer profession and one of four professors (Oak, Elm, Birch, Rowan); receive a fixed, weak, three-stage starter; a guided first battle and first catch.
-- **Idle routes** — send your trainer out on Route 1 for up to 8 hours of real-time auto-battles; claim the encounter log, EXP, level-ups and evolutions. Server-simulated from a fixed seed.
+- **Trainer route** — pick the Trainer profession; Professor Oak offers three weak, three-stage starters from a pool of ten, fixed per account, and you keep one.
 - **Box** — nickname your Pokémon; starters evolve at 8 and 16, others at 16 and 32.
 - **Accounts** — sign in with email and password, Discord or Google; email verification and password reset via Resend. Login is now required to play.
 
 ### Changed
-- **Login required** — anonymous play is gone; the hub, box and idle routes are per-account.
-
-### Fixed
-- **Existing accounts finish the tutorial** — accounts that owned Pokémon before onboarding no longer stall at the guided first catch.
-- **First battle header** — the tutorial battle shows the wild Pokémon's portrait instead of a broken image.
+- **Login required** — anonymous play is gone; the hub and box are per-account.
 
 ### Removed
 - The Rental draft gauntlet, relics, the daily Champion board, the Throne, the Hall of Shame and My Runs.

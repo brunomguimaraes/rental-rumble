@@ -8,7 +8,7 @@ Vercel serverless functions. Each area is one dynamic dispatcher, `api/<area>/[a
 **Dispatcher → action function → `api/_*.ts` helpers → Turso/Redis**
 
 - Keep actions thin: check method, gate, rate-limit, validate input, call helpers, respond. SQL lives in
-  `api/_db.ts`; multi-step domain writes (like a claim) live in their own module (`api/_idle.ts`).
+  `api/_db.ts`; multi-step domain writes live in their own `api/_<domain>.ts` module.
 - Prefer a new action in an existing dispatcher over a new top-level function. A new dispatcher area must be
   added to the hardcoded list in `scripts/dev-api.ts` (`resolveRoute`), or it 404s under `npm run dev:local`.
 - Game rules come from `src/game/` so client and server agree. Never fork a rule into `api/`.

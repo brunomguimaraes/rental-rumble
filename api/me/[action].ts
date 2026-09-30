@@ -11,7 +11,7 @@ import {
   updateOwnedNickname,
   type Db,
 } from '../_db.js';
-import { isProfessorId, professorById, rollStarter } from '../../src/game/professions.js';
+import { PROFESSORS, starterFromOffer } from '../../src/game/professions.js';
 import { cleanNickname } from '../../src/game/profile.js';
 
 // The per-account endpoints behind one Vercel function (dynamic `[action]`
@@ -141,8 +141,11 @@ async function onboard(req: VercelRequest, res: VercelResponse) {
   if (body.profession !== 'trainer') {
     return res.status(400).json({ ok: false, error: 'only the Trainer route is open for now' });
   }
-  if (!isProfessorId(body.mentor)) return res.status(400).json({ ok: false, error: 'unknown professor' });
-  const professor = professorById(body.mentor)!;
+  // One professor for now; the pick must be one of the three lines this
+  // account was offered (recomputed here from the uid, never trusted).
+  const professor = PROFESSORS[0];
+  const spec = starterFromOffer(uid, body.starter);
+  if (!spec) return res.status(400).json({ ok: false, error: 'pick one of the three offered Pokémon' });
 
   try {
     // A missing profile is the only precondition. Accounts that owned Pokémon
@@ -153,7 +156,7 @@ async function onboard(req: VercelRequest, res: VercelResponse) {
     }
     const now = Date.now();
     const base = { userId: uid, profession: 'trainer', mentor: professor.id, currentRoute: 'r1', createdAt: now };
-    const starter = await insertProfileWithStarter(db, base, rollStarter(`starter:${uid}`, professor), now);
+    const starter = await insertProfileWithStarter(db, base, spec, now);
     const row = { ...base, starterId: starter.id };
     const box = await readOwnedByUser(db, uid);
     return res.status(200).json({ ok: true, profile: toProfile(row), starter, box });

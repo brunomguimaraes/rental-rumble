@@ -266,60 +266,12 @@ export async function insertOwned(
   return ownedFromSpec(id, spec, origin, now);
 }
 
-/**
- * Mint a mon only if the user owns no row of this origin yet (the tutorial
- * gift). Earlier catches don't matter, so legacy accounts can still finish
- * the tutorial. The check and the insert are one statement, so concurrent
- * callers can't both pass. Returns the stored row, or null when one exists.
- */
-export async function insertOwnedOnce(
-  db: Db,
-  uid: string,
-  spec: MintSpec,
-  origin: CatchOrigin,
-  now: number,
-): Promise<OwnedMon | null> {
-  const id = newId();
-  const rs = await db.execute({
-    sql: `insert into owned_pokemon
-          (id, user_id, dex_id, level, exp, sign, ability, build, shiny, alt_color, emotion, origin, caught_at)
-          select ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-          where not exists (select 1 from owned_pokemon where user_id = ? and origin = ?)`,
-    args: [
-      id,
-      uid,
-      spec.dexId,
-      spec.level,
-      0,
-      spec.sign,
-      spec.ability ?? null,
-      spec.build ?? null,
-      spec.shiny ? 1 : 0,
-      spec.altColor ? 1 : 0,
-      spec.emotion ?? null,
-      origin,
-      now,
-      uid,
-      origin,
-    ],
-  });
-  return rs.rowsAffected === 1 ? ownedFromSpec(id, spec, origin, now) : null;
-}
-
-// --- Nickname / evolution ----------------------------------------------------
+// --- Nickname ----------------------------------------------------
 
 export async function updateOwnedNickname(db: Db, uid: string, id: string, nickname: string): Promise<void> {
   await db.execute({
     sql: 'update owned_pokemon set nickname = ? where id = ? and user_id = ?',
     args: [nickname, id, uid],
-  });
-}
-
-/** Persist an evolved/grown mon: species, ability, level, exp (the claim writer). */
-export async function updateOwnedEvolution(db: Executor, uid: string, mon: OwnedMon): Promise<void> {
-  await db.execute({
-    sql: 'update owned_pokemon set dex_id = ?, ability = ?, level = ?, exp = ? where id = ? and user_id = ?',
-    args: [mon.dexId, mon.ability ?? null, mon.level, mon.exp, mon.id, uid],
   });
 }
 
@@ -379,98 +331,4 @@ export async function insertProfileWithStarter(
     'write',
   );
   return ownedFromSpec(id, spec, 'starter', now);
-}
-
-// --- Idle sessions -----------------------------------------------------------
-
-export interface IdleSessionRow {
-  id: string;
-  userId: string;
-  routeId: string;
-  partyIds: string[];
-  seed: string;
-  startedAt: number;
-  claimedAt: number | null;
-  stoppedBy: string | null;
-  encounters: number;
-  log: string | null;
-}
-
-function rowToSession(r: Record<string, unknown>): IdleSessionRow {
-  let partyIds: string[] = [];
-  try {
-    const parsed = JSON.parse(String(r.party_ids ?? '[]'));
-    if (Array.isArray(parsed)) partyIds = parsed.filter((p): p is string => typeof p === 'string');
-  } catch {
-    partyIds = [];
-  }
-  return {
-    id: String(r.id),
-    userId: String(r.user_id),
-    routeId: String(r.route_id),
-    partyIds,
-    seed: String(r.seed),
-    startedAt: Number(r.started_at) || 0,
-    claimedAt: r.claimed_at === null || r.claimed_at === undefined ? null : Number(r.claimed_at),
-    stoppedBy: r.stopped_by === null || r.stopped_by === undefined ? null : String(r.stopped_by),
-    encounters: Number(r.encounters) || 0,
-    log: r.log === null || r.log === undefined ? null : String(r.log),
-  };
-}
-
-export async function readOpenSession(db: Db, uid: string): Promise<IdleSessionRow | null> {
-  const rs = await db.execute({
-    sql: 'select * from idle_sessions where user_id = ? and claimed_at is null order by started_at desc limit 1',
-    args: [uid],
-  });
-  const r = rs.rows[0] as unknown as Record<string, unknown> | undefined;
-  return r ? rowToSession(r) : null;
-}
-
-export async function readSessionById(db: Executor, uid: string, id: string): Promise<IdleSessionRow | null> {
-  const rs = await db.execute({
-    sql: 'select * from idle_sessions where id = ? and user_id = ?',
-    args: [id, uid],
-  });
-  const r = rs.rows[0] as unknown as Record<string, unknown> | undefined;
-  return r ? rowToSession(r) : null;
-}
-
-export async function insertSession(
-  db: Db,
-  s: { id: string; userId: string; routeId: string; partyIds: string[]; seed: string; startedAt: number },
-): Promise<void> {
-  await db.execute({
-    sql: 'insert into idle_sessions (id, user_id, route_id, party_ids, seed, started_at) values (?, ?, ?, ?, ?, ?)',
-    args: [s.id, s.userId, s.routeId, JSON.stringify(s.partyIds), s.seed, s.startedAt],
-  });
-}
-
-/** Close a session only if it is still open; true means this caller won the claim. */
-export async function claimSession(
-  db: Executor,
-  id: string,
-  uid: string,
-  patch: { claimedAt: number; stoppedBy: string; encounters: number; log: string },
-): Promise<boolean> {
-  const rs = await db.execute({
-    sql: 'update idle_sessions set claimed_at = ?, stopped_by = ?, encounters = ?, log = ? where id = ? and user_id = ? and claimed_at is null',
-    args: [patch.claimedAt, patch.stoppedBy, patch.encounters, patch.log, id, uid],
-  });
-  return rs.rowsAffected === 1;
-}
-
-export async function insertEncounters(
-  db: Executor,
-  sessionId: string,
-  records: readonly { slot: number; dexId: number; level: number; won: boolean; turns: number }[],
-): Promise<void> {
-  if (records.length === 0) return;
-  await db.batch(
-    records.map((e) => ({
-      sql: 'insert or ignore into encounters (session_id, slot, dex_id, level, won) values (?, ?, ?, ?, ?)',
-      args: [sessionId, e.slot, e.dexId, e.level, e.won ? 1 : 0],
-    })),
-    'write',
-  );
 }

@@ -1,6 +1,5 @@
 import type { OwnedMon } from './box.js';
 import type { ProfessionId, ProfessorId } from './professions.js';
-import type { RouteId } from './routes.js';
 
 // The player's role-play identity, and the same-origin wrappers for it.
 
@@ -8,7 +7,8 @@ export interface Profile {
   profession: ProfessionId;
   mentor: ProfessorId;
   starterId: string;
-  currentRoute: RouteId;
+  /** Left over from idle routes; always 'r1' until routes return. */
+  currentRoute: string;
   createdAt: number;
 }
 
@@ -48,13 +48,14 @@ export interface OnboardResult {
   error?: string;
 }
 
-export async function onboard(mentor: ProfessorId): Promise<OnboardResult> {
+/** Start the journey with one of the three offered starters (by base-form dex id). */
+export async function onboard(starter: number): Promise<OnboardResult> {
   try {
     const res = await fetch('/api/me/onboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ profession: 'trainer', mentor }),
+      body: JSON.stringify({ profession: 'trainer', starter }),
     });
     const data = (await res.json().catch(() => ({}))) as OnboardResult;
     if (!res.ok || !data.ok) return { ok: false, error: data.error ?? 'could not start your journey' };

@@ -1,6 +1,6 @@
 # Rental Rumble
 
-A login-based idle collecting game with real Pokémon. React 19 · TypeScript · Vite · Tailwind CSS v4 on the
+A login-based collecting game with real Pokémon (idle routes are paused; git history has them). React 19 · TypeScript · Vite · Tailwind CSS v4 on the
 front; Vercel serverless functions in `api/` backed by Turso (libSQL/SQLite) and Upstash Redis on the back.
 
 `CLAUDE.md` points to `AGENTS.md`; `.claude/` points to `.agents/`. Edit the canonical files and keep both symlinks.

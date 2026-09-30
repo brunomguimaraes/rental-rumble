@@ -7,8 +7,8 @@ Vite SPA, React 19, Tailwind CSS v4. `src/App.tsx` owns the phase state machine 
 
 **Screen → `src/game/*-client.ts` or fetch helper → `/api/...`**
 
-- Components never call `fetch` directly. Add or extend a helper next to its domain (`idle-client.ts`,
-  `account.ts`, `box.ts`, `profile.ts`).
+- Components never call `fetch` directly. Add or extend a helper next to its domain (`account.ts`,
+  `box.ts`, `profile.ts`).
 - Helpers send `credentials: 'include'`, never throw, and return `{ ok, error? }`. `ok: false` means the request
   failed; callers must not read it as an empty result (no session, empty box). Keep that distinction in new helpers.
 - Show the server's `error` string to the player; it is written for them.

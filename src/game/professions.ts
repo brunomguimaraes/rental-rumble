@@ -5,9 +5,9 @@ import { RNG } from './rng.js';
 import { rollIdentity } from './identity.js';
 
 // The role-play frame. A profession is the lens the game is played through;
-// only the trainer route ships in slice 1, the rest are locked teasers so the
-// data model reserves room for them. A professor hands the trainer a fixed,
-// weak, three-stage starter — the choice is about story, not stats.
+// only the trainer route ships, the rest are locked teasers so the data model
+// reserves room for them. One professor offers each new trainer three weak,
+// three-stage lines drawn from a pool of ten; the trainer keeps one.
 
 const ASSET = import.meta.env?.BASE_URL ?? '/';
 
@@ -31,15 +31,13 @@ export function isProfessionId(v: unknown): v is ProfessionId {
   return typeof v === 'string' && PROFESSIONS.some((p) => p.id === v);
 }
 
+/** Mentor ids ever stored on a profile. Only Oak is offered now; the rest stay readable. */
 export type ProfessorId = 'oak' | 'elm' | 'birch' | 'rowan';
 
 export interface Professor {
   id: ProfessorId;
   name: string;
   blurb: string;
-  /** One line on what this mentor's route feels like. Flavour only in slice 1. */
-  bias: string;
-  starterDexId: number;
   /** Key under public/sprites/trainers, or null for the generic fallback. */
   spriteKey: string | null;
 }
@@ -48,51 +46,36 @@ export const PROFESSORS: readonly Professor[] = [
   {
     id: 'oak',
     name: 'Professor Oak',
-    blurb: 'The Kanto classic. Hands you a Caterpie and a pat on the back.',
-    bias: 'Classic routes; balanced encounters',
-    starterDexId: 10,
+    blurb: 'The Kanto classic. Three Poké Balls on the desk, and none of them hold anything strong. Pick the one you want to grow with.',
     spriteKey: 'special-oak',
-  },
-  {
-    id: 'elm',
-    name: 'Professor Elm',
-    blurb: 'Nervous, brilliant, and convinced Hoppip is underrated.',
-    bias: 'Grass and Flying lean; gentler affection curve later',
-    starterDexId: 187,
-    spriteKey: 'special-elm',
-  },
-  {
-    id: 'birch',
-    name: 'Professor Birch',
-    blurb: 'Field researcher. Your Wurmple\'s final form is a roll of the dice.',
-    bias: 'Branching evolution; the branch is luck',
-    starterDexId: 265,
-    spriteKey: null,
-  },
-  {
-    id: 'rowan',
-    name: 'Professor Rowan',
-    blurb: 'Stern, precise. Starly grows into the strongest of the four.',
-    bias: 'Faster early battles; strongest final form',
-    starterDexId: 396,
-    spriteKey: null,
   },
 ];
 
-export const STARTER_LEVEL = 5;
+/** Base forms of the ten weak, three-stage lines a new trainer can be offered. */
+export const STARTER_POOL: readonly number[] = [
+  10, // Caterpie
+  13, // Weedle
+  16, // Pidgey
+  43, // Oddish
+  60, // Poliwag
+  74, // Geodude
+  179, // Mareep
+  187, // Hoppip
+  270, // Lotad
+  396, // Starly
+];
 
-export function isProfessorId(v: unknown): v is ProfessorId {
-  return typeof v === 'string' && PROFESSORS.some((p) => p.id === v);
-}
+export const STARTER_OFFER_SIZE = 3;
+export const STARTER_LEVEL = 5;
 
 export function professorById(id: unknown): Professor | null {
   return PROFESSORS.find((p) => p.id === id) ?? null;
 }
 
-/** The three dex ids of a professor's starter line, first branch on a fork. */
-export function starterLine(p: Professor): number[] {
-  const line = [p.starterDexId];
-  let cur = p.starterDexId;
+/** The three dex ids of a starter line, first branch on a fork. */
+export function starterLine(baseDexId: number): number[] {
+  const line = [baseDexId];
+  let cur = baseDexId;
   for (let i = 0; i < 2; i++) {
     const next = (EVOLUTIONS[cur] ?? []).find((id) => Boolean(CREATURES_BY_ID[String(id)]));
     if (next === undefined) break;
@@ -108,11 +91,27 @@ export function professorArtUrl(p: Professor): string {
 }
 
 /**
- * The starter a professor hands over. Deterministic for a seed (use
- * `starter:${uid}` so a retried onboarding mints the same individual).
+ * The three distinct pool lines offered to an account, in pool order.
+ * Deterministic per seed (use `offer:${uid}`), so client and server agree and
+ * a reload shows the same three.
  */
-export function rollStarter(seed: string, p: Professor): MintSpec {
-  const species = CREATURES_BY_ID[String(p.starterDexId)];
-  const rng = new RNG(`starter:${seed}:${p.id}`);
+export function starterOffer(seed: string): number[] {
+  const rng = new RNG(`starter-offer:${seed}`);
+  const pool = [...STARTER_POOL];
+  const picked = new Set<number>();
+  while (picked.size < STARTER_OFFER_SIZE) picked.add(pool.splice(rng.int(0, pool.length - 1), 1)[0]);
+  return STARTER_POOL.filter((id) => picked.has(id));
+}
+
+/**
+ * The starter an account gets for picking `dexId`, or null when that line was
+ * not in its offer. Deterministic per account and pick, so a retried
+ * onboarding mints the same individual.
+ */
+export function starterFromOffer(uid: string, dexId: unknown): MintSpec | null {
+  if (typeof dexId !== 'number' || !starterOffer(`offer:${uid}`).includes(dexId)) return null;
+  const species = CREATURES_BY_ID[String(dexId)];
+  if (!species) return null;
+  const rng = new RNG(`starter:${uid}:${dexId}`);
   return { dexId: species.dexId, level: STARTER_LEVEL, ...rollIdentity(species, rng) };
 }

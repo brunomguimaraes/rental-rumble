@@ -3,13 +3,10 @@ import type { AccountUser } from '../game/account';
 import { ownedMonToCreature, type OwnedMon } from '../game/box';
 import type { Profile } from '../game/profile';
 import { professorById } from '../game/professions';
-import type { IdleSession } from '../game/idle-client';
-import { IDLE_CAP_MS, routeById } from '../game/routes';
 import { MAX_LEVEL } from '../game/levels';
 import { MiniSprite } from './MiniSprite';
 import { Credits } from './Credits';
 import { PrivacyPolicy } from './PrivacyPolicy';
-import { formatElapsed } from './formatElapsed';
 
 function BoxMon({ mon }: { mon: OwnedMon }) {
   const creature = useMemo(() => ownedMonToCreature(mon), [mon]);
@@ -27,16 +24,12 @@ function BoxMon({ mon }: { mon: OwnedMon }) {
 }
 
 export function HubScreen({
-  me, box, profile, session, serverOffsetMs,
-  onSendOut, onClaim, onViewBox, onViewDex, onViewGuide, onViewAccount,
+  me, box, profile,
+  onViewBox, onViewDex, onViewGuide, onViewAccount,
 }: {
   me: AccountUser;
   box: OwnedMon[];
   profile: Profile;
-  session: IdleSession | null;
-  serverOffsetMs: number;
-  onSendOut: () => void;
-  onClaim: () => void;
   onViewBox: () => void;
   onViewDex: () => void;
   onViewGuide: () => void;
@@ -46,8 +39,6 @@ export function HubScreen({
   const professor = professorById(profile.mentor);
   const starter = box.find((m) => m.id === profile.starterId);
   const starterCreature = starter ? ownedMonToCreature(starter) : null;
-  const elapsed = session ? Math.min(Date.now() + serverOffsetMs - session.startedAt, IDLE_CAP_MS) : 0;
-  const route = session ? routeById(session.routeId) : null;
 
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-3xl flex-col px-5 py-8 sm:px-6">
@@ -61,20 +52,6 @@ export function HubScreen({
         </div>
         <button type="button" onClick={onViewAccount} className="rounded-full border border-white/15 bg-white/[0.03] px-4 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.08]">Account</button>
       </header>
-
-      <section className="mt-8">
-        {session ? (
-          <button type="button" onClick={onClaim} className="flex w-full flex-col items-start gap-1 rounded-3xl bg-gradient-to-br from-amber-300/90 to-orange-400/90 px-6 py-5 text-left text-black shadow-lg transition hover:scale-[1.01] active:scale-[0.99]">
-            <span className="text-lg font-black">Claim ({formatElapsed(elapsed)})</span>
-            <span className="text-sm font-medium text-black/70">Your trainer is out on {route?.name ?? 'the road'}. See what happened.</span>
-          </button>
-        ) : (
-          <button type="button" onClick={onSendOut} className="flex w-full flex-col items-start gap-1 rounded-3xl bg-gradient-to-br from-emerald-400/90 to-teal-500/90 px-6 py-5 text-left text-black shadow-lg transition hover:scale-[1.01] active:scale-[0.99]">
-            <span className="text-lg font-black">Send out</span>
-            <span className="text-sm font-medium text-black/70">Pick a route and a party. Your trainer battles while you’re away.</span>
-          </button>
-        )}
-      </section>
 
       <section className="mt-8">
         <div className="mb-3 flex items-baseline justify-between">
