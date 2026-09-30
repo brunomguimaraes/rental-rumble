@@ -18,7 +18,7 @@ import { ALL_SIGNS } from './zodiac.js';
 import { clampLevel, scaleCreatureToLevel } from './levels.js';
 import type { ZoneId } from './zones.js';
 
-export type CatchOrigin = 'tutorial' | 'catch';
+export type CatchOrigin = 'starter' | 'tutorial' | 'catch';
 
 /** A permanently-owned, unique Pokémon (one row of the player's box). */
 export interface OwnedMon {
@@ -32,6 +32,8 @@ export interface OwnedMon {
   shiny: boolean;
   altColor: boolean;
   emotion?: string;
+  /** Player-given name (1–12 chars); the species name when absent. */
+  nickname?: string;
   origin: CatchOrigin;
   caughtAt: number;
 }
@@ -75,6 +77,7 @@ export function ownedMonToCreature(mon: OwnedMon): Creature | null {
     const url = c.shiny ? shinyPortraitUrl : c.altColor ? altColorPortraitUrl : portraitUrl;
     c = { ...c, portrait: url(base.dexId, mon.emotion) };
   }
+  if (mon.nickname) c = { ...c, name: mon.nickname };
   return scaleCreatureToLevel(c, clampLevel(mon.level));
 }
 
