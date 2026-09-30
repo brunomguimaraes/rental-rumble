@@ -5,8 +5,9 @@ import { onboard, setNickname, cleanNickname, type Profile } from '../game/profi
 import { ownedMonToCreature, type OwnedMon } from '../game/box';
 import { CREATURES_BY_ID } from '../game/pokemon';
 import { MiniSprite } from './MiniSprite';
+import { PixelSprite } from './ui/PixelSprite';
 
-// First minute: profession → Professor Oak offers three weak, three-stage lines
+// First minute: profession → Professor Andre offers three weak, three-stage lines
 // (fixed per account) → starter reveal + optional nickname → hub. The server
 // re-derives the offer, checks the pick and mints the starter with the profile.
 
@@ -101,11 +102,11 @@ export function OnboardingScreen({
 
       {step === 'pick' && (
         <>
-          <div className="flex items-center gap-3">
-            <img src={professorArtUrl(PROFESSOR)} alt="" className="h-14 w-14 object-contain [image-rendering:pixelated]" />
+          <div className="ui-window m-2 flex flex-col items-center gap-3 p-4 sm:flex-row">
+            <PixelSprite src={professorArtUrl(PROFESSOR)} alt="" size={192} />
             <div>
-              <h1 className="text-2xl font-black text-white">{PROFESSOR.name}</h1>
-              <p className="text-sm text-white/60">{PROFESSOR.blurb}</p>
+              <h1 className="font-pixel text-2xl font-bold text-ink">{PROFESSOR.name}</h1>
+              <p className="mt-2 font-pixel text-base text-ink-dim">{PROFESSOR.blurb}</p>
             </div>
           </div>
           <div className="mt-6 grid gap-3">

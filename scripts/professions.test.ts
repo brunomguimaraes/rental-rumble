@@ -35,7 +35,7 @@ check('isProfessionId accepts trainer', isProfessionId('trainer'));
 check('isProfessionId rejects junk', !isProfessionId('wizard'));
 
 console.log('\n[2] one professor');
-check('only Professor Oak', PROFESSORS.length === 1 && PROFESSORS[0].id === 'oak');
+check('offered mentor resolves for the profile and hub', professorById(PROFESSORS[0].id) === PROFESSORS[0]);
 check('oak resolves', professorById('oak')?.name === 'Professor Oak');
 check('retired professors no longer resolve', professorById('elm') === null);
 

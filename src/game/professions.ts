@@ -31,8 +31,8 @@ export function isProfessionId(v: unknown): v is ProfessionId {
   return typeof v === 'string' && PROFESSIONS.some((p) => p.id === v);
 }
 
-/** Mentor ids ever stored on a profile. Only Oak is offered now; the rest stay readable. */
-export type ProfessorId = 'oak' | 'elm' | 'birch' | 'rowan';
+/** Mentor ids ever stored on a profile. New trainers meet Andre. */
+export type ProfessorId = 'andre' | 'oak' | 'elm' | 'birch' | 'rowan';
 
 export interface Professor {
   id: ProfessorId;
@@ -40,9 +40,22 @@ export interface Professor {
   blurb: string;
   /** Key under public/sprites/trainers, or null for the generic fallback. */
   spriteKey: string | null;
+  /** Custom art outside the generated trainer sprite directory. */
+  artPath?: string;
 }
 
 export const PROFESSORS: readonly Professor[] = [
+  {
+    id: 'andre',
+    name: 'Professor Andre',
+    blurb: 'Every stone has a story! I study rocks and fossils, but your first partner is no fossil. Choose a little Pokémon and discover how far you can grow together.',
+    spriteKey: null,
+    artPath: 'sprites/professors/andre.png',
+  },
+];
+
+// Keep existing players’ mentor names intact without offering retired mentors.
+const RETIRED_PROFESSORS: readonly Professor[] = [
   {
     id: 'oak',
     name: 'Professor Oak',
@@ -69,7 +82,7 @@ export const STARTER_OFFER_SIZE = 3;
 export const STARTER_LEVEL = 5;
 
 export function professorById(id: unknown): Professor | null {
-  return PROFESSORS.find((p) => p.id === id) ?? null;
+  return PROFESSORS.find((p) => p.id === id) ?? RETIRED_PROFESSORS.find((p) => p.id === id) ?? null;
 }
 
 /** The three dex ids of a starter line, first branch on a fork. */
@@ -87,6 +100,7 @@ export function starterLine(baseDexId: number): number[] {
 
 /** Front-facing art for the professor card (generic professor when no sprite). */
 export function professorArtUrl(p: Professor): string {
+  if (p.artPath) return `${ASSET}${p.artPath}`;
   return `${ASSET}sprites/trainers/${p.spriteKey ?? 'special-oak'}.png`;
 }
 
