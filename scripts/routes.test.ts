@@ -27,6 +27,7 @@ const r1 = routeById('r1')!;
 const r2 = routeById('r2')!;
 
 console.log('[1] route table');
+check('r1 wilds are handicapped', r1.wildStatMult > 0 && r1.wildStatMult < 1);
 check('two routes defined', ROUTES.length === 2);
 check('r1 is unlocked from the start', isRouteUnlocked(r1, []));
 check('r2 is locked until its milestone', !isRouteUnlocked(r2, []));

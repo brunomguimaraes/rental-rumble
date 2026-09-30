@@ -13,6 +13,8 @@ export interface Route {
   max: number;
   /** Wild level, jittered ±1 from the seed. */
   foeLevel: number;
+  /** Stat multiplier wilds fight at (untrained). */
+  wildStatMult: number;
   /** Real time per encounter. */
   paceMs: number;
   /** Hard cap on encounters per session. */
@@ -35,6 +37,7 @@ export const ROUTES: readonly Route[] = [
     min: 1,
     max: 12,
     foeLevel: 4,
+    wildStatMult: 0.7,
     paceMs: 3 * 60 * 1000,
     maxEncounters: 100,
     expPerWin: 6,
@@ -48,6 +51,7 @@ export const ROUTES: readonly Route[] = [
     min: 8,
     max: 20,
     foeLevel: 12,
+    wildStatMult: 0.9,
     paceMs: 4 * 60 * 1000,
     maxEncounters: 100,
     expPerWin: 10,
