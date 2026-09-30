@@ -14,7 +14,7 @@ import {
   readOpenSession,
   readSessionById,
   insertSession,
-  closeSession,
+  claimSession,
   insertEncounters,
   type Db,
 } from '../_db.js';
@@ -123,7 +123,15 @@ async function start(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ ok: false, error: `every Pokémon must be level ${route.min}-${route.max} for ${route.name}` });
     }
     const session = { id: randomUUID(), userId: uid, routeId: route.id, partyIds, seed: newSeed(), startedAt: Date.now() };
-    await insertSession(db, session);
+    try {
+      await insertSession(db, session);
+    } catch (err) {
+      const msg = String((err as { message?: unknown })?.message ?? err);
+      if (msg.includes('UNIQUE constraint failed') || msg.includes('SQLITE_CONSTRAINT')) {
+        return res.status(409).json({ ok: false, error: 'your trainer is already out — claim first' });
+      }
+      throw err;
+    }
     return res.status(200).json({ ok: true, session: publicSession(session), serverNow: session.startedAt });
   } catch (err) {
     console.error('[idle/start] failed:', err);
@@ -195,18 +203,40 @@ async function claim(req: VercelRequest, res: VercelResponse) {
     const gained = outcome.wins * route.expPerWin;
     const levelUps: { id: string; fromLevel: number; toLevel: number }[] = [];
     const evolutions: { id: string; fromDexId: number; toDexId: number }[] = [];
+    const changed: OwnedMon[] = [];
     for (const m of party) {
       const grown = applyGrowthWithEvolution(m, gained, new RNG(`evolve:${m.id}:${s.seed}`));
       if (grown.levelUp) levelUps.push({ id: m.id, ...grown.levelUp });
       for (const e of grown.evolutions) evolutions.push({ id: m.id, ...e });
-      if (grown.mon.level !== m.level || grown.mon.exp !== m.exp || grown.mon.dexId !== m.dexId) {
-        await updateOwnedEvolution(db, uid, grown.mon);
-      }
+      if (grown.mon.level !== m.level || grown.mon.exp !== m.exp || grown.mon.dexId !== m.dexId) changed.push(grown.mon);
     }
 
     const log = { routeId: route.id, encounters: outcome.encounters, wins: outcome.wins, stoppedBy, elapsedMs, expPerWin: route.expPerWin };
-    await insertEncounters(db, s.id, outcome.encounters);
-    await closeSession(db, s.id, { claimedAt: now, stoppedBy, encounters: outcome.encounters.length, log: JSON.stringify(log) });
+
+    // Close the session first, inside one transaction with the growth: only the
+    // caller whose update flips claimed_at applies the EXP, so a concurrent or
+    // retried claim can never pay out twice.
+    const tx = await db.transaction('write');
+    try {
+      const claimed = await claimSession(tx, s.id, uid, {
+        claimedAt: now,
+        stoppedBy,
+        encounters: outcome.encounters.length,
+        log: JSON.stringify(log),
+      });
+      if (!claimed) {
+        await tx.rollback();
+        return res.status(409).json({ ok: false, error: 'this session was already claimed' });
+      }
+      for (const m of changed) await updateOwnedEvolution(tx, uid, m);
+      await insertEncounters(tx, s.id, outcome.encounters);
+      await tx.commit();
+    } catch (err) {
+      await tx.rollback().catch(() => {});
+      throw err;
+    } finally {
+      tx.close();
+    }
 
     const box = await readOwnedByUser(db, uid);
     return res.status(200).json({ ok: true, log, levelUps, evolutions, box });

@@ -125,6 +125,7 @@ create table if not exists idle_sessions (
   log         text
 );
 create index if not exists idle_user_open_idx on idle_sessions (user_id, claimed_at);
+create unique index if not exists idle_one_open_idx on idle_sessions (user_id) where claimed_at is null;
 
 -- The wilds met in a session. Slice 2 lets the player throw balls at them
 -- (`resolved` flips to 1); slice 1 only records them for the log.

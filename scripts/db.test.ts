@@ -18,7 +18,7 @@ import {
   insertSession,
   readOpenSession,
   readSessionById,
-  closeSession,
+  claimSession,
   insertEncounters,
 } from '../api/_db.js';
 
@@ -56,10 +56,18 @@ check('profile round-trips', p?.mentor === 'oak' && p?.starterId === mon.id);
 console.log('\n[3] idle sessions');
 check('no open session', (await readOpenSession(db, 'u1')) === null);
 await insertSession(db, { id: 's1', userId: 'u1', routeId: 'r1', partyIds: [mon.id], seed: 'abc', startedAt: 10 });
+let dupThrew = false;
+try {
+  await insertSession(db, { id: 's1b', userId: 'u1', routeId: 'r1', partyIds: [mon.id], seed: 'def', startedAt: 11 });
+} catch {
+  dupThrew = true;
+}
+check('second open session rejected', dupThrew);
 const open = await readOpenSession(db, 'u1');
 check('open session found', open?.id === 's1' && open.partyIds[0] === mon.id && open.claimedAt === null);
 await insertEncounters(db, 's1', [{ slot: 0, dexId: 16, level: 4, won: true, turns: 9 }]);
-await closeSession(db, 's1', { claimedAt: 20, stoppedBy: 'early', encounters: 1, log: '{"x":1}' });
+check('first claim wins', await claimSession(db, 's1', 'u1', { claimedAt: 20, stoppedBy: 'early', encounters: 1, log: '{"x":1}' }));
+check('second claim loses', !(await claimSession(db, 's1', 'u1', { claimedAt: 99, stoppedBy: 'loss', encounters: 5, log: '{}' })));
 check('closed session no longer open', (await readOpenSession(db, 'u1')) === null);
 const closed = await readSessionById(db, 'u1', 's1');
 check('closed fields stored', closed?.claimedAt === 20 && closed.stoppedBy === 'early' && closed.encounters === 1);

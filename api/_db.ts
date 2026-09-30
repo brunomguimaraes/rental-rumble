@@ -16,6 +16,8 @@ import type { CatchOrigin, MintSpec, OwnedMon } from '../src/game/box.js';
 // TURSO_DATABASE_URL degrades to a clean 503 instead of crashing at import.
 
 export type Db = Client;
+// Anything that can run statements: the client or an open transaction.
+export type Executor = Pick<Db, 'execute' | 'batch'>;
 
 let db: Db | null = null;
 let initialized = false;
@@ -209,7 +211,7 @@ export function rowToOwned(r: Record<string, unknown>): OwnedMon {
 }
 
 /** Every mon a user owns, newest first. */
-export async function readOwnedByUser(db: Db, uid: string): Promise<OwnedMon[]> {
+export async function readOwnedByUser(db: Executor, uid: string): Promise<OwnedMon[]> {
   const rs = await db.execute({
     sql: 'select * from owned_pokemon where user_id = ? order by caught_at desc',
     args: [uid],
@@ -232,7 +234,7 @@ export async function countOwned(db: Db, uid: string): Promise<number> {
  * that claims a mon the user doesn't own.
  */
 export async function readOwnedByIds(
-  db: Db,
+  db: Executor,
   uid: string,
   ids: string[],
 ): Promise<OwnedMon[]> {
@@ -317,7 +319,7 @@ export async function updateOwnedNickname(db: Db, uid: string, id: string, nickn
 }
 
 /** Persist an evolved/grown mon: species, ability, level, exp (the claim writer). */
-export async function updateOwnedEvolution(db: Db, uid: string, mon: OwnedMon): Promise<void> {
+export async function updateOwnedEvolution(db: Executor, uid: string, mon: OwnedMon): Promise<void> {
   await db.execute({
     sql: 'update owned_pokemon set dex_id = ?, ability = ?, level = ?, exp = ? where id = ? and user_id = ?',
     args: [mon.dexId, mon.ability ?? null, mon.level, mon.exp, mon.id, uid],
@@ -435,7 +437,7 @@ export async function readOpenSession(db: Db, uid: string): Promise<IdleSessionR
   return r ? rowToSession(r) : null;
 }
 
-export async function readSessionById(db: Db, uid: string, id: string): Promise<IdleSessionRow | null> {
+export async function readSessionById(db: Executor, uid: string, id: string): Promise<IdleSessionRow | null> {
   const rs = await db.execute({
     sql: 'select * from idle_sessions where id = ? and user_id = ?',
     args: [id, uid],
@@ -465,8 +467,22 @@ export async function closeSession(
   });
 }
 
+/** Close a session only if it is still open; true means this caller won the claim. */
+export async function claimSession(
+  db: Executor,
+  id: string,
+  uid: string,
+  patch: { claimedAt: number; stoppedBy: string; encounters: number; log: string },
+): Promise<boolean> {
+  const rs = await db.execute({
+    sql: 'update idle_sessions set claimed_at = ?, stopped_by = ?, encounters = ?, log = ? where id = ? and user_id = ? and claimed_at is null',
+    args: [patch.claimedAt, patch.stoppedBy, patch.encounters, patch.log, id, uid],
+  });
+  return rs.rowsAffected === 1;
+}
+
 export async function insertEncounters(
-  db: Db,
+  db: Executor,
   sessionId: string,
   records: readonly { slot: number; dexId: number; level: number; won: boolean; turns: number }[],
 ): Promise<void> {
