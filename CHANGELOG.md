@@ -20,6 +20,9 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 ### Changed
 - **Login required** — anonymous play is gone; the hub, box and idle routes are per-account.
 
+### Fixed
+- **Existing accounts finish the tutorial** — accounts that owned Pokémon before onboarding no longer stall at the guided first catch.
+
 ### Removed
 - The Rental draft gauntlet, relics, the daily Champion board, the Throne, the Hall of Shame and My Runs.
 
