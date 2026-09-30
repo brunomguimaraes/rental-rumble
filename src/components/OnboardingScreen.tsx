@@ -19,7 +19,7 @@ type Step = 'profession' | 'professor' | 'starter' | 'battle' | 'catch' | 'done'
 
 const TUTORIAL_WILDS = [19, 16, 161, 263, 399]; // Rattata, Pidgey, Sentret, Zigzagoon, Bidoof
 
-export function wildOpponent(name: string, title: string, type: Creature['types'][number]): Opponent {
+function wildOpponent(name: string, title: string, type: Creature['types'][number]): Opponent {
   return { id: `wild-${name}`, name, title, sprite: '🌿', badge: '', art: '', artGif: '', type, teamSize: 1, tier: 'trainer', quote: '' };
 }
 
