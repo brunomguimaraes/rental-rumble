@@ -8,7 +8,7 @@
     "dev:local": "ulimit -n 200000 2>/dev/null; concurrently -k -n api,web -c green,cyan \"tsx scripts/dev-api.ts\" \"vite\"",
     "build": "tsc -b && tsc -p tsconfig.api.json && vite build",
     "lint": "oxlint",
-    "test": "tsx scripts/moves.test.ts && tsx scripts/species-lock.test.ts && tsx scripts/levels.test.ts && tsx scripts/identity.test.ts && tsx scripts/professions.test.ts && tsx scripts/evolution.test.ts && tsx scripts/db.test.ts && tsx scripts/profile.test.ts && tsx scripts/install.test.ts && tsx scripts/world.test.ts && tsx scripts/world-db.test.ts && tsx scripts/world-api.test.ts && tsx scripts/world-client.test.ts",
+    "test": "tsx scripts/moves.test.ts && tsx scripts/species-lock.test.ts && tsx scripts/levels.test.ts && tsx scripts/identity.test.ts && tsx scripts/professions.test.ts && tsx scripts/evolution.test.ts && tsx scripts/db.test.ts && tsx scripts/profile.test.ts && tsx scripts/install.test.ts && tsx scripts/world.test.ts && tsx scripts/world-db.test.ts && tsx scripts/world-api.test.ts && tsx scripts/world-client.test.ts && tsx scripts/growth.test.ts",
     "preview": "vite preview",
     "db:setup": "tsx scripts/db-setup.ts",
     "release": "node scripts/release.mjs",

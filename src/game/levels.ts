@@ -70,3 +70,9 @@ export function applyExp(level: number, exp: number, gained: number): Growth & {
   if (lvl >= MAX_LEVEL) cur = 0;
   return { level: lvl, exp: cur, levelsGained: lvl - startLevel };
 }
+
+/** EXP bar progress, 0..100, toward the next hidden level; 100 at the cap. */
+export function expPercent(level: number, exp: number): number {
+  if (clampLevel(level) >= MAX_LEVEL) return 100;
+  return Math.min(100, Math.floor((100 * Math.max(0, exp)) / expToNext(level)));
+}
