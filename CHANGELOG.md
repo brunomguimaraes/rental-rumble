@@ -18,6 +18,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 
 ### Changed
 - **Pokédex** — rebuilt as a pixel-art handheld: a detail screen on top (stats, ability, moves, signs) and the species list below, with crisp sprites and arrow-key browsing. The game's backdrop moves to the new "Night" pixel style.
+- **Hub party preview** — a six-slot Night pixel window shows recent Pokémon, their levels, empty slots, and a shortcut to the box.
 - **Login required** — anonymous play is gone; the hub and box are per-account.
 
 ### Removed
