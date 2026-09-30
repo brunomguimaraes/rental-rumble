@@ -63,11 +63,11 @@ export const ROUTES: readonly Route[] = [
 const BY_ID: Record<string, Route> = Object.fromEntries(ROUTES.map((r) => [r.id, r]));
 
 export function routeById(id: unknown): Route | null {
-  return typeof id === 'string' && id in BY_ID ? BY_ID[id] : null;
+  return typeof id === 'string' && Object.hasOwn(BY_ID, id) ? BY_ID[id] : null;
 }
 
 export function isRouteId(v: unknown): v is RouteId {
-  return typeof v === 'string' && v in BY_ID;
+  return typeof v === 'string' && Object.hasOwn(BY_ID, v);
 }
 
 export function isLevelInRoute(level: number, route: Route): boolean {

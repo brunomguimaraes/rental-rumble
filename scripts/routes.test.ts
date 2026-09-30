@@ -8,6 +8,7 @@ import {
   ROUTES,
   IDLE_CAP_MS,
   routeById,
+  isRouteId,
   isPartyEligible,
   isRouteUnlocked,
   encountersFor,
@@ -33,6 +34,7 @@ check('r1 is unlocked from the start', isRouteUnlocked(r1, []));
 check('r2 is locked until its milestone', !isRouteUnlocked(r2, []));
 check('r2 unlocks with milestone:r1', isRouteUnlocked(r2, ['r1']));
 check('unknown route is null', routeById('r9') === null);
+check('prototype keys are not routes', routeById('constructor') === null && !isRouteId('__proto__'));
 
 console.log('\n[2] band eligibility');
 check('level 5 starter may enter r1', isPartyEligible([5], r1));
