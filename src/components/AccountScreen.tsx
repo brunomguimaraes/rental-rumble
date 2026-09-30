@@ -27,14 +27,12 @@ export function AccountScreen({
   onBack,
   onAuthed,
   onSignedOut,
-  onViewMyRuns,
 }: {
   me: AccountUser | null;
   resetToken?: string | null;
   onBack: () => void;
   onAuthed: (user: AccountUser) => void;
   onSignedOut: () => void;
-  onViewMyRuns?: () => void;
 }) {
   const [mode, setMode] = useState<Mode>(
     resetToken ? 'reset' : me ? 'menu' : 'signin',
@@ -142,34 +140,6 @@ export function AccountScreen({
                 Your email isn’t verified yet — check your inbox for the
                 confirmation link.
               </p>
-            )}
-            <div className="grid grid-cols-3 gap-2 text-center">
-              {(
-                [
-                  ['Runs', me.stats.runs],
-                  ['Wins', me.stats.wins],
-                  ['Losses', me.stats.losses],
-                ] as const
-              ).map(([label, n]) => (
-                <div
-                  key={label}
-                  className="rounded-xl border border-white/10 bg-white/[0.03] py-2"
-                >
-                  <div className="text-lg font-black">{n}</div>
-                  <div className="text-[11px] uppercase tracking-wide text-white/45">
-                    {label}
-                  </div>
-                </div>
-              ))}
-            </div>
-            {onViewMyRuns && (
-              <button
-                type="button"
-                onClick={onViewMyRuns}
-                className="w-full rounded-full border border-white/20 px-6 py-2.5 text-sm font-bold transition hover:bg-white/10"
-              >
-                📜 My Runs
-              </button>
             )}
             <button
               type="button"
