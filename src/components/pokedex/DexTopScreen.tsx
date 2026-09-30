@@ -177,12 +177,15 @@ function SignsPanel({ creature }: { creature: Creature }) {
 export function DexTopScreen({
   creature,
   marks,
+  hidden,
   collectionError,
   tab,
   onTab,
 }: {
   creature: Creature | null;
   marks: VariantMarks | null;
+  /** Undiscovered: silhouette only, no name or details. */
+  hidden: boolean;
   collectionError: boolean;
   tab: DexTab;
   onTab: (tab: DexTab) => void;
@@ -211,13 +214,15 @@ export function DexTopScreen({
         <PixelSprite
           src={creature.sprite}
           size={96}
-          alt={creature.name}
-          silhouette={uncaught}
+          alt={hidden ? 'Unknown Pokémon' : creature.name}
+          silhouette={hidden}
           className="sm:h-48 sm:w-48"
         />
         <div className="min-w-0 flex-1">
           <div className="font-label text-[10px]">No.{paddedDexNo(creature.dexId)}</div>
-          <h2 className="truncate text-lg font-bold uppercase leading-tight">{creature.name}</h2>
+          <h2 className="truncate text-lg font-bold uppercase leading-tight">
+            {hidden ? '???' : creature.name}
+          </h2>
           <div className="mt-1 flex flex-wrap gap-1">
             {creature.types.map((t) => (
               <TypeChip key={t} type={t} />
@@ -234,35 +239,45 @@ export function DexTopScreen({
           )}
         </div>
       </div>
-      <div role="tablist" aria-label="Pokédex details" className="flex gap-0.5 px-2">
-        {DEX_TABS.map((t) => (
-          <button
-            key={t.id}
-            id={`dex-tab-${t.id}`}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.id}
-            aria-controls="dex-tabpanel"
-            onClick={() => onTab(t.id)}
-            className={`ui-focus px-1.5 py-0.5 font-label text-[10px] uppercase ${
-              tab === t.id ? 'bg-lcd-ink text-lcd' : 'bg-lcd-dim text-lcd-ink'
-            }`}
+      {hidden ? (
+        <p className="m-2 mt-0 border-t border-dashed border-lcd-dim pt-2 text-xs leading-snug text-lcd-ink/75">
+          {marks
+            ? 'Not yet discovered. Catch one to record its stats, ability, moves, and signs.'
+            : 'Loading your collection…'}
+        </p>
+      ) : (
+        <>
+          <div role="tablist" aria-label="Pokédex details" className="flex gap-0.5 px-2">
+            {DEX_TABS.map((t) => (
+              <button
+                key={t.id}
+                id={`dex-tab-${t.id}`}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.id}
+                aria-controls="dex-tabpanel"
+                onClick={() => onTab(t.id)}
+                className={`ui-focus px-1.5 py-0.5 font-label text-[10px] uppercase ${
+                  tab === t.id ? 'bg-lcd-ink text-lcd' : 'bg-lcd-dim text-lcd-ink'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div
+            id="dex-tabpanel"
+            role="tabpanel"
+            aria-labelledby={`dex-tab-${tab}`}
+            className="min-h-0 flex-1 overflow-y-auto p-2"
           >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <div
-        id="dex-tabpanel"
-        role="tabpanel"
-        aria-labelledby={`dex-tab-${tab}`}
-        className="min-h-0 flex-1 overflow-y-auto p-2"
-      >
-        {tab === 'stats' && <StatsPanel creature={creature} marks={marks} />}
-        {tab === 'ability' && <AbilityPanel creature={creature} />}
-        {tab === 'moves' && <MovesPanel creature={creature} />}
-        {tab === 'signs' && <SignsPanel creature={creature} />}
-      </div>
+            {tab === 'stats' && <StatsPanel creature={creature} marks={marks} />}
+            {tab === 'ability' && <AbilityPanel creature={creature} />}
+            {tab === 'moves' && <MovesPanel creature={creature} />}
+            {tab === 'signs' && <SignsPanel creature={creature} />}
+          </div>
+        </>
+      )}
     </div>
   );
 }

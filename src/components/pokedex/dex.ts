@@ -44,16 +44,33 @@ export function caughtAny(marks: VariantMarks): boolean {
   return marks.n || marks.a || marks.s;
 }
 
+/**
+ * Whether a species' name and data stay hidden: uncaught in a loaded
+ * collection, or any species while the collection loads. Signed out, or when
+ * the collection fails to load, everything shows.
+ */
+export function isUndiscovered(owned: OwnedDex | null, loading: boolean, dexId: number): boolean {
+  if (loading) return true;
+  const marks = marksFor(owned, dexId);
+  return marks !== null && !caughtAny(marks);
+}
+
 export function baseStatTotal(c: Creature): number {
   const s = c.stats;
   return s.hp + s.atk + s.eatk + s.def + s.edef + s.spd;
 }
 
-/** Name substring or dex number ("25", "#25", "0025"), optionally one type. */
+/**
+ * Name substring or dex number ("25", "#25", "0025"), optionally one type.
+ * Names only match species the player has discovered.
+ */
 export function filterCreatures(
   all: readonly Creature[],
-  query: string,
-  type: PokemonType | null,
+  {
+    query,
+    type,
+    undiscovered,
+  }: { query: string; type: PokemonType | null; undiscovered: (dexId: number) => boolean },
 ): Creature[] {
   const q = query.trim().toLowerCase();
   const qNum = q.replace(/^#/, '');
@@ -61,7 +78,7 @@ export function filterCreatures(
     if (type && !c.types.includes(type)) return false;
     if (!q) return true;
     return (
-      c.name.toLowerCase().includes(q) ||
+      (!undiscovered(c.dexId) && c.name.toLowerCase().includes(q)) ||
       String(c.dexId) === qNum ||
       `#${paddedDexNo(c.dexId)}`.includes(qNum)
     );

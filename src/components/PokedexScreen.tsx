@@ -11,6 +11,7 @@ import {
   PAGE,
   caughtAny,
   filterCreatures,
+  isUndiscovered,
   marksFor,
   type DexTab,
 } from './pokedex/dex';
@@ -56,6 +57,8 @@ export function PokedexScreen({
   }, [me]);
 
   const owned = collection.status === 'ready' ? collection.owned : null;
+  const loading = collection.status === 'loading';
+  const undiscovered = (dexId: number) => isUndiscovered(owned, loading, dexId);
 
   const caughtCount = useMemo(() => {
     if (!owned) return 0;
@@ -66,8 +69,13 @@ export function PokedexScreen({
   }, [owned]);
 
   const filtered = useMemo(
-    () => filterCreatures(CREATURES, query, typeFilter),
-    [query, typeFilter],
+    () =>
+      filterCreatures(CREATURES, {
+        query,
+        type: typeFilter,
+        undiscovered: (dexId) => isUndiscovered(owned, loading, dexId),
+      }),
+    [query, typeFilter, owned, loading],
   );
 
   // Keep the picked species while it still matches; otherwise the first result.
@@ -134,6 +142,7 @@ export function PokedexScreen({
           <DexTopScreen
             creature={selected}
             marks={selected ? marksFor(owned, selected.dexId) : null}
+            hidden={selected ? undiscovered(selected.dexId) : false}
             collectionError={collection.status === 'failed'}
             tab={tab}
             onTab={setTab}
@@ -159,6 +168,7 @@ export function PokedexScreen({
               selectedId={selected?.dexId ?? null}
               onSelect={setPickedId}
               marksOf={(dexId) => marksFor(owned, dexId)}
+              undiscovered={undiscovered}
               onMore={() => setVisible((v) => v + PAGE)}
             />
           </>
