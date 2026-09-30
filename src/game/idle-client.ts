@@ -45,13 +45,16 @@ async function post<T>(path: string, body: unknown): Promise<T & { ok: boolean; 
   }
 }
 
-export async function fetchCurrentSession(): Promise<{ session: IdleSession | null; serverNow: number }> {
+/** `ok: false` means the request failed; callers must not treat that as "no open session". */
+export async function fetchCurrentSession(): Promise<{ ok: boolean; session: IdleSession | null; serverNow: number }> {
   try {
     const res = await fetch('/api/idle/current', { credentials: 'include', cache: 'no-store' });
+    if (!res.ok) return { ok: false, session: null, serverNow: Date.now() };
     const data = (await res.json()) as { ok?: boolean; session?: IdleSession | null; serverNow?: number };
-    return { session: data.ok ? (data.session ?? null) : null, serverNow: data.serverNow ?? Date.now() };
+    if (data.ok === false) return { ok: false, session: null, serverNow: data.serverNow ?? Date.now() };
+    return { ok: true, session: data.session ?? null, serverNow: data.serverNow ?? Date.now() };
   } catch {
-    return { session: null, serverNow: Date.now() };
+    return { ok: false, session: null, serverNow: Date.now() };
   }
 }
 

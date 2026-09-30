@@ -24,14 +24,19 @@ export function cleanNickname(raw: unknown): string | null {
   return s;
 }
 
-export async function fetchProfile(): Promise<Profile | null> {
+/**
+ * `ok: false` means the request failed (non-2xx, error body, or network error) and says nothing
+ * about whether a profile exists; `ok: true` with `profile: null` means the player has none yet.
+ */
+export async function fetchProfile(): Promise<{ ok: boolean; profile: Profile | null }> {
   try {
     const res = await fetch('/api/me/profile', { credentials: 'include', cache: 'no-store' });
-    if (!res.ok) return null;
+    if (!res.ok) return { ok: false, profile: null };
     const data = (await res.json()) as { ok?: boolean; profile?: Profile | null };
-    return data.ok ? (data.profile ?? null) : null;
+    if (data.ok === false) return { ok: false, profile: null };
+    return { ok: true, profile: data.profile ?? null };
   } catch {
-    return null;
+    return { ok: false, profile: null };
   }
 }
 

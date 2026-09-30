@@ -43,17 +43,24 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [claimResult, setClaimResult] = useState<ClaimResult | null>(null);
   const [accountResetToken, setAccountResetToken] = useState<string | null>(null);
+  const [hydrateFailed, setHydrateFailed] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
   // Load everything a signed-in player needs: profile (null → onboarding), box, open session.
   const hydrate = async () => {
     const [p, b, s] = await Promise.all([fetchProfile(), fetchBox(), fetchCurrentSession()]);
-    setProfile(p);
+    if (!p.ok || !s.ok) {
+      setHydrateFailed(true);
+      setProfileChecked(true);
+      return;
+    }
+    setHydrateFailed(false);
+    setProfile(p.profile);
     setBox(b);
     setSession(s.session);
     setServerOffsetMs(s.serverNow - Date.now());
     setProfileChecked(true);
-    if (!p) setPhase('onboarding');
+    if (!p.profile) setPhase('onboarding');
   };
 
   useEffect(() => {
@@ -93,13 +100,19 @@ export default function App() {
   // Keep the open session's clock honest while it is showing.
   useEffect(() => {
     if (!session) return;
+    let cancelled = false;
     const t = setInterval(async () => {
       const s = await fetchCurrentSession();
+      if (cancelled || !s.ok) return;
       setServerOffsetMs(s.serverNow - Date.now());
       setSession(s.session);
     }, 60_000);
-    return () => clearInterval(t);
-  }, [session]);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.id]);
 
   const handleAuthed = (user: AccountUser) => {
     setMe(user);
@@ -113,28 +126,44 @@ export default function App() {
   const sendOut = async (routeId: RouteId, partyIds: string[]) => {
     if (busy) return;
     setBusy(true);
-    const r = await startIdle(routeId, partyIds);
-    setBusy(false);
-    if (!r.ok || !r.session) {
-      setNote(r.error ?? 'Could not send your trainer out.');
-      return;
+    try {
+      const r = await startIdle(routeId, partyIds);
+      if (!r.ok || !r.session) {
+        setNote(r.error ?? 'Could not send your trainer out.');
+        return;
+      }
+      setSession(r.session);
+    } finally {
+      setBusy(false);
     }
-    setSession(r.session);
   };
 
   const claim = async (sessionId: string) => {
     if (busy) return;
     setBusy(true);
-    const r = await claimIdle(sessionId);
-    setBusy(false);
-    setClaimResult(r);
-    if (r.box) setBox(r.box);
-    if (r.ok) setSession(null);
-    setPhase('claim');
+    try {
+      const r = await claimIdle(sessionId);
+      setClaimResult(r);
+      if (r.box) setBox(r.box);
+      if (r.ok) setSession(null);
+      setPhase('claim');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const renderScreen = () => {
     if (!me) return null;
+    if (hydrateFailed) {
+      return (
+        <div className="grid min-h-[100dvh] place-items-center px-6">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <p className="text-sm text-white/70">Couldn’t load your trainer.</p>
+            <button type="button" onClick={() => { setHydrateFailed(false); setProfileChecked(false); hydrate(); }} className="rounded-full border border-white/20 px-6 py-2 text-sm font-bold hover:bg-white/10">Retry</button>
+          </div>
+        </div>
+      );
+    }
     if (!profileChecked) return <ScreenFallback />;
     if (!profile || phase === 'onboarding') {
       return (
@@ -189,6 +218,9 @@ export default function App() {
               setBox([]);
               setProfile(null);
               setSession(null);
+              setClaimResult(null);
+              setHydrateFailed(false);
+              setProfileChecked(false);
             }}
           />
         );
