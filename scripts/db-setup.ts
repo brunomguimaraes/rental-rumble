@@ -11,6 +11,7 @@
 import { createClient } from '@libsql/client';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { applySchema } from '../api/_db.js';
 import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -52,8 +53,5 @@ if (!url) {
 
 const authToken = process.env.TURSO_AUTH_TOKEN;
 const client = createClient(authToken ? { url, authToken } : { url });
-const schema = readFileSync(join(root, 'db', 'schema.sql'), 'utf8');
-
-// libSQL runs a multi-statement script in one call.
-await client.executeMultiple(schema);
+await applySchema(client);
 console.log('✓ Schema applied.');

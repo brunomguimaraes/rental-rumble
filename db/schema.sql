@@ -97,3 +97,43 @@ create table if not exists owned_pokemon (
   caught_at  integer not null default 0
 );
 create index if not exists owned_user_idx on owned_pokemon (user_id, caught_at desc);
+
+-- The role-play identity: one row per onboarded user. Written once by
+-- api/me/onboard. `mentor` is the professor id; `starter_id` the owned row.
+create table if not exists profiles (
+  user_id       text primary key,
+  profession    text not null,
+  mentor        text not null,
+  starter_id    text not null,
+  current_route text not null default 'r1',
+  created_at    integer not null default 0
+);
+
+-- One row per idle send-out. `claimed_at` is null while the session is open;
+-- one open session per user is enforced in api/idle/start. `log` is compact
+-- JSON written on claim; `encounters` the count fought.
+create table if not exists idle_sessions (
+  id          text primary key,
+  user_id     text not null,
+  route_id    text not null,
+  party_ids   text not null,
+  seed        text not null,
+  started_at  integer not null,
+  claimed_at  integer,
+  stopped_by  text,
+  encounters  integer not null default 0,
+  log         text
+);
+create index if not exists idle_user_open_idx on idle_sessions (user_id, claimed_at);
+
+-- The wilds met in a session. Slice 2 lets the player throw balls at them
+-- (`resolved` flips to 1); slice 1 only records them for the log.
+create table if not exists encounters (
+  session_id  text not null,
+  slot        integer not null,
+  dex_id      integer not null,
+  level       integer not null,
+  won         integer not null default 0,
+  resolved    integer not null default 0,
+  primary key (session_id, slot)
+);

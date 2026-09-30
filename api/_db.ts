@@ -1,5 +1,8 @@
 import { createClient, type Client } from '@libsql/client';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import type { BracketId } from '../src/game/gens.js';
 import type { Difficulty } from '../src/game/run.js';
 import type { SubmissionMon } from '../src/game/leaderboard.js';
@@ -37,6 +40,23 @@ export function getDb(): Db | null {
     db = null;
   }
   return db;
+}
+
+const SCHEMA_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', 'db', 'schema.sql');
+
+/** Statements that add columns to existing tables; each is a no-op on re-run. */
+const COLUMN_ADDS = ['alter table owned_pokemon add column nickname text'];
+
+/** Apply db/schema.sql (idempotent) plus the additive column changes. */
+export async function applySchema(db: Db): Promise<void> {
+  await db.executeMultiple(readFileSync(SCHEMA_PATH, 'utf8'));
+  for (const sql of COLUMN_ADDS) {
+    try {
+      await db.execute(sql);
+    } catch (err) {
+      if (!String(err).includes('duplicate column')) throw err;
+    }
+  }
 }
 
 /** A fresh app-generated id for a new account row. */
@@ -182,6 +202,7 @@ export function rowToOwned(r: Record<string, unknown>): OwnedMon {
     shiny: Number(r.shiny) === 1,
     altColor: Number(r.alt_color) === 1,
     ...(r.emotion ? { emotion: String(r.emotion) } : {}),
+    ...(r.nickname ? { nickname: String(r.nickname) } : {}),
     origin: (String(r.origin ?? 'catch') as CatchOrigin),
     caughtAt: Number(r.caught_at) || 0,
   };
@@ -281,4 +302,146 @@ export async function updateOwnedGrowth(
     sql: 'update owned_pokemon set level = ?, exp = ? where id = ? and user_id = ?',
     args: [level, exp, id, uid],
   });
+}
+// --- Nickname / evolution ----------------------------------------------------
+
+export async function updateOwnedNickname(db: Db, uid: string, id: string, nickname: string): Promise<void> {
+  await db.execute({
+    sql: 'update owned_pokemon set nickname = ? where id = ? and user_id = ?',
+    args: [nickname, id, uid],
+  });
+}
+
+/** Persist an evolved/grown mon: species, ability, level, exp (the claim writer). */
+export async function updateOwnedEvolution(db: Db, uid: string, mon: OwnedMon): Promise<void> {
+  await db.execute({
+    sql: 'update owned_pokemon set dex_id = ?, ability = ?, level = ?, exp = ? where id = ? and user_id = ?',
+    args: [mon.dexId, mon.ability ?? null, mon.level, mon.exp, mon.id, uid],
+  });
+}
+
+// --- Profiles ----------------------------------------------------------------
+
+export interface ProfileRow {
+  userId: string;
+  profession: string;
+  mentor: string;
+  starterId: string;
+  currentRoute: string;
+  createdAt: number;
+}
+
+function rowToProfile(r: Record<string, unknown>): ProfileRow {
+  return {
+    userId: String(r.user_id),
+    profession: String(r.profession),
+    mentor: String(r.mentor),
+    starterId: String(r.starter_id),
+    currentRoute: String(r.current_route ?? 'r1'),
+    createdAt: Number(r.created_at) || 0,
+  };
+}
+
+export async function readProfile(db: Db, uid: string): Promise<ProfileRow | null> {
+  const rs = await db.execute({ sql: 'select * from profiles where user_id = ?', args: [uid] });
+  const r = rs.rows[0] as unknown as Record<string, unknown> | undefined;
+  return r ? rowToProfile(r) : null;
+}
+
+export async function insertProfile(db: Db, p: ProfileRow): Promise<void> {
+  await db.execute({
+    sql: 'insert into profiles (user_id, profession, mentor, starter_id, current_route, created_at) values (?, ?, ?, ?, ?, ?)',
+    args: [p.userId, p.profession, p.mentor, p.starterId, p.currentRoute, p.createdAt],
+  });
+}
+
+// --- Idle sessions -----------------------------------------------------------
+
+export interface IdleSessionRow {
+  id: string;
+  userId: string;
+  routeId: string;
+  partyIds: string[];
+  seed: string;
+  startedAt: number;
+  claimedAt: number | null;
+  stoppedBy: string | null;
+  encounters: number;
+  log: string | null;
+}
+
+function rowToSession(r: Record<string, unknown>): IdleSessionRow {
+  let partyIds: string[] = [];
+  try {
+    const parsed = JSON.parse(String(r.party_ids ?? '[]'));
+    if (Array.isArray(parsed)) partyIds = parsed.filter((p): p is string => typeof p === 'string');
+  } catch {
+    partyIds = [];
+  }
+  return {
+    id: String(r.id),
+    userId: String(r.user_id),
+    routeId: String(r.route_id),
+    partyIds,
+    seed: String(r.seed),
+    startedAt: Number(r.started_at) || 0,
+    claimedAt: r.claimed_at === null || r.claimed_at === undefined ? null : Number(r.claimed_at),
+    stoppedBy: r.stopped_by === null || r.stopped_by === undefined ? null : String(r.stopped_by),
+    encounters: Number(r.encounters) || 0,
+    log: r.log === null || r.log === undefined ? null : String(r.log),
+  };
+}
+
+export async function readOpenSession(db: Db, uid: string): Promise<IdleSessionRow | null> {
+  const rs = await db.execute({
+    sql: 'select * from idle_sessions where user_id = ? and claimed_at is null order by started_at desc limit 1',
+    args: [uid],
+  });
+  const r = rs.rows[0] as unknown as Record<string, unknown> | undefined;
+  return r ? rowToSession(r) : null;
+}
+
+export async function readSessionById(db: Db, uid: string, id: string): Promise<IdleSessionRow | null> {
+  const rs = await db.execute({
+    sql: 'select * from idle_sessions where id = ? and user_id = ?',
+    args: [id, uid],
+  });
+  const r = rs.rows[0] as unknown as Record<string, unknown> | undefined;
+  return r ? rowToSession(r) : null;
+}
+
+export async function insertSession(
+  db: Db,
+  s: { id: string; userId: string; routeId: string; partyIds: string[]; seed: string; startedAt: number },
+): Promise<void> {
+  await db.execute({
+    sql: 'insert into idle_sessions (id, user_id, route_id, party_ids, seed, started_at) values (?, ?, ?, ?, ?, ?)',
+    args: [s.id, s.userId, s.routeId, JSON.stringify(s.partyIds), s.seed, s.startedAt],
+  });
+}
+
+export async function closeSession(
+  db: Db,
+  id: string,
+  patch: { claimedAt: number; stoppedBy: string; encounters: number; log: string },
+): Promise<void> {
+  await db.execute({
+    sql: 'update idle_sessions set claimed_at = ?, stopped_by = ?, encounters = ?, log = ? where id = ? and claimed_at is null',
+    args: [patch.claimedAt, patch.stoppedBy, patch.encounters, patch.log, id],
+  });
+}
+
+export async function insertEncounters(
+  db: Db,
+  sessionId: string,
+  records: readonly { slot: number; dexId: number; level: number; won: boolean; turns: number }[],
+): Promise<void> {
+  if (records.length === 0) return;
+  await db.batch(
+    records.map((e) => ({
+      sql: 'insert or ignore into encounters (session_id, slot, dex_id, level, won) values (?, ?, ?, ?, ?)',
+      args: [sessionId, e.slot, e.dexId, e.level, e.won ? 1 : 0],
+    })),
+    'write',
+  );
 }
