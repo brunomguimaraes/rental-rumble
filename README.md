@@ -1,11 +1,8 @@
 # Rental Rumble
 
-A web-based, auto-battling team-builder roguelite using **real Pokémon**. Roll a
-pool, draft a team of six, and auto-battle your way from rookie to **Champion** —
-recruiting the Pokémon you beat along the way. No grinding, just the perfect
-team. Inspired by the rental-Pokémon format (everyone at level 50, the skill is
-in the *build*) and the instant roll → build → simulate loop of
-[7a0](https://7a0.com.br/en).
+A web-based, login-based idle collecting game using **real Pokémon**. Pick a
+profession and a professor, raise your starter, and send your trainer out on
+idle routes to battle, grow and evolve while you're away.
 
 > Private project for me and my friends — not for commercial use. Pokémon data
 > comes from [PokeAPI](https://pokeapi.co/). The static fallback battle sprites
@@ -19,7 +16,7 @@ in the *build*) and the instant roll → build → simulate loop of
 > hurt/faint animations (with the flat Essentials sprite as a fallback for
 > not-yet-contributed species); every rolled rental Pokémon is also dealt a
 > random emotion portrait for flavour. **Huge thanks to the SpriteCollab artists**
-> — the in-app **Credits & thanks** panel (Title screen) lists every contributor,
+> — the in-app **Credits & thanks** panel (in the app footer) lists every contributor,
 > generated from their `tracker.json` / `credit_names.txt`. Gym/League **badge
 > icons** are the Paldea (Scarlet/Violet) badges from
 > [Bulbagarden Archives](https://archives.bulbagarden.net/wiki/Category:Badges).

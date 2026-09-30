@@ -1,10 +1,9 @@
 import { useState } from 'react';
 
-/** A self-contained "Privacy" button + modal. Rental Rumble is a pure frontend
- *  with no accounts, ads, cookies, or third-party analytics — the only data it
- *  ever stores is what you type to post a leaderboard score. This panel spells
- *  that out plainly so players know exactly what does and doesn't leave their
- *  device. Keep it factual: if the data we handle changes, update this copy. */
+/** A self-contained "Privacy" button + modal. Rental Rumble requires an
+ *  account, so this spells out exactly what the account layer stores, where,
+ *  and how to get it deleted. Keep it factual: if the data we handle changes,
+ *  update this copy. */
 export function PrivacyPolicy() {
   const [open, setOpen] = useState(false);
 
@@ -40,69 +39,69 @@ export function PrivacyPolicy() {
 
             <p className="mt-3 text-sm leading-relaxed text-white/65">
               Rental Rumble is a free, non-commercial fan project. We don't sell
-              anything, we don't run ads, and we don't want your personal data.
-              There are no accounts to create. This page explains the little bit
-              of data the game touches.
+              anything, we don't run ads, and we don't sell or share your data.
+              You need an account to play, so this page explains exactly what
+              that account stores.
             </p>
 
-            <Section title="What we don't collect">
-              <p>
-                No tracking, no advertising, no third-party analytics, and no
-                cookies. We don't ask for your email, and there's nothing to log
-                in to. The game runs entirely in your browser.
-              </p>
+            <Section title="What we store">
+              <ul className="list-disc space-y-1 pl-5">
+                <li>Your email address and the display name you choose.</li>
+                <li>
+                  How you sign in: a salted password hash for email accounts
+                  (never the password itself), or the account id Discord or
+                  Google gives us if you use one of those.
+                </li>
+                <li>
+                  A signed session cookie that keeps you signed in. It is the
+                  only cookie we set.
+                </li>
+                <li>
+                  Your game: your profile (profession and professor), the
+                  Pokémon you own and their nicknames, your Pokédex progress,
+                  and your idle sessions with their encounter logs.
+                </li>
+              </ul>
             </Section>
 
-            <Section title="Stored on your device only">
+            <Section title="Where it lives">
               <p>
-                The game saves a small amount of data in your browser's local
-                storage so it can remember your progress and the display name
-                you last used for the leaderboard. This never leaves your device
-                and you can clear it at any time from your browser settings.
-              </p>
-            </Section>
-
-            <Section title="The daily leaderboard (only if you choose to post)">
-              <p>
-                If you beat the daily Champion and decide to submit a score, we
-                store the display name you type (you can stay “Anonymous”),
-                along with your run's result — the Pokémon team you used (species
-                and sign), how far you got, and the time of your win. That's it.
-                We don't attach this to your identity, and submitting is
-                entirely optional — you can play the whole game without ever
-                posting.
+                Account and game data are kept in a Turso database. Upstash
+                Redis is used only for rate limiting (short-lived counters that
+                slow down abuse), not for storing your data. Resend sends the
+                email-verification and password-reset messages, so it sees your
+                email address when one is sent.
               </p>
               <p className="mt-2">
-                Leaderboard entries are stored on a hosting provider's database
-                (Upstash Redis) and automatically expire after about 40 days.
-                Please don't type real personal information into the name field.
+                Your browser also keeps a few preferences in local storage (the
+                display name you last used and your battle speed). They never
+                leave your device.
               </p>
             </Section>
 
-            <Section title="Hosting & external links">
+            <Section title="Analytics & hosting">
               <p>
-                The site is served by our hosting provider (Vercel), which may
-                process standard technical request information (such as IP
-                address and browser type) in its server logs to deliver and
-                secure the site, as described in its own privacy policy. The
-                “Buy me a coffee” and Pix support links are optional and lead to
-                third-party services with their own privacy policies — we never
-                see your payment details.
+                The only analytics is Vercel Analytics, which counts page views
+                without cookies. The site is served by Vercel, which may process
+                standard request information (such as IP address and browser
+                type) in its server logs to deliver and secure the site, as its
+                own privacy policy describes.
               </p>
             </Section>
 
-            <Section title="Children & contact">
+            <Section title="Deleting your data">
               <p>
-                This is a hobby project not directed at collecting data from
-                anyone, including children. If you'd like a leaderboard entry
-                removed or have any privacy question, reach out at{' '}
+                There is no self-serve delete button yet. To have your account
+                and everything attached to it deleted, or for any privacy
+                question, email{' '}
                 <a
                   href="mailto:pokerentalrumble@gmail.com"
                   className="font-semibold text-white underline underline-offset-2"
                 >
                   pokerentalrumble@gmail.com
-                </a>
-                .
+                </a>{' '}
+                from the address on your account. This is a hobby project not
+                directed at children.
               </p>
             </Section>
 

@@ -6,6 +6,7 @@ import {
   isLevelInRoute,
   isPartyEligible,
   isRouteUnlocked,
+  milestonesFor,
   routeById,
   type Route,
   type RouteId,
@@ -57,7 +58,11 @@ export function RouteScreen({
   onClaim: (sessionId: string) => void;
   onBack: () => void;
 }) {
-  const [routeId, setRouteId] = useState<RouteId>('r1');
+  const milestones = milestonesFor(box);
+  const openRoutes = ROUTES.filter((r) => isRouteUnlocked(r, milestones));
+  const fits = (r: Route) => box.some((m) => isLevelInRoute(m.level, r));
+  const anyFit = openRoutes.some(fits);
+  const [routeId, setRouteId] = useState<RouteId>(() => (openRoutes.find(fits) ?? ROUTES[0]).id);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [, tick] = useState(0);
   useEffect(() => {
@@ -124,7 +129,7 @@ export function RouteScreen({
         <div className="mb-2 text-xs font-bold uppercase tracking-widest text-white/40">Choose a route</div>
         <div className="grid gap-2 sm:grid-cols-2">
           {ROUTES.map((r) => {
-            const unlocked = isRouteUnlocked(r, []);
+            const unlocked = isRouteUnlocked(r, milestones);
             const active = r.id === routeId;
             return (
               <button
@@ -161,14 +166,23 @@ export function RouteScreen({
       </section>
 
       <div className="mt-auto pt-8">
-        <button
-          type="button"
-          disabled={!canStart}
-          onClick={() => onStart(route.id, partyIds)}
-          className="w-full rounded-full bg-white px-6 py-3 text-sm font-bold text-black transition hover:scale-[1.01] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {busy ? '…' : partyIds.length === 0 ? 'Pick at least one Pokémon' : `Walk ${route.name}`}
-        </button>
+        {box.length === 0 ? (
+          <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-center text-sm text-white/60">Your box is empty.</p>
+        ) : !anyFit ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-center text-sm text-white/60">
+            <p>None of your Pokémon fit an open route right now.</p>
+            <p className="mt-1 text-xs text-white/40">Open routes: {openRoutes.map((r) => `${r.name} (Lv ${r.min}-${r.max})`).join(', ')}</p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={!canStart}
+            onClick={() => onStart(route.id, partyIds)}
+            className="w-full rounded-full bg-white px-6 py-3 text-sm font-bold text-black transition hover:scale-[1.01] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {busy ? '…' : partyIds.length === 0 ? 'Pick at least one Pokémon' : `Walk ${route.name}`}
+          </button>
+        )}
       </div>
     </div>
   );

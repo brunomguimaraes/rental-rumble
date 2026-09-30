@@ -3,27 +3,11 @@ import { randomUUID } from 'node:crypto';
 import { getRedis } from '../_redis.js';
 import { rateLimit } from '../_ratelimit.js';
 import { readSession } from '../_session.js';
-import {
-  getDb,
-  readProfile,
-  readOwnedByIds,
-  readOwnedByUser,
-  countOwned,
-  insertOwned,
-  updateOwnedEvolution,
-  readOpenSession,
-  readSessionById,
-  insertSession,
-  claimSession,
-  insertEncounters,
-  type Db,
-} from '../_db.js';
-import { routeById, isPartyEligible, isRouteUnlocked, encountersFor, IDLE_CAP_MS } from '../../src/game/routes.js';
-import { simulateIdle, rollTutorialGift } from '../../src/game/idle.js';
-import { ownedMonToCreature, type OwnedMon } from '../../src/game/box.js';
-import { applyGrowthWithEvolution } from '../../src/game/evolution.js';
-import { RNG } from '../../src/game/rng.js';
-import type { Creature } from '../../src/game/types.js';
+import { getDb, readProfile, readOwnedByUser, insertOwnedIfCount, readOpenSession, insertSession, type Db } from '../_db.js';
+import { claimIdleSession, type IdleClaimOutcome } from '../_idle.js';
+import { routeById, isPartyEligible, isRouteUnlocked, milestonesFor } from '../../src/game/routes.js';
+import { rollTutorialGift } from '../../src/game/idle.js';
+import type { OwnedMon } from '../../src/game/box.js';
 
 // The idle loop's server half, behind one dynamic function: start opens a
 // session row (the seed is fixed here, so a later claim can't re-roll), current
@@ -104,7 +88,8 @@ async function start(req: VercelRequest, res: VercelResponse) {
   try {
     const profile = await readProfile(db, uid);
     if (!profile) return res.status(400).json({ ok: false, error: 'finish onboarding first' });
-    if (!isRouteUnlocked(route, [])) return res.status(400).json({ ok: false, error: 'that route is locked' });
+    const owned = await readOwnedByUser(db, uid);
+    if (!isRouteUnlocked(route, milestonesFor(owned))) return res.status(400).json({ ok: false, error: 'that route is locked' });
     if (await readOpenSession(db, uid)) {
       return res.status(409).json({ ok: false, error: 'your trainer is already out — claim first' });
     }
@@ -113,7 +98,8 @@ async function start(req: VercelRequest, res: VercelResponse) {
     if (partyIds.length < 1 || partyIds.length > 6) {
       return res.status(400).json({ ok: false, error: 'pick 1-6 of your Pokémon' });
     }
-    const rows = await readOwnedByIds(db, uid, partyIds);
+    const ownedById = new Map(owned.map((m) => [m.id, m]));
+    const rows = partyIds.map((id) => ownedById.get(id)).filter((m): m is OwnedMon => Boolean(m));
     if (rows.length !== partyIds.length) {
       return res.status(400).json({ ok: false, error: 'that party includes a Pokémon you don’t own' });
     }
@@ -168,79 +154,32 @@ async function claim(req: VercelRequest, res: VercelResponse) {
   const sessionId = typeof body.sessionId === 'string' ? body.sessionId : '';
   if (!sessionId) return res.status(400).json({ ok: false, error: 'missing session' });
 
+  let outcome: IdleClaimOutcome;
   try {
-    const s = await readSessionById(db, uid, sessionId);
-    if (!s) return res.status(404).json({ ok: false, error: 'no such session' });
-    if (s.claimedAt !== null) return res.status(409).json({ ok: false, error: 'this session was already claimed' });
-    const route = routeById(s.routeId);
-    if (!route) return res.status(400).json({ ok: false, error: 'unknown route' });
-
-    const now = Date.now();
-    const elapsedMs = Math.max(0, Math.min(now - s.startedAt, IDLE_CAP_MS));
-    const count = encountersFor(elapsedMs, route);
-
-    // Rebuild the exact party the session pinned. Ownership is re-checked; the
-    // level band is NOT (it was legal at start, and a mon may have grown since).
-    const rows = await readOwnedByIds(db, uid, s.partyIds);
-    const byId = new Map<string, OwnedMon>(rows.map((m) => [m.id, m]));
-    const party: OwnedMon[] = s.partyIds.map((id) => byId.get(id)).filter((m): m is OwnedMon => Boolean(m));
-    if (party.length !== s.partyIds.length) {
-      return res.status(400).json({ ok: false, error: 'that party is no longer valid' });
-    }
-    const creatures: Creature[] = [];
-    for (const m of party) {
-      const c = ownedMonToCreature(m);
-      if (!c) return res.status(400).json({ ok: false, error: 'could not rebuild your party' });
-      creatures.push(c);
-    }
-
-    const outcome = simulateIdle(creatures, s.seed, route, count);
-    const stoppedBy: 'loss' | 'cap' | 'early' =
-      outcome.stoppedBy === 'loss' ? 'loss' : elapsedMs >= IDLE_CAP_MS ? 'cap' : 'early';
-
-    const gained = outcome.wins * route.expPerWin;
-    const levelUps: { id: string; fromLevel: number; toLevel: number }[] = [];
-    const evolutions: { id: string; fromDexId: number; toDexId: number }[] = [];
-    const changed: OwnedMon[] = [];
-    for (const m of party) {
-      const grown = applyGrowthWithEvolution(m, gained, new RNG(`evolve:${m.id}:${s.seed}`));
-      if (grown.levelUp) levelUps.push({ id: m.id, ...grown.levelUp });
-      for (const e of grown.evolutions) evolutions.push({ id: m.id, ...e });
-      if (grown.mon.level !== m.level || grown.mon.exp !== m.exp || grown.mon.dexId !== m.dexId) changed.push(grown.mon);
-    }
-
-    const log = { routeId: route.id, encounters: outcome.encounters, wins: outcome.wins, stoppedBy, elapsedMs, expPerWin: route.expPerWin };
-
-    // Close the session first, inside one transaction with the growth: only the
-    // caller whose update flips claimed_at applies the EXP, so a concurrent or
-    // retried claim can never pay out twice.
-    const tx = await db.transaction('write');
-    try {
-      const claimed = await claimSession(tx, s.id, uid, {
-        claimedAt: now,
-        stoppedBy,
-        encounters: outcome.encounters.length,
-        log: JSON.stringify(log),
-      });
-      if (!claimed) {
-        await tx.rollback();
-        return res.status(409).json({ ok: false, error: 'this session was already claimed' });
-      }
-      for (const m of changed) await updateOwnedEvolution(tx, uid, m);
-      await insertEncounters(tx, s.id, outcome.encounters);
-      await tx.commit();
-    } catch (err) {
-      await tx.rollback().catch(() => {});
-      throw err;
-    } finally {
-      tx.close();
-    }
-
-    const box = await readOwnedByUser(db, uid);
-    return res.status(200).json({ ok: true, log, levelUps, evolutions, box });
+    outcome = await claimIdleSession(db, uid, sessionId, Date.now());
   } catch (err) {
     console.error('[idle/claim] failed:', err);
     return res.status(503).json({ ok: false, error: 'could not claim the session' });
+  }
+  switch (outcome.status) {
+    case 'not_found':
+      return res.status(404).json({ ok: false, error: 'no such session' });
+    case 'already_claimed':
+      return res.status(409).json({ ok: false, error: 'this session was already claimed' });
+    case 'invalid_route':
+      return res.status(400).json({ ok: false, error: 'unknown route' });
+    case 'invalid_party':
+      return res.status(400).json({ ok: false, error: 'that party is no longer valid' });
+  }
+
+  const { log, levelUps, evolutions } = outcome;
+  // The claim is committed; a failed box read must not turn it into an error.
+  try {
+    const box = await readOwnedByUser(db, uid);
+    return res.status(200).json({ ok: true, log, levelUps, evolutions, box });
+  } catch (err) {
+    console.error('[idle/claim] box read after commit failed:', err);
+    return res.status(200).json({ ok: true, log, levelUps, evolutions });
   }
 }
 
@@ -251,14 +190,19 @@ async function tutorialCatch(req: VercelRequest, res: VercelResponse) {
   const g = await gate(req, res);
   if (!g) return;
   const { uid, db } = g;
+
+  if (!(await rateLimit(getRedis(), `rl:tutorial:m:${uid}`, 20, 60))) {
+    return res.status(429).json({ ok: false, error: 'too many requests, slow down' });
+  }
+
   try {
     const profile = await readProfile(db, uid);
     if (!profile) return res.status(400).json({ ok: false, error: 'finish onboarding first' });
-    if ((await countOwned(db, uid)) !== 1) {
-      return res.status(400).json({ ok: false, error: 'tutorial already complete' });
-    }
     const now = Date.now();
-    const caught = await insertOwned(db, uid, rollTutorialGift(`tutorial:${uid}`), 'tutorial', now);
+    // The count check and the insert are one statement, so parallel calls
+    // can't each see "only the starter" and mint several gifts.
+    const caught = await insertOwnedIfCount(db, uid, rollTutorialGift(`tutorial:${uid}`), 'tutorial', now, 1);
+    if (!caught) return res.status(400).json({ ok: false, error: 'tutorial already complete' });
     await db.execute({
       sql: 'insert or ignore into pokedex_cells (user_id, dex_id, layer, caught_at) values (?, ?, ?, ?)',
       args: [uid, caught.dexId, caught.shiny ? 's' : caught.altColor ? 'a' : 'n', now],

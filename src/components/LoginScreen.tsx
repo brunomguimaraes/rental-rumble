@@ -8,6 +8,8 @@ import {
   type AccountUser,
 } from '../game/account';
 import { TypeMarquee } from './TypeMarquee';
+import { Credits } from './Credits';
+import { PrivacyPolicy } from './PrivacyPolicy';
 
 // The front door. Accounts are now required — there is no guest play — so this
 // is a full-viewport branded landing, not a modal bolted onto the Title screen.
@@ -213,6 +215,11 @@ export function LoginScreen({
           )}
         </div>
       </form>
+
+      <footer className="mt-8 flex items-center justify-center gap-4">
+        <Credits />
+        <PrivacyPolicy />
+      </footer>
     </div>
   );
 }

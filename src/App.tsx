@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { fetchMe, type AccountUser } from './game/account';
 import { fetchBox, type OwnedMon } from './game/box';
@@ -29,6 +29,14 @@ function ScreenFallback() {
   );
 }
 
+/**
+ * Onboarding is finished only once the tutorial gift is in the box: a profile
+ * whose box holds nothing but the starter was interrupted mid-tutorial.
+ */
+function needsOnboarding(profile: Profile | null, box: readonly OwnedMon[]): boolean {
+  return !profile || (box.length === 1 && box[0].origin === 'starter');
+}
+
 type Phase = 'hub' | 'onboarding' | 'route' | 'claim' | 'box' | 'dex' | 'guide' | 'account' | 'trainerSprites';
 
 export default function App() {
@@ -45,9 +53,11 @@ export default function App() {
   const [accountResetToken, setAccountResetToken] = useState<string | null>(null);
   const [hydrateFailed, setHydrateFailed] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const lastHydrateAt = useRef(0);
 
   // Load everything a signed-in player needs: profile (null → onboarding), box, open session.
   const hydrate = async () => {
+    lastHydrateAt.current = Date.now();
     const [p, b, s] = await Promise.all([fetchProfile(), fetchBox(), fetchCurrentSession()]);
     if (!p.ok || !s.ok) {
       setHydrateFailed(true);
@@ -60,7 +70,7 @@ export default function App() {
     setSession(s.session);
     setServerOffsetMs(s.serverNow - Date.now());
     setProfileChecked(true);
-    if (!p.profile) setPhase('onboarding');
+    if (needsOnboarding(p.profile, b)) setPhase('onboarding');
   };
 
   useEffect(() => {
@@ -97,6 +107,20 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A session may have been opened or claimed on another device: refresh when
+  // the tab comes back into view (at most every 30 s).
+  useEffect(() => {
+    if (!me) return;
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastHydrateAt.current < 30_000) return;
+      hydrate();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me]);
+
   // Keep the open session's clock honest while it is showing.
   useEffect(() => {
     if (!session) return;
@@ -129,6 +153,15 @@ export default function App() {
     try {
       const r = await startIdle(routeId, partyIds);
       if (!r.ok || !r.session) {
+        // Most often the trainer is already out from another device: adopt
+        // that session instead of showing the raw refusal.
+        const cur = await fetchCurrentSession();
+        if (cur.ok && cur.session) {
+          setSession(cur.session);
+          setServerOffsetMs(cur.serverNow - Date.now());
+          setNote('Your trainer is already out — claim first.');
+          return;
+        }
         setNote(r.error ?? 'Could not send your trainer out.');
         return;
       }
@@ -165,10 +198,12 @@ export default function App() {
       );
     }
     if (!profileChecked) return <ScreenFallback />;
-    if (!profile || phase === 'onboarding') {
+    if (!profile || needsOnboarding(profile, box)) {
+      const resume = profile ? { resumeStarter: box[0], resumeProfile: profile } : {};
       return (
         <OnboardingScreen
           me={me}
+          {...resume}
           onDone={(b, p) => {
             setBox(b);
             setProfile(p);
@@ -178,6 +213,7 @@ export default function App() {
       );
     }
     switch (phase) {
+      case 'onboarding':
       case 'hub':
         return (
           <HubScreen

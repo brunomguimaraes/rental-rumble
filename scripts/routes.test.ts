@@ -12,6 +12,7 @@ import {
   isPartyEligible,
   isRouteUnlocked,
   encountersFor,
+  milestonesFor,
 } from '../src/game/routes.js';
 
 let passed = 0;
@@ -41,6 +42,12 @@ check('level 5 starter may enter r1', isPartyEligible([5], r1));
 check('level 13 may not enter r1', !isPartyEligible([13], r1));
 check('empty party rejected', !isPartyEligible([], r1));
 check('seven mons rejected', !isPartyEligible([5, 5, 5, 5, 5, 5, 5], r1));
+
+console.log('\n[2b] slice-1 milestone stand-in');
+check('a level-5 box has cleared nothing', milestonesFor([{ level: 5 }]).length === 0);
+check('a level-13 mon clears r1', JSON.stringify(milestonesFor([{ level: 13 }])) === '["r1"]');
+check('outgrowing r1 unlocks r2', isRouteUnlocked(r2, milestonesFor([{ level: 13 }])));
+check('r2 has no upper dead end', isPartyEligible([40], r2));
 
 console.log('\n[3] encounters from elapsed time');
 const min = 60_000;

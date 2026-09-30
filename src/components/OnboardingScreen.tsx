@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { AccountUser } from '../game/account';
-import { PROFESSIONS, PROFESSORS, professorArtUrl, starterLine, type Professor } from '../game/professions';
+import { PROFESSIONS, PROFESSORS, professorArtUrl, professorById, starterLine, type Professor } from '../game/professions';
 import { onboard, setNickname, cleanNickname, type Profile } from '../game/profile';
 import { tutorialCatch } from '../game/idle-client';
 import { ownedMonToCreature, type OwnedMon } from '../game/box';
@@ -13,7 +13,8 @@ import { BattleScreen } from './BattleScreen';
 
 // First five minutes: profession → professor → starter reveal + nickname →
 // tutorial battle (outcome doesn't matter) → guided first catch. The server
-// mints the starter and the gift; this screen only walks the story.
+// mints the starter and the gift; this screen only walks the story. A reload
+// after the starter was minted resumes at the reveal (resumeStarter/Profile).
 
 type Step = 'profession' | 'professor' | 'starter' | 'battle' | 'catch' | 'done';
 
@@ -26,17 +27,23 @@ function wildOpponent(name: string, title: string, type: Creature['types'][numbe
 export function OnboardingScreen({
   me,
   onDone,
+  resumeStarter,
+  resumeProfile,
 }: {
   me: AccountUser;
   onDone: (box: OwnedMon[], profile: Profile) => void;
+  /** Set together when the profile and starter exist but the tutorial didn't finish. */
+  resumeStarter?: OwnedMon;
+  resumeProfile?: Profile;
 }) {
-  const [step, setStep] = useState<Step>('profession');
-  const [professor, setProfessor] = useState<Professor | null>(null);
+  const resuming = Boolean(resumeStarter && resumeProfile);
+  const [step, setStep] = useState<Step>(resuming ? 'starter' : 'profession');
+  const [professor, setProfessor] = useState<Professor | null>(() => (resuming && resumeProfile ? professorById(resumeProfile.mentor) : null));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [starter, setStarter] = useState<OwnedMon | null>(null);
-  const [box, setBox] = useState<OwnedMon[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(resuming ? (resumeProfile ?? null) : null);
+  const [starter, setStarter] = useState<OwnedMon | null>(resuming ? (resumeStarter ?? null) : null);
+  const [box, setBox] = useState<OwnedMon[]>(resuming && resumeStarter ? [resumeStarter] : []);
   const [nick, setNick] = useState('');
   const [caught, setCaught] = useState<OwnedMon | null>(null);
 
@@ -68,6 +75,12 @@ export function OnboardingScreen({
 
   const confirmStarter = async () => {
     if (!starter) return;
+    if (starter.nickname) {
+      // Resumed with a name already saved: nothing to write.
+      setError(null);
+      setStep('battle');
+      return;
+    }
     const clean = cleanNickname(nick);
     if (nick.trim() && !clean) {
       setError('Nicknames are 1–12 characters.');
@@ -188,13 +201,17 @@ export function OnboardingScreen({
           <img src={starterCreature.portrait} alt={starterCreature.name} className="mt-4 h-40 w-40 rounded-3xl border border-white/10 bg-white/[0.03] object-contain [image-rendering:pixelated]" />
           <h1 className="mt-4 text-2xl font-black text-white">{CREATURES_BY_ID[String(starter.dexId)].name}</h1>
           <div className="mt-1 text-sm text-white/60">Lv {starter.level} · born under {starter.sign}</div>
-          <input
-            value={nick}
-            onChange={(e) => setNick(e.target.value)}
-            maxLength={12}
-            placeholder="Give it a nickname (optional)"
-            className="mt-6 w-full max-w-xs rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-center text-sm text-white outline-none focus:border-emerald-400/60"
-          />
+          {starter.nickname ? (
+            <div className="mt-6 text-sm text-white/70">You named it {starter.nickname}.</div>
+          ) : (
+            <input
+              value={nick}
+              onChange={(e) => setNick(e.target.value)}
+              maxLength={12}
+              placeholder="Give it a nickname (optional)"
+              className="mt-6 w-full max-w-xs rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-center text-sm text-white outline-none focus:border-emerald-400/60"
+            />
+          )}
           {error && <p className="mt-3 text-sm text-rose-300">{error}</p>}
           <button type="button" disabled={busy} onClick={confirmStarter} className="mt-6 rounded-full bg-white px-8 py-3 text-sm font-bold text-black transition hover:scale-[1.02] active:scale-95 disabled:opacity-60">
             {busy ? '…' : 'Let’s go'}

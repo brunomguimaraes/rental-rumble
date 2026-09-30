@@ -63,3 +63,21 @@ version: `npm run release 1.0.0`.
 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) runs lint + test + build
 on every push to `development` / `main` and on PRs into `main`, so broken code
 can't land or ship.
+
+## Release checklist
+
+Before running `npm run db:setup` against the production database:
+
+1. Confirm no account has more than one open idle session, since the unique
+   index below can't be created while duplicates exist. Count the open sessions
+   per user, e.g. in the Turso shell:
+
+   ```sql
+   select user_id, count(*) from idle_sessions where claimed_at is null
+   group by user_id having count(*) > 1;
+   ```
+
+   The result must be empty. Claim or close any duplicates first.
+2. Know what `db:setup` changes: it adds the `nickname` column to
+   `owned_pokemon` and the partial unique index `idle_one_open_idx` (one open
+   session per user). Both are idempotent and safe to re-run.

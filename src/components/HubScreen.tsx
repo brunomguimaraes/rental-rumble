@@ -7,6 +7,8 @@ import type { IdleSession } from '../game/idle-client';
 import { IDLE_CAP_MS, routeById } from '../game/routes';
 import { MAX_LEVEL } from '../game/levels';
 import { MiniSprite } from './MiniSprite';
+import { Credits } from './Credits';
+import { PrivacyPolicy } from './PrivacyPolicy';
 import { formatElapsed } from './formatElapsed';
 
 function BoxMon({ mon }: { mon: OwnedMon }) {
@@ -82,10 +84,14 @@ export function HubScreen({
         <div className="flex gap-3 overflow-x-auto pb-2">{recent.map((m) => <BoxMon key={m.id} mon={m} />)}</div>
       </section>
 
-      <nav className="mt-auto flex flex-wrap justify-center gap-2 pt-10 text-xs">
+      <nav className="mt-auto flex flex-wrap items-center justify-center gap-2 pt-10 text-xs">
         {[{ label: 'Pokédex', on: onViewDex }, { label: 'Guide', on: onViewGuide }].map((l) => (
           <button key={l.label} type="button" onClick={l.on} className="rounded-full border border-white/10 bg-white/[0.02] px-4 py-1.5 font-semibold text-white/60 hover:bg-white/[0.06] hover:text-white">{l.label}</button>
         ))}
+        <span className="flex items-center gap-4 px-2">
+          <Credits />
+          <PrivacyPolicy />
+        </span>
       </nav>
     </div>
   );

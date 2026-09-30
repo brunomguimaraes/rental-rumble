@@ -2,6 +2,8 @@
 // fights one wild Pokémon per `paceMs` of real time, up to the session cap.
 // Levels are banded so a grown party can't farm the beginner road.
 
+import { MAX_LEVEL } from './levels.js';
+
 export type RouteId = 'r1' | 'r2';
 
 export interface Route {
@@ -49,7 +51,9 @@ export const ROUTES: readonly Route[] = [
     name: 'Route 2',
     blurb: "A forest trail. Locked until you clear Route 1's milestone.",
     min: 8,
-    max: 20,
+    // No upper band in slice 1: r2 is the last open road, so it must take any
+    // mon that has outgrown r1.
+    max: MAX_LEVEL,
     foeLevel: 12,
     wildStatMult: 0.9,
     paceMs: 4 * 60 * 1000,
@@ -84,6 +88,16 @@ export function isPartyEligible(levels: readonly number[], route: Route): boolea
 export function isRouteUnlocked(route: Route, clearedMilestones: readonly string[]): boolean {
   if (route.unlock === 'start') return true;
   return clearedMilestones.includes(route.unlock.slice('milestone:'.length));
+}
+
+/**
+ * Milestones the player has cleared, derived from the box. Slice-1 stand-in:
+ * owning any mon that has outgrown Route 1 counts as clearing it, so a grown
+ * party always has a road open. Slice 3 replaces this with fought milestones.
+ */
+export function milestonesFor(box: readonly { level: number }[]): string[] {
+  const r1 = routeById('r1');
+  return r1 && box.some((m) => m.level > r1.max) ? ['r1'] : [];
 }
 
 /** Encounters a session earns for `elapsedMs`, clamped to the cap and the route max. */

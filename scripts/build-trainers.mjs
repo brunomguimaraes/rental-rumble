@@ -34,6 +34,13 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+// The famous-trainer ladder this script reads (below) came from specials.ts,
+// which left with the Rental mode. Bail before anything is deleted.
+if (!existsSync(join(root, 'src/game/specials.ts'))) {
+  console.error('specials.ts was removed with the Rental mode; this script needs updating before it can rebuild the roster');
+  process.exit(1);
+}
 const OWPACK = process.env.OWPACK_DIR || '/Users/milano/Downloads/OW PACK';
 const MEGAPACK =
   process.env.MEGAPACK_DIR ||

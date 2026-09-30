@@ -14,7 +14,7 @@ import {
   updateOwnedEvolution,
   readProfile,
   readOwnedByUser,
-  insertProfile,
+  insertOwnedIfCount,
   insertSession,
   readOpenSession,
   readSessionById,
@@ -49,9 +49,14 @@ check('other user cannot read it', (await readOwnedByIds(db, 'u2', [mon.id])).le
 
 console.log('\n[2] profile');
 check('no profile yet', (await readProfile(db, 'u1')) === null);
-await insertProfile(db, { userId: 'u1', profession: 'trainer', mentor: 'oak', starterId: mon.id, currentRoute: 'r1', createdAt: 2 });
+const u1Starter = await insertProfileWithStarter(
+  db,
+  { userId: 'u1', profession: 'trainer', mentor: 'oak', currentRoute: 'r1', createdAt: 2 },
+  { dexId: 1, level: 5, sign: 'aries', shiny: false, altColor: false },
+  2,
+);
 const p = await readProfile(db, 'u1');
-check('profile round-trips', p?.mentor === 'oak' && p?.starterId === mon.id);
+check('profile round-trips', p?.mentor === 'oak' && p?.starterId === u1Starter.id);
 
 console.log('\n[3] idle sessions');
 check('no open session', (await readOpenSession(db, 'u1')) === null);
@@ -89,6 +94,15 @@ try {
 }
 check('second onboard rejected', threw);
 check('no orphan starter', (await readOwnedByUser(db, 'u3')).length === 1);
+
+console.log('\n[5] count-gated mint (tutorial gift)');
+const giftSpec = { dexId: 16, level: 3, sign: 'leo', shiny: false, altColor: false } as const;
+await insertOwned(db, 'u4', spec, 'starter', 7);
+const gift1 = await insertOwnedIfCount(db, 'u4', giftSpec, 'tutorial', 8, 1);
+const gift2 = await insertOwnedIfCount(db, 'u4', giftSpec, 'tutorial', 9, 1);
+check('first gated mint returns a row', gift1 !== null && gift1.origin === 'tutorial' && gift1.dexId === 16);
+check('second gated mint returns null', gift2 === null);
+check('user still has exactly two rows', (await readOwnedByUser(db, 'u4')).length === 2);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

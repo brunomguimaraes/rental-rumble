@@ -9,7 +9,6 @@ import {
   insertProfileWithStarter,
   readOwnedByIds,
   updateOwnedNickname,
-  countOwned,
   type Db,
 } from '../_db.js';
 import { isProfessorId, professorById, rollStarter } from '../../src/game/professions.js';
@@ -146,11 +145,11 @@ async function onboard(req: VercelRequest, res: VercelResponse) {
   const professor = professorById(body.mentor)!;
 
   try {
+    // A missing profile is the only precondition. Accounts that owned Pokémon
+    // before slice 1 (earlier catches) still onboard; the profiles primary key
+    // inside insertProfileWithStarter stops a second, concurrent onboarding.
     if (await readProfile(db, uid)) {
       return res.status(400).json({ ok: false, error: 'you already have a profile' });
-    }
-    if ((await countOwned(db, uid)) > 0) {
-      return res.status(400).json({ ok: false, error: 'this account already owns Pokémon' });
     }
     const now = Date.now();
     const base = { userId: uid, profession: 'trainer', mentor: professor.id, currentRoute: 'r1', createdAt: now };

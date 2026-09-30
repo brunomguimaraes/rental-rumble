@@ -275,19 +275,46 @@ export async function insertOwned(
   return ownedFromSpec(id, spec, origin, now);
 }
 
-/** Persist a mon's new level/exp after a run (the sole EXP writer). */
-export async function updateOwnedGrowth(
+/**
+ * Mint a mon only while the user owns exactly `expectedCount` rows. The count
+ * check and the insert are one statement, so concurrent callers can't both
+ * pass the check. Returns the stored row, or null when the count didn't match.
+ */
+export async function insertOwnedIfCount(
   db: Db,
   uid: string,
-  id: string,
-  level: number,
-  exp: number,
-): Promise<void> {
-  await db.execute({
-    sql: 'update owned_pokemon set level = ?, exp = ? where id = ? and user_id = ?',
-    args: [level, exp, id, uid],
+  spec: MintSpec,
+  origin: CatchOrigin,
+  now: number,
+  expectedCount: number,
+): Promise<OwnedMon | null> {
+  const id = newId();
+  const rs = await db.execute({
+    sql: `insert into owned_pokemon
+          (id, user_id, dex_id, level, exp, sign, ability, build, shiny, alt_color, emotion, origin, caught_at)
+          select ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          where (select count(*) from owned_pokemon where user_id = ?) = ?`,
+    args: [
+      id,
+      uid,
+      spec.dexId,
+      spec.level,
+      0,
+      spec.sign,
+      spec.ability ?? null,
+      spec.build ?? null,
+      spec.shiny ? 1 : 0,
+      spec.altColor ? 1 : 0,
+      spec.emotion ?? null,
+      origin,
+      now,
+      uid,
+      expectedCount,
+    ],
   });
+  return rs.rowsAffected === 1 ? ownedFromSpec(id, spec, origin, now) : null;
 }
+
 // --- Nickname / evolution ----------------------------------------------------
 
 export async function updateOwnedNickname(db: Db, uid: string, id: string, nickname: string): Promise<void> {
@@ -331,13 +358,6 @@ export async function readProfile(db: Db, uid: string): Promise<ProfileRow | nul
   const rs = await db.execute({ sql: 'select * from profiles where user_id = ?', args: [uid] });
   const r = rs.rows[0] as unknown as Record<string, unknown> | undefined;
   return r ? rowToProfile(r) : null;
-}
-
-export async function insertProfile(db: Db, p: ProfileRow): Promise<void> {
-  await db.execute({
-    sql: 'insert into profiles (user_id, profession, mentor, starter_id, current_route, created_at) values (?, ?, ?, ?, ?, ?)',
-    args: [p.userId, p.profession, p.mentor, p.starterId, p.currentRoute, p.createdAt],
-  });
 }
 
 /**
@@ -432,17 +452,6 @@ export async function insertSession(
   await db.execute({
     sql: 'insert into idle_sessions (id, user_id, route_id, party_ids, seed, started_at) values (?, ?, ?, ?, ?, ?)',
     args: [s.id, s.userId, s.routeId, JSON.stringify(s.partyIds), s.seed, s.startedAt],
-  });
-}
-
-export async function closeSession(
-  db: Db,
-  id: string,
-  patch: { claimedAt: number; stoppedBy: string; encounters: number; log: string },
-): Promise<void> {
-  await db.execute({
-    sql: 'update idle_sessions set claimed_at = ?, stopped_by = ?, encounters = ?, log = ? where id = ? and claimed_at is null',
-    args: [patch.claimedAt, patch.stoppedBy, patch.encounters, patch.log, id],
   });
 }
 
