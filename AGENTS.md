@@ -15,6 +15,7 @@ re-runs them from a fixed seed and is the only writer of growth, evolution, and 
 |---|---|
 | Edit, verify, or ship a change | `.agents/rules/dev-workflow.md` |
 | React screens, components, client fetch helpers | `.agents/rules/frontend.md` |
+| Colours, type, sprites, visual style | `.agents/rules/styling.md` |
 | Serverless handlers in `api/` | `.agents/rules/api.md` |
 | `db/schema.sql`, `api/_db.ts`, queries, `db:setup` | `.agents/rules/database.md` |
 | Writing, changing, or auditing tests | `.agents/rules/testing.md` |

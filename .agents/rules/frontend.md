@@ -52,6 +52,7 @@ Fix in this order:
 
 ## Styling and accessibility
 
-- Tailwind utilities; match the palette and spacing of neighboring screens (theme tokens live in `src/index.css`). Pixel sprites keep `[image-rendering:pixelated]`.
+- Tailwind utilities from the Night tokens; follow `.agents/rules/styling.md` for colours, type, frames, and
+  sprite scaling. Pixel sprites keep `[image-rendering:pixelated]`.
 - Layouts work at phone width. Interactive elements are real `<button>`/`<a>` with a visible focus state;
   sprites and icons that carry meaning have `alt` text.

@@ -4,6 +4,97 @@
   --font-display: 'Outfit', 'Inter', system-ui, sans-serif;
 }
 
+/* Night — the game-wide pixel system (see .agents/rules/styling.md). `static`
+   emits every token as a CSS variable, because the ui-* utilities below read
+   them through var() rather than through a generated class. */
+@theme static {
+  --color-field: #141a2c;
+  --color-field-stripe-a: #161d31;
+  --color-field-stripe-b: #121828;
+  --color-window: #1e2740;
+  --color-window-rim: #8fa6cc;
+  --color-window-frame: #3a4c74;
+  --color-edge: #0a0d18;
+  --color-ink: #f2f0e6;
+  --color-ink-dim: #9aa6c4;
+  --color-accent: #ffd447;
+  --color-info: #7fb4ff;
+  --color-exp: #5fd4ff;
+  --color-slot: #161e34;
+  --color-button: #2a3656;
+
+  /* Pokédex device — only inside src/components/pokedex/. */
+  --color-dex-red: #d62e3a;
+  --color-dex-red-dark: #8f1622;
+  --color-dex-red-light: #f0707a;
+  --color-dex-bezel: #222222;
+  --color-dex-lens: #5ec8f2;
+  --color-dex-lens-dark: #2a8fc0;
+  --color-lcd: #e8f0d8;
+  --color-lcd-grid: #d8e4c8;
+  --color-lcd-ink: #203018;
+  --color-lcd-dim: #b8c8a8;
+  --color-paper: #f8f8f0;
+  --color-paper-ink: #282828;
+  --color-select: #f8d030;
+
+  /* Collection layers: Night surfaces, then the darker pair for the dex's light screens. */
+  --color-caught-normal: #ffffff;
+  --color-caught-alt: #5eead4;
+  --color-caught-shiny: #f5c542;
+  --color-caught-alt-ink: #1d9a86;
+  --color-caught-shiny-ink: #a67c00;
+
+  --font-pixel: 'Pixelify Sans', system-ui, sans-serif;
+  --font-label: 'Silkscreen', ui-monospace, monospace;
+}
+
+@utility ui-field {
+  background-color: var(--color-field);
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--color-field-stripe-a) 0 6px,
+    var(--color-field-stripe-b) 6px 12px
+  );
+}
+
+/* A GBA menu window: light rim, frame, dark edge, then a hard drop shadow. The
+   rings are spread shadows drawn outside the box, so leave ≥ 8px around it. */
+@utility ui-window {
+  background-color: var(--color-window);
+  color: var(--color-ink);
+  border-radius: 6px;
+  box-shadow:
+    0 0 0 2px var(--color-window-rim),
+    0 0 0 5px var(--color-window-frame),
+    0 0 0 7px var(--color-edge),
+    5px 5px 0 7px rgb(0 0 0 / 0.45);
+}
+
+/* A pressable pixel button: the hard shadow collapses as it moves 2px in. */
+@utility ui-button {
+  background-color: var(--color-button);
+  color: var(--color-ink);
+  border-radius: 3px;
+  box-shadow:
+    0 0 0 2px var(--color-window-frame),
+    2px 2px 0 2px var(--color-edge);
+  &:active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 2px var(--color-window-frame);
+  }
+  &:disabled {
+    opacity: 0.5;
+  }
+}
+
+@utility ui-focus {
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
 :root {
   color-scheme: dark;
 }
@@ -40,10 +131,12 @@ html {
 body {
   margin: 0;
   overflow-x: hidden;
-  background:
-    radial-gradient(1200px 600px at 80% -10%, rgba(99, 102, 241, 0.18), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, rgba(236, 72, 153, 0.16), transparent 55%),
-    #0a0a0f;
+  background-color: var(--color-field);
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--color-field-stripe-a) 0 6px,
+    var(--color-field-stripe-b) 6px 12px
+  );
   color: #e6e6ee;
   font-family: var(--font-display);
   -webkit-font-smoothing: antialiased;
