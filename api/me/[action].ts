@@ -9,10 +9,9 @@ import {
   DEX_MAX_ID,
   readOwnedByUser,
   readProfile,
-  insertProfile,
+  insertProfileWithStarter,
   readOwnedByIds,
   updateOwnedNickname,
-  insertOwned,
   countOwned,
   type Db,
   type RunOutcome,
@@ -417,9 +416,9 @@ async function onboard(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ ok: false, error: 'this account already owns Pokémon' });
     }
     const now = Date.now();
-    const starter = await insertOwned(db, uid, rollStarter(`starter:${uid}`, professor), 'starter', now);
-    const row = { userId: uid, profession: 'trainer', mentor: professor.id, starterId: starter.id, currentRoute: 'r1', createdAt: now };
-    await insertProfile(db, row);
+    const base = { userId: uid, profession: 'trainer', mentor: professor.id, currentRoute: 'r1', createdAt: now };
+    const starter = await insertProfileWithStarter(db, base, rollStarter(`starter:${uid}`, professor), now);
+    const row = { ...base, starterId: starter.id };
     const box = await readOwnedByUser(db, uid);
     return res.status(200).json({ ok: true, profile: toProfile(row), starter, box });
   } catch (err) {

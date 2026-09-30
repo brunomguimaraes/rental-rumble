@@ -245,6 +245,23 @@ export async function readOwnedByIds(
   return (rs.rows as unknown as Record<string, unknown>[]).map(rowToOwned);
 }
 
+function ownedFromSpec(id: string, spec: MintSpec, origin: CatchOrigin, now: number): OwnedMon {
+  return {
+    id,
+    dexId: spec.dexId,
+    level: spec.level,
+    exp: 0,
+    sign: spec.sign,
+    ...(spec.ability ? { ability: spec.ability } : {}),
+    ...(spec.build ? { build: spec.build } : {}),
+    shiny: spec.shiny,
+    altColor: spec.altColor,
+    ...(spec.emotion ? { emotion: spec.emotion } : {}),
+    origin,
+    caughtAt: now,
+  };
+}
+
 /** Mint a new owned mon from a rolled spec. Returns the stored row. */
 export async function insertOwned(
   db: Db,
@@ -274,20 +291,7 @@ export async function insertOwned(
       now,
     ],
   });
-  return {
-    id,
-    dexId: spec.dexId,
-    level: spec.level,
-    exp: 0,
-    sign: spec.sign,
-    ...(spec.ability ? { ability: spec.ability } : {}),
-    ...(spec.build ? { build: spec.build } : {}),
-    shiny: spec.shiny,
-    altColor: spec.altColor,
-    ...(spec.emotion ? { emotion: spec.emotion } : {}),
-    origin,
-    caughtAt: now,
-  };
+  return ownedFromSpec(id, spec, origin, now);
 }
 
 /** Persist a mon's new level/exp after a run (the sole EXP writer). */
@@ -353,6 +357,36 @@ export async function insertProfile(db: Db, p: ProfileRow): Promise<void> {
     sql: 'insert into profiles (user_id, profession, mentor, starter_id, current_route, created_at) values (?, ?, ?, ?, ?, ?)',
     args: [p.userId, p.profession, p.mentor, p.starterId, p.currentRoute, p.createdAt],
   });
+}
+
+/**
+ * Create the profile and mint its starter atomically. The profiles primary key
+ * is the gate: a second onboarding attempt fails the whole batch, so no orphan
+ * starter can be left behind. Returns the stored starter row.
+ */
+export async function insertProfileWithStarter(
+  db: Db,
+  p: Omit<ProfileRow, 'starterId'>,
+  spec: MintSpec,
+  now: number,
+): Promise<OwnedMon> {
+  const id = newId();
+  await db.batch(
+    [
+      {
+        sql: 'insert into profiles (user_id, profession, mentor, starter_id, current_route, created_at) values (?, ?, ?, ?, ?, ?)',
+        args: [p.userId, p.profession, p.mentor, id, p.currentRoute, p.createdAt],
+      },
+      {
+        sql: `insert into owned_pokemon
+              (id, user_id, dex_id, level, exp, sign, ability, build, shiny, alt_color, emotion, origin, caught_at)
+              values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [id, p.userId, spec.dexId, spec.level, 0, spec.sign, spec.ability ?? null, spec.build ?? null, spec.shiny ? 1 : 0, spec.altColor ? 1 : 0, spec.emotion ?? null, 'starter', now],
+      },
+    ],
+    'write',
+  );
+  return ownedFromSpec(id, spec, 'starter', now);
 }
 
 // --- Idle sessions -----------------------------------------------------------

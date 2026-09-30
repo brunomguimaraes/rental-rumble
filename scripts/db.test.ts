@@ -6,12 +6,14 @@
  */
 import { createClient } from '@libsql/client';
 import {
+  insertProfileWithStarter,
   applySchema,
   insertOwned,
   readOwnedByIds,
   updateOwnedNickname,
   updateOwnedEvolution,
   readProfile,
+  readOwnedByUser,
   insertProfile,
   insertSession,
   readOpenSession,
@@ -62,6 +64,23 @@ check('closed session no longer open', (await readOpenSession(db, 'u1')) === nul
 const closed = await readSessionById(db, 'u1', 's1');
 check('closed fields stored', closed?.claimedAt === 20 && closed.stoppedBy === 'early' && closed.encounters === 1);
 check('wrong user gets null', (await readSessionById(db, 'u2', 's1')) === null);
+
+console.log('\n[4] atomic onboarding');
+const spec = { dexId: 1, level: 5, sign: 'aries', shiny: false, altColor: false } as const;
+const base3 = { userId: 'u3', profession: 'trainer', mentor: 'oak', currentRoute: 'r1', createdAt: 5 };
+await insertProfileWithStarter(db, base3, spec, 5);
+const p3 = await readProfile(db, 'u3');
+const owned3 = await readOwnedByUser(db, 'u3');
+check('u3 profile readable', p3?.mentor === 'oak');
+check('u3 one starter matching profile', owned3.length === 1 && owned3[0].origin === 'starter' && owned3[0].id === p3?.starterId);
+let threw = false;
+try {
+  await insertProfileWithStarter(db, base3, spec, 6);
+} catch {
+  threw = true;
+}
+check('second onboard rejected', threw);
+check('no orphan starter', (await readOwnedByUser(db, 'u3')).length === 1);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
