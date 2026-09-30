@@ -59,7 +59,8 @@ disabled under `prefers-reduced-motion`.
 
 ## Accessibility
 
-- Every control is a real `<button>`/`<a>`/`<input>` with `ui-focus`.
+- Every control is a real `<button>`/`<a>`/`<input>` with `ui-focus`. On light surfaces (the dex's paper and LCD)
+  use `ui-focus-ink`, an inset ring in the control's own ink; the gold ring disappears there.
 - Text meets 4.5:1 against its surface, and non-text marks like pips meet 3:1. Dimmed text uses a colour
   with an alpha (for example `text-paper-ink/75`), never `opacity` below 0.75.
 - Meaningful sprites carry `alt`. Use `alt=""` when the name is printed right next to the sprite.

@@ -95,6 +95,16 @@
   }
 }
 
+/* Focus ring for light surfaces (the dex's paper and LCD), where the gold
+   accent disappears: the element's own ink colour, drawn inside its box so a
+   scrolling list can't clip it. */
+@utility ui-focus-ink {
+  &:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: -2px;
+  }
+}
+
 :root {
   color-scheme: dark;
 }

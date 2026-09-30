@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { Creature, PokemonType } from '../../game/types';
 import { abilitiesForDex, abilityInfo } from '../../game/abilities';
 import {
@@ -47,6 +47,10 @@ function TypeChip({ type }: { type: PokemonType }) {
       {typeLabel(type)}
     </span>
   );
+}
+
+function MoveTag({ children }: { children: ReactNode }) {
+  return <span className="bg-lcd-ink px-0.5 font-label text-[8px] uppercase text-lcd">{children}</span>;
 }
 
 function StatsPanel({ creature, marks }: { creature: Creature; marks: VariantMarks | null }) {
@@ -120,9 +124,9 @@ function MovesPanel({ creature }: { creature: Creature }) {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-1 font-semibold">
                   {move.name}
-                  {own.has(move.type) && (
-                    <span className="bg-lcd-ink px-0.5 font-label text-[8px] text-lcd">STAB</span>
-                  )}
+                  {own.has(move.type) && <MoveTag>STAB</MoveTag>}
+                  {move.priority ? <MoveTag>Priority</MoveTag> : null}
+                  {move.pp ? <MoveTag>{move.pp} PP</MoveTag> : null}
                 </div>
                 <div className="text-lcd-ink/75">
                   {moveCategoryLabel(move)}
@@ -257,7 +261,7 @@ export function DexTopScreen({
                 aria-selected={tab === t.id}
                 aria-controls="dex-tabpanel"
                 onClick={() => onTab(t.id)}
-                className={`ui-focus px-1.5 py-0.5 font-label text-[10px] uppercase ${
+                className={`ui-focus-ink px-1.5 py-0.5 font-label text-[10px] uppercase ${
                   tab === t.id ? 'bg-lcd-ink text-lcd' : 'bg-lcd-dim text-lcd-ink'
                 }`}
               >

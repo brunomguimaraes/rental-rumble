@@ -41,7 +41,7 @@ export function DexList({
               type="button"
               aria-current={on ? 'true' : undefined}
               onClick={() => onSelect(c.dexId)}
-              className={`ui-focus flex h-12 w-full scroll-mt-[320px] items-center gap-2 border-b border-dashed border-paper-ink/20 pr-2 text-left sm:scroll-mt-0 ${
+              className={`ui-focus-ink flex h-12 w-full scroll-mt-[320px] items-center gap-2 border-b border-dashed border-paper-ink/20 pr-2 text-left sm:scroll-mt-0 ${
                 on ? 'bg-select' : 'hover:bg-select/30'
               }`}
             >
@@ -62,7 +62,7 @@ export function DexList({
           <button
             type="button"
             onClick={onMore}
-            className="ui-focus w-full py-2 font-label text-[10px] uppercase hover:bg-select/30"
+            className="ui-focus-ink w-full py-2 font-label text-[10px] uppercase hover:bg-select/30"
           >
             ▼ More ({total - creatures.length})
           </button>

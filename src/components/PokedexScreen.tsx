@@ -84,6 +84,19 @@ export function PokedexScreen({
   // Always reveal far enough to include the selection.
   const shown = filtered.slice(0, Math.max(visible, selectedIndex + 1));
 
+  // A filter that drops the picked species moves the LCD to the first result;
+  // save that as the pick, so clearing the filter stays on what the player saw
+  // instead of jumping back. With no results the last shown species is kept.
+  const applyFilter = (nextQuery: string, nextType: PokemonType | null) => {
+    const next = filterCreatures(CREATURES, { query: nextQuery, type: nextType, undiscovered });
+    const current = selected?.dexId ?? pickedId;
+    const stays = current !== null && next.some((c) => c.dexId === current);
+    setPickedId(stays || next.length === 0 ? current : next[0].dexId);
+    setQuery(nextQuery);
+    setTypeFilter(nextType);
+    setVisible(PAGE);
+  };
+
   const countLabel =
     collection.status === 'ready'
       ? `${caughtCount} / ${CREATURES.length}`
@@ -152,15 +165,9 @@ export function PokedexScreen({
           <>
             <DexFilters
               query={query}
-              onQuery={(q) => {
-                setQuery(q);
-                setVisible(PAGE);
-              }}
+              onQuery={(q) => applyFilter(q, typeFilter)}
               type={typeFilter}
-              onType={(t) => {
-                setTypeFilter(t);
-                setVisible(PAGE);
-              }}
+              onType={(t) => applyFilter(query, t)}
             />
             <DexList
               creatures={shown}
