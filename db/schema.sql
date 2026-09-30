@@ -78,9 +78,9 @@ create index if not exists auth_tokens_expiry_idx on auth_tokens (expires_at);
 -- identical battle Creature. `origin` distinguishes the one-time tutorial gift
 -- from ordinary catches. Timestamps are epoch ms.
 --
--- Tutorial state is derived, not stored: an empty box means "needs the tutorial
--- catch" (catch runs are owned-only, and there is no release feature in this
--- slice, so an empty box uniquely identifies a brand-new player).
+-- Tutorial state is derived, not stored: a profile with no origin='tutorial'
+-- row still owes the guided first catch, whatever else the box holds (accounts
+-- from before onboarding may own earlier catches).
 create table if not exists owned_pokemon (
   id         text primary key,
   user_id    text not null,
