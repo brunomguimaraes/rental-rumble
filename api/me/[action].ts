@@ -8,6 +8,12 @@ import {
   DEX_LAYERS,
   DEX_MAX_ID,
   readOwnedByUser,
+  readProfile,
+  insertProfile,
+  readOwnedByIds,
+  updateOwnedNickname,
+  insertOwned,
+  countOwned,
   type Db,
   type RunOutcome,
 } from '../_db.js';
@@ -26,6 +32,8 @@ import {
 } from '../../src/game/leaderboard.js';
 import { reachableForms } from '../../src/game/progression.js';
 import { gauntletLength } from '../../src/game/run.js';
+import { isProfessorId, professorById, rollStarter } from '../../src/game/professions.js';
+import { cleanNickname } from '../../src/game/profile.js';
 import type { RelicId } from '../../src/game/types.js';
 
 // The per-account endpoints behind one Vercel function (dynamic `[action]`
@@ -42,6 +50,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return runs(req, res);
     case 'box':
       return box(req, res);
+    case 'profile':
+      return profile(req, res);
+    case 'onboard':
+      return onboard(req, res);
+    case 'nickname':
+      return nickname(req, res);
     default:
       return res.status(404).json({ ok: false, error: 'not found' });
   }
@@ -353,5 +367,89 @@ async function box(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     console.error('[me/box] failed:', err);
     return res.status(200).json({ ok: true, box: [] });
+  }
+}
+
+// --- profile / onboard / nickname -------------------------------------------
+
+function toProfile(p: { profession: string; mentor: string; starterId: string; currentRoute: string; createdAt: number }) {
+  return { profession: p.profession, mentor: p.mentor, starterId: p.starterId, currentRoute: p.currentRoute, createdAt: p.createdAt };
+}
+
+async function profile(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Cache-Control', 'no-store');
+  const uid = readSession(req);
+  if (!uid) return res.status(401).json({ ok: false, error: 'sign in first' });
+  const db = getDb();
+  if (!db) return res.status(200).json({ ok: false, error: 'accounts unavailable' });
+  try {
+    const p = await readProfile(db, uid);
+    return res.status(200).json({ ok: true, profile: p ? toProfile(p) : null });
+  } catch (err) {
+    console.error('[me/profile] failed:', err);
+    return res.status(503).json({ ok: false, error: 'could not load profile' });
+  }
+}
+
+async function onboard(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ ok: false, error: 'method not allowed' });
+  }
+  res.setHeader('Cache-Control', 'no-store');
+  const uid = readSession(req);
+  if (!uid) return res.status(401).json({ ok: false, error: 'sign in first' });
+  const db = getDb();
+  if (!db) return res.status(200).json({ ok: false, error: 'accounts unavailable' });
+
+  const body = parseBody(req);
+  if (body.profession !== 'trainer') {
+    return res.status(400).json({ ok: false, error: 'only the Trainer route is open for now' });
+  }
+  if (!isProfessorId(body.mentor)) return res.status(400).json({ ok: false, error: 'unknown professor' });
+  const professor = professorById(body.mentor)!;
+
+  try {
+    if (await readProfile(db, uid)) {
+      return res.status(400).json({ ok: false, error: 'you already have a profile' });
+    }
+    if ((await countOwned(db, uid)) > 0) {
+      return res.status(400).json({ ok: false, error: 'this account already owns Pokémon' });
+    }
+    const now = Date.now();
+    const starter = await insertOwned(db, uid, rollStarter(`starter:${uid}`, professor), 'starter', now);
+    const row = { userId: uid, profession: 'trainer', mentor: professor.id, starterId: starter.id, currentRoute: 'r1', createdAt: now };
+    await insertProfile(db, row);
+    const box = await readOwnedByUser(db, uid);
+    return res.status(200).json({ ok: true, profile: toProfile(row), starter, box });
+  } catch (err) {
+    console.error('[me/onboard] failed:', err);
+    return res.status(503).json({ ok: false, error: 'could not start your journey' });
+  }
+}
+
+async function nickname(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ ok: false, error: 'method not allowed' });
+  }
+  res.setHeader('Cache-Control', 'no-store');
+  const uid = readSession(req);
+  if (!uid) return res.status(401).json({ ok: false, error: 'sign in first' });
+  const db = getDb();
+  if (!db) return res.status(200).json({ ok: false, error: 'accounts unavailable' });
+
+  const body = parseBody(req);
+  const id = typeof body.id === 'string' ? body.id : '';
+  const name = cleanNickname(body.nickname);
+  if (!id || !name) return res.status(400).json({ ok: false, error: 'nickname must be 1–12 characters' });
+  try {
+    const [mon] = await readOwnedByIds(db, uid, [id]);
+    if (!mon) return res.status(404).json({ ok: false, error: 'not your Pokémon' });
+    await updateOwnedNickname(db, uid, id, name);
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error('[me/nickname] failed:', err);
+    return res.status(503).json({ ok: false, error: 'could not save nickname' });
   }
 }
