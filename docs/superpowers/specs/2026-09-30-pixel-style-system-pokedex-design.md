@@ -151,5 +151,5 @@ untouched. Parts move to `src/components/pokedex/`:
   criterion 8, reported with the tested diff.
 - `CHANGELOG.md` `[Unreleased]` → Changed: the pixel Pokédex and the Night backdrop.
 - `.gitignore` gains `.superpowers/`.
-- The working tree already holds unrelated uncommitted work (the idle removal, including `App.tsx` and
-  `HubScreen.tsx`). This work leaves those files alone and stages only its own paths.
+- `App.tsx` and `HubScreen.tsx` are out of scope for this slice and stay untouched. Commits stage only this
+  work's paths.
