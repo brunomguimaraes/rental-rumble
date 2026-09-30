@@ -100,6 +100,9 @@ create index if not exists owned_user_idx on owned_pokemon (user_id, caught_at d
 
 -- The role-play identity: one row per onboarded user. Written once by
 -- api/me/onboard. `mentor` is the professor id; `starter_id` the owned row.
+-- `party` (added by COLUMN_ADDS in api/_db.ts) is the saved party: a JSON array
+-- of owned ids, lead first; null until the player saves one (the starter leads).
+-- `current_route` is left over from the paused idle routes and unused.
 create table if not exists profiles (
   user_id       text primary key,
   profession    text not null,
@@ -109,9 +112,17 @@ create table if not exists profiles (
   created_at    integer not null default 0
 );
 
--- One row per idle send-out. `claimed_at` is null while the session is open;
--- one open session per user is enforced in api/idle/start. `log` is compact
--- JSON written on claim; `encounters` the count fought.
+-- One row per activity on the world map: training ('train') and expeditions
+-- ('explore'). `claimed_at` is null while it is open (it means "settled at");
+-- idle_one_open_idx allows one open activity per user across both modes.
+-- COLUMN_ADDS in api/_db.ts adds: `mode`, `rules_version`, `party_snapshot`
+-- (the ordered party frozen at start), `config` (the route rules frozen at
+-- start), `state` (expedition position and trail), `step` (checkpoint counter
+-- every step write is conditional on), `request_id` (idempotent start),
+-- `result` (settlement JSON) and `seen_at` (result dismissed). `seed` never
+-- leaves the server. Rows from the paused idle routes have no mode or rules
+-- version; an open one is finished as training on its route. `log` belongs to
+-- those old rows only.
 create table if not exists idle_sessions (
   id          text primary key,
   user_id     text not null,
@@ -127,8 +138,9 @@ create table if not exists idle_sessions (
 create index if not exists idle_user_open_idx on idle_sessions (user_id, claimed_at);
 create unique index if not exists idle_one_open_idx on idle_sessions (user_id) where claimed_at is null;
 
--- The wilds met in a session. Slice 2 lets the player throw balls at them
--- (`resolved` flips to 1); slice 1 only records them for the log.
+-- The wilds an activity battled, written when it settles. A future capture
+-- slice may let the player throw balls at them (`resolved` flips to 1); for now
+-- they are only a log.
 create table if not exists encounters (
   session_id  text not null,
   slot        integer not null,
@@ -137,4 +149,30 @@ create table if not exists encounters (
   won         integer not null default 0,
   resolved    integer not null default 0,
   primary key (session_id, slot)
+);
+
+-- Per trainer and route on the world map: when its guardian first fell
+-- (`cleared_at`, the milestone that unlocks neighbouring routes) and counters.
+-- Unlocks are derived from cleared_at, never stored.
+create table if not exists world_progress (
+  user_id       text not null,
+  location_id   text not null,
+  cleared_at    integer,
+  explores      integer not null default 0,
+  clears        integer not null default 0,
+  trainings     integer not null default 0,
+  training_wins integer not null default 0,
+  primary key (user_id, location_id)
+);
+
+-- What a trainer has found per route: species seen (`kind` 'seen', `ref` the
+-- dex id) and landmarks (`kind` 'landmark', `ref` the landmark id). Seeing is
+-- not owning: nothing here touches pokedex_cells.
+create table if not exists world_discoveries (
+  user_id     text not null,
+  location_id text not null,
+  kind        text not null,
+  ref         text not null,
+  found_at    integer not null default 0,
+  primary key (user_id, location_id, kind, ref)
 );

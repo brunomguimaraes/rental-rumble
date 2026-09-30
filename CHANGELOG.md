@@ -12,6 +12,10 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 ## [Unreleased]
 
 ### Added
+- **World map** — Hearthvale, a pixel-art region: Hearth Town and six places (Sunny Meadow, Mossy Woods, Mirror Lake, Flint Quarry, Cloudcap Trail, Starfall Ruins). Drag, zoom and recenter the map, or browse the list; each place shows its local Pokémon, landmarks, guardian, rewards, and what it takes to open it.
+- **Expeditions** — short trips of about five checkpoints: sightings, landmarks, battles, and a fork where you pick the way. Beat the guardian at the end to clear the place and open the next ones. A trip resumes after a reload or on another device; heading home or losing a battle keeps the EXP already earned.
+- **Training** — send your party to train at any open place while you're away: one battle every few minutes on the server's clock, up to 8 hours, stopping at the first defeat. Bring them home to collect EXP, level-ups and evolutions; results wait until you've seen them.
+- **Your party** — choose up to six Pokémon, reorder them and pick a lead. The party is saved to your account, and every trip starts with the party you set.
 - **Install app** — a hub button with step-by-step iPhone and Android guides for adding the game to your home screen so it opens full-screen; Android Chrome gets a one-tap Install.
 - **Night icon library** — reusable transparent menu and navigation icons, with the original mobile concept, an asset index, and a preview gallery.
 - **Professor Andre** — new trainers meet a stone and fossil researcher with a custom sprite; existing Oak mentor records and the non-fossil starter pool are preserved.
@@ -22,7 +26,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 ### Changed
 - **Pokédex** — rebuilt as a pixel-art handheld: a detail screen on top (stats, ability, moves, signs) and the species list below, with crisp sprites and arrow-key browsing. The game's backdrop moves to the new "Night" pixel style.
 - **Pokédex** — species you haven't caught stay a mystery: a silhouette and "???" with no stats, ability, moves, or signs, and search by name only finds ones you've caught.
-- **Hub party preview** — a six-slot Night pixel window shows recent Pokémon, their levels, empty slots, and a shortcut to the box.
+- **Hub** — the six-slot Night party window shows your saved party, lead first, with Edit; below it sit the World map and Your box, and what your trainer is doing right now.
 - **Login required** — anonymous play is gone; the hub and box are per-account.
 
 ### Removed

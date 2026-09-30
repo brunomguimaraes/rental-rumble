@@ -95,6 +95,23 @@
   }
 }
 
+/* The one primary action in a window: gold with dark ink, same hard press. */
+@utility ui-button-primary {
+  background-color: var(--color-accent);
+  color: var(--color-edge);
+  border-radius: 3px;
+  box-shadow:
+    0 0 0 2px var(--color-edge),
+    2px 2px 0 2px var(--color-edge);
+  &:active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 2px var(--color-edge);
+  }
+  &:disabled {
+    opacity: 0.5;
+  }
+}
+
 /* Focus ring for light surfaces (the dex's paper and LCD), where the gold
    accent disappears: the element's own ink colour, drawn inside its box so a
    scrolling list can't clip it. */
@@ -537,4 +554,56 @@ body {
 }
 :hover::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.18);
+}
+
+/* World map and routes: a two-frame walk for box-icon sheets, a stepped bob
+   for the trainer, and the trainer marker's beacon. Stepped so they read as
+   pixel motion; all of it stops under reduced motion. */
+@keyframes world-walk {
+  from {
+    background-position: left center;
+  }
+  to {
+    background-position: 200% center;
+  }
+}
+
+@keyframes world-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes world-beacon {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px var(--color-accent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--color-accent);
+  }
+}
+
+.animate-world-walk {
+  animation: world-walk 0.6s steps(2) infinite;
+}
+
+.animate-world-bob {
+  animation: world-bob 0.6s steps(2) infinite;
+}
+
+.animate-world-beacon {
+  animation: world-beacon 1.2s steps(2) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-world-walk,
+  .animate-world-bob,
+  .animate-world-beacon {
+    animation: none;
+  }
 }

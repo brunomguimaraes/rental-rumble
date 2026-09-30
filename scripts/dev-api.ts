@@ -9,7 +9,8 @@
  * `../src/game/*.js` imports on the fly — exactly like the test scripts do.
  *
  * It mirrors this project's Vercel routing: flat files (api/start-run.ts) and
- * the two dynamic dispatchers (api/auth/[action].ts, api/me/[action].ts), and
+ * the dynamic dispatchers (api/auth/[action].ts, api/me/[action].ts,
+ * api/world/[action].ts), and
  * shims the VercelRequest/VercelResponse bits the handlers use (query, body,
  * cookies, res.status().json()).
  */
@@ -68,7 +69,7 @@ function resolveRoute(
   }
   if (
     parts.length === 2 &&
-    (parts[0] === 'auth' || parts[0] === 'me')
+    (parts[0] === 'auth' || parts[0] === 'me' || parts[0] === 'world')
   ) {
     return { file: `api/${parts[0]}/[action].ts`, params: { action: parts[1] } };
   }

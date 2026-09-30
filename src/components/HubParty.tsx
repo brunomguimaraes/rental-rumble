@@ -4,9 +4,9 @@ import { PixelSprite } from './ui/PixelSprite';
 
 const PARTY_SIZE = 6;
 
-/** A collection preview until the game has a saved party selection. */
-export function HubParty({ box, onViewBox }: { box: OwnedMon[]; onViewBox: () => void }) {
-  const recent = box.slice(0, PARTY_SIZE).map((mon) => ({ mon, creature: ownedMonToCreature(mon) }));
+/** The saved party, lead first, with a way into the party editor. */
+export function HubParty({ members, onEdit }: { members: OwnedMon[]; onEdit: () => void }) {
+  const recent = members.slice(0, PARTY_SIZE).map((mon) => ({ mon, creature: ownedMonToCreature(mon) }));
   const shown = recent.filter(({ creature }) => creature !== null).length;
 
   return (
@@ -17,14 +17,14 @@ export function HubParty({ box, onViewBox }: { box: OwnedMon[]; onViewBox: () =>
         </h2>
         <button
           type="button"
-          onClick={onViewBox}
-          className="ui-button ui-focus min-h-11 px-2 font-label text-[9px] uppercase hover:text-accent"
+          onClick={onEdit}
+          className="ui-button ui-focus min-h-11 px-3 font-label text-[9px] uppercase hover:text-accent"
         >
-          View box <span aria-hidden="true">›</span>
+          Edit <span aria-hidden="true">›</span>
         </button>
       </div>
 
-      <ol aria-label="Party preview" className="grid grid-cols-6 gap-0.5 min-[360px]:gap-1.5">
+      <ol aria-label="Your party" className="grid grid-cols-6 gap-0.5 min-[360px]:gap-1.5">
         {Array.from({ length: PARTY_SIZE }, (_, index) => {
           const entry = recent[index];
           const creature = entry?.creature;
@@ -52,6 +52,12 @@ export function HubParty({ box, onViewBox }: { box: OwnedMon[]; onViewBox: () =>
                         <span aria-hidden="true">◆</span><span className="sr-only">Alt colour</span>
                       </span>
                     )}
+                    {index === 0 && (
+                      <span className="absolute -left-0.5 -top-1.5 rounded-[2px] bg-accent px-0.5 font-label text-[8px] uppercase leading-[10px] text-edge">
+                        <span aria-hidden="true">L</span>
+                        <span className="sr-only">Lead</span>
+                      </span>
+                    )}
                   </>
                 ) : (
                   <>
@@ -73,7 +79,7 @@ export function HubParty({ box, onViewBox }: { box: OwnedMon[]; onViewBox: () =>
       </ol>
 
       <div className="mt-3 flex items-center justify-between gap-2 border-t border-window-frame px-1 pt-2 text-xs text-ink-dim">
-        <p>{shown ? 'Latest from your box' : 'No Pokémon to display yet.'}</p>
+        <p>{shown ? 'The lead fights first.' : 'Choose your party to set out.'}</p>
         <span className="font-label text-[9px] uppercase" aria-label={`${shown} of ${PARTY_SIZE} slots filled`}>{shown} / {PARTY_SIZE}</span>
       </div>
     </section>

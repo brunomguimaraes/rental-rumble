@@ -2,7 +2,8 @@
 
 A web-based, login-based collecting game using **real Pokémon**. Pick a
 profession, choose one of three weak starters from Professor Oak, and build your
-box. The idle routes are paused while the core loop is reworked.
+box. Save a party of up to six, open the world map of Hearthvale, explore its
+routes checkpoint by checkpoint, and send your party to train while you're away.
 
 > Private project for me and my friends — not for commercial use. Pokémon data
 > comes from [PokeAPI](https://pokeapi.co/). The static fallback battle sprites

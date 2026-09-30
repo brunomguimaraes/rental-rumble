@@ -95,17 +95,22 @@ function coerceOwned(v: unknown): OwnedMon[] {
   return v as OwnedMon[];
 }
 
-/** The signed-in player's box (newest first), or [] when anonymous/unavailable. */
-export async function fetchBox(): Promise<OwnedMon[]> {
+/**
+ * The signed-in player's box (newest first). `ok: false` means the request
+ * failed and says nothing about what the box holds; `expired` that the
+ * session ended.
+ */
+export async function fetchBox(): Promise<{ ok: boolean; box: OwnedMon[]; expired?: boolean }> {
   try {
     const res = await fetch('/api/me/box', {
       credentials: 'include',
       cache: 'no-store',
     });
-    if (!res.ok) return [];
+    if (res.status === 401) return { ok: false, box: [], expired: true };
+    if (!res.ok) return { ok: false, box: [] };
     const data = (await res.json()) as { ok?: boolean; box?: unknown };
-    return data.ok ? coerceOwned(data.box) : [];
+    return data.ok ? { ok: true, box: coerceOwned(data.box) } : { ok: false, box: [] };
   } catch {
-    return [];
+    return { ok: false, box: [] };
   }
 }

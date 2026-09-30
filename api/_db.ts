@@ -1,4 +1,4 @@
-import { createClient, type Client } from '@libsql/client';
+import { createClient, type Client, type InStatement, type Transaction } from '@libsql/client';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -44,7 +44,21 @@ export function getDb(): Db | null {
 const SCHEMA_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', 'db', 'schema.sql');
 
 /** Statements that add columns to existing tables; each is a no-op on re-run. */
-const COLUMN_ADDS = ['alter table owned_pokemon add column nickname text'];
+const COLUMN_ADDS = [
+  'alter table owned_pokemon add column nickname text',
+  // The saved party (JSON array of owned ids, lead first).
+  'alter table profiles add column party text',
+  // idle_sessions now holds every activity: training and exploration.
+  'alter table idle_sessions add column mode text',
+  'alter table idle_sessions add column rules_version integer',
+  'alter table idle_sessions add column party_snapshot text',
+  'alter table idle_sessions add column config text',
+  'alter table idle_sessions add column state text',
+  'alter table idle_sessions add column step integer not null default 0',
+  'alter table idle_sessions add column request_id text',
+  'alter table idle_sessions add column result text',
+  'alter table idle_sessions add column seen_at integer',
+];
 
 /** Apply db/schema.sql (idempotent) plus the additive column changes. */
 export async function applySchema(db: Db): Promise<void> {
@@ -60,6 +74,51 @@ export async function applySchema(db: Db): Promise<void> {
 
 /** A fresh app-generated id for a new account row. */
 export const newId = (): string => randomUUID();
+
+function errorText(err: unknown): string {
+  const e = err as { code?: unknown; message?: unknown; cause?: unknown };
+  return `${String(e?.code ?? '')} ${String(e?.message ?? err)} ${String((e?.cause as { message?: unknown })?.message ?? '')}`;
+}
+
+/** A write that lost to a unique index (e.g. a second open activity). */
+export function isUniqueViolation(err: unknown): boolean {
+  const t = errorText(err);
+  return t.includes('UNIQUE constraint failed') || t.includes('SQLITE_CONSTRAINT');
+}
+
+/** A query against columns or tables that `db:setup` has not added yet. */
+export function isMissingSchema(err: unknown): boolean {
+  const t = errorText(err);
+  return t.includes('no such column') || t.includes('no such table');
+}
+
+/**
+ * Open a write transaction, waiting briefly while another writer holds the
+ * lock. A local SQLite file refuses a second concurrent writer outright
+ * (SQLITE_BUSY) rather than queueing it; the retry lets the other write commit
+ * first, after which this one sees its result.
+ */
+export async function openWriteTx(db: Db): Promise<Transaction> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await db.transaction('write');
+    } catch (err) {
+      if (!errorText(err).includes('SQLITE_BUSY') || attempt >= 8) throw err;
+      await new Promise((r) => setTimeout(r, 25 * (attempt + 1)));
+    }
+  }
+}
+
+function parseJson(v: unknown): unknown {
+  if (v === null || v === undefined) return null;
+  try {
+    return JSON.parse(String(v));
+  } catch {
+    return null;
+  }
+}
+
+const nullableNumber = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 
 // --- Shared constants --------------------------------------------------------
 
@@ -284,9 +343,12 @@ export interface ProfileRow {
   starterId: string;
   currentRoute: string;
   createdAt: number;
+  /** The saved party as stored (owned ids, lead first), or null when never saved or unreadable. */
+  party: string[] | null;
 }
 
 function rowToProfile(r: Record<string, unknown>): ProfileRow {
+  const party = parseJson(r.party);
   return {
     userId: String(r.user_id),
     profession: String(r.profession),
@@ -294,13 +356,19 @@ function rowToProfile(r: Record<string, unknown>): ProfileRow {
     starterId: String(r.starter_id),
     currentRoute: String(r.current_route ?? 'r1'),
     createdAt: Number(r.created_at) || 0,
+    party: Array.isArray(party) && party.every((id) => typeof id === 'string') ? (party as string[]) : null,
   };
 }
 
-export async function readProfile(db: Db, uid: string): Promise<ProfileRow | null> {
+export async function readProfile(db: Executor, uid: string): Promise<ProfileRow | null> {
   const rs = await db.execute({ sql: 'select * from profiles where user_id = ?', args: [uid] });
   const r = rs.rows[0] as unknown as Record<string, unknown> | undefined;
   return r ? rowToProfile(r) : null;
+}
+
+export async function updateProfileParty(db: Executor, uid: string, ids: string[]): Promise<number> {
+  const rs = await db.execute({ sql: 'update profiles set party = ? where user_id = ?', args: [JSON.stringify(ids), uid] });
+  return rs.rowsAffected;
 }
 
 /**
@@ -310,7 +378,7 @@ export async function readProfile(db: Db, uid: string): Promise<ProfileRow | nul
  */
 export async function insertProfileWithStarter(
   db: Db,
-  p: Omit<ProfileRow, 'starterId'>,
+  p: Omit<ProfileRow, 'starterId' | 'party'>,
   spec: MintSpec,
   now: number,
 ): Promise<OwnedMon> {
@@ -331,4 +399,281 @@ export async function insertProfileWithStarter(
     'write',
   );
   return ownedFromSpec(id, spec, 'starter', now);
+}
+
+// --- Owned growth --------------------------------------------------------------
+
+/**
+ * Persist what an activity's growth changed: species, ability (evolution
+ * re-rolls it), level and EXP. Nothing else on the row is touched, so a
+ * nickname set while the party was out survives.
+ */
+export async function updateOwnedGrowth(db: Executor, uid: string, mon: OwnedMon): Promise<void> {
+  await db.execute({
+    sql: 'update owned_pokemon set dex_id = ?, ability = ?, level = ?, exp = ? where id = ? and user_id = ?',
+    args: [mon.dexId, mon.ability ?? null, mon.level, mon.exp, mon.id, uid],
+  });
+}
+
+// --- Activities (training and exploration) ---------------------------------------
+// Both modes live in idle_sessions, so its partial unique index
+// (idle_one_open_idx: one row with claimed_at null per user) is the one-activity
+// rule. Rows from the paused idle routes have no mode or rules version.
+
+export interface ActivityRow {
+  id: string;
+  userId: string;
+  routeId: string;
+  partyIds: string[];
+  seed: string;
+  startedAt: number;
+  /** Settled at; null while the activity is open. */
+  claimedAt: number | null;
+  stoppedBy: string | null;
+  encounters: number;
+  mode: 'train' | 'explore' | null;
+  rulesVersion: number | null;
+  partySnapshot: unknown;
+  config: unknown;
+  state: unknown;
+  step: number;
+  requestId: string | null;
+  result: unknown;
+  seenAt: number | null;
+}
+
+export function rowToActivity(r: Record<string, unknown>): ActivityRow {
+  const ids = parseJson(r.party_ids);
+  return {
+    id: String(r.id),
+    userId: String(r.user_id),
+    routeId: String(r.route_id),
+    partyIds: Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : [],
+    seed: String(r.seed),
+    startedAt: Number(r.started_at) || 0,
+    claimedAt: nullableNumber(r.claimed_at),
+    stoppedBy: r.stopped_by === null || r.stopped_by === undefined ? null : String(r.stopped_by),
+    encounters: Number(r.encounters) || 0,
+    mode: r.mode === 'train' || r.mode === 'explore' ? r.mode : null,
+    rulesVersion: nullableNumber(r.rules_version),
+    partySnapshot: parseJson(r.party_snapshot),
+    config: parseJson(r.config),
+    state: parseJson(r.state),
+    step: Number(r.step) || 0,
+    requestId: r.request_id === null || r.request_id === undefined ? null : String(r.request_id),
+    result: parseJson(r.result),
+    seenAt: nullableNumber(r.seen_at),
+  };
+}
+
+async function oneActivity(db: Executor, sql: string, args: string[]): Promise<ActivityRow | null> {
+  const rs = await db.execute({ sql, args });
+  const r = rs.rows[0] as unknown as Record<string, unknown> | undefined;
+  return r ? rowToActivity(r) : null;
+}
+
+export function readOpenActivity(db: Executor, uid: string): Promise<ActivityRow | null> {
+  return oneActivity(db, 'select * from idle_sessions where user_id = ? and claimed_at is null order by started_at desc limit 1', [uid]);
+}
+
+export function readActivity(db: Executor, uid: string, id: string): Promise<ActivityRow | null> {
+  return oneActivity(db, 'select * from idle_sessions where id = ? and user_id = ? limit 1', [id, uid]);
+}
+
+/** The newest settled activity whose result the player has not dismissed. */
+export function readUnseenResult(db: Executor, uid: string): Promise<ActivityRow | null> {
+  return oneActivity(
+    db,
+    'select * from idle_sessions where user_id = ? and claimed_at is not null and result is not null and seen_at is null order by claimed_at desc limit 1',
+    [uid],
+  );
+}
+
+/** Where the trainer last went (the map marker when nothing is running). */
+export async function readLastRouteId(db: Executor, uid: string): Promise<string | null> {
+  const rs = await db.execute({ sql: 'select route_id from idle_sessions where user_id = ? order by started_at desc limit 1', args: [uid] });
+  const r = rs.rows[0] as unknown as { route_id?: unknown } | undefined;
+  return r?.route_id === undefined || r.route_id === null ? null : String(r.route_id);
+}
+
+export interface NewActivity {
+  id: string;
+  userId: string;
+  routeId: string;
+  partyIds: string[];
+  seed: string;
+  startedAt: number;
+  mode: 'train' | 'explore';
+  rulesVersion: number;
+  partySnapshot: unknown;
+  config: unknown;
+  state: unknown;
+  requestId: string;
+}
+
+export function insertActivityStatement(a: NewActivity): InStatement {
+  return {
+    sql: `insert into idle_sessions
+          (id, user_id, route_id, party_ids, seed, started_at, mode, rules_version, party_snapshot, config, state, step, request_id)
+          values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+    args: [
+      a.id,
+      a.userId,
+      a.routeId,
+      JSON.stringify(a.partyIds),
+      a.seed,
+      a.startedAt,
+      a.mode,
+      a.rulesVersion,
+      JSON.stringify(a.partySnapshot),
+      JSON.stringify(a.config),
+      a.state === null ? null : JSON.stringify(a.state),
+      a.requestId,
+    ],
+  };
+}
+
+/** Starting something new retires every result still on screen. */
+export function markResultsSeenStatement(uid: string, now: number): InStatement {
+  return {
+    sql: 'update idle_sessions set seen_at = ? where user_id = ? and claimed_at is not null and seen_at is null',
+    args: [now, uid],
+  };
+}
+
+/** Advance an expedition one checkpoint, only if nobody else already did. */
+export async function updateActivityState(
+  db: Executor,
+  p: { id: string; uid: string; fromStep: number; state: unknown },
+): Promise<number> {
+  const rs = await db.execute({
+    sql: 'update idle_sessions set state = ?, step = ? where id = ? and user_id = ? and step = ? and claimed_at is null',
+    args: [JSON.stringify(p.state), p.fromStep + 1, p.id, p.uid, p.fromStep],
+  });
+  return rs.rowsAffected;
+}
+
+/** Settle an activity, only if it is still open; 1 means this caller settled it. */
+export async function closeActivity(
+  db: Executor,
+  p: { id: string; uid: string; claimedAt: number; stoppedBy: string; encounters: number; step: number; state: unknown | null; result: unknown },
+): Promise<number> {
+  const rs = await db.execute({
+    sql: `update idle_sessions set claimed_at = ?, stopped_by = ?, encounters = ?, step = ?, state = coalesce(?, state), result = ?
+          where id = ? and user_id = ? and claimed_at is null`,
+    args: [
+      p.claimedAt,
+      p.stoppedBy,
+      p.encounters,
+      p.step,
+      p.state === null ? null : JSON.stringify(p.state),
+      p.result === null ? null : JSON.stringify(p.result),
+      p.id,
+      p.uid,
+    ],
+  });
+  return rs.rowsAffected;
+}
+
+/** Dismiss a settled activity's result; keeps the first dismissal time. */
+export async function markResultSeen(db: Executor, uid: string, id: string, now: number): Promise<number> {
+  const rs = await db.execute({
+    sql: 'update idle_sessions set seen_at = coalesce(seen_at, ?) where id = ? and user_id = ? and claimed_at is not null',
+    args: [now, id, uid],
+  });
+  return rs.rowsAffected;
+}
+
+// --- World progress and discoveries --------------------------------------------------
+
+export interface ProgressRow {
+  locationId: string;
+  clearedAt: number | null;
+  explores: number;
+  clears: number;
+  trainings: number;
+  trainingWins: number;
+}
+
+export async function readProgress(db: Executor, uid: string): Promise<ProgressRow[]> {
+  const rs = await db.execute({ sql: 'select * from world_progress where user_id = ?', args: [uid] });
+  return (rs.rows as unknown as Record<string, unknown>[]).map((r) => ({
+    locationId: String(r.location_id),
+    clearedAt: nullableNumber(r.cleared_at),
+    explores: Number(r.explores) || 0,
+    clears: Number(r.clears) || 0,
+    trainings: Number(r.trainings) || 0,
+    trainingWins: Number(r.training_wins) || 0,
+  }));
+}
+
+/** Count a start at a route (explores or trainings). */
+export function progressStartStatement(uid: string, locationId: string, mode: 'train' | 'explore'): InStatement {
+  const sql =
+    mode === 'explore'
+      ? 'insert into world_progress (user_id, location_id, explores) values (?, ?, 1) on conflict (user_id, location_id) do update set explores = explores + 1'
+      : 'insert into world_progress (user_id, location_id, trainings) values (?, ?, 1) on conflict (user_id, location_id) do update set trainings = trainings + 1';
+  return { sql, args: [uid, locationId] };
+}
+
+/** Record a settlement: the first clear time sticks; clears and training wins add up. */
+export async function applyProgressSettlement(
+  db: Executor,
+  p: { uid: string; locationId: string; clearedAt: number | null; clears: number; trainingWins: number },
+): Promise<void> {
+  await db.execute({
+    sql: `insert into world_progress (user_id, location_id, cleared_at, clears, training_wins) values (?, ?, ?, ?, ?)
+          on conflict (user_id, location_id) do update set
+            cleared_at = coalesce(world_progress.cleared_at, excluded.cleared_at),
+            clears = world_progress.clears + excluded.clears,
+            training_wins = world_progress.training_wins + excluded.training_wins`,
+    args: [p.uid, p.locationId, p.clearedAt, p.clears, p.trainingWins],
+  });
+}
+
+export interface DiscoveryRow {
+  locationId: string;
+  kind: 'seen' | 'landmark';
+  ref: string;
+  foundAt: number;
+}
+
+export async function readDiscoveries(db: Executor, uid: string): Promise<DiscoveryRow[]> {
+  const rs = await db.execute({ sql: 'select * from world_discoveries where user_id = ?', args: [uid] });
+  return (rs.rows as unknown as Record<string, unknown>[])
+    .filter((r) => r.kind === 'seen' || r.kind === 'landmark')
+    .map((r) => ({
+      locationId: String(r.location_id),
+      kind: r.kind as 'seen' | 'landmark',
+      ref: String(r.ref),
+      foundAt: Number(r.found_at) || 0,
+    }));
+}
+
+/** Record a sighting or landmark; true when it is new for this trainer and place. */
+export async function insertDiscovery(
+  db: Executor,
+  p: { uid: string; locationId: string; kind: 'seen' | 'landmark'; ref: string; foundAt: number },
+): Promise<boolean> {
+  const rs = await db.execute({
+    sql: 'insert or ignore into world_discoveries (user_id, location_id, kind, ref, found_at) values (?, ?, ?, ?, ?)',
+    args: [p.uid, p.locationId, p.kind, p.ref, p.foundAt],
+  });
+  return rs.rowsAffected === 1;
+}
+
+/** Log the battles an activity fought, as the paused idle claim did (no capture reads them yet). */
+export async function insertEncounterRows(
+  db: Executor,
+  sessionId: string,
+  rows: readonly { slot: number; dexId: number; level: number; won: boolean }[],
+): Promise<void> {
+  if (rows.length === 0) return;
+  // One round trip: inside a remote transaction every execute is a request.
+  await db.batch(
+    rows.map((e) => ({
+      sql: 'insert or ignore into encounters (session_id, slot, dex_id, level, won) values (?, ?, ?, ?, ?)',
+      args: [sessionId, e.slot, e.dexId, e.level, e.won ? 1 : 0],
+    })),
+  );
 }

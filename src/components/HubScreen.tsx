@@ -2,22 +2,33 @@ import type { AccountUser } from '../game/account';
 import { ownedMonToCreature, type OwnedMon } from '../game/box';
 import type { Profile } from '../game/profile';
 import { professorById } from '../game/professions';
+import type { WorldState } from '../game/activity';
 import { HubParty } from './HubParty';
+import { HubActivity } from './HubActivity';
 import { Credits } from './Credits';
 import { PrivacyPolicy } from './PrivacyPolicy';
 import { InstallGuide } from './InstallGuide';
 
 export function HubScreen({
-  me, box, profile,
-  onViewBox, onViewDex, onViewGuide, onViewAccount,
+  me, box, profile, party, world, worldError, serverOffsetMs,
+  onViewBox, onViewDex, onViewGuide, onViewAccount, onEditParty, onOpenMap, onOpenActivity, onRetryWorld,
 }: {
   me: AccountUser;
   box: OwnedMon[];
   profile: Profile;
+  /** The saved party's rows, lead first. */
+  party: OwnedMon[];
+  world: WorldState | null;
+  worldError: string | null;
+  serverOffsetMs: number;
   onViewBox: () => void;
   onViewDex: () => void;
   onViewGuide: () => void;
   onViewAccount: () => void;
+  onEditParty: () => void;
+  onOpenMap: () => void;
+  onOpenActivity: () => void;
+  onRetryWorld: () => void;
 }) {
   const professor = professorById(profile.mentor);
   const starter = box.find((m) => m.id === profile.starterId);
@@ -36,7 +47,16 @@ export function HubScreen({
         <button type="button" onClick={onViewAccount} className="rounded-full border border-white/15 bg-white/[0.03] px-4 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.08]">Account</button>
       </header>
 
-      <HubParty box={box} onViewBox={onViewBox} />
+      <HubParty members={party} onEdit={onEditParty} />
+      <HubActivity
+        world={world}
+        worldError={worldError}
+        serverOffsetMs={serverOffsetMs}
+        onOpenMap={onOpenMap}
+        onOpenActivity={onOpenActivity}
+        onOpenBox={onViewBox}
+        onRetry={onRetryWorld}
+      />
 
       <nav className="mt-auto flex flex-wrap items-center justify-center gap-2 pt-10 text-xs">
         {[{ label: 'Pokédex', on: onViewDex }, { label: 'Guide', on: onViewGuide }].map((l) => (

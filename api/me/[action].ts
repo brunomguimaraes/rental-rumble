@@ -1,5 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { readSession } from '../_session.js';
+import { getRedis } from '../_redis.js';
+import { rateLimit } from '../_ratelimit.js';
+import { resolvedParty, savePartyIds } from '../_world.js';
 import {
   getDb,
   DEX_LAYERS,
@@ -30,15 +33,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return onboard(req, res);
     case 'nickname':
       return nickname(req, res);
+    case 'party':
+      return party(req, res);
     default:
       return res.status(404).json({ ok: false, error: 'not found' });
   }
 }
 
+/** The JSON body as an object; anything else (bad JSON, an array) reads as {}. */
 function parseBody(req: VercelRequest): Record<string, unknown> {
-  return typeof req.body === 'string'
-    ? JSON.parse(req.body || '{}')
-    : (req.body ?? {});
+  let body: unknown = req.body;
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body || '{}');
+    } catch {
+      return {};
+    }
+  }
+  return body && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
 }
 
 const BYTES = (DEX_MAX_ID >> 3) + 1;
@@ -89,26 +101,31 @@ async function pokedex(req: VercelRequest, res: VercelResponse) {
 
 // --- runs: the personal archive ----------------------------------------------
 
+// A failed load is an error, never an empty box: the party editor and the hub
+// must be able to tell "nothing owned" from "couldn't ask".
 async function box(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
   const uid = readSession(req);
-  if (!uid) return res.status(200).json({ ok: true, box: [] });
+  if (!uid) return res.status(401).json({ ok: false, error: 'sign in first' });
   const db: Db | null = getDb();
-  if (!db) return res.status(200).json({ ok: true, box: [] });
+  if (!db) return res.status(200).json({ ok: false, error: 'accounts unavailable' });
 
   try {
     const owned = await readOwnedByUser(db, uid);
     return res.status(200).json({ ok: true, box: owned });
   } catch (err) {
     console.error('[me/box] failed:', err);
-    return res.status(200).json({ ok: true, box: [] });
+    return res.status(503).json({ ok: false, error: 'Couldn’t load your box.' });
   }
 }
 
-// --- profile / onboard / nickname -------------------------------------------
+// --- profile / onboard / nickname / party -----------------------------------
 
-function toProfile(p: { profession: string; mentor: string; starterId: string; currentRoute: string; createdAt: number }) {
-  return { profession: p.profession, mentor: p.mentor, starterId: p.starterId, currentRoute: p.currentRoute, createdAt: p.createdAt };
+function toProfile(
+  p: { profession: string; mentor: string; starterId: string; currentRoute: string; createdAt: number },
+  party: string[],
+) {
+  return { profession: p.profession, mentor: p.mentor, starterId: p.starterId, currentRoute: p.currentRoute, createdAt: p.createdAt, party };
 }
 
 async function profile(req: VercelRequest, res: VercelResponse) {
@@ -119,7 +136,9 @@ async function profile(req: VercelRequest, res: VercelResponse) {
   if (!db) return res.status(200).json({ ok: false, error: 'accounts unavailable' });
   try {
     const p = await readProfile(db, uid);
-    return res.status(200).json({ ok: true, profile: p ? toProfile(p) : null });
+    if (!p) return res.status(200).json({ ok: true, profile: null });
+    const party = await resolvedParty(db, uid, p.party, p.starterId);
+    return res.status(200).json({ ok: true, profile: toProfile(p, party) });
   } catch (err) {
     console.error('[me/profile] failed:', err);
     return res.status(503).json({ ok: false, error: 'could not load profile' });
@@ -159,7 +178,7 @@ async function onboard(req: VercelRequest, res: VercelResponse) {
     const starter = await insertProfileWithStarter(db, base, spec, now);
     const row = { ...base, starterId: starter.id };
     const box = await readOwnedByUser(db, uid);
-    return res.status(200).json({ ok: true, profile: toProfile(row), starter, box });
+    return res.status(200).json({ ok: true, profile: toProfile(row, [starter.id]), starter, box });
   } catch (err) {
     console.error('[me/onboard] failed:', err);
     return res.status(503).json({ ok: false, error: 'could not start your journey' });
@@ -189,5 +208,37 @@ async function nickname(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     console.error('[me/nickname] failed:', err);
     return res.status(503).json({ ok: false, error: 'could not save nickname' });
+  }
+}
+
+async function party(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ ok: false, error: 'method not allowed' });
+  }
+  res.setHeader('Cache-Control', 'no-store');
+  const uid = readSession(req);
+  if (!uid) return res.status(401).json({ ok: false, error: 'sign in first' });
+  const db = getDb();
+  if (!db) return res.status(200).json({ ok: false, error: 'accounts unavailable' });
+  if (!(await rateLimit(getRedis(), `rl:party:m:${uid}`, 30, 60))) {
+    return res.status(429).json({ ok: false, error: 'Too many requests — slow down a little.' });
+  }
+
+  try {
+    const out = await savePartyIds(db, uid, parseBody(req).ids);
+    switch (out.status) {
+      case 'ok':
+        return res.status(200).json({ ok: true, party: out.party });
+      case 'invalid':
+        return res.status(400).json({ ok: false, error: 'Pick 1–6 different Pokémon.' });
+      case 'not_owned':
+        return res.status(400).json({ ok: false, error: 'That party includes a Pokémon you don’t own.' });
+      case 'no_profile':
+        return res.status(400).json({ ok: false, error: 'Finish onboarding first.' });
+    }
+  } catch (err) {
+    console.error('[me/party] failed:', err);
+    return res.status(503).json({ ok: false, error: 'Couldn’t save your party.' });
   }
 }
