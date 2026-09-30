@@ -40,6 +40,7 @@ handheld = the dex, B menu windows = the game), `dark-b-palette.html` (option 1 
 - `Window` and `MenuList` primitives (they arrive with the Hub migration, their first consumer).
 - Animated sprites, shiny/alt sprite toggles in the dex, sound, list virtualisation.
 - Any API, schema, or seed/save change. `fetchPokedex` and `/api/me/pokedex` are untouched.
+- Changing the portraits' smooth-scaling elsewhere (Box, battle cards) — those screens migrate later.
 
 ## 1. Night system
 
@@ -66,11 +67,14 @@ handheld = the dex, B menu windows = the game), `dark-b-palette.html` (option 1 
 | `--color-lcd-ink` / `--color-lcd-dim` | `#203018` / `#b8c8a8` | LCD text, LCD bar troughs and idle tabs |
 | `--color-paper` / `--color-paper-ink` | `#f8f8f0` / `#282828` | List screen |
 | `--color-select` | `#f8d030` | Selected list row |
-| `--color-caught-normal` / `-alt` / `-shiny` | `#ffffff` / `#5eead4` / `#f5c542` | Collection pips (today's values) |
+| `--color-dex-bezel` | `#222222` | Screen bezels and the filter strip |
+| `--color-dex-lens` / `-dark` | `#5ec8f2` / `#2a8fc0` | Device lens |
+| `--color-caught-normal` / `-alt` / `-shiny` | `#ffffff` / `#5eead4` / `#f5c542` | Collection pips on Night surfaces (today's values) |
+| `--color-caught-alt-ink` / `-shiny-ink` | `#1d9a86` / `#a67c00` | Collection pips on the dex's light screens (≥ 3:1); normal uses the screen's ink |
 | `--font-pixel` | `'Pixelify Sans', system-ui, sans-serif` | UI text on migrated screens |
 | `--font-label` | `'Silkscreen', monospace` | Small uppercase labels, numbers |
 
-`--font-display` stays. `body` keeps it until each screen migrates. `.dmg-number` keeps Press Start 2P.
+The block is `@theme static`, so every token is emitted as a CSS variable even when only an `@utility` reads it. `--font-display` stays. `body` keeps it until each screen migrates. `.dmg-number` keeps Press Start 2P.
 
 ### Utilities (`@utility`)
 
@@ -93,7 +97,7 @@ handheld = the dex, B menu windows = the game), `dark-b-palette.html` (option 1 
 
 Contents: the tokens above and when to use each; fonts and minimum sizes (Pixelify ≥ 12px, Silkscreen 8–11px
 uppercase, Press Start 2P only for damage numbers); sprite scaling (portrait 40 → 40/80, front 192 → 96/192,
-icon frame 64 → 32/64, never fractional); what migrated screens drop (blur/`backdrop-blur`, glass
+icon frame 64 → 64 only, since the icon art is native 64px; never fractional); what migrated screens drop (blur/`backdrop-blur`, glass
 `white/[0.0x]` panels, gradients, `rounded-full` pills, soft shadows); motion (short, `steps()` where it reads
 as pixel, always behind `prefers-reduced-motion`); accessibility (focus via `ui-focus`, text contrast ≥ 4.5:1
 against its surface, meaningful sprites carry `alt`); the dex-device palette is Pokédex-only; primitives are
@@ -118,7 +122,8 @@ untouched. Parts move to `src/components/pokedex/`:
   there is a `ui-button` "◀ Back" that calls `onBack`.
 - The top screen has a fixed height (about 300px on phones, taller on desktop) and scrolls internally. On
   phones it is `sticky top-0` so it stays visible while the page scrolls the list.
-- Front sprite: 96px on phones, 192px from `sm` up. List icons: 32px.
+- Front sprite: 96px on phones, 192px from `sm` up (the 192px files are 2× upscaled art, so 96 is exact). List icons: the
+  native 64px frame, shown through a 48px-tall window that crops empty headroom.
 
 ### Behaviour
 
@@ -138,7 +143,7 @@ untouched. Parts move to `src/components/pokedex/`:
 
 | State | Header | List | Top screen |
 |---|---|---|---|
-| Signed out | `1025 SPECIES` | No pips, all in colour | No collection block |
+| Signed out (`me` absent; unreachable today because login is required, kept because the prop is optional) | `1025 SPECIES` | No pips, all in colour | No collection block |
 | Signed in, loaded | `caught / 1025` | Pips; uncaught icon is a silhouette, name shown | Pips; uncaught sprite is a silhouette |
 | Signed in, fetch failed (`fetchPokedex` → `null`) | `1025 SPECIES` | No pips | LCD line "Couldn't load your collection." |
 | Signed in, loading | `… / 1025` | No pips yet | Normal |
