@@ -4,19 +4,9 @@ import type { CatchZone } from './zones.js';
 import type { MintSpec } from './box.js';
 import { RNG } from './rng.js';
 import { CREATURES } from './pokemon.js';
-import {
-  portraitEmotions,
-  shinyPortraitEmotions,
-  altColorPortraitEmotions,
-  canBeShiny,
-  canBeAltColor,
-} from './pokemon.js';
-import { rollAbility } from './abilities.js';
-import { rollSign } from './zodiac.js';
-import { canRollBuild } from './moves.js';
 import { buildOpponentTeam, simulateBattle } from './battle.js';
 import { scaleCreatureToLevel, clampLevel } from './levels.js';
-import { SHINY_CHANCE, ALT_COLOR_CHANCE } from './run.js';
+import { rollIdentity } from './identity.js';
 
 const ALL_TYPES: readonly PokemonType[] = [
   'normal', 'fire', 'water', 'electric', 'grass', 'ice', 'fighting', 'poison',
@@ -108,15 +98,6 @@ function rewardPool(zone: CatchZone, dex: Creature[]): Creature[] {
   return normals.slice(0, cutoff);
 }
 
-function pickEmotion(dexId: number, shiny: boolean, altColor: boolean, rng: RNG): string | undefined {
-  const emotions = shiny
-    ? shinyPortraitEmotions(dexId)
-    : altColor
-      ? altColorPortraitEmotions(dexId)
-      : portraitEmotions(dexId);
-  return emotions.length > 0 ? rng.pick(emotions) : undefined;
-}
-
 /**
  * Deterministically roll the reward for clearing a zone: a species (rarely a
  * "special" at higher zones), its rolled identity, and the zone's reward level.
@@ -133,25 +114,10 @@ export function rollCatchReward(
   const pool = rollSpecial ? specials : rewardPool(zone, dex);
   const species = rng.pick(pool);
 
-  const sign = rollSign(species.stats, rng);
-  const ability = rollAbility(species.dexId, rng);
-  const build = canRollBuild(species.stats)
-    ? (rng.next() < 0.5 ? 'physical' : 'energy')
-    : undefined;
-
-  const shinyRoll = rng.chance(SHINY_CHANCE) && canBeShiny(species.dexId);
-  const altRoll = !shinyRoll && rng.chance(ALT_COLOR_CHANCE) && canBeAltColor(species.dexId);
-  const emotion = pickEmotion(species.dexId, shinyRoll, altRoll, rng);
-
   return {
     dexId: species.dexId,
     level: clampLevel(zone.rewardLevel),
-    sign,
-    ...(ability ? { ability } : {}),
-    ...(build ? { build } : {}),
-    shiny: shinyRoll,
-    altColor: altRoll,
-    ...(emotion ? { emotion } : {}),
+    ...rollIdentity(species, rng),
   };
 }
 
