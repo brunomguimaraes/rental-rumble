@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { getRedis } from '../_redis.js';
 import { rateLimit } from '../_ratelimit.js';
 import { readSession } from '../_session.js';
-import { getDb, readProfile, readOwnedByUser, insertOwnedIfCount, readOpenSession, insertSession, type Db } from '../_db.js';
+import { getDb, readProfile, readOwnedByUser, insertOwnedOnce, readOpenSession, insertSession, type Db } from '../_db.js';
 import { claimIdleSession, type IdleClaimOutcome } from '../_idle.js';
 import { routeById, isPartyEligible, isRouteUnlocked, milestonesFor } from '../../src/game/routes.js';
 import { rollTutorialGift } from '../../src/game/idle.js';
@@ -199,9 +199,9 @@ async function tutorialCatch(req: VercelRequest, res: VercelResponse) {
     const profile = await readProfile(db, uid);
     if (!profile) return res.status(400).json({ ok: false, error: 'finish onboarding first' });
     const now = Date.now();
-    // The count check and the insert are one statement, so parallel calls
-    // can't each see "only the starter" and mint several gifts.
-    const caught = await insertOwnedIfCount(db, uid, rollTutorialGift(`tutorial:${uid}`), 'tutorial', now, 1);
+    // One gift per account, gated on "no tutorial row yet" rather than box
+    // size, so accounts that own earlier catches still finish the tutorial.
+    const caught = await insertOwnedOnce(db, uid, rollTutorialGift(`tutorial:${uid}`), 'tutorial', now);
     if (!caught) return res.status(400).json({ ok: false, error: 'tutorial already complete' });
     await db.execute({
       sql: 'insert or ignore into pokedex_cells (user_id, dex_id, layer, caught_at) values (?, ?, ?, ?)',

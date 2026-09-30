@@ -14,7 +14,7 @@ import {
   updateOwnedEvolution,
   readProfile,
   readOwnedByUser,
-  insertOwnedIfCount,
+  insertOwnedOnce,
   insertSession,
   readOpenSession,
   readSessionById,
@@ -95,14 +95,30 @@ try {
 check('second onboard rejected', threw);
 check('no orphan starter', (await readOwnedByUser(db, 'u3')).length === 1);
 
-console.log('\n[5] count-gated mint (tutorial gift)');
+console.log('\n[5] once-per-origin mint (tutorial gift)');
 const giftSpec = { dexId: 16, level: 3, sign: 'leo', shiny: false, altColor: false } as const;
 await insertOwned(db, 'u4', spec, 'starter', 7);
-const gift1 = await insertOwnedIfCount(db, 'u4', giftSpec, 'tutorial', 8, 1);
-const gift2 = await insertOwnedIfCount(db, 'u4', giftSpec, 'tutorial', 9, 1);
+const gift1 = await insertOwnedOnce(db, 'u4', giftSpec, 'tutorial', 8);
+const gift2 = await insertOwnedOnce(db, 'u4', giftSpec, 'tutorial', 9);
 check('first gated mint returns a row', gift1 !== null && gift1.origin === 'tutorial' && gift1.dexId === 16);
 check('second gated mint returns null', gift2 === null);
 check('user still has exactly two rows', (await readOwnedByUser(db, 'u4')).length === 2);
+
+console.log('\n[6] legacy account: prior catches do not block the tutorial gift');
+await insertOwned(db, 'u5', { dexId: 25, level: 20, sign: 'leo', shiny: false, altColor: false }, 'catch', 1);
+await insertOwned(db, 'u5', { dexId: 133, level: 18, sign: 'leo', shiny: false, altColor: false }, 'catch', 2);
+await insertOwned(db, 'u5', spec, 'starter', 3);
+const legacyGift = await insertOwnedOnce(db, 'u5', giftSpec, 'tutorial', 4);
+check('legacy user with three rows still gets the gift', legacyGift !== null && legacyGift.origin === 'tutorial');
+check('legacy user second gift refused', (await insertOwnedOnce(db, 'u5', giftSpec, 'tutorial', 5)) === null);
+const legacyRows = await readOwnedByUser(db, 'u5');
+check('legacy user owns four rows, one tutorial', legacyRows.length === 4 && legacyRows.filter((m) => m.origin === 'tutorial').length === 1);
+
+console.log('\n[7] parallel gift requests mint once');
+await insertOwned(db, 'u6', spec, 'starter', 1);
+const racers = await Promise.all(Array.from({ length: 5 }, (_, i) => insertOwnedOnce(db, 'u6', giftSpec, 'tutorial', 10 + i)));
+check('exactly one parallel mint succeeds', racers.filter((r) => r !== null).length === 1);
+check('u6 owns exactly one tutorial row', (await readOwnedByUser(db, 'u6')).filter((m) => m.origin === 'tutorial').length === 1);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

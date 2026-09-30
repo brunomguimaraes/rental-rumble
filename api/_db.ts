@@ -198,15 +198,6 @@ export async function readOwnedByUser(db: Executor, uid: string): Promise<OwnedM
   return (rs.rows as unknown as Record<string, unknown>[]).map(rowToOwned);
 }
 
-/** Count a user's owned mons (used both for the box cap and tutorial gating). */
-export async function countOwned(db: Db, uid: string): Promise<number> {
-  const rs = await db.execute({
-    sql: 'select count(*) as n from owned_pokemon where user_id = ?',
-    args: [uid],
-  });
-  return Number((rs.rows[0] as unknown as { n: number })?.n) || 0;
-}
-
 /**
  * Load the specified owned ids, but ONLY those that belong to `uid`. The caller
  * can compare the returned length against the requested ids to reject a party
@@ -276,24 +267,24 @@ export async function insertOwned(
 }
 
 /**
- * Mint a mon only while the user owns exactly `expectedCount` rows. The count
- * check and the insert are one statement, so concurrent callers can't both
- * pass the check. Returns the stored row, or null when the count didn't match.
+ * Mint a mon only if the user owns no row of this origin yet (the tutorial
+ * gift). Earlier catches don't matter, so legacy accounts can still finish
+ * the tutorial. The check and the insert are one statement, so concurrent
+ * callers can't both pass. Returns the stored row, or null when one exists.
  */
-export async function insertOwnedIfCount(
+export async function insertOwnedOnce(
   db: Db,
   uid: string,
   spec: MintSpec,
   origin: CatchOrigin,
   now: number,
-  expectedCount: number,
 ): Promise<OwnedMon | null> {
   const id = newId();
   const rs = await db.execute({
     sql: `insert into owned_pokemon
           (id, user_id, dex_id, level, exp, sign, ability, build, shiny, alt_color, emotion, origin, caught_at)
           select ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-          where (select count(*) from owned_pokemon where user_id = ?) = ?`,
+          where not exists (select 1 from owned_pokemon where user_id = ? and origin = ?)`,
     args: [
       id,
       uid,
@@ -309,7 +300,7 @@ export async function insertOwnedIfCount(
       origin,
       now,
       uid,
-      expectedCount,
+      origin,
     ],
   });
   return rs.rowsAffected === 1 ? ownedFromSpec(id, spec, origin, now) : null;

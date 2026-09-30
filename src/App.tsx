@@ -13,6 +13,7 @@ import { OnboardingScreen } from './components/OnboardingScreen';
 import { RouteScreen } from './components/RouteScreen';
 import { ClaimScreen } from './components/ClaimScreen';
 import { BoxScreen } from './components/BoxScreen';
+import { needsOnboarding, resumeStarterOf } from './game/onboarding';
 
 const GuideScreen = lazy(() => import('./components/Guide').then((m) => ({ default: m.GuideScreen })));
 const PokedexScreen = lazy(() => import('./components/PokedexScreen').then((m) => ({ default: m.PokedexScreen })));
@@ -27,14 +28,6 @@ function ScreenFallback() {
       <img src={`${import.meta.env.BASE_URL}sprites/ui/pokeball.png`} alt="Loading" className="h-12 w-12 animate-spin object-contain [image-rendering:pixelated] opacity-70" />
     </div>
   );
-}
-
-/**
- * Onboarding is finished only once the tutorial gift is in the box: a profile
- * whose box holds nothing but the starter was interrupted mid-tutorial.
- */
-function needsOnboarding(profile: Profile | null, box: readonly OwnedMon[]): boolean {
-  return !profile || (box.length === 1 && box[0].origin === 'starter');
 }
 
 type Phase = 'hub' | 'onboarding' | 'route' | 'claim' | 'box' | 'dex' | 'guide' | 'account' | 'trainerSprites';
@@ -199,7 +192,8 @@ export default function App() {
     }
     if (!profileChecked) return <ScreenFallback />;
     if (!profile || needsOnboarding(profile, box)) {
-      const resume = profile ? { resumeStarter: box[0], resumeProfile: profile } : {};
+      const resumeStarter = profile ? resumeStarterOf(box) : undefined;
+      const resume = profile && resumeStarter ? { resumeStarter, resumeProfile: profile } : {};
       return (
         <OnboardingScreen
           me={me}
