@@ -1,0 +1,330 @@
+{
+  "schemaVersion": 1,
+  "name": "Night UI icon library",
+  "icons": [
+    {
+      "id": "world-map",
+      "label": "World map",
+      "category": "home",
+      "file": "world-map.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "5389c7f612fadb26324d5cb996ad7bac32e8b33b145ff0db54218a375658d0d4"
+    },
+    {
+      "id": "your-box",
+      "label": "Your box",
+      "category": "home",
+      "file": "your-box.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "3e4f1db4be1bc975c089dffa9816d9c03e4d23b92f283b0189421166d8d6d430"
+    },
+    {
+      "id": "research",
+      "label": "Research",
+      "category": "home",
+      "file": "research.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "2c2016869aa73dd8700df20e052b759b8f121da14de61e4c774f45c2e2c8818b"
+    },
+    {
+      "id": "all-features",
+      "label": "All features",
+      "category": "home",
+      "file": "all-features.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "a1e90c6758b1968d9383ce926b32fa6d165cc02113677b01ad591c2bcb40220a"
+    },
+    {
+      "id": "routes",
+      "label": "Routes",
+      "category": "adventure",
+      "file": "routes.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "2e79314d0bf1fa84d6f1c37368dfb2d7ed3a3e94e46eb58555582d602e3d36cd"
+    },
+    {
+      "id": "co-op-trails",
+      "label": "Co-op trails",
+      "category": "adventure",
+      "file": "co-op-trails.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "aed3737f074a98f25ea6d40b9dca13021ef08f35886167f9d8956df9f89ddf88"
+    },
+    {
+      "id": "ranger-rescues",
+      "label": "Ranger rescues",
+      "category": "adventure",
+      "file": "ranger-rescues.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "15577a1cfe5d6765e5865374216b832496630164595cce1e7534b41329d89b56"
+    },
+    {
+      "id": "photo-safari",
+      "label": "Photo safari",
+      "category": "adventure",
+      "file": "photo-safari.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "a8dda9a3fc0b40bcda47438a8159b2421e5496544ee8dc3712053204de3871d0"
+    },
+    {
+      "id": "habitat",
+      "label": "Habitat",
+      "category": "raise",
+      "file": "habitat.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "15246dad1368bc434f902b5afca82f40a792cfc1ec3a1678a3bb20fc79411e5c"
+    },
+    {
+      "id": "bond-stories",
+      "label": "Bond stories",
+      "category": "raise",
+      "file": "bond-stories.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "2186f6687e7d1d3185a3f6598c52c49445d53ad0b9a44c5f3f1f2cfc3d919e23"
+    },
+    {
+      "id": "nursery",
+      "label": "Nursery",
+      "category": "raise",
+      "file": "nursery.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "d3264f668c36fcc41c89fce899903f475452aeb73c4571267edbd4aa70e917a5"
+    },
+    {
+      "id": "berry-garden",
+      "label": "Berry garden",
+      "category": "raise",
+      "file": "berry-garden.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "fd5d599352d55a9d54d4cc317338b23de2f29fb503335dbe6b9dca79bb5d7353"
+    },
+    {
+      "id": "field-journal",
+      "label": "Field journal",
+      "category": "discover",
+      "file": "field-journal.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "b79e92891331135469d22518aa6eb569cf6039287fc0b182eaeeeb80c8fd0324"
+    },
+    {
+      "id": "fossil-lab",
+      "label": "Fossil lab",
+      "category": "discover",
+      "file": "fossil-lab.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "cb8d371c05a589feb4e1b32e85cd90332c115027569854b5b2d9db7a68c12da0"
+    },
+    {
+      "id": "professions",
+      "label": "Professions",
+      "category": "discover",
+      "file": "professions.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "e89663069761a61fa2fc50d5906171d968ae27d48ca996457dfa3ca7922cf0cd"
+    },
+    {
+      "id": "crafting",
+      "label": "Crafting",
+      "category": "discover",
+      "file": "crafting.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "f38d64e4a6d4f34482ecde34835f939e995a0152ceee340f59b7efa186abd336"
+    },
+    {
+      "id": "battle-dojo",
+      "label": "Battle dojo",
+      "category": "trainer",
+      "file": "battle-dojo.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "65a668351bae6c848fda17bdac38a575004772bfb9eff8f202cfc40e3e7446b7"
+    },
+    {
+      "id": "league",
+      "label": "League",
+      "category": "trainer",
+      "file": "league.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "ddc6ffa772215b4512c6a41cbda1c1f8945c5b7cf80564c5aafb34cc49eabbfc"
+    },
+    {
+      "id": "trading",
+      "label": "Trading",
+      "category": "trainer",
+      "file": "trading.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "921223ea3de7b3eab62a92add15455ade8736a6ca9b217560d2e392be8065116"
+    },
+    {
+      "id": "friends",
+      "label": "Friends",
+      "category": "trainer",
+      "file": "friends.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "f23f60f8c94f4175f8e526dad36d469bdccfbdf4a2411d965928be6ce2095b3f"
+    },
+    {
+      "id": "bag",
+      "label": "Bag",
+      "category": "utilities",
+      "file": "bag.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "cf0f1da1bb339cb4885ecc2d5cdebef93116a2969094c0591c72d4f118cc93a3"
+    },
+    {
+      "id": "achievements",
+      "label": "Achievements",
+      "category": "utilities",
+      "file": "achievements.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "39faaca7d6990675e1c557aa9f4aeeed08632d9773db8a092c2cc49894c5008d"
+    },
+    {
+      "id": "guide",
+      "label": "Guide",
+      "category": "utilities",
+      "file": "guide.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "f34de7238b8ae0d1330d2ddc96b1a2115076e547bd583e1774f5c7c3e6d8c88c"
+    },
+    {
+      "id": "settings",
+      "label": "Settings",
+      "category": "utilities",
+      "file": "settings.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "210f3aee5c756f1dbb623b793141abf955b020a65bdfe59a8db71340cd900006"
+    },
+    {
+      "id": "home",
+      "label": "Home",
+      "category": "navigation",
+      "file": "home.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "31f94dccc233ef5496dad27c011f8688369b815cf58929e82597bf1c604f175a"
+    },
+    {
+      "id": "home-active",
+      "label": "Home active",
+      "category": "navigation",
+      "file": "home-active.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "ed1a6e53815bc5158c4a8557a64c27fa0bd8c89c4fe8aac550dfbf479939f614"
+    },
+    {
+      "id": "explore",
+      "label": "Explore",
+      "category": "navigation",
+      "file": "explore.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "567d305fab2051f5cbdd0149b67ad4bd0de52ecf6e78d68c7ec2d4dd638db5b4"
+    },
+    {
+      "id": "party",
+      "label": "Party",
+      "category": "navigation",
+      "file": "party.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "228deef115c2d49efdb597014316ac3d7f5af753596d1e0b30586285af14082e"
+    },
+    {
+      "id": "pokedex",
+      "label": "Pokédex",
+      "category": "navigation",
+      "file": "pokedex.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "fb820be6b4970ce3edb8574b73e0fb71a0860e7ded1614e4221ec14ec9c4244e"
+    },
+    {
+      "id": "pokedex-active",
+      "label": "Pokédex active",
+      "category": "navigation",
+      "file": "pokedex-active.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "806004fbf82279c5314668e3db75a82a11214ff33a62dfe953cdfb1432933747"
+    },
+    {
+      "id": "menu",
+      "label": "Menu",
+      "category": "navigation",
+      "file": "menu.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "eb6406bb7faa040901fda43d4ac440dc111426f40820ed0b76d8c0359928d9e5"
+    },
+    {
+      "id": "menu-active",
+      "label": "Menu active",
+      "category": "navigation",
+      "file": "menu-active.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "15c4f34ce5ea36a2e5a22342230f3623676afb9cbb84dee3034a896871f0b4a6"
+    },
+    {
+      "id": "mail",
+      "label": "Mail",
+      "category": "utilities",
+      "file": "mail.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "9bfaca3c84aa9b41efe5a308e615f4ff392682fac883c98673f45d8c9da211ce"
+    },
+    {
+      "id": "coin",
+      "label": "Coin",
+      "category": "utilities",
+      "file": "coin.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "6bb0f6e7f8c87cae3597e60b4f4b731ca7cdf5ee8d386d19c2c47954f57e4e1e"
+    },
+    {
+      "id": "migration-radar",
+      "label": "Migration radar",
+      "category": "adventure",
+      "file": "migration-radar.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "89f9b5bad98425c7ab051bc7e48b56f58db8834e5504062be00904b8789bc2e8"
+    },
+    {
+      "id": "moon",
+      "label": "Moon",
+      "category": "utilities",
+      "file": "moon.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "fe2b76defb264a215dda00c508d48dc2b4bf67af78163000cbb77bcbc721ccfa"
+    }
+  ]
+}

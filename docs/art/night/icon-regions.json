@@ -1,0 +1,408 @@
+{
+  "name": "Night mobile UI icons",
+  "source": "mobile-hub-concept.png",
+  "sourceSha256": "23c3cb77da5099572b2c71bdf6be34648eb2081f5717b66ee6c13138167b9d5f",
+  "sourceSize": {
+    "width": 1448,
+    "height": 1086
+  },
+  "boundsFormat": "[left, top, right, bottom] in source pixels",
+  "icons": [
+    {
+      "id": "world-map",
+      "label": "World map",
+      "category": "home",
+      "bounds": [
+        58,
+        819,
+        108,
+        868
+      ]
+    },
+    {
+      "id": "your-box",
+      "label": "Your box",
+      "category": "home",
+      "bounds": [
+        268,
+        819,
+        319,
+        868
+      ]
+    },
+    {
+      "id": "research",
+      "label": "Research",
+      "category": "home",
+      "bounds": [
+        59,
+        875,
+        107,
+        923
+      ]
+    },
+    {
+      "id": "all-features",
+      "label": "All features",
+      "category": "home",
+      "bounds": [
+        269,
+        875,
+        318,
+        923
+      ]
+    },
+    {
+      "id": "routes",
+      "label": "Routes",
+      "category": "adventure",
+      "bounds": [
+        527,
+        333,
+        580,
+        384
+      ]
+    },
+    {
+      "id": "co-op-trails",
+      "label": "Co-op trails",
+      "category": "adventure",
+      "bounds": [
+        740,
+        333,
+        810,
+        385
+      ]
+    },
+    {
+      "id": "ranger-rescues",
+      "label": "Ranger rescues",
+      "category": "adventure",
+      "bounds": [
+        527,
+        396,
+        581,
+        444
+      ]
+    },
+    {
+      "id": "photo-safari",
+      "label": "Photo safari",
+      "category": "adventure",
+      "bounds": [
+        743,
+        396,
+        803,
+        444
+      ]
+    },
+    {
+      "id": "habitat",
+      "label": "Habitat",
+      "category": "raise",
+      "bounds": [
+        527,
+        487,
+        582,
+        538
+      ]
+    },
+    {
+      "id": "bond-stories",
+      "label": "Bond stories",
+      "category": "raise",
+      "bounds": [
+        743,
+        487,
+        806,
+        538
+      ]
+    },
+    {
+      "id": "nursery",
+      "label": "Nursery",
+      "category": "raise",
+      "bounds": [
+        527,
+        548,
+        581,
+        600
+      ]
+    },
+    {
+      "id": "berry-garden",
+      "label": "Berry garden",
+      "category": "raise",
+      "bounds": [
+        743,
+        548,
+        803,
+        600
+      ]
+    },
+    {
+      "id": "field-journal",
+      "label": "Field journal",
+      "category": "discover",
+      "bounds": [
+        527,
+        640,
+        581,
+        692
+      ]
+    },
+    {
+      "id": "fossil-lab",
+      "label": "Fossil lab",
+      "category": "discover",
+      "bounds": [
+        743,
+        640,
+        803,
+        692
+      ]
+    },
+    {
+      "id": "professions",
+      "label": "Professions",
+      "category": "discover",
+      "bounds": [
+        527,
+        701,
+        581,
+        752
+      ]
+    },
+    {
+      "id": "crafting",
+      "label": "Crafting",
+      "category": "discover",
+      "bounds": [
+        743,
+        701,
+        803,
+        752
+      ]
+    },
+    {
+      "id": "battle-dojo",
+      "label": "Battle dojo",
+      "category": "trainer",
+      "bounds": [
+        527,
+        794,
+        584,
+        847
+      ]
+    },
+    {
+      "id": "league",
+      "label": "League",
+      "category": "trainer",
+      "bounds": [
+        743,
+        794,
+        800,
+        847
+      ]
+    },
+    {
+      "id": "trading",
+      "label": "Trading",
+      "category": "trainer",
+      "bounds": [
+        527,
+        854,
+        591,
+        907
+      ]
+    },
+    {
+      "id": "friends",
+      "label": "Friends",
+      "category": "trainer",
+      "bounds": [
+        737,
+        854,
+        810,
+        907
+      ]
+    },
+    {
+      "id": "bag",
+      "label": "Bag",
+      "category": "utilities",
+      "bounds": [
+        550,
+        917,
+        581,
+        951
+      ]
+    },
+    {
+      "id": "achievements",
+      "label": "Achievements",
+      "category": "utilities",
+      "bounds": [
+        649,
+        917,
+        685,
+        951
+      ]
+    },
+    {
+      "id": "guide",
+      "label": "Guide",
+      "category": "utilities",
+      "bounds": [
+        757,
+        917,
+        799,
+        951
+      ]
+    },
+    {
+      "id": "settings",
+      "label": "Settings",
+      "category": "utilities",
+      "bounds": [
+        858,
+        917,
+        899,
+        951
+      ]
+    },
+    {
+      "id": "home",
+      "label": "Home",
+      "category": "navigation",
+      "bounds": [
+        535,
+        986,
+        564,
+        1019
+      ]
+    },
+    {
+      "id": "home-active",
+      "label": "Home active",
+      "category": "navigation",
+      "bounds": [
+        61,
+        986,
+        94,
+        1019
+      ]
+    },
+    {
+      "id": "explore",
+      "label": "Explore",
+      "category": "navigation",
+      "bounds": [
+        622,
+        986,
+        654,
+        1019
+      ]
+    },
+    {
+      "id": "party",
+      "label": "Party",
+      "category": "navigation",
+      "bounds": [
+        707,
+        986,
+        740,
+        1019
+      ]
+    },
+    {
+      "id": "pokedex",
+      "label": "Pokédex",
+      "category": "navigation",
+      "bounds": [
+        795,
+        986,
+        824,
+        1019
+      ]
+    },
+    {
+      "id": "pokedex-active",
+      "label": "Pokédex active",
+      "category": "navigation",
+      "bounds": [
+        1264,
+        986,
+        1294,
+        1019
+      ]
+    },
+    {
+      "id": "menu",
+      "label": "Menu",
+      "category": "navigation",
+      "bounds": [
+        412,
+        986,
+        448,
+        1019
+      ]
+    },
+    {
+      "id": "menu-active",
+      "label": "Menu active",
+      "category": "navigation",
+      "bounds": [
+        881,
+        986,
+        916,
+        1019
+      ]
+    },
+    {
+      "id": "mail",
+      "label": "Mail",
+      "category": "utilities",
+      "bounds": [
+        386,
+        99,
+        420,
+        128
+      ]
+    },
+    {
+      "id": "coin",
+      "label": "Coin",
+      "category": "utilities",
+      "bounds": [
+        382,
+        132,
+        411,
+        158
+      ]
+    },
+    {
+      "id": "migration-radar",
+      "label": "Migration radar",
+      "category": "adventure",
+      "bounds": [
+        523,
+        141,
+        567,
+        182
+      ]
+    },
+    {
+      "id": "moon",
+      "label": "Moon",
+      "category": "utilities",
+      "bounds": [
+        397,
+        172,
+        425,
+        202
+      ]
+    }
+  ]
+}

@@ -12,6 +12,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 ## [Unreleased]
 
 ### Added
+- **Night icon library** — reusable transparent menu and navigation icons, with the original mobile concept, an asset index, and a preview gallery.
 - **Professor Andre** — new trainers meet a stone and fossil researcher with a custom sprite; existing Oak mentor records and the non-fossil starter pool are preserved.
 - **Trainer route** — pick the Trainer profession; Professor Oak offers three weak, three-stage starters from a pool of ten, fixed per account, and you keep one.
 - **Box** — nickname your Pokémon; starters evolve at 8 and 16, others at 16 and 32.
