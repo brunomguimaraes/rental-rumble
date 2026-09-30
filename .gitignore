@@ -32,3 +32,6 @@ trainer-audit.html
 *.sln
 *.sw?
 .vercel
+
+# Claude Code / Codex per-user settings
+.agents/settings.local.json
