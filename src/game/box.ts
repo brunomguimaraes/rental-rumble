@@ -16,7 +16,6 @@ import { isAbilityOption } from './abilities.js';
 import { canRollBuild } from './moves.js';
 import { ALL_SIGNS } from './zodiac.js';
 import { clampLevel, scaleCreatureToLevel } from './levels.js';
-import type { ZoneId } from './zones.js';
 
 export type CatchOrigin = 'starter' | 'tutorial' | 'catch';
 
@@ -91,28 +90,6 @@ export function ownedPower(mon: OwnedMon): number {
 
 // --- Client wrappers (same-origin; session cookie rides along) ---------------
 
-export interface CatchStart {
-  seed: string;
-  token: string;
-  zone: ZoneId;
-}
-
-/** One entry describing a mon that leveled up during a catch run. */
-export interface LevelUp {
-  id: string;
-  fromLevel: number;
-  toLevel: number;
-}
-
-export interface CatchResult {
-  ok: boolean;
-  cleared: boolean;
-  caught?: OwnedMon;
-  levelUps?: LevelUp[];
-  box?: OwnedMon[];
-  error?: string;
-}
-
 function coerceOwned(v: unknown): OwnedMon[] {
   if (!Array.isArray(v)) return [];
   return v as OwnedMon[];
@@ -130,59 +107,5 @@ export async function fetchBox(): Promise<OwnedMon[]> {
     return data.ok ? coerceOwned(data.box) : [];
   } catch {
     return [];
-  }
-}
-
-/**
- * Ask the server to authorise a catch run: it validates the party + zone and
- * returns a seed and a signed token the client echoes back on complete. Returns
- * null on any failure.
- */
-export async function startCatch(input: {
-  zone: ZoneId;
-  party: string[];
-}): Promise<CatchStart | null> {
-  try {
-    const res = await fetch('/api/catch/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(input),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as Partial<CatchStart> & { ok?: boolean };
-    if (!data.ok || typeof data.seed !== 'string' || typeof data.token !== 'string') {
-      return null;
-    }
-    return { seed: data.seed, token: data.token, zone: input.zone };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Finish a catch run. The server re-simulates the mission from the token's seed,
- * and — only on a genuine clear — mints the reward and grants EXP. The returned
- * `caught` / `levelUps` / `box` all come from the server, never the client.
- */
-export async function completeCatch(token: string): Promise<CatchResult> {
-  try {
-    const res = await fetch('/api/catch/complete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ token }),
-    });
-    const data = (await res.json().catch(() => ({}))) as Partial<CatchResult>;
-    if (!res.ok) return { ok: false, cleared: false, error: data.error ?? 'catch failed' };
-    return {
-      ok: true,
-      cleared: Boolean(data.cleared),
-      caught: data.caught,
-      levelUps: data.levelUps ?? [],
-      box: data.box ?? [],
-    };
-  } catch {
-    return { ok: false, cleared: false, error: 'network error — please try again' };
   }
 }

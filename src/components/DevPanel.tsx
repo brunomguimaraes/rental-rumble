@@ -3,10 +3,6 @@ import {
   DEV,
   autoWinEnabled,
   setAutoWin,
-  allRareEnabled,
-  setAllRare,
-  allShinyEnabled,
-  setAllShiny,
 } from '../game/dev';
 
 interface Toggle {
@@ -25,34 +21,12 @@ const TOGGLES: Toggle[] = [
     set: setAutoWin,
     accent: 'emerald',
   },
-  {
-    label: 'All rare/mythic',
-    hint: "Next run's draft is all rare/mythic signs.",
-    get: allRareEnabled,
-    set: setAllRare,
-    accent: 'violet',
-  },
-  {
-    label: 'All shiny',
-    hint: "Next run's draft is all shiny (where available).",
-    get: allShinyEnabled,
-    set: setAllShiny,
-    accent: 'amber',
-  },
 ];
 
 const ACCENT: Record<string, { on: string; dot: string }> = {
   emerald: {
     on: 'border-emerald-400/50 bg-emerald-400/15 text-emerald-200',
     dot: 'bg-emerald-400',
-  },
-  violet: {
-    on: 'border-violet-400/50 bg-violet-400/15 text-violet-200',
-    dot: 'bg-violet-400',
-  },
-  amber: {
-    on: 'border-amber-400/50 bg-amber-400/15 text-amber-200',
-    dot: 'bg-amber-400',
   },
 };
 

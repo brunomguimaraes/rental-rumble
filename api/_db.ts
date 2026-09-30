@@ -3,9 +3,6 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import type { BracketId } from '../src/game/gens.js';
-import type { Difficulty } from '../src/game/run.js';
-import type { SubmissionMon } from '../src/game/leaderboard.js';
 import type { AbilityId, Build, Sign } from '../src/game/types.js';
 import type { CatchOrigin, MintSpec, OwnedMon } from '../src/game/box.js';
 
@@ -73,16 +70,12 @@ export type DexLayer = (typeof DEX_LAYERS)[number];
 /** Highest National Dex id we track (mirrors RAW_DEX length). */
 export const DEX_MAX_ID = 1025;
 
-/** How many recent runs the personal history keeps/returns. */
-export const RUNS_LIMIT = 100;
-
 // Single-use token lifetimes (seconds).
 export const VERIFY_TTL_SECONDS = 60 * 60 * 24; // 24h
 export const RESET_TTL_SECONDS = 60 * 60; // 1h
 export const OAUTH_STATE_TTL_SECONDS = 60 * 10; // 10m
 
 export type OAuthProvider = 'discord' | 'google';
-export type RunOutcome = 'win' | 'loss' | 'ragequit';
 
 // --- Types -------------------------------------------------------------------
 
@@ -110,20 +103,6 @@ export interface PublicUser {
   emailVerified: boolean;
   providers: OAuthProvider[];
   stats: { runs: number; wins: number; losses: number };
-}
-
-/** A single personal-history row — reuses the board's tamper-proof mon record. */
-export interface RunRecord {
-  runId: string;
-  date: string;
-  bracket: BracketId;
-  difficulty: Difficulty;
-  outcome: RunOutcome;
-  clearedStages: number;
-  team: SubmissionMon[];
-  fellTo?: string;
-  at: number;
-  formsGained: number;
 }
 
 /** Build a StoredUser from a raw SQLite row (snake_case columns, 0/1 booleans). */

@@ -22,9 +22,7 @@ import {
   CREATURES,
   CREATURES_BY_ID,
   withBuild,
-  withMoveOverride,
 } from '../src/game/pokemon.js';
-import { monToRecord, teamFromMons } from '../src/game/leaderboard.js';
 import type { BaseStats, Move, MoveEffect } from '../src/game/types.js';
 
 let passed = 0;
@@ -347,7 +345,7 @@ console.log('\n[6] Physical/Energy builds — eligibility, redistribution, move 
   }
 }
 
-console.log('\n[7] Move tweaks + serialization round-trip');
+console.log('\n[7] Move candidate pool');
 {
   const starmie = CREATURES_BY_ID['121'];
   if (starmie) {
@@ -356,32 +354,6 @@ console.log('\n[7] Move tweaks + serialization round-trip');
     const cands = candidateMovesFor(starmie.types, starmie.dexId);
     check('candidate pool is non-empty', cands.length > 0);
     check('every candidate resolves via the move registry', cands.every((m) => moveByName(m.name)?.name === m.name));
-
-    // A built + move-tweaked mon survives monToRecord → teamFromMons byte-for-byte
-    // (stats, build and the swapped move all reconstruct identically).
-    const built = withBuild(starmie, 'physical');
-    const swapIn = cands.find((m) => !built.moves.some((x) => x.name === m.name))!;
-    const tweaked = withMoveOverride(built, 2, swapIn);
-    const [rebuilt] = teamFromMons([monToRecord(tweaked)]);
-    check('rebuilt mon keeps the rolled build', rebuilt.build === 'physical');
-    check('rebuilt mon keeps the redistributed stats', rebuilt.stats.atk === tweaked.stats.atk && rebuilt.stats.eatk === tweaked.stats.eatk);
-    check('rebuilt mon keeps the swapped move in its slot', rebuilt.moves[2]?.name === swapIn.name);
-    check(
-      'rebuilt moveset matches the played one exactly',
-      rebuilt.moves.map((m) => m.name).join(',') === tweaked.moves.map((m) => m.name).join(','),
-    );
-
-    // Anti-cheat: a forged illegal move name is dropped on the lenient rebuild.
-    const forged = monToRecord(tweaked);
-    forged.moves = [{ slot: 0, name: 'Definitely Not A Real Move' }];
-    const [forgedRebuilt] = teamFromMons([forged]);
-    check('a forged/illegal move tweak is dropped on rebuild', forgedRebuilt.moves[0]?.name === built.moves[0]?.name);
-
-    // Anti-cheat: a build claimed on a lopsided species is ignored on rebuild.
-    const fakeBuild = monToRecord(CREATURES_BY_ID['68']); // Machamp
-    fakeBuild.build = 'energy';
-    const [machampRebuilt] = teamFromMons([fakeBuild]);
-    check('a build forged onto a lopsided mon is ignored', machampRebuilt.stats.atk === CREATURES_BY_ID['68'].stats.atk);
   }
 }
 

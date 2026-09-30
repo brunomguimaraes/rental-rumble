@@ -39,37 +39,21 @@ in the *build*) and the instant roll → build → simulate loop of
 
 ## How it plays
 
-1. **Pick a difficulty** — it sets how many sets you can skip: Easy 5, Normal 3,
-   Hard 1, Master 0.
-2. **Draft** — a seed deterministically deals **3** Pokémon at a time. Pick one
-   and the next, totally fresh set of three appears, until you've drafted six.
-3. **Skip** — don't like a set? Skip it for a brand-new trio (within your
-   budget). Roles are auto-assigned to each card (tuning stats and moves).
-4. **Arrange** — on the map before each battle, set your lead and reorder your
-   lineup (slot 1 leads; the rest send out in order as Pokémon faint).
-5. **Gauntlet** — auto-battle (always **6v6**) through 8 type-specialist gym
-   leaders and a type-specialist Elite, then the Champion — who specializes in
-   no type and fields a randomized, all-rounder powerhouse team. Lose one battle
-   and the run is over.
-6. **Recruit** — after each win, swap any of your Pokémon for the ones you just
-   defeated, then re-arrange your lineup. Your team snowballs as you climb.
-7. **Share** — the draft pool is reproducible from its seed.
+1. **Onboard** — pick the Trainer profession and one of four professors (Oak,
+   Elm, Birch, Rowan); receive a fixed, weak, three-stage starter and fight a
+   guided first battle and first catch.
+2. **Send out** — your trainer walks Route 1 for up to 8 hours of real time,
+   auto-battling wild Pokémon. Results are simulated on the server from a fixed
+   seed.
+3. **Claim** — come back to read the encounter log, collect EXP, level-ups and
+   evolutions.
+4. **Box** — nickname your Pokémon; starters evolve at 8 and 16, others at 16
+   and 32.
 
-## Core systems
-
-- **All 1025 Pokémon** with real base stats and types, plus a rarity tier
-  (legendary / mythical). Generated via
-  `scripts/gen-pokedex.ts` (one PokeAPI GraphQL query) into
-  `src/game/pokedex.gen.ts`.
-- **Rarity rules** — at most one legendary/mythical per draft
-  pool; specials get a gold card. Trainers never use legendaries/mythicals
-  (heavy hitters like Dragonite are fair game); a legendary is a rare
-  player-only boon.
-- **Real 18-type chart** with dual types and immunities (`src/game/typechart.ts`).
-- **Roles** (`src/game/roles.ts`) — Sweeper/Bruiser/Tank/Support tilt stats and
-  movesets, with stat-based eligibility (frail Pokémon can't Tank).
-- **Seeded RNG** (`src/game/rng.ts`) and a pure **battle engine**
-  (`src/game/battle.ts`) returning a replayable event log.
+Under it all: **1025 Pokémon** with real base stats and types
+(`scripts/gen-pokedex.ts` into `src/game/pokedex.gen.ts`), the real 18-type chart
+(`src/game/typechart.ts`), seeded RNG (`src/game/rng.ts`) and a pure battle
+engine (`src/game/battle.ts`) returning a replayable event log.
 
 ## Regenerating the Pokédex
 
@@ -85,19 +69,7 @@ npm run dev      # http://localhost:5173
 npm run build    # production build
 ```
 
-## Balance check (optional)
-
-A headless simulator runs thousands of gauntlets to sanity-check difficulty and
-battle length:
-
-```bash
-npx tsx scripts/sim-check.ts
-```
-
-Current tuning (player "hero" edge `1.12`): a strong, well-drafted team clears
-the full gauntlet ~40% of the time. Battles average ~14 turns with no stalls.
-Adjust `PLAYER_STAT_MULT` in `src/App.tsx` to make runs easier/harder.
-
 ## Tech
 
-React 19 · TypeScript · Vite · Tailwind CSS v4. Pure frontend, no backend.
+React 19 · TypeScript · Vite · Tailwind CSS v4. Vercel serverless functions (`api/`) backed by Turso (libSQL) for accounts and
+progress, and Upstash Redis for rate limiting.

@@ -1,5 +1,6 @@
 import type { Creature } from './types.js';
 import type { Route } from './routes.js';
+import type { MintSpec } from './box.js';
 import { RNG } from './rng.js';
 import {
   CREATURES,
@@ -119,4 +120,13 @@ export function simulateIdle(
     wins++;
   }
   return { encounters, wins, stoppedBy: 'count' };
+}
+
+/** The one-time tutorial gift: a weak-pool species at level 3. Deterministic per seed. */
+export function rollTutorialGift(seed: string, dex: Creature[] = CREATURES): MintSpec {
+  const rng = new RNG(`tutorial-gift:${seed}`);
+  const normals = dex.filter((c) => c.tier === 'normal').sort((a, b) => bst(a) - bst(b));
+  const pool = normals.slice(0, Math.max(1, Math.floor(normals.length * 0.25)));
+  const species = rng.pick(pool);
+  return { dexId: species.dexId, level: 3, ...rollIdentity(species, rng) };
 }

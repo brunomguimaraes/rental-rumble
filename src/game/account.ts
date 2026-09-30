@@ -4,9 +4,6 @@
 // gracefully — a failed or absent backend just leaves the player signed out and
 // the game fully playable.
 
-import type { SubmissionMon } from './leaderboard';
-import type { BracketId } from './gens';
-import type { Difficulty } from './run';
 
 export type OAuthProvider = 'discord' | 'google';
 
@@ -126,39 +123,6 @@ export function hasForm(bytes: Uint8Array, dexId: number): boolean {
   const byte = dexId >> 3;
   const bit = dexId & 7;
   return byte < bytes.length ? (bytes[byte] & (1 << bit)) !== 0 : false;
-}
-
-// --- Personal run history ----------------------------------------------------
-
-export type RunOutcome = 'win' | 'loss' | 'ragequit';
-
-/** One row of the player's personal run history (the "My Runs" archive). */
-export interface MyRun {
-  runId: string;
-  date: string;
-  bracket: BracketId;
-  difficulty: Difficulty;
-  outcome: RunOutcome;
-  clearedStages: number;
-  team: SubmissionMon[];
-  fellTo?: string;
-  formsGained: number;
-  at: number; // epoch ms
-}
-
-/** The signed-in player's recent runs (newest first), or [] when anonymous. */
-export async function fetchMyRuns(): Promise<MyRun[]> {
-  try {
-    const res = await fetch('/api/me/runs', {
-      credentials: 'include',
-      cache: 'no-store',
-    });
-    if (!res.ok) return [];
-    const data = (await res.json()) as { ok?: boolean; runs?: MyRun[] };
-    return Array.isArray(data.runs) ? data.runs : [];
-  } catch {
-    return [];
-  }
 }
 
 /** The signed-in player's owned dex, or null when anonymous / unavailable. */

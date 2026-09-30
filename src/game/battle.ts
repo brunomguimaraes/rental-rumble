@@ -5,7 +5,6 @@ import type {
   Move,
   OpponentTier,
   PokemonType,
-  RelicId,
   RelicMods,
   Sign,
   Side,
@@ -13,8 +12,8 @@ import type {
   StatusKind,
   VolatileKind,
 } from './types.js';
-import type { Difficulty } from './run.js';
-import { identityMods, relicMods, relicDamageMult } from './relics.js';
+type Difficulty = 'easy' | 'normal' | 'hard' | 'master';
+import { identityMods, relicDamageMult } from './relics.js';
 import { effectiveness } from './typechart.js';
 import { RNG } from './rng.js';
 import { CREATURES, withSign, withAbility, SHINY_STAT_MULT } from './pokemon.js';
@@ -22,7 +21,6 @@ import { rollAbility, teamHasAbility } from './abilities.js';
 import { attackAnimFor, moveCategory, HEAL_DECAY, TAUNT_TURNS } from './moves.js';
 import { SIGN_SPREAD, rollSign, bestRareSign } from './zodiac.js';
 import { rollOpponentBall } from './balls.js';
-import { famousTeamCreatures } from './specials.js';
 import {
   applyContactAbilities,
   applyEnergyStruckAbilities,
@@ -1157,12 +1155,6 @@ export function simulateBattle(
     playerStatMult?: number;
     foeStatMult?: number;
     difficulty?: Difficulty;
-    // Team-wide relics the player has collected this run (see relics.ts). Baked
-    // onto every player Battler so the run-long passives apply to whoever's
-    // active. `foeRelics` mirrors it for PvP fights (the Throne Challenge), where
-    // both sides bring their own collected relics. Absent = a relic-free side.
-    playerRelics?: readonly RelicId[];
-    foeRelics?: readonly RelicId[];
     /** Opponent tier for Veteran ability (+5% player stats vs gym+). */
     foeTier?: OpponentTier;
   } = {},
@@ -1170,8 +1162,8 @@ export function simulateBattle(
   const rng = new RNG(seed);
   const playerStatMult = opts.playerStatMult ?? 1;
   const foeStatMult = opts.foeStatMult ?? 1;
-  const playerMods = relicMods(opts.playerRelics);
-  const foeMods = relicMods(opts.foeRelics);
+  const playerMods = identityMods();
+  const foeMods = identityMods();
   // The player's team always plays at the default focus; only the foe's move
   // picking sharpens (Master) or loosens (Easy) with the run difficulty.
   const moveFocus: Record<Side, number> = {
@@ -2959,48 +2951,6 @@ export function simulateBattle(
 
 // --- Opponent team construction (seeded) --------------------------------
 
-export const TIER_STAT_MULT: Record<string, number> = {
-  trainer: 0.9,
-  gym: 1.0,
-  elite: 1.03,
-  special: 1.05, // mini-boss cameo — a notch above a Gym Leader
-  champion: 1.08,
-};
-
-/**
- * The daily boss's hidden, difficulty-scaled "passive" — never shown to players.
- * It's a flat stat handicap/boost layered on top of the Champion's base tier edge
- * (TIER_STAT_MULT.champion): Easy weakens the boss, Normal leaves it bare, and
- * Hard / Master toughen it by +7.5% / +15%. Applied identically on the client run
- * loop and the server's leaderboard re-sim (see championFoeStatMult), so a win
- * reproduces on both. Only the Champion carries it; every other rung is unchanged.
- */
-export const CHAMPION_DIFFICULTY_MULT: Record<Difficulty, number> = {
-  easy: 0.9, // a handicap — the boss fights with weaker stats
-  normal: 1, // the bare daily Champion
-  hard: 1.075, // +7.5%
-  master: 1.15, // +15%
-};
-
-/**
- * The boss's effective foe stat multiplier for a run difficulty: its base
- * Champion tier edge times the hidden difficulty passive above. Use this for the
- * Champion fight on both client and server so the verified re-sim matches.
- */
-export function championFoeStatMult(difficulty: Difficulty): number {
-  return (TIER_STAT_MULT.champion ?? 1) * CHAMPION_DIFFICULTY_MULT[difficulty];
-}
-
-// "Hero" edge so a well-drafted (and well-recruited) team can realistically run
-// the gauntlet. Shared by the client run loop and the server-side leaderboard
-// verifier so a win reproduces identically on both. See scripts/sim-check.ts.
-export const PLAYER_STAT_MULT = 1.13;
-
-function bst(c: Creature): number {
-  const s = c.stats;
-  return s.hp + s.atk + s.eatk + s.def + s.edef + s.spd;
-}
-
 // Gym/Elite trainers draw from non-legendary/mythical Pokémon (heavy hitters
 // like Dragonite are fair game). Legendaries are saved for the Champion.
 function trainerPool(dex: Creature[]): Creature[] {
@@ -3061,94 +3011,4 @@ export function buildOpponentTeam(
     team.push(...rng.shuffle(offType).slice(0, size - team.length));
   }
   return assignSigns(rng.shuffle(team), rng, signOptsForTier(tier));
-}
-
-/**
- * Champion team: a strong, type-diverse squad built from the highest-BST
- * Pokémon, guaranteed to include at least one "special" (legendary / mythical).
- * Seeded by the daily champion seed so it's the same team for
- * everyone that day. The optional `dex` restricts which species can appear (e.g.
- * a gen-locked run), defaulting to the full dex.
- */
-export function buildChampionTeam(
-  seed: string,
-  size: number,
-  dex: Creature[] = CREATURES,
-): Creature[] {
-  const rng = new RNG(`champ-team:${seed}`);
-  const byBst = [...dex].sort((a, b) => bst(b) - bst(a));
-  const topSpecials = byBst.filter((c) => c.tier !== 'normal').slice(0, 40);
-  const topNormals = byBst.filter((c) => c.tier === 'normal').slice(0, 80);
-
-  const chosen: Creature[] = [];
-  const usedTypes = new Set<PokemonType>();
-  const add = (c: Creature) => {
-    chosen.push(c);
-    usedTypes.add(c.types[0]);
-  };
-
-  // Two powerful specials (type-diverse when possible) — at least one always.
-  for (const c of rng.shuffle(topSpecials)) {
-    if (chosen.length >= 2) break;
-    if (usedTypes.has(c.types[0]) && chosen.length > 0) continue;
-    add(c);
-  }
-  // Fill the rest with strong, type-diverse heavy hitters.
-  for (const c of rng.shuffle(topNormals)) {
-    if (chosen.length >= size) break;
-    if (usedTypes.has(c.types[0])) continue;
-    add(c);
-  }
-  // Top up ignoring type if collisions left us short.
-  for (const c of rng.shuffle([...topNormals, ...topSpecials])) {
-    if (chosen.length >= size) break;
-    if (!chosen.includes(c)) chosen.push(c);
-  }
-
-  // The champion is a tough regular trainer for sign purposes: half-odds
-  // celestial rolls, no guaranteed rare injection.
-  return assignSigns(rng.shuffle(chosen), rng, { oddsScale: 0.5 });
-}
-
-/**
- * Famous trainer team (see specials.ts). Villain/gag cameos (James, Team Rocket)
- * field their fixed, hand-picked roster in authored send-out order; known Gym
- * Leaders & Elite Four (Brock, Lorelei…) draw a random `size` subset from their
- * on-theme species pool, so their squad varies run-to-run. Signs/balls are rolled
- * from the seed, like any other foe. On a gen-locked run that filters out the
- * whole roster, we fall back to a type-themed squad so the fight still happens.
- */
-export function buildFamousTeam(
-  famousId: string,
-  fallbackType: PokemonType,
-  size: number,
-  seed: string,
-  dex: Creature[] = CREATURES,
-  tier = 'special',
-): Creature[] {
-  const rng = new RNG(`famous-team:${famousId}:${seed}`);
-  // Pool-based leaders draw a random subset of `size`; fixed-roster cameos ignore
-  // it and field their authored team. The rng is seeded per battle, so a given
-  // run/stage always faces the same draw.
-  const roster = famousTeamCreatures(famousId, dex, rng, size);
-  if (roster.length === 0) {
-    return buildOpponentTeam(fallbackType, Math.max(1, size), tier, seed, dex);
-  }
-  // Some rungs fix the head-count regardless of the cameo's authored roster — the
-  // special slots do this (a 3-mon pre-Gym warm-up, a 6-mon pre-Champion
-  // gatekeeper). Pool draws already come back at `size`, so this only bites the
-  // fixed-team gag cameos: trim a too-long team in send-out order (keeping its
-  // signature leads) or top up a too-short one with on-theme mons, so the slot's
-  // size is always honoured.
-  let final = roster;
-  if (roster.length > size) {
-    final = roster.slice(0, size);
-  } else if (roster.length < size) {
-    const have = new Set(roster.map((c) => c.dexId));
-    const filler = buildOpponentTeam(fallbackType, size, tier, `${seed}:fill`, dex)
-      .filter((c) => !have.has(c.dexId))
-      .slice(0, size - roster.length);
-    final = [...roster, ...filler];
-  }
-  return assignSigns(final, rng, signOptsForTier(tier));
 }

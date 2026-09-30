@@ -11,6 +11,14 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 
 ## [Unreleased]
 
+### Added
+- **Trainer route** — pick the Trainer profession and one of four professors (Oak, Elm, Birch, Rowan); receive a fixed, weak, three-stage starter; a guided first battle and first catch.
+- **Idle routes** — send your trainer out on Route 1 for up to 8 hours of real-time auto-battles; claim the encounter log, EXP, level-ups and evolutions. Server-simulated from a fixed seed.
+- **Box** — nickname your Pokémon; starters evolve at 8 and 16, others at 16 and 32.
+
+### Removed
+- The Rental draft gauntlet, relics, the daily Champion board, the Throne, the Hall of Shame and My Runs.
+
 ## [0.1.0] - 2026-06-29
 
 ### Added

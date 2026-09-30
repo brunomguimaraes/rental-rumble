@@ -19,11 +19,9 @@ import {
   type Db,
 } from '../_db.js';
 import { routeById, isPartyEligible, isRouteUnlocked, encountersFor, IDLE_CAP_MS } from '../../src/game/routes.js';
-import { simulateIdle } from '../../src/game/idle.js';
+import { simulateIdle, rollTutorialGift } from '../../src/game/idle.js';
 import { ownedMonToCreature, type OwnedMon } from '../../src/game/box.js';
 import { applyGrowthWithEvolution } from '../../src/game/evolution.js';
-import { rollTutorialReward } from '../../src/game/catch.js';
-import { zoneById } from '../../src/game/zones.js';
 import { RNG } from '../../src/game/rng.js';
 import type { Creature } from '../../src/game/types.js';
 
@@ -259,9 +257,8 @@ async function tutorialCatch(req: VercelRequest, res: VercelResponse) {
     if ((await countOwned(db, uid)) !== 1) {
       return res.status(400).json({ ok: false, error: 'tutorial already complete' });
     }
-    const zone = zoneById('tutorial')!;
     const now = Date.now();
-    const caught = await insertOwned(db, uid, rollTutorialReward(`tutorial:${uid}`, zone), 'tutorial', now);
+    const caught = await insertOwned(db, uid, rollTutorialGift(`tutorial:${uid}`), 'tutorial', now);
     await db.execute({
       sql: 'insert or ignore into pokedex_cells (user_id, dex_id, layer, caught_at) values (?, ?, ?, ?)',
       args: [uid, caught.dexId, caught.shiny ? 's' : caught.altColor ? 'a' : 'n', now],

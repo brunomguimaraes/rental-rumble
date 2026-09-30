@@ -68,7 +68,7 @@ function resolveRoute(
   }
   if (
     parts.length === 2 &&
-    (parts[0] === 'auth' || parts[0] === 'me' || parts[0] === 'idle' || parts[0] === 'catch')
+    (parts[0] === 'auth' || parts[0] === 'me' || parts[0] === 'idle')
   ) {
     return { file: `api/${parts[0]}/[action].ts`, params: { action: parts[1] } };
   }
