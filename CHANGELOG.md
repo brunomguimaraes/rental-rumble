@@ -17,6 +17,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 - **Accounts** — sign in with email and password, Discord or Google; email verification and password reset via Resend. Login is now required to play.
 
 ### Changed
+- **Pokédex** — rebuilt as a pixel-art handheld: a detail screen on top (stats, ability, moves, signs) and the species list below, with crisp sprites and arrow-key browsing. The game's backdrop moves to the new "Night" pixel style.
 - **Login required** — anonymous play is gone; the hub and box are per-account.
 
 ### Removed
