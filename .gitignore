@@ -35,3 +35,6 @@ trainer-audit.html
 
 # Claude Code / Codex per-user settings
 .agents/settings.local.json
+
+# Brainstorm mockups (superpowers visual companion)
+.superpowers/
