@@ -5,6 +5,7 @@ import { professorById } from '../game/professions';
 import { HubParty } from './HubParty';
 import { Credits } from './Credits';
 import { PrivacyPolicy } from './PrivacyPolicy';
+import { InstallGuide } from './InstallGuide';
 
 export function HubScreen({
   me, box, profile,
@@ -42,6 +43,7 @@ export function HubScreen({
           <button key={l.label} type="button" onClick={l.on} className="rounded-full border border-white/10 bg-white/[0.02] px-4 py-1.5 font-semibold text-white/60 hover:bg-white/[0.06] hover:text-white">{l.label}</button>
         ))}
         <span className="flex items-center gap-4 px-2">
+          <InstallGuide />
           <Credits />
           <PrivacyPolicy />
         </span>

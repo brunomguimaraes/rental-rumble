@@ -12,6 +12,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 ## [Unreleased]
 
 ### Added
+- **Install app** — a hub button with step-by-step iPhone and Android guides for adding the game to your home screen so it opens full-screen; Android Chrome gets a one-tap Install.
 - **Night icon library** — reusable transparent menu and navigation icons, with the original mobile concept, an asset index, and a preview gallery.
 - **Professor Andre** — new trainers meet a stone and fossil researcher with a custom sprite; existing Oak mentor records and the non-fossil starter pool are preserved.
 - **Trainer route** — pick the Trainer profession; Professor Oak offers three weak, three-stage starters from a pool of ten, fixed per account, and you keep one.
