@@ -42,7 +42,8 @@ import {
 } from '../api/_world.js';
 import { routeById, trainingBattleCount, type ChoiceId, type PlayableId } from '../src/game/world.js';
 import { resolveParty } from '../src/game/party.js';
-import { tempDb, legacyDb, mintMon, onboardUser, check, finish } from './world-test-kit.js';
+import { expectedStats } from '../src/game/growth.js';
+import { tempDb, legacyDb, legacyOnboard, mintMon, onboardUser, check, finish } from './world-test-kit.js';
 
 const activity = (over: Partial<NewActivity> & { id: string; userId: string }): NewActivity => ({
   routeId: 'r1',
@@ -376,7 +377,11 @@ console.log('\n[7] growth through the existing helpers');
     // 120 wins × 6 EXP = 720: Lv 7→8 (140), 8→9 (160), 9→10 (180), 10→11 (200) = 680, 40 left over.
     check('120 battles won', r?.wins === 120);
     check('720 EXP takes the starter to Lv 11 with 40 EXP', row?.level === 11 && row.exp === 40);
-    check('it evolved into Metapod at 8', row?.dexId === 11 && JSON.stringify(r?.members[0]?.evolutions) === '[{"fromDexId":10,"toDexId":11}]');
+    const evo = r?.members[0]?.evolutions ?? [];
+    check('it evolved into Metapod at 8', row?.dexId === 11 && evo.length === 1 && evo[0].fromDexId === 10 && evo[0].toDexId === 11 && Object.values(evo[0].deltas ?? { x: -1 }).every((d) => d >= 0));
+    const boxed = f.status === 'ok' ? f.box?.find((m) => m.id === s.id) : undefined;
+    check('the settlement persisted the grown stats, equal to the returned member', row !== undefined && boxed !== undefined && JSON.stringify(row.stats) === JSON.stringify(boxed.stats));
+    check('those stats moved on from the starter, one growth per level gained', JSON.stringify(row?.stats) !== JSON.stringify(s.stats) && r?.members[0]?.growths?.length === 4);
     check('the nickname given mid-training survives', row?.nickname === 'Bug');
     check('sign, colour and origin are untouched', row?.sign === 'aries' && row.shiny === false && row.origin === 'starter');
     check('the Lv 50 Machamp earned the 25% floor', r?.members[1]?.sharePct === 25);
@@ -521,7 +526,7 @@ console.log('\n[11] rows from the paused idle routes');
   const t = await legacyDb('legacy-rows');
   try {
     const { db } = t;
-    const s = await onboardUser(db, 'u1');
+    const s = await legacyOnboard(db, 'u1');
     await db.execute({
       sql: 'insert into idle_sessions (id, user_id, route_id, party_ids, seed, started_at, claimed_at, stopped_by, log) values (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       args: ['closed-old', 'u1', 'r1', JSON.stringify([s.id]), 'x', T0 - 5 * HOUR, T0 - 4 * HOUR, 'cap', '{"wins":3}'],
@@ -538,9 +543,13 @@ console.log('\n[11] rows from the paused idle routes');
     check('it blocks a new start until finished', (await start(db, 'u1', 'explore', 'r1', T0 + 3 * HOUR)).status === 'busy');
     const f = await finishActivity(db, 'u1', 'open-old', T0 + 3 * HOUR);
     check('it settles under the new rules', f.status === 'ok' && f.result.legacy && f.result.members.length === 1 && f.result.battles.length > 0);
+    const legacyAfter = (await readOwnedByIds(db, 'u1', [s.id]))[0];
+    const stored = await db.execute({ sql: 'select stats from owned_pokemon where id = ?', args: [s.id] });
+    check('the pre-growth starter reads as the average individual for its level', JSON.stringify(w.activity?.party[0]?.stats) === JSON.stringify(expectedStats(10, 5)));
+    check('after the settlement its stats column is filled', typeof stored.rows[0]?.stats === 'string' && legacyAfter?.stats !== undefined && JSON.stringify(legacyAfter.stats) === String(stored.rows[0].stats));
     check('then a new start works', (await start(db, 'u1', 'train', 'r1', T0 + 4 * HOUR)).status === 'ok');
 
-    await onboardUser(db, 'u2');
+    await legacyOnboard(db, 'u2');
     await db.execute({
       sql: 'insert into idle_sessions (id, user_id, route_id, party_ids, seed, started_at) values (?, ?, ?, ?, ?, ?)',
       args: ['lost-route', 'u2', 'r9', '[]', 'x', T0],

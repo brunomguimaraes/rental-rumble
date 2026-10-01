@@ -9,7 +9,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applySchema, readActivity, readOwnedByUser } from '../api/_db.js';
 import { signSession } from '../api/_session.js';
-import { legacyDb, mintMon, onboardUser, check, finish } from './world-test-kit.js';
+import { legacyDb, legacyOnboard, mintMon, check, finish } from './world-test-kit.js';
 
 const SECRET = 'world-api-test-secret-0123456789';
 process.env.AUTH_SECRET = SECRET;
@@ -62,8 +62,8 @@ async function call(handler: Handler, method: string, action: string, uid: strin
 
 try {
   const { db } = t;
-  const starter = await onboardUser(db, 'u1');
-  await onboardUser(db, 'u2');
+  const starter = await legacyOnboard(db, 'u1');
+  await legacyOnboard(db, 'u2');
 
   console.log('[1] before db:setup');
   const early = await call(world, 'GET', 'state', 'u1');

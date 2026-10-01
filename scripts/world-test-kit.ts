@@ -81,6 +81,42 @@ export async function onboardUser(db: Db, uid: string, dexId = 10, level = 5): P
   );
 }
 
+/**
+ * Onboard `uid` the way the code did before the growth system: a raw insert with
+ * no `stats` column. For a `legacyDb` that has not run `db:setup` yet; the row's
+ * stats are null until `applySchema` adds the column, and read back as the
+ * average individual for its level. Returns the row as it reads after the schema.
+ */
+export async function legacyOnboard(db: Db, uid: string, dexId = 10, level = 5): Promise<OwnedMon> {
+  const id = `legacy-${uid}`;
+  await db.batch(
+    [
+      {
+        sql: 'insert into profiles (user_id, profession, mentor, starter_id, current_route, created_at) values (?, ?, ?, ?, ?, ?)',
+        args: [uid, 'trainer', 'oak', id, 'r1', 1],
+      },
+      {
+        sql: `insert into owned_pokemon (id, user_id, dex_id, level, exp, sign, shiny, alt_color, origin, caught_at)
+              values (?, ?, ?, ?, 0, 'aries', 0, 0, 'starter', 1)`,
+        args: [id, uid, dexId, level],
+      },
+    ],
+    'write',
+  );
+  return {
+    id,
+    dexId,
+    level,
+    exp: 0,
+    stats: expectedStats(dexId, level),
+    sign: 'aries',
+    shiny: false,
+    altColor: false,
+    origin: 'starter',
+    caughtAt: 1,
+  };
+}
+
 let passed = 0;
 let failed = 0;
 

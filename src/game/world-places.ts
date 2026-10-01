@@ -275,7 +275,7 @@ export const PLACES: readonly Place[] = [
     },
     training: { paceMs: 5 * MIN, maxEncounters: 96, expPerWin: 18 },
     explore: { expPerWin: 28, clearBonus: 110 },
-    guardian: { dexId: 111, level: 23, statMult: 0.6, title: 'Quarry guardian' }, // Rhyhorn
+    guardian: { dexId: 111, level: 23, statMult: 0.57, title: 'Quarry guardian' }, // Rhyhorn
     landmarks: [
       { id: 'fossil-wall', name: 'Fossil Wall', blurb: 'Shells and bones pressed into the rock face.' },
       { id: 'minecart', name: 'Rusty Minecart', blurb: 'An old cart still full of flint.' },
@@ -336,7 +336,7 @@ export const PLACES: readonly Place[] = [
     },
     training: { paceMs: 6 * MIN, maxEncounters: 80, expPerWin: 26 },
     explore: { expPerWin: 40, clearBonus: 160 },
-    guardian: { dexId: 221, level: 33, statMult: 0.7, title: 'Trail guardian' }, // Piloswine
+    guardian: { dexId: 221, level: 33, statMult: 0.67, title: 'Trail guardian' }, // Piloswine
     landmarks: [
       { id: 'windy-ledge', name: 'Windy Ledge', blurb: 'A narrow ledge where the wind never stops.' },
       { id: 'summit-cairn', name: 'Summit Cairn', blurb: 'Every trainer who reaches the top adds a stone.' },
@@ -398,7 +398,7 @@ export const PLACES: readonly Place[] = [
     },
     training: { paceMs: 6 * MIN, maxEncounters: 80, expPerWin: 36 },
     explore: { expPerWin: 55, clearBonus: 240 },
-    guardian: { dexId: 178, level: 47, statMult: 0.8, title: 'Ruins guardian' }, // Xatu
+    guardian: { dexId: 178, level: 47, statMult: 0.75, title: 'Ruins guardian' }, // Xatu
     landmarks: [
       { id: 'star-gate', name: 'Star Gate', blurb: 'An arch of carved stone, older than the town.' },
       { id: 'glyph-hall', name: 'Glyph Hall', blurb: 'Walls covered in shapes that look like Unown.' },

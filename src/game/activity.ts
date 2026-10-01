@@ -1,11 +1,11 @@
 import type { BattleEvent } from './battle.js';
 import type { CatchOrigin, OwnedMon } from './box.js';
-import type { AbilityId, Build, Creature, Sign } from './types.js';
+import type { AbilityId, BaseStats, Build, Creature, Sign } from './types.js';
 import type { WildView } from './wilds.js';
 import type { CheckpointView, TrailEntry, TrailOutcome } from './expedition.js';
 import { ownedMonToCreature } from './box.js';
 import { applyGrowthWithEvolution } from './evolution.js';
-import { expectedStats, isBaseStats } from './growth.js';
+import { STAT_KEYS, expectedStats, isBaseStats, type GrowthEvent } from './growth.js';
 import { CREATURES_BY_ID } from './pokemon.js';
 import { RNG } from './rng.js';
 import {
@@ -86,8 +86,9 @@ const ORIGINS: readonly CatchOrigin[] = ['starter', 'tutorial', 'catch'];
 /**
  * The party frozen at start, read back from storage: 1–6 owned rows with the
  * fields a battle creature needs. Anything else is null. This is the one place
- * a stored snapshot is trusted, so a new owned field (per-individual stats in
- * the growth overhaul) is added and backfilled here.
+ * a stored snapshot is trusted, so a new owned field is added and backfilled here
+ * (`stats`: a snapshot frozen before the growth system, or a malformed one, gets
+ * the average individual for its level).
  */
 export function normaliseSnapshot(raw: unknown): OwnedMon[] | null {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 6) return null;
@@ -134,13 +135,24 @@ export interface MemberGrowth {
   expGained: number;
   before: { dexId: number; level: number; exp: number };
   after: { dexId: number; level: number; exp: number };
-  evolutions: { fromDexId: number; toDexId: number }[];
+  /** `deltas` (stats gained by the evolution) is absent on results stored before the growth system. */
+  evolutions: { fromDexId: number; toDexId: number; deltas?: BaseStats }[];
+  /** One event per hidden level reached; structured, never sentences. Absent on older results. */
+  growths?: GrowthEvent[];
 }
 
-/** The one place activity EXP becomes growth. The growth overhaul replaces this body. */
-export function growMember(mon: OwnedMon, exp: number, rng: RNG): { mon: OwnedMon; evolutions: MemberGrowth['evolutions'] } {
+/** The one place activity EXP becomes growth. */
+export function growMember(
+  mon: OwnedMon,
+  exp: number,
+  rng: RNG,
+): { mon: OwnedMon; evolutions: MemberGrowth['evolutions']; growths: GrowthEvent[] } {
   const grown = applyGrowthWithEvolution(mon, exp, rng);
-  return { mon: grown.mon, evolutions: grown.evolutions };
+  return { mon: grown.mon, evolutions: grown.evolutions, growths: grown.growths };
+}
+
+function statsChanged(a: BaseStats, b: BaseStats): boolean {
+  return STAT_KEYS.some((k) => a[k] !== b[k]);
 }
 
 /**
@@ -164,7 +176,9 @@ export function planGrowth(
     if (!row) continue;
     const sharePct = expSharePct(snap.level, rec);
     const expGained = scaleExp(rawExp, sharePct);
-    const grown = expGained > 0 ? growMember(row, expGained, new RNG(`evolve:${row.id}:${activityId}`)) : { mon: row, evolutions: [] };
+    const grown = expGained > 0
+      ? growMember(row, expGained, new RNG(`evolve:${row.id}:${activityId}`))
+      : { mon: row, evolutions: [], growths: [] };
     members.push({
       id: row.id,
       sharePct,
@@ -172,8 +186,14 @@ export function planGrowth(
       before: { dexId: row.dexId, level: row.level, exp: row.exp },
       after: { dexId: grown.mon.dexId, level: grown.mon.level, exp: grown.mon.exp },
       evolutions: grown.evolutions,
+      growths: grown.growths,
     });
-    if (grown.mon.dexId !== row.dexId || grown.mon.level !== row.level || grown.mon.exp !== row.exp) changed.push(grown.mon);
+    const moved =
+      grown.mon.dexId !== row.dexId ||
+      grown.mon.level !== row.level ||
+      grown.mon.exp !== row.exp ||
+      statsChanged(grown.mon.stats, row.stats);
+    if (moved) changed.push(grown.mon);
   }
   return { changed, members };
 }
