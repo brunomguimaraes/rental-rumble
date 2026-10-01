@@ -39,11 +39,15 @@ Pokémon to full, instantly and for free. This gives Sunny Meadow a reason to co
 - **Losing (whiteout).** A loss means every fielded member has fainted, so the whole party is fainted. The
   encounter resolves as `lost`, as today, and the trainer's position becomes Hearth Town (`home`). The
   result reads: "Your party is out of strength. You hurried back to Hearth Town." Nothing else is taken.
+  Following the travel-stamina spec, that position is travel's `location`; its whiteout walking debit
+  arrives with travel slice 2.
 - **Growth and evolution.** `hpLost` is kept through growth, so current HP rises by the max-HP increase.
 - **New Pokémon.** Caught, gifted, and starter Pokémon start at full HP (`hpLost` 0).
-- **Healing.** The Center sets `hpLost` to 0 on every owned Pokémon of the account in one statement and
-  moves the trainer to `home`. It costs no action and no item. It is refused (409) while a route encounter
-  is unresolved. Healing when nothing is hurt succeeds and changes nothing.
+- **Healing.** The Center sets `hpLost` to 0 on every owned Pokémon of the account in one statement. It
+  costs no action and no item. It is refused (409) while a route encounter is unresolved. Healing when
+  nothing is hurt succeeds and changes nothing. Following the travel-stamina spec (home is never free), the
+  trainer must already stand in Hearth Town: elsewhere it is refused (409, "Walk back to Hearth Town to
+  visit the Pokémon Center.") and healing never moves the trainer.
 
 ### Out of scope
 
@@ -59,10 +63,11 @@ single server helper so a later Potion can reuse it for one Pokémon.
 
 - `alter table owned_pokemon add column hp_lost integer not null default 0`. Existing rows read as full
   health. There is no backfill.
-- `alter table route_accounts add column trainer_at text`. Null keeps today's derived position.
+- No position column of its own: where the trainer stands is travel stamina's `route_accounts.location`
+  (`docs/superpowers/specs/2026-10-01-travel-stamina-design.md`), the one trainer position.
 
 Reads use `select *`, so code running before `db:setup` sees no `hp_lost` and treats every Pokémon as
-healthy. Writes that set `hp_lost` or `trainer_at` fail with the usual 503 until `db:setup` runs, and
+healthy. Writes that set `hp_lost` fail with the usual 503 until `db:setup` runs, and
 login, Hub, Box, and Pokédex stay usable. The release checklist runs `db:setup` before the deploy that
 ships this. No unique index is added. The change is additive and does not break the save format (minor
 version).
@@ -89,13 +94,14 @@ one `api/_db.ts` helper that updates a set of the user's owned rows by id, scope
   snapshot includes each member's `hpLost`.
 - **choose → battle:** battle with the snapshot's HP. In the same transaction as growth, write each
   fielded member's new `hpLost` to the current owned row, if it is still owned, and pass only survivors to
-  `planGrowth`. On a loss, set `trainer_at = 'home'`. The snapshot HP equals current HP because healing is
+  `planGrowth`. On a whiteout, set `location = 'home'` through the travel write, with no travel
+  debit until travel slice 2 adds it. The snapshot HP equals current HP because healing is
   refused during an encounter and there is only one active encounter.
 - **heal (new):** `healParty(db, uid, requestId, now)` through `writeCommand`, so it gets receipts,
-  revision, and the same-payload retry behavior. Refuse with 409 when an encounter is active. Otherwise
-  run `healAllOwned`, set `trainer_at = 'home'`, and return `{ state, box }`.
-- **state:** `trainerAt` is `trainer_at` when set, otherwise today's derivation. A successful search sets
-  it to `'r1'`.
+  revision, and the same-payload retry behavior. Refuse with 409 when an encounter is active, then with
+  409 when `location` is not `home` (travel-stamina spec), writing nothing. Otherwise run `healAllOwned`
+  and return `{ state, box }`; the trainer's place is unchanged.
+- **state:** `trainerAt` is travel's `location`. Searches never move the trainer; trips do (travel-stamina spec).
 - Old stored events with a party snapshot that lacks `hpLost` battle at full health. `rulesVersion` stays 2.
 
 ### API (`api/world/[action].ts`)

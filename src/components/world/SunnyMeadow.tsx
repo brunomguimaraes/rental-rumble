@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ownedMonToCreature, type OwnedMon } from '../../game/box';
+import { currentHp, isFainted, ownedMaxHp } from '../../game/health';
 import { ballCount, formatMoney, itemQuantity } from '../../game/items';
 import { miniUrl } from '../../game/pokemon';
 import type { RouteState, SearchKind } from '../../game/route-actions';
@@ -7,6 +8,7 @@ import { guaranteesSupplies, MEADOW_LANDMARKS, ROUTE_RULES } from '../../game/ro
 import { routeById } from '../../game/world';
 import { BagButton } from '../ui/BagButton';
 import { ExpBar } from '../ui/ExpBar';
+import { HpBar } from '../ui/HpBar';
 import { PixelSprite } from '../ui/PixelSprite';
 import { MeadowScene } from './MeadowScene';
 import { formatDuration, growthLines, monName, POKEBALL, speciesName } from './scene';
@@ -46,12 +48,14 @@ export interface SunnyMeadowProps {
   onResult: () => void;
   onBag: () => void;
   onEditParty: () => void;
+  /** The Pokémon Center page; away from Hearth Town it offers the paid trip there first. */
+  onCenter: () => void;
   onRefresh: () => void;
   onClaim: () => void;
   onDismissLegacy: (id: string) => void;
 }
 
-export function SunnyMeadow({ state, party, locked, busy, showSurvey, onSearch, onActivate, onResume, onResult, onBag, onEditParty, onRefresh, onClaim, onDismissLegacy }: SunnyMeadowProps) {
+export function SunnyMeadow({ state, party, locked, busy, showSurvey, onSearch, onActivate, onResume, onResult, onBag, onEditParty, onCenter, onRefresh, onClaim, onDismissLegacy }: SunnyMeadowProps) {
   const [selected, setSelected] = useState<SearchKind | null>(null);
   const [partyOpen, setPartyOpen] = useState(false);
   const [surveyOpen, setSurveyOpen] = useState(() => showSurvey || state.quest.status === 'ready');
@@ -68,7 +72,9 @@ export function SunnyMeadow({ state, party, locked, busy, showSurvey, onSearch, 
   const active = state.activeEvent;
   const noActions = state.allowance.available === 0;
   const noParty = party.length === 0;
-  const canSearch = !locked && !starting && !active && !noActions && !noParty;
+  // The server refuses a search when no party member can battle; the Center or the Box is the way back.
+  const partyDown = !noParty && party.every(isFainted);
+  const canSearch = !locked && !starting && !active && !noActions && !noParty && !partyDown;
   const discovered = state.places.find((place) => place.id === 'r1')?.progress.landmarks ?? [];
 
   return <>
@@ -76,7 +82,7 @@ export function SunnyMeadow({ state, party, locked, busy, showSurvey, onSearch, 
       <div className="flex min-h-9 items-center justify-between gap-2 border-b-2 border-window-frame px-3 font-label text-[9px] uppercase"><span className="text-info">Your surroundings</span><span className="text-ink-dim">Route 01</span></div>
       <MeadowScene label="Choose a place in Sunny Meadow">
         <p className="pointer-events-none absolute left-3 top-3 z-10 rounded-[3px] border border-window-rim bg-window px-2 py-1 font-label text-[9px] uppercase text-ink shadow-[2px_2px_0_var(--color-edge)]">
-          {busy ? 'Looking around…' : '◆ You are here'}
+          {busy ? 'Looking around…' : partyDown ? 'Your party needs care' : '◆ You are here'}
         </p>
         {!active && SPOTS.map((entry) => <button key={entry.kind} type="button" disabled={locked} onClick={() => setSelected(entry.kind)}
           aria-pressed={selected === entry.kind} aria-controls="meadow-action" aria-label={`${entry.name}: ${entry.label}. Search costs 1 action.`}
@@ -102,6 +108,9 @@ export function SunnyMeadow({ state, party, locked, busy, showSurvey, onSearch, 
         </> : noParty ? <>
           <h2 className="text-xl">Bring a Pokémon along.</h2><p className="mt-1 text-sm text-ink-dim">Choose at least one party member before searching the meadow.</p>
           <button type="button" onClick={onEditParty} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[10px] uppercase">Choose your party</button>
+        </> : partyDown ? <>
+          <h2 className="text-xl">Your party needs care</h2><p className="mt-1 text-sm text-ink-dim">Every Pokémon in your party has fainted. Visit the Pokémon Center in Hearth Town, or bring healthy Pokémon from your Box.</p>
+          <button type="button" onClick={onCenter} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[10px] uppercase">Travel to Hearth Town</button>
         </> : noActions ? <>
           <h2 className="text-xl">Time for a breather.</h2><p className="mt-1 text-sm text-ink-dim">Recover 1 action every {Math.round(state.allowance.refillEveryMs / 60000)} minutes. Your Bag, party, and survey are still available.</p>
           <button type="button" disabled={locked} onClick={onRefresh} className="ui-button ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">Check for an action</button>
@@ -128,7 +137,7 @@ export function SunnyMeadow({ state, party, locked, busy, showSurvey, onSearch, 
     {partyOpen && <section id="meadow-party" className="ui-window m-2 mt-4 p-3" aria-label="Your party">
       <div className="flex items-center justify-between gap-2"><h2 className="font-label text-[11px] uppercase text-info">Your party</h2><button type="button" onClick={onEditParty} className="ui-button ui-focus min-h-11 px-3 font-label text-[9px] uppercase">Edit party</button></div>
       {noParty ? <p className="mt-2 text-sm text-ink-dim">Choose a Pokémon to start exploring.</p> : <ol className="mt-3 grid grid-cols-3 gap-2">{party.map((mon) => <li key={mon.id} className="flex min-w-0 flex-col items-center rounded-[3px] bg-slot p-2">
-        <PixelSprite src={ownedMonToCreature(mon)?.portrait ?? POKEBALL} fallback={POKEBALL} size={40} alt="" /><span className="mt-1 w-full truncate text-center text-sm">{monName(mon)}</span><div className="mt-2 w-full"><ExpBar level={mon.level} exp={mon.exp} /></div>
+        <PixelSprite src={ownedMonToCreature(mon)?.portrait ?? POKEBALL} fallback={POKEBALL} size={40} alt="" /><span className="mt-1 w-full truncate text-center text-sm">{monName(mon)}</span><div className="mt-2 w-full"><ExpBar level={mon.level} exp={mon.exp} /></div><div className="mt-1 w-full"><HpBar mon={mon} /></div><span className="self-end font-label text-[9px] text-ink-dim">{currentHp(mon)}/{ownedMaxHp(mon)}</span>
       </li>)}</ol>}
       {active && <p className="mt-3 text-sm text-ink-dim">Your encounter keeps its starting party. Edits apply to your next search.</p>}
     </section>}

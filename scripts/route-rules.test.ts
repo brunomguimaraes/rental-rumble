@@ -1,6 +1,8 @@
 import { isDeepStrictEqual } from 'node:util';
 import { ownedMonToCreature, type OwnedMon } from '../src/game/box.js';
+import { creatureMaxHp, simulateBattle, type BattleResult } from '../src/game/battle.js';
 import { ballCount, formatMoney, isCaptureBallId, isItemId, itemById, itemQuantity, tradeTotal, VALUABLE_ITEMS } from '../src/game/items.js';
+import { currentHp, isFainted, ownedMaxHp, partyStanding } from '../src/game/health.js';
 import { starterFromOffer } from '../src/game/professions.js';
 import {
   allowanceView, battlePrize, captureChance, guaranteesSupplies, legalChoices, projectAllowance, rollCapture,
@@ -147,6 +149,32 @@ const beforeBattle = JSON.stringify({ mon, foe: wild.foe });
 const battle = simulateRouteBattle({ party: [mon], foe: wild.foe, seed: 'rules-battle' });
 check('server battle emits a deterministic replay', same(battle, simulateRouteBattle({ party: [mon], foe: wild.foe, seed: 'rules-battle' })) && battle.events.length > 0);
 check('battle leaves the frozen mint and party unchanged', beforeBattle === JSON.stringify({ mon, foe: wild.foe }));
+
+// Persistent HP: the engine starts a player creature at a given HP and reports where it ended.
+const hero = ownedMonToCreature(mon)!;
+const foeCreature = ownedMonToCreature({ ...wild.foe.mint, id: 'route-foe', exp: 0, origin: 'catch', caughtAt: 0 })!;
+const playerSendout = (r: { events: BattleResult['events'] }) => r.events.find((e) => e.kind === 'sendout' && e.affected === 'player');
+const fullBattle = simulateBattle([hero], [foeCreature], 'hp-engine', { foeStatMult: wild.foe.statMult });
+check('explicit full start HP replays the default battle exactly', same(fullBattle, simulateBattle([hero], [foeCreature], 'hp-engine', { foeStatMult: wild.foe.statMult, playerStartHp: [creatureMaxHp(hero)] })));
+check('send-out max HP is creatureMaxHp', playerSendout(fullBattle)?.maxHp === creatureMaxHp(hero));
+check('a player creature sends out at its start HP', playerSendout(simulateBattle([hero], [foeCreature], 'hp-engine', { foeStatMult: wild.foe.statMult, playerStartHp: [3] }))?.hp === 3);
+check('final HP is reported per player creature', fullBattle.playerHp.length === 1 && fullBattle.playerHp[0] >= 0 && fullBattle.playerHp[0] <= creatureMaxHp(hero) && (fullBattle.winner === 'foe') === (fullBattle.playerHp[0] === 0));
+check('ownedMaxHp matches the battle send-out', playerSendout(battle)?.maxHp === ownedMaxHp(mon));
+const shinyMon: OwnedMon = { ...mon, id: 'shiny-starter', shiny: true };
+check('shiny ownedMaxHp matches the battle send-out', playerSendout(simulateRouteBattle({ party: [shinyMon], foe: wild.foe, seed: 'rules-battle' }))?.maxHp === ownedMaxHp(shinyMon) && ownedMaxHp(shinyMon) > ownedMaxHp(mon));
+check('rows from before persistent HP are at full health', mon.hpLost === undefined && currentHp(mon) === ownedMaxHp(mon) && !isFainted(mon));
+const hurt: OwnedMon = { ...mon, hpLost: ownedMaxHp(mon) - 2 };
+const benched: OwnedMon = { ...mon, id: 'benched', hpLost: ownedMaxHp(mon) };
+const benchBattle = simulateRouteBattle({ party: [benched, hurt], foe: wild.foe, seed: 'bench' });
+check('fainted members sit out; the hurt member fights at its HP', same(benchBattle.fielded?.map((f) => f.id), [hurt.id]) && playerSendout(benchBattle)?.hp === 2);
+check('fielded final HP is the battle’s own', benchBattle.fielded?.[0].maxHp === ownedMaxHp(hurt) && (benchBattle.won ? benchBattle.fielded[0].hp > 0 : benchBattle.fielded?.[0].hp === 0));
+let allFaintedRejected = false;
+try { simulateRouteBattle({ party: [benched], foe: wild.foe, seed: 'all-fainted' }); }
+catch { allFaintedRejected = true; }
+check('an all-fainted party cannot battle', allFaintedRejected);
+check('a party is standing while any fielded member ends above 0 HP', partyStanding([mon, benched], [{ id: mon.id, hp: 1, maxHp: 20 }]));
+check('a double KO leaves no one standing even on a win', !partyStanding([mon, benched], [{ id: mon.id, hp: 0, maxHp: 20 }]));
+check('a member that sat out still counts by its stored HP', partyStanding([mon, { ...benched, id: 'rested', hpLost: 0 }], [{ id: mon.id, hp: 0, maxHp: 20 }]));
 const caught: OwnedMon = { ...wild.foe.mint, id: 'new-catch', exp: 0, origin: 'catch', caughtAt: 2_000 };
 check('minting keeps the battle handicap out of owned stats', same(caught.stats, { hp: 3, atk: 2, eatk: 2, def: 3, edef: 4, spd: 2 }) && ownedMonToCreature(caught)?.stats.hp === 8);
 check('minting keeps the encountered emotion portrait', ownedMonToCreature(caught)?.portrait.includes('Normal') === true);

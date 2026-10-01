@@ -1,6 +1,6 @@
 /** Client recovery boundaries: failed loads, exact retries, and out-of-order inventory snapshots. */
 import {
-  chooseRoute, clearPendingRouteCommand, fetchRouteState, readPendingRouteCommand, reconcileRouteState,
+  chooseRoute, clearPendingRouteCommand, fetchRouteState, healAtCenter, readPendingRouteCommand, reconcileRouteState,
   runRouteCommand, savePendingRouteCommand, searchRoute, shouldApplyHydratedBox, tradeMarket, travelRoute, type RouteCommand,
 } from '../src/game/route-actions-client.js';
 import type { RouteEvent, RouteState } from '../src/game/route-actions.js';
@@ -49,6 +49,8 @@ check('missing inventory is not a successful empty Bag', !(await fetchRouteState
 reply = json(200, { ok: true, state });
 await runRouteCommand(command);
 check('search sends the frozen party and request ID as JSON', lastUrl === '/api/world/search' && lastInit?.method === 'POST' && lastInit.credentials === 'include' && lastInit.body === JSON.stringify(command.input));
+await healAtCenter({ requestId: 'heal-1' });
+check('heal posts its request ID to the heal action', lastUrl === '/api/world/heal' && lastInit?.method === 'POST' && lastInit.body === JSON.stringify({ requestId: 'heal-1' }));
 reply = () => Promise.reject(new TypeError('Lost connection'));
 const uncertain = await runRouteCommand(command);
 check('lost write response is uncertain so its request ID survives', !uncertain.ok && uncertain.uncertain === true);
@@ -91,6 +93,9 @@ check('another account cannot inherit a pending command', readPendingRouteComman
 reply = json(200, { ok: true, state: newer, replayed: true });
 const retried = await runRouteCommand(recovered!);
 check('replayed command uses the original payload and current server state', retried.ok && retried.replayed === true && retried.state.inventory.revision === 3 && lastInit?.body === JSON.stringify(command.input));
+savePendingRouteCommand('acct', { operation: 'heal', input: { requestId: 'heal-pending' } });
+check('a pending heal survives a reload', readPendingRouteCommand('acct')?.operation === 'heal');
+clearPendingRouteCommand('acct');
 clearPendingRouteCommand('trainer-a');
 check('settled command is removed before the next action', readPendingRouteCommand('trainer-a') === null);
 

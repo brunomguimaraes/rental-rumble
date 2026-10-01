@@ -39,6 +39,8 @@ export interface OwnedMon {
   nickname?: string;
   origin: CatchOrigin;
   caughtAt: number;
+  /** Battle damage carried between battles, in engine HP units; absent = full health. */
+  hpLost?: number;
 }
 
 /** The rolled identity of a fresh catch, before the server assigns id/caughtAt. */

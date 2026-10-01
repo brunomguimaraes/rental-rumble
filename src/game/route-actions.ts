@@ -103,7 +103,15 @@ export interface RouteFind {
   money: number;
   landmarks: string[];
 }
-export interface RouteBattle { won: boolean; turns: number; events: BattleEvent[] }
+/** A party member that fought, with the HP it ended on. */
+export interface FieldedMember { id: string; hp: number; maxHp: number }
+export interface RouteBattle {
+  won: boolean;
+  turns: number;
+  events: BattleEvent[];
+  /** Fielded members in battle order; absent on battles stored before persistent HP. */
+  fielded?: FieldedMember[];
+}
 export interface RouteCatch {
   ballId: CaptureBallId;
   chance: number;

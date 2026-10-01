@@ -2,16 +2,17 @@
 import {
   acceptRouteQuest, applySchema, changeInventory, changeMoney, countOwned, insertDiscovery, insertRouteEvent, readDiscoveries,
   openWriteTx, readActivity, readOpenActivity, readOwnedByUser, readRouteAccount, readRouteEvent,
-  isMissingSchema, updateOwnedNickname, updateProfileParty, updateRouteEvent, writeRouteAllowance, type Db,
+  isMissingSchema, updateOwnedNickname, updateProfileParty, updateRouteEvent, writeOwnedHp, writeRouteAllowance, type Db,
 } from '../api/_db.js';
 import {
   activateRoute, chooseRoute, claimRouteQuest, dismissRouteResult, finishLegacyRoute,
-  loadRouteState, RouteError, searchRoute, tradeMarket, travelRoute,
+  healParty, loadRouteState, RouteError, searchRoute, tradeMarket, travelRoute,
 } from '../api/_route-actions.js';
 import { dismissResult, startActivity, stepExpedition } from '../api/_world.js';
-import { legalChoices, rollCapture, rollRouteFind } from '../src/game/route-rules.js';
-import type { CaptureBallId, RouteEvent, RouteRules, RouteRulesV2, SearchKind, StoredRouteEvent } from '../src/game/route-actions.js';
-import { check, finish, mintMon, onboardUser, tempDb } from './world-test-kit.js';
+import { legalChoices, rollCapture, rollRouteFind, simulateRouteBattle } from '../src/game/route-rules.js';
+import type { CaptureBallId, RouteBattle, RouteEvent, RouteRules, RouteRulesV2, SearchKind, StoredRouteEvent } from '../src/game/route-actions.js';
+import { currentHp, isFainted, ownedMaxHp } from '../src/game/health.js';
+import { check, finish, legacyDb, legacyOnboard, mintMon, onboardUser, tempDb } from './world-test-kit.js';
 
 const T = 1_800_000_000_000;
 const eq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -21,8 +22,8 @@ async function rejects(label: string, work: Promise<unknown>, status: number) {
   try { await work; check(label, false); }
   catch (e) { check(label, e instanceof RouteError && e.status === status); }
 }
-async function start(db: Db, uid: string, kind: SearchKind = 'wild', now = T) {
-  const partyIds = [(await readOwnedByUser(db, uid)).find((m) => m.origin === 'starter')!.id];
+async function start(db: Db, uid: string, kind: SearchKind = 'wild', now = T, ids?: string[]) {
+  const partyIds = ids ?? [(await readOwnedByUser(db, uid)).find((m) => m.origin === 'starter')!.id];
   return searchRoute(db, uid, { requestId: rid(), locationId: 'r1', kind, partyIds }, now);
 }
 async function leave(db: Db, uid: string, event: RouteEvent) {
@@ -55,6 +56,28 @@ async function forceCatch(db: Db, uid: string, e: RouteEvent, caught: boolean, b
     await updateRouteEvent(db, uid, { ...row, data }, row.revision);
     return data.foe!.mint;
   }
+}
+/** Pick the event's seed so its battle plays out as wanted; the foe and party stay frozen. */
+async function forceBattle(db: Db, uid: string, e: RouteEvent, want: (b: RouteBattle) => boolean) {
+  const row = (await readRouteEvent(db, uid, e.id))!;
+  const data = row.data as StoredRouteEvent;
+  for (let i = 0; i < 2000; i++) {
+    const seed = `battle-${i}`;
+    if (!want(simulateRouteBattle({ party: data.event.party, foe: data.foe!, seed }))) continue;
+    data.seed = seed;
+    await updateRouteEvent(db, uid, { ...row, data }, row.revision);
+    return;
+  }
+  const seen = new Set<string>();
+  for (let i = 0; i < 50; i++) { const b = simulateRouteBattle({ party: data.event.party, foe: data.foe!, seed: `battle-${i}` }); seen.add(`${b.won} ${b.fielded![0].hp}/${b.fielded![0].maxHp}`); }
+  throw new Error('No seed produced the wanted battle ' + [...seen].slice(0, 8).join('; '));
+}
+/** Fixture: a tougher frozen foe, so a 1 HP lead reliably faints before its Box recruit takes over. */
+async function toughenFoe(db: Db, uid: string, e: RouteEvent, statMult: number) {
+  const row = (await readRouteEvent(db, uid, e.id))!;
+  const data = row.data as StoredRouteEvent;
+  data.foe!.statMult = statMult;
+  await updateRouteEvent(db, uid, { ...row, data }, row.revision);
 }
 const t = await tempDb('routes');
 try {
@@ -322,6 +345,105 @@ try {
   const expUnits = (prior.state as { expUnits: number }).expUnits;
   const exMigration = await activateRoute(db, 'expedition', 'upgrade', T + 86400000);
   check('expedition retirement pays only banked EXP without advancing guardian', exMigration.state.legacy.result?.rawExp === expUnits && exMigration.state.legacy.result.cleared === false && (await readActivity(db, 'expedition', exId))?.step === prior.step);
+
+  console.log('[persistent HP and whiteout]');
+  const hpStarter = await onboardUser(db, 'hp', 4);
+  await activateRoute(db, 'hp', 'activate', T);
+  await writeOwnedHp(db, 'hp', [{ id: hpStarter.id, hpLost: Math.floor(ownedMaxHp(hpStarter) / 3) }]);
+  const hurtFight = (await start(db, 'hp')).event!;
+  await forceKind(db, 'hp', hurtFight, 'wild', 'hp');
+  await forceBattle(db, 'hp', hurtFight, (b) => b.won && b.fielded![0].hp > 0 && b.fielded![0].hp < currentHp(hurtFight.party[0]));
+  const hurtWin = await chooseRoute(db, 'hp', { requestId: rid(), eventId: hurtFight.id, expectedRevision: 0, choice: 'battle' }, T);
+  const ended = hurtWin.event!.battle!.fielded![0];
+  const afterWin = (await readOwnedByUser(db, 'hp')).find((m) => m.id === hpStarter.id)!;
+  check('a won battle saves the damage the starter ended with, through growth', ended.id === hpStarter.id && afterWin.hpLost === ended.maxHp - ended.hp && afterWin.exp > 0);
+  await leave(db, 'hp', hurtWin.event!);
+  const carried = (await start(db, 'hp')).event!;
+  check('the next search freezes the carried damage', carried.party[0].hpLost === afterWin.hpLost);
+  await leave(db, 'hp', carried);
+
+  const hpSecond = await mintMon(db, 'hp', { dexId: 10, level: 5 });
+  await updateProfileParty(db, 'hp', [hpStarter.id, hpSecond.id]);
+  const duo = [hpStarter.id, hpSecond.id];
+  const starterNow = (await readOwnedByUser(db, 'hp')).find((m) => m.id === hpStarter.id)!;
+  await writeOwnedHp(db, 'hp', [{ id: hpStarter.id, hpLost: ownedMaxHp(starterNow) }]);
+  const benchFight = (await start(db, 'hp', 'wild', T, duo)).event!;
+  await forceKind(db, 'hp', benchFight, 'wild', 'hp');
+  await forceBattle(db, 'hp', benchFight, (b) => b.won);
+  const benchWin = await chooseRoute(db, 'hp', { requestId: rid(), eventId: benchFight.id, expectedRevision: 0, choice: 'battle' }, T);
+  check('a fainted lead sits out while the Box recruit fights', JSON.stringify(benchWin.event!.battle!.fielded!.map((f) => f.id)) === JSON.stringify([hpSecond.id]));
+  check('a fainted member earns no EXP', benchWin.event!.members.every((m) => m.id !== hpStarter.id) && benchWin.box!.find((m) => m.id === hpStarter.id)!.exp === starterNow.exp);
+  await leave(db, 'hp', benchWin.event!);
+
+  await writeOwnedHp(db, 'hp', [{ id: hpStarter.id, hpLost: ownedMaxHp((await readOwnedByUser(db, 'hp')).find((m) => m.id === hpStarter.id)!) - 1 }, { id: hpSecond.id, hpLost: 0 }]);
+  const tradeFight = (await start(db, 'hp', 'wild', T, duo)).event!;
+  await forceKind(db, 'hp', tradeFight, 'wild', 'hp');
+  await toughenFoe(db, 'hp', tradeFight, 1.3);
+  await forceBattle(db, 'hp', tradeFight, (b) => b.won && b.fielded!.some((f) => f.hp === 0) && b.fielded!.some((f) => f.hp > 0));
+  const beforeTrade = await moneyOf(db, 'hp');
+  const tradeWin = await chooseRoute(db, 'hp', { requestId: rid(), eventId: tradeFight.id, expectedRevision: 0, choice: 'battle' }, T);
+  const standing = tradeWin.event!.battle!.fielded!.filter((f) => f.hp > 0).map((f) => f.id);
+  check('only members standing at the end earn EXP', JSON.stringify(tradeWin.event!.members.map((m) => m.id)) === JSON.stringify(standing));
+  const tradeHp = await readOwnedByUser(db, 'hp');
+  check('a win with a fainted member still pays the full ₽100 alongside the saved damage', tradeWin.event!.money === 100 && await moneyOf(db, 'hp') === beforeTrade + 100
+    && tradeWin.event!.battle!.fielded!.every((f) => (tradeHp.find((m) => m.id === f.id)!.hpLost ?? 0) === f.maxHp - f.hp));
+  await leave(db, 'hp', tradeWin.event!);
+
+  const beforeDown = (await loadRouteState(db, 'hp', T)).allowance.available;
+  const moneyBeforeDown = await moneyOf(db, 'hp');
+  const allMine = await readOwnedByUser(db, 'hp');
+  await writeOwnedHp(db, 'hp', allMine.map((m) => ({ id: m.id, hpLost: ownedMaxHp(m) })));
+  await rejects('an all-fainted party cannot search', start(db, 'hp', 'wild', T, duo), 400);
+  const down = await loadRouteState(db, 'hp', T);
+  check('a refused search spends nothing and opens nothing', down.allowance.available === beforeDown && down.inventory.money === moneyBeforeDown && down.activeEvent === null);
+
+  const wo = await onboardUser(db, 'whiteout');
+  await activateRoute(db, 'whiteout', 'activate', T);
+  await writeOwnedHp(db, 'whiteout', [{ id: wo.id, hpLost: ownedMaxHp(wo) - 1 }]);
+  const lostFight = (await start(db, 'whiteout')).event!;
+  const moneyBeforeLoss = await moneyOf(db, 'whiteout');
+  const travelBeforeLoss = (await loadRouteState(db, 'whiteout', T)).travel.available;
+  await forceKind(db, 'whiteout', lostFight, 'wild', 'hp');
+  await forceBattle(db, 'whiteout', lostFight, (b) => !b.won);
+  const lost = await chooseRoute(db, 'whiteout', { requestId: rid(), eventId: lostFight.id, expectedRevision: 0, choice: 'battle' }, T);
+  const woAfter = (await readOwnedByUser(db, 'whiteout')).find((m) => m.id === wo.id)!;
+  check('a loss whites out: party fainted, trainer home, no EXP, no ₽', lost.event?.outcome === 'lost' && isFainted(woAfter) && lost.state.trainerAt === 'home' && woAfter.exp === wo.exp
+    && !lost.event.money && lost.state.inventory.money === moneyBeforeLoss);
+  check('a whiteout moves the stored location home without a travel debit yet', (await readRouteAccount(db, 'whiteout'))?.location === 'home' && lost.state.travel.available === travelBeforeLoss);
+
+  console.log('[Pokémon Center]');
+  const boxPatient = await mintMon(db, 'whiteout', { dexId: 10, level: 5 });
+  await writeOwnedHp(db, 'whiteout', [{ id: boxPatient.id, hpLost: 3 }]);
+  const strangerMon = (await readOwnedByUser(db, 'u2'))[0];
+  await writeOwnedHp(db, 'u2', [{ id: strangerMon.id, hpLost: 3 }]);
+  const awayFight = await searchRoute(db, 'whiteout', { requestId: 'whiteout-away', locationId: 'r1', kind: 'wild', partyIds: [wo.id] }, T).catch((e) => e);
+  check('a whited-out party cannot search before healing', awayFight instanceof RouteError && awayFight.status === 400);
+  const healed = await healParty(db, 'whiteout', 'heal-1', T);
+  check('a whiteout leaves the trainer at the Center, which heals party and Box to full for free', healed.box!.every((m) => !m.hpLost) && healed.state.trainerAt === 'home'
+    && healed.state.inventory.money === moneyBeforeLoss && healed.state.allowance.available === lost.state.allowance.available && healed.state.travel.available === travelBeforeLoss);
+  check('another account’s Pokémon stay hurt', (await readOwnedByUser(db, 'u2')).find((m) => m.id === strangerMon.id)!.hpLost === 3);
+  const healedAgain = await healParty(db, 'whiteout', 'heal-1', T + 1);
+  check('a retried heal returns its receipt', healedAgain.replayed === true);
+  // 'activate' is the committed activation receipt; in town with no open encounter, only the reused request ID can refuse.
+  await rejects('a request ID from another command cannot heal', healParty(db, 'whiteout', 'activate', T), 409);
+  const walkedOut = await travelRoute(db, 'whiteout', { requestId: rid(), to: 'r1', partyIds: [wo.id] }, T);
+  const backOut = await start(db, 'whiteout');
+  check('a healed trainer walks back to the meadow and searches again', walkedOut.state.trainerAt === 'r1' && backOut.event !== undefined && !backOut.event.party[0].hpLost);
+  await rejects('healing waits for the open encounter', healParty(db, 'whiteout', 'heal-2', T), 409);
+  await leave(db, 'whiteout', backOut.event!);
+  await writeOwnedHp(db, 'whiteout', [{ id: boxPatient.id, hpLost: 3 }]);
+  const fromMeadow = await healParty(db, 'whiteout', 'heal-3', T).catch((e: unknown) => e);
+  const meadowAfter = await loadRouteState(db, 'whiteout', T);
+  check('the Center refuses a trainer in Sunny Meadow with nothing healed or moved', fromMeadow instanceof RouteError && fromMeadow.status === 409
+    && fromMeadow.message === 'Walk back to Hearth Town to visit the Pokémon Center.'
+    && (await readOwnedByUser(db, 'whiteout')).find((m) => m.id === boxPatient.id)!.hpLost === 3 && meadowAfter.trainerAt === 'r1');
+
+  const hpLegacy = await legacyDb('hp-legacy');
+  try {
+    await legacyOnboard(hpLegacy.db, 'old');
+    const [oldMon] = await readOwnedByUser(hpLegacy.db, 'old');
+    check('rows read before db:setup are at full health', oldMon.hpLost === undefined && !isFainted(oldMon));
+  } finally { hpLegacy.cleanup(); }
 
   // A trainer's Pokémon counts as seen, like a wild one. The seed is random, so search until a trainer shows.
   await onboardUser(db, 'sightings', 6, 30);

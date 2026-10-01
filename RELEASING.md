@@ -123,7 +123,7 @@ Before running `npm run db:setup` against the production database:
 2. Know what `db:setup` changes, all idempotent and safe to re-run: the
    `nickname` column on `owned_pokemon`; the `stats` column on `owned_pokemon`
    (each Pokémon's six current stats; rows without it read as an average
-   individual); the `party` column on `profiles`; the
+   individual); the `party` column on `profiles`; the `hp_lost` column on `owned_pokemon` (battle damage carried between battles; existing rows read as full health); the
    activity columns on `idle_sessions` (`mode`, `rules_version`,
    `party_snapshot`, `config`, `state`, `step`, `request_id`, `result`,
    `seen_at`); the tables `world_progress` and `world_discoveries`; and the
@@ -134,4 +134,4 @@ Before running `npm run db:setup` against the production database:
    map. Until it runs, `/api/world/*` answers 503 "The world map isn't ready
    yet." while the hub, box and Pokédex keep working. Open idle sessions left
    from the paused idle routes show up as training on their route and settle
-   under the new rules.
+   under the new rules. Run it before the deploy that ships the Pokémon Center: until it runs, Sunny Meadow searches and battles answer 503 while the hub, box and Pokédex keep working.

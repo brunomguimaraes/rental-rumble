@@ -1,13 +1,15 @@
 import { useId, useRef } from 'react';
 import { ballUrl } from '../../game/balls';
-import type { OwnedMon } from '../../game/box';
+import { ownedMonToCreature, type OwnedMon } from '../../game/box';
+import { isFainted } from '../../game/health';
 import { ballCount, itemById, itemQuantity } from '../../game/items';
 import { asAltColor, asShiny, CREATURES_BY_ID, spriteUrl } from '../../game/pokemon';
 import type { CaptureBallId, RouteChoice, RouteEvent, RouteState } from '../../game/route-actions';
 import { MEADOW_LANDMARKS } from '../../game/route-rules';
+import { HpBar } from '../ui/HpBar';
 import { PixelSprite } from '../ui/PixelSprite';
 import { MeadowScene } from './MeadowScene';
-import { RouteBattleRewards } from './RouteResultView';
+import { FaintedNote, RouteBattleRewards } from './RouteResultView';
 import { monName, POKEBALL, speciesName } from './scene';
 
 export function MeadowEncounter({ event, state, box, locked, busy, selectedBall, onSelectBall, onChoose, onBag, onReplay }: {
@@ -85,9 +87,16 @@ export function MeadowEncounter({ event, state, box, locked, busy, selectedBall,
           {event.choices.includes('leave') && <button type="button" disabled={locked} onClick={() => onChoose('leave')} className="ui-button ui-focus min-h-11 flex-1 px-3 text-sm">Leave encounter</button>}
           {event.choices.includes('decline') && <button type="button" disabled={locked} onClick={() => onChoose('decline')} className="ui-button ui-focus min-h-11 flex-1 px-3 text-sm">Maybe another time</button>}
         </div>
+        <FaintedNote event={event} box={box} />
         {event.newLandmarks.length > 0 && <p className="mt-3 border-t border-window-frame pt-2 text-sm text-accent">◆ Discovered: {event.newLandmarks.map((id) => MEADOW_LANDMARKS.find((landmark) => landmark.id === id)?.name ?? id).join(', ')}</p>}
       </div>
-      <details className="border-t border-window-frame bg-slot p-3"><summary className="ui-focus min-h-8 rounded-[3px] text-sm">Your encounter party · {event.party.length}</summary><p className="mt-2 text-sm text-ink-dim">{event.party.map(monName).join(', ')}. Party changes apply to your next search.</p></details>
+      <details className="border-t border-window-frame bg-slot p-3"><summary className="ui-focus min-h-8 rounded-[3px] text-sm">Your encounter party · {event.party.length}</summary>
+        {/* The party as it was when this encounter began: the snapshot the battle uses. */}
+        <ul className="mt-2 flex flex-col gap-2">{event.party.map((m) => <li key={m.id} className="flex items-center gap-2 rounded-[3px] bg-window p-2">
+          <PixelSprite src={ownedMonToCreature(m)?.portrait ?? POKEBALL} fallback={POKEBALL} size={40} alt="" />
+          <div className="min-w-0 flex-1"><p className="truncate text-sm">{monName(m)}{isFainted(m) && <span className="text-ink-dim"> · fainted, sits out</span>}</p><HpBar mon={m} showNumbers /></div>
+        </li>)}</ul>
+        <p className="mt-2 text-sm text-ink-dim">Party changes apply to your next search.</p></details>
     </section>
     {event.battle && <RouteBattleRewards event={event} box={box} onReplay={onReplay} />}
   </>;

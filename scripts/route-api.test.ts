@@ -28,7 +28,7 @@ async function call(action: string, body?: unknown, uid: string | null = 'route-
 try {
   const s = await onboardUser(t.db, 'route-user', 1);
   await onboardUser(t.db, 'other', 4);
-  for (const action of ['state', 'activate', 'search', 'choose', 'quest-claim', 'result-dismiss', 'market-trade', 'travel']) {
+  for (const action of ['state', 'activate', 'search', 'choose', 'quest-claim', 'result-dismiss', 'heal', 'market-trade', 'travel']) {
     check(`${action} requires login`, (await call(action, {}, null)).status === 401);
     if (action !== 'state') {
       const r = await call(action, {}, 'route-user', 'GET');
@@ -101,6 +101,12 @@ try {
     const retired = await call(action, { mode: 'train', locationId: 'r1' });
     check(`legacy ${action} has a refresh response`, retired.status === 409 && retired.body.retired === true);
   }
+  check('heal requires a request ID', (await call('heal', {})).status === 400);
+  const away = await call('heal', { requestId: 'heal-away' });
+  check('heal from Sunny Meadow is a 409 with recovery state', away.status === 409 && away.body.error === 'Walk back to Hearth Town to visit the Pokémon Center.' && (away.body.state as RouteState).trainerAt === 'r1');
+  await call('travel', { requestId: 'home-to-heal', to: 'home', partyIds: [s.id] });
+  const heal = await call('heal', { requestId: 'heal' });
+  check('heal in Hearth Town returns state and Box rows', heal.status === 200 && heal.body.ok === true && Array.isArray(heal.body.box) && (heal.body.state as RouteState).trainerAt === 'home' && heal.headers['cache-control'] === 'no-store');
   // Actual missing-new-schema case: legacy account/Box tables still function.
   await t.db.execute('drop table route_receipts');
   const unavailable = await call('activate', { requestId: 'missing-schema' });

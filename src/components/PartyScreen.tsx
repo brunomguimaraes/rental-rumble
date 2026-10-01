@@ -3,6 +3,7 @@ import { ownedMonToCreature, type OwnedMon } from '../game/box';
 import { PARTY_MAX, partyMembers, sameParty, saveParty } from '../game/party';
 import { PixelSprite } from './ui/PixelSprite';
 import { ExpBar } from './ui/ExpBar';
+import { HpBar } from './ui/HpBar';
 import { POKEBALL, monName } from './world/scene';
 
 // The saved party: up to six of the trainer's Pokémon, lead first. A menu
@@ -149,8 +150,9 @@ export function PartyScreen({
                       <VariantMarks mon={mon} />
                     </span>
                     {i === 0 && <span className="block font-label text-[9px] uppercase text-accent">Lead</span>}
-                    <span className="mt-0.5 flex">
+                    <span className="mt-0.5 flex flex-col gap-0.5">
                       <ExpBar level={mon.level} exp={mon.exp} />
+                      <HpBar mon={mon} />
                     </span>
                   </span>
                 </button>
@@ -214,7 +216,10 @@ export function PartyScreen({
                     {inParty ? (
                       <span className="font-label text-[8px] uppercase text-accent">In party</span>
                     ) : (
-                      <ExpBar level={mon.level} exp={mon.exp} />
+                      <>
+                        <ExpBar level={mon.level} exp={mon.exp} />
+                        <HpBar mon={mon} />
+                      </>
                     )}
                   </button>
                 </li>

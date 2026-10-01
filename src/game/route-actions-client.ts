@@ -18,6 +18,7 @@ export type RouteCommand =
   | { operation: 'search'; input: RouteSearchInput }
   | { operation: 'choose'; input: RouteChooseInput }
   | { operation: 'quest-claim'; input: RouteQuestInput }
+  | { operation: 'heal'; input: { requestId: string } }
   | { operation: 'market-trade'; input: MarketTradeInput }
   | { operation: 'travel'; input: RouteTravelInput };
 
@@ -98,6 +99,7 @@ export const searchRoute = (input: RouteSearchInput): Promise<RouteClientReply> 
 export const chooseRoute = (input: RouteChooseInput): Promise<RouteClientReply> => request('choose', input);
 export const claimRouteQuest = (input: RouteQuestInput): Promise<RouteClientReply> => request('quest-claim', input);
 export const dismissRouteResult = (eventId: string): Promise<RouteClientReply> => request('result-dismiss', { eventId });
+export const healAtCenter = (input: { requestId: string }): Promise<RouteClientReply> => request('heal', input);
 export const tradeMarket = (input: MarketTradeInput): Promise<RouteClientReply> => request('market-trade', input);
 export const runRouteCommand = (command: RouteCommand): Promise<RouteClientReply> => request(command.operation, command.input);
 
@@ -112,7 +114,7 @@ export function readPendingRouteCommand(accountKey: string): RouteCommand | null
   try {
     const value: unknown = JSON.parse(sessionStorage.getItem(pendingKey(accountKey)) ?? 'null');
     if (!isObject(value) || !isObject(value.input) || typeof value.input.requestId !== 'string') return null;
-    if (!['activate', 'search', 'choose', 'quest-claim', 'market-trade', 'travel'].includes(String(value.operation))) return null;
+    if (!['activate', 'search', 'choose', 'quest-claim', 'heal', 'market-trade', 'travel'].includes(String(value.operation))) return null;
     return value as unknown as RouteCommand;
   } catch { return null; }
 }

@@ -12,9 +12,17 @@ import { growthLines, monName, POKEBALL, speciesName } from './scene';
 import { inventoryChangeText, moneyChangeText, resultFind, type ResultFind } from './route-copy';
 
 const OUTCOME_LABEL = {
-  caught: 'A new companion!', escaped: 'The Pokémon escaped', won: 'Battle won!', lost: 'A tough encounter',
+  caught: 'A new companion!', escaped: 'The Pokémon escaped', won: 'Battle won!', lost: 'Your party is out of strength',
   left: 'Onward to the meadow', talked: 'A moment on the path', accepted: 'Meadow survey accepted', found: 'A little discovery!',
 };
+
+/** After a won battle, names the members that fainted mid-battle: they earned no EXP. A loss has its own whiteout line. */
+export function FaintedNote({ event, box }: { event: RouteEvent; box: OwnedMon[] }) {
+  if (event.outcome === 'lost') return null;
+  const fainted = (event.battle?.fielded ?? []).filter((f) => f.hp === 0)
+    .map((f) => { const mon = box.find((m) => m.id === f.id); return mon ? monName(mon) : 'A Pokémon'; });
+  return fainted.length > 0 ? <p className="mt-2 text-sm text-ink-dim">{fainted.join(', ')} fainted and earned no EXP.</p> : null;
+}
 
 /** A find with no Pokémon or person: the ball, valuable, or coin pouch it turned up. */
 function FindArt({ find }: { find: ResultFind | null }) {
@@ -41,7 +49,7 @@ export function RouteBattleRewards({ event, box, onReplay }: { event: RouteEvent
           {growthLines(member, name).map((line) => <p key={line} className="mt-1 text-sm text-accent">{line}</p>)}
         </div>
       </li>;
-    })}</ul> : <p className="mt-2 text-sm text-ink-dim">No EXP earned. Your party is ready for another encounter.</p>}
+    })}</ul> : <p className="mt-2 text-sm text-ink-dim">{event.outcome === 'lost' ? 'No EXP earned.' : 'No EXP earned. Your party is ready for another encounter.'}</p>}
     {event.battle && <button type="button" onClick={onReplay} className="ui-button ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">Replay battle</button>}
   </details>;
 }
@@ -75,7 +83,8 @@ export function RouteResultView({ event, box, busy, onDone, onReplay }: {
         {event.catch && <p className="mt-1 text-sm text-ink-dim">Used 1 {itemById(event.catch.ballId)?.name ?? 'ball'}. {event.catch.caught ? 'Your new companion is saved.' : 'The throw is finished. There are more Pokémon to meet.'}</p>}
         {exp > 0 && <p className="mt-2 text-lg text-exp">+{exp} EXP earned by your party</p>}
         {event.members.filter((member) => member.before.dexId !== member.after.dexId).map((member) => <p key={member.id} className="mt-2 text-base text-accent">{speciesName(member.before.dexId)} evolved into {speciesName(member.after.dexId)}!</p>)}
-        {event.outcome === 'lost' && <p className="text-sm text-ink-dim">No EXP earned this time. Your party is ready for another encounter.</p>}
+        {event.outcome === 'lost' && <p className="text-sm text-ink-dim">You hurried back to Hearth Town. No EXP earned; the Pokémon Center will heal everyone for free.</p>}
+        <FaintedNote event={event} box={box} />
         {event.outcome === 'left' && <p className="text-sm text-ink-dim">Your search action stays spent. Battle rewards and discoveries are saved.</p>}
         {event.outcome === 'accepted' && <p className="text-sm">Find the three landmarks for {ROUTE_RULES.questGreatBalls} Great Balls and {formatMoney(ROUTE_RULES.questMoney)}. Earlier discoveries count. Check the survey below the route.</p>}
         {event.outcome === 'talked' && <p className="text-sm">Your survey progress is saved. Check the survey below the route.</p>}
@@ -83,7 +92,7 @@ export function RouteResultView({ event, box, busy, onDone, onReplay }: {
         {moneyChangeText(event) && <p className="mt-2 text-sm text-accent">{moneyChangeText(event)}</p>}
         {event.newLandmarks.length > 0 && <p className="mt-2 text-sm text-accent">◆ Discovered: {event.newLandmarks.map((id) => MEADOW_LANDMARKS.find((landmark) => landmark.id === id)?.name ?? id).join(', ')}</p>}
         {event.newSeen.length > 0 && <p className="mt-2 text-sm text-ink-dim">First seen: {event.newSeen.map(speciesName).join(', ')}.</p>}
-        <button type="button" disabled={busy} onClick={onDone} className="ui-button-primary ui-focus mt-4 min-h-12 w-full px-3 font-label text-[10px] uppercase">{busy ? 'Continuing…' : 'Continue exploring'}</button>
+        <button type="button" disabled={busy} onClick={onDone} className="ui-button-primary ui-focus mt-4 min-h-12 w-full px-3 font-label text-[10px] uppercase">{busy ? 'Continuing…' : event.outcome === 'lost' ? 'Go to the Pokémon Center' : 'Continue exploring'}</button>
       </div>
     </section>
     {event.battle && <RouteBattleRewards event={event} box={box} onReplay={onReplay} />}

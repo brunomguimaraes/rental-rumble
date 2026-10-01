@@ -7,6 +7,7 @@
 import type { BattleEvent } from '../src/game/battle.js';
 import { boardAt, combatantFromCreature, wildCombatant, type CombatantView, type Narration } from '../src/game/battle-board.js';
 import { type OwnedMon } from '../src/game/box.js';
+import { ownedMaxHp } from '../src/game/health.js';
 import { CREATURES_BY_ID } from '../src/game/pokemon.js';
 import { starterFromOffer } from '../src/game/professions.js';
 import { rollRouteFind, simulateRouteBattle } from '../src/game/route-rules.js';
@@ -101,6 +102,13 @@ check('seeded final board shows the last HP the log reported for each side', fin
 check('seeded final board names the winner', final.line === (battle.won ? 'You won the battle!' : 'Your party was defeated.'));
 check('seeded final board counts the loser’s faint', (battle.won ? final.foe.faints : final.player.faints) === 1);
 check('seeded battle shows the foe’s sign from the view', final.foe.view?.sign === find.foe.mint.sign);
+
+// Persistent HP: a hurt member is sent out at its stored HP, so the replay never draws it at full.
+const hurt: OwnedMon = { ...mon, hpLost: ownedMaxHp(mon) - 3 };
+const hurtBattle = simulateRouteBattle({ party: [hurt], foe: find.foe, seed: 'rules-battle' });
+const hurtOut = hurtBattle.events.findIndex((e) => e.kind === 'sendout' && e.affected === 'player');
+const hurtBoard = boardAt({ events: hurtBattle.events, upTo: hurtOut, player: [starterView], foe: [foeView], narration: { foeName: foeView.name, guardian: false } });
+check('a hurt member enters the replay board at its stored HP out of its full max', hurtOut >= 0 && hurtBoard.player.hp === 3 && hurtBoard.player.maxHp === ownedMaxHp(mon));
 
 
 // PMD frames stand on a feet anchor (Charizard, real resting and hurt geometry):
