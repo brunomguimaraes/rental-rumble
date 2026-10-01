@@ -47,6 +47,10 @@ const SCHEMA_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', 'db', 's
 /** Statements that add columns to existing tables; each is a no-op on re-run. */
 const COLUMN_ADDS = [
   'alter table owned_pokemon add column nickname text',
+  // Battle damage an owned Pokémon carries between battles; 0 is full health.
+  'alter table owned_pokemon add column hp_lost integer not null default 0',
+  // Where the trainer stands after a whiteout or a Center visit; null derives it.
+  'alter table route_accounts add column trainer_at text',
   // The six current stats on the growth model's scale, JSON text. Null on rows
   // minted before the growth system; rowToOwned backfills those on read.
   'alter table owned_pokemon add column stats text',
@@ -270,6 +274,7 @@ export function rowToOwned(r: Record<string, unknown>): OwnedMon {
     altColor: Number(r.alt_color) === 1,
     ...(r.emotion ? { emotion: String(r.emotion) } : {}),
     ...(r.nickname ? { nickname: String(r.nickname) } : {}),
+    ...(Number(r.hp_lost) > 0 ? { hpLost: Math.floor(Number(r.hp_lost)) } : {}),
     origin: (String(r.origin ?? 'catch') as CatchOrigin),
     caughtAt: Number(r.caught_at) || 0,
   };
@@ -717,6 +722,7 @@ export interface RouteAccountRow {
   inventoryRevision: number;
   revision: number;
   transition: unknown;
+  trainerAt: 'home' | 'r1' | null;
 }
 
 export async function readRouteAccount(db: Executor, uid: string): Promise<RouteAccountRow | null> {
@@ -725,6 +731,7 @@ export async function readRouteAccount(db: Executor, uid: string): Promise<Route
   return r ? {
     activatedAt: Number(r.activated_at), actions: Number(r.actions), refilledAt: Number(r.refilled_at),
     inventoryRevision: Number(r.inventory_revision), revision: Number(r.revision), transition: parseJson(r.transition),
+    trainerAt: r.trainer_at === 'home' || r.trainer_at === 'r1' ? r.trainer_at : null,
   } : null;
 }
 
@@ -737,6 +744,23 @@ export async function insertRouteAccount(db: Executor, uid: string, actions: num
 
 export async function writeRouteAllowance(db: Executor, uid: string, actions: number, refilledAt: number): Promise<void> {
   await db.execute({ sql: 'update route_accounts set actions = ?, refilled_at = ? where user_id = ?', args: [actions, refilledAt, uid] });
+}
+
+/** Persistent HP after a battle: one update per fielded member, scoped to the user. */
+export async function writeOwnedHp(db: Executor, uid: string, rows: readonly { id: string; hpLost: number }[]): Promise<void> {
+  for (const row of rows) {
+    await db.execute({ sql: 'update owned_pokemon set hp_lost = ? where id = ? and user_id = ?', args: [Math.max(0, Math.floor(row.hpLost)), row.id, uid] });
+  }
+}
+
+/** The Pokémon Center: every owned Pokémon back to full health. Returns how many were hurt. */
+export async function healAllOwned(db: Executor, uid: string): Promise<number> {
+  const rs = await db.execute({ sql: 'update owned_pokemon set hp_lost = 0 where user_id = ? and hp_lost > 0', args: [uid] });
+  return rs.rowsAffected;
+}
+
+export async function writeTrainerAt(db: Executor, uid: string, at: 'home' | 'r1'): Promise<void> {
+  await db.execute({ sql: 'update route_accounts set trainer_at = ? where user_id = ?', args: [at, uid] });
 }
 
 export async function readInventoryRows(db: Executor, uid: string): Promise<{ itemId: string; quantity: number }[]> {

@@ -2,16 +2,17 @@
 import {
   acceptRouteQuest, applySchema, changeInventory, countOwned, insertDiscovery, insertRouteEvent,
   openWriteTx, readActivity, readOpenActivity, readOwnedByUser, readRouteAccount, readRouteEvent,
-  updateOwnedNickname, updateRouteEvent, writeRouteAllowance, type Db,
+  updateOwnedNickname, updateProfileParty, updateRouteEvent, writeOwnedHp, writeRouteAllowance, type Db,
 } from '../api/_db.js';
 import {
   activateRoute, chooseRoute, claimRouteQuest, dismissRouteResult, finishLegacyRoute,
   loadRouteState, RouteError, searchRoute,
 } from '../api/_route-actions.js';
 import { dismissResult, startActivity, stepExpedition } from '../api/_world.js';
-import { legalChoices, rollCapture, rollRouteFind } from '../src/game/route-rules.js';
-import type { CaptureBallId, RouteEvent, SearchKind, StoredRouteEvent } from '../src/game/route-actions.js';
-import { check, finish, onboardUser, tempDb } from './world-test-kit.js';
+import { legalChoices, rollCapture, rollRouteFind, simulateRouteBattle } from '../src/game/route-rules.js';
+import type { CaptureBallId, RouteBattle, RouteEvent, SearchKind, StoredRouteEvent } from '../src/game/route-actions.js';
+import { isFainted, ownedMaxHp } from '../src/game/health.js';
+import { check, finish, legacyDb, legacyOnboard, mintMon, onboardUser, tempDb } from './world-test-kit.js';
 
 const T = 1_800_000_000_000;
 const eq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -21,8 +22,8 @@ async function rejects(label: string, work: Promise<unknown>, status: number) {
   try { await work; check(label, false); }
   catch (e) { check(label, e instanceof RouteError && e.status === status); }
 }
-async function start(db: Db, uid: string, kind: SearchKind = 'wild', now = T) {
-  const partyIds = [(await readOwnedByUser(db, uid)).find((m) => m.origin === 'starter')!.id];
+async function start(db: Db, uid: string, kind: SearchKind = 'wild', now = T, ids?: string[]) {
+  const partyIds = ids ?? [(await readOwnedByUser(db, uid)).find((m) => m.origin === 'starter')!.id];
   return searchRoute(db, uid, { requestId: rid(), locationId: 'r1', kind, partyIds }, now);
 }
 async function leave(db: Db, uid: string, event: RouteEvent) {
@@ -54,6 +55,28 @@ async function forceCatch(db: Db, uid: string, e: RouteEvent, caught: boolean, b
     await updateRouteEvent(db, uid, { ...row, data }, row.revision);
     return data.foe!.mint;
   }
+}
+/** Pick the event's seed so its battle plays out as wanted; the foe and party stay frozen. */
+async function forceBattle(db: Db, uid: string, e: RouteEvent, want: (b: RouteBattle) => boolean) {
+  const row = (await readRouteEvent(db, uid, e.id))!;
+  const data = row.data as StoredRouteEvent;
+  for (let i = 0; i < 2000; i++) {
+    const seed = `battle-${i}`;
+    if (!want(simulateRouteBattle({ party: data.event.party, foe: data.foe!, seed }))) continue;
+    data.seed = seed;
+    await updateRouteEvent(db, uid, { ...row, data }, row.revision);
+    return;
+  }
+  const seen = new Set<string>();
+  for (let i = 0; i < 50; i++) { const b = simulateRouteBattle({ party: data.event.party, foe: data.foe!, seed: `battle-${i}` }); seen.add(`${b.won} ${b.fielded![0].hp}/${b.fielded![0].maxHp}`); }
+  throw new Error('No seed produced the wanted battle ' + [...seen].slice(0, 8).join('; '));
+}
+/** Fixture: a tougher frozen foe, so a 1 HP lead reliably faints before its Box recruit takes over. */
+async function toughenFoe(db: Db, uid: string, e: RouteEvent, statMult: number) {
+  const row = (await readRouteEvent(db, uid, e.id))!;
+  const data = row.data as StoredRouteEvent;
+  data.foe!.statMult = statMult;
+  await updateRouteEvent(db, uid, { ...row, data }, row.revision);
 }
 const t = await tempDb('routes');
 try {
@@ -251,6 +274,69 @@ try {
   const expUnits = (prior.state as { expUnits: number }).expUnits;
   const exMigration = await activateRoute(db, 'expedition', 'upgrade', T + 86400000);
   check('expedition retirement pays only banked EXP without advancing guardian', exMigration.state.legacy.result?.rawExp === expUnits && exMigration.state.legacy.result.cleared === false && (await readActivity(db, 'expedition', exId))?.step === prior.step);
+
+  console.log('[persistent HP and whiteout]');
+  const hpStarter = await onboardUser(db, 'hp', 4);
+  await activateRoute(db, 'hp', 'activate', T);
+  await writeOwnedHp(db, 'hp', [{ id: hpStarter.id, hpLost: Math.floor(ownedMaxHp(hpStarter) / 3) }]);
+  const hurtFight = (await start(db, 'hp')).event!;
+  await forceKind(db, 'hp', hurtFight, 'wild', 'hp');
+  await forceBattle(db, 'hp', hurtFight, (b) => b.won && b.fielded![0].hp > 0 && b.fielded![0].hp < b.fielded![0].maxHp);
+  const hurtWin = await chooseRoute(db, 'hp', { requestId: rid(), eventId: hurtFight.id, expectedRevision: 0, choice: 'battle' }, T);
+  const ended = hurtWin.event!.battle!.fielded![0];
+  const afterWin = (await readOwnedByUser(db, 'hp')).find((m) => m.id === hpStarter.id)!;
+  check('a won battle saves the damage the starter ended with, through growth', ended.id === hpStarter.id && afterWin.hpLost === ended.maxHp - ended.hp && afterWin.exp > 0);
+  await leave(db, 'hp', hurtWin.event!);
+  const carried = (await start(db, 'hp')).event!;
+  check('the next search freezes the carried damage', carried.party[0].hpLost === afterWin.hpLost);
+  await leave(db, 'hp', carried);
+
+  const hpSecond = await mintMon(db, 'hp', { dexId: 10, level: 5 });
+  await updateProfileParty(db, 'hp', [hpStarter.id, hpSecond.id]);
+  const duo = [hpStarter.id, hpSecond.id];
+  const starterNow = (await readOwnedByUser(db, 'hp')).find((m) => m.id === hpStarter.id)!;
+  await writeOwnedHp(db, 'hp', [{ id: hpStarter.id, hpLost: ownedMaxHp(starterNow) }]);
+  const benchFight = (await start(db, 'hp', 'wild', T, duo)).event!;
+  await forceKind(db, 'hp', benchFight, 'wild', 'hp');
+  await forceBattle(db, 'hp', benchFight, (b) => b.won);
+  const benchWin = await chooseRoute(db, 'hp', { requestId: rid(), eventId: benchFight.id, expectedRevision: 0, choice: 'battle' }, T);
+  check('a fainted lead sits out while the Box recruit fights', JSON.stringify(benchWin.event!.battle!.fielded!.map((f) => f.id)) === JSON.stringify([hpSecond.id]));
+  check('a fainted member earns no EXP', benchWin.event!.members.every((m) => m.id !== hpStarter.id) && benchWin.box!.find((m) => m.id === hpStarter.id)!.exp === starterNow.exp);
+  await leave(db, 'hp', benchWin.event!);
+
+  await writeOwnedHp(db, 'hp', [{ id: hpStarter.id, hpLost: ownedMaxHp((await readOwnedByUser(db, 'hp')).find((m) => m.id === hpStarter.id)!) - 1 }, { id: hpSecond.id, hpLost: 0 }]);
+  const tradeFight = (await start(db, 'hp', 'wild', T, duo)).event!;
+  await forceKind(db, 'hp', tradeFight, 'wild', 'hp');
+  await toughenFoe(db, 'hp', tradeFight, 1.3);
+  await forceBattle(db, 'hp', tradeFight, (b) => b.won && b.fielded!.some((f) => f.hp === 0) && b.fielded!.some((f) => f.hp > 0));
+  const tradeWin = await chooseRoute(db, 'hp', { requestId: rid(), eventId: tradeFight.id, expectedRevision: 0, choice: 'battle' }, T);
+  const standing = tradeWin.event!.battle!.fielded!.filter((f) => f.hp > 0).map((f) => f.id);
+  check('only members standing at the end earn EXP', JSON.stringify(tradeWin.event!.members.map((m) => m.id)) === JSON.stringify(standing));
+  await leave(db, 'hp', tradeWin.event!);
+
+  const beforeDown = (await loadRouteState(db, 'hp', T)).allowance.available;
+  const allMine = await readOwnedByUser(db, 'hp');
+  await writeOwnedHp(db, 'hp', allMine.map((m) => ({ id: m.id, hpLost: ownedMaxHp(m) })));
+  await rejects('an all-fainted party cannot search', start(db, 'hp', 'wild', T, duo), 400);
+  const down = await loadRouteState(db, 'hp', T);
+  check('a refused search spends nothing and opens nothing', down.allowance.available === beforeDown && down.activeEvent === null);
+
+  const wo = await onboardUser(db, 'whiteout');
+  await activateRoute(db, 'whiteout', 'activate', T);
+  await writeOwnedHp(db, 'whiteout', [{ id: wo.id, hpLost: ownedMaxHp(wo) - 1 }]);
+  const lostFight = (await start(db, 'whiteout')).event!;
+  await forceKind(db, 'whiteout', lostFight, 'wild', 'hp');
+  await forceBattle(db, 'whiteout', lostFight, (b) => !b.won);
+  const lost = await chooseRoute(db, 'whiteout', { requestId: rid(), eventId: lostFight.id, expectedRevision: 0, choice: 'battle' }, T);
+  const woAfter = (await readOwnedByUser(db, 'whiteout')).find((m) => m.id === wo.id)!;
+  check('a loss whites out: party fainted, trainer home, no EXP', lost.event?.outcome === 'lost' && isFainted(woAfter) && lost.state.trainerAt === 'home' && woAfter.exp === wo.exp);
+
+  const hpLegacy = await legacyDb('hp-hpLegacy');
+  try {
+    await legacyOnboard(hpLegacy.db, 'old');
+    const [oldMon] = await readOwnedByUser(hpLegacy.db, 'old');
+    check('rows read before db:setup are at full health', oldMon.hpLost === undefined && !isFainted(oldMon));
+  } finally { hpLegacy.cleanup(); }
 
   // Schema invariant itself, independent of domain checks.
   const sample = (await readRouteEvent(db, 'u1', trainer.event.id))!;

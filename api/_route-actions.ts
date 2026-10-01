@@ -5,11 +5,12 @@ import {
   insertRouteReceipt, markRouteQuestClaimed, newId, openWriteTx, readActiveRouteEvent, readActivity,
   readDiscoveries, readInventoryRows, readLastRouteId, readOpenActivity, readOwnedByIds, readOwnedByUser,
   readProfile, readProgress, readRouteAccount, readRouteEvent, readRouteQuest, readRouteReceipt,
-  readUnseenResult, readUnseenRouteEvent, recordCaughtDex, updateOwnedGrowth, updateRouteEvent, writeRouteAllowance,
+  readUnseenResult, readUnseenRouteEvent, recordCaughtDex, updateOwnedGrowth, updateRouteEvent, writeOwnedHp, writeRouteAllowance, writeTrainerAt,
   type Db, type Executor, type RouteEventRow,
 } from './_db.js';
 import { retireLegacyActivity } from './_world.js';
 import { parseResult, planGrowth } from '../src/game/activity.js';
+import { isFainted, partyStanding } from '../src/game/health.js';
 import { parsePartyInput, partyMembers, resolveParty, sameParty } from '../src/game/party.js';
 import { EMPTY_PROGRESS } from '../src/game/world.js';
 import { isCaptureBallId } from '../src/game/items.js';
@@ -88,7 +89,7 @@ async function loadRouteStateInTx(db: Executor, uid: string, now: number): Promi
     inventory,
     quest: { id: 'meadow-survey', status: quest?.claimedAt != null ? 'claimed' : !quest ? 'not-accepted' : required.every((id) => landmarks.includes(id)) ? 'ready' : 'active', landmarks, required },
     places: [{ id: 'r1', state: routeVisited || p ? 'discovered' : 'available', progress: { ...EMPTY_PROGRESS, ...p, clearedAt: null, clears: 0, landmarks, seen } }],
-    trainerAt: routeVisited || lastRoute === 'r1' ? 'r1' : 'home', ownedCount,
+    trainerAt: account?.trainerAt ?? (routeVisited || lastRoute === 'r1' ? 'r1' : 'home'), ownedCount,
     activeEvent: active ? stored(active).event : null,
     result: unseen ? stored(unseen).event : null,
     legacy: { pending: open !== null, notice: transition?.notice ?? (parseResult(legacyResult?.result) ? 'Your previous journey rewards were already saved.' : null), result: parseResult(legacyResult?.result) },
@@ -151,6 +152,7 @@ export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, 
     const partyIds = resolveParty(profile.party, owned, profile.starterId);
     if (!partyIds.length) fail(400, 'Choose at least one Pokémon for your party.');
     if (!sameParty(partyIds, input.partyIds)) throw new RouteError(409, 'Your party changed. Check it and try again.', partyIds);
+    if (partyMembers(partyIds, owned).every(isFainted)) fail(400, 'Your party needs care. Visit the Pokémon Center in Hearth Town.');
     const spent = spendAllowance({ available: account.actions, refilledAt: account.refilledAt }, now);
     if (!spent) return fail(409, 'You have no route actions available. Your next action will refill soon.');
     const discoveries = await readDiscoveries(tx, uid);
@@ -174,6 +176,7 @@ export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, 
     if (find.kind === 'wild' && find.foe && await insertDiscovery(tx, { uid, locationId: 'r1', kind: 'seen', ref: String(find.foe.view.dexId), foundAt: now })) event.newSeen.push(find.foe.view.dexId);
     for (const item of find.items) await changeInventory(tx, uid, item.itemId, item.quantity);
     await writeRouteAllowance(tx, uid, spent.available, spent.refilledAt);
+    await writeTrainerAt(tx, uid, 'r1');
     await dismissPriorRouteEvents(tx, uid, now);
     const data: StoredRouteEvent = { event, seed, config: ROUTE_RULES, foe: find.foe };
     await insertRouteEvent(tx, uid, { id: event.id, createdAt: now, revision: 0, active: phase !== 'resolved', seenAt: null, data });
@@ -194,9 +197,14 @@ export async function chooseRoute(db: Db, uid: string, input: RouteChooseInput, 
     if (input.choice === 'battle') {
       if (!data.foe) throw new Error('Battle without a foe');
       e.battle = simulateRouteBattle({ party: e.party, foe: data.foe, seed: data.seed });
+      const fielded = e.battle.fielded ?? [];
+      const current = await readOwnedByIds(tx, uid, e.party.map((m) => m.id));
+      const owned = new Set(current.map((m) => m.id));
+      // Damage is written before growth; growth keeps it, so current HP rises with max HP.
+      await writeOwnedHp(tx, uid, fielded.filter((f) => owned.has(f.id)).map((f) => ({ id: f.id, hpLost: f.maxHp - f.hp })));
       if (e.battle.won) {
-        const current = await readOwnedByIds(tx, uid, e.party.map((m) => m.id));
-        const growth = planGrowth(current, e.party, e.kind === 'wild' ? data.config.wildExp : data.config.trainerExp, data.config.recommended, e.id);
+        const standing = new Set(fielded.filter((f) => f.hp > 0).map((f) => f.id));
+        const growth = planGrowth(current, e.party.filter((m) => standing.has(m.id)), e.kind === 'wild' ? data.config.wildExp : data.config.trainerExp, data.config.recommended, e.id);
         for (const mon of growth.changed) await updateOwnedGrowth(tx, uid, mon);
         e.members = growth.members;
         e.phase = e.kind === 'wild' ? 'catch' : 'resolved';
@@ -206,6 +214,8 @@ export async function chooseRoute(db: Db, uid: string, input: RouteChooseInput, 
           great: captureChance({ rare: data.foe.view.rare, wonBattle: true, ballId: 'great', rules: data.config }),
         };
       } else { e.phase = 'resolved'; e.outcome = 'lost'; }
+      // Whiteout: nobody left standing sends the trainer back to Hearth Town.
+      if (!partyStanding(e.party, fielded)) await writeTrainerAt(tx, uid, 'home');
     } else if (input.choice === 'catch') {
       if (!isCaptureBallId(input.ballId) || !data.foe || e.kind !== 'wild') return fail(400, 'Choose an owned capture ball for a wild Pokémon.');
       if (await countOwned(tx, uid) >= BOX_LIMIT) fail(409, 'Your Box is full. You can still battle or leave.');

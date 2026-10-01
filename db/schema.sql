@@ -86,6 +86,8 @@ create index if not exists auth_tokens_expiry_idx on auth_tokens (expires_at);
 -- text: the six current stats on the growth model's scale (src/game/growth.ts).
 -- Null on rows minted before the growth system; api/_db.ts backfills those on
 -- read as an average individual of the species at that level.
+-- `hp_lost` (COLUMN_ADDS) is the battle damage a Pokémon carries between
+-- battles in engine HP units; 0 is full health. The Pokémon Center resets it.
 create table if not exists owned_pokemon (
   id         text primary key,
   user_id    text not null,
@@ -183,6 +185,8 @@ create table if not exists world_discoveries (
 );
 
 -- Active Route 1 gameplay. Historical idle data remains untouched.
+-- `trainer_at` (COLUMN_ADDS) is 'home' after a whiteout or a Center visit and
+-- 'r1' after a search; null derives the position from route history.
 create table if not exists route_accounts (
   user_id text primary key,
   activated_at integer not null,
