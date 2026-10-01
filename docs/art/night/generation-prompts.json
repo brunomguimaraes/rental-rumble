@@ -110,6 +110,21 @@
       "referencedConcept": true
     },
     {
+      "id": "item-bag",
+      "prompt": "Use case: ui-mockup.\nAsset type: one transparent pixel-art menu icon for the Item Bag in the existing Rental Rumble Night UI library.\nInput image 1: the existing bag icon, a style and design reference. Create a new sibling variant rather than reproducing this unchanged.\nPrimary request: a compact warm ochre-and-brown adventurer's backpack that instantly reads as a Pokémon ITEM BAG. Preserve the reference's broad backpack silhouette, front-facing view, small carry handle, flap, front pocket, bold stepped deep-navy outline and chunky GBA pixel geometry. Change the main flap clasp to a small recognizable RED-AND-WHITE POKÉ BALL fastener, and show the top half of one BLUE GREAT BALL with its simple red accent peeking out of a side pouch. Keep these two item details large and clean enough to read when the icon is displayed at 48 or 64 pixels. The backpack itself is the dominant object; the item details are integrated into it, not floating.\nStyle: crisp intentional pixel art, limited warm ochre/brown palette, cream-gold hard highlights, dark navy outline compatible with #141a2c and #1e2740 Night surfaces. Simple stepped edges, discrete colour clusters. Match the existing icon family. Practical game UI sprite, not an illustration or a realistic product photo.\nComposition: exactly ONE complete isolated backpack, centered, full object visible, small consistent transparent padding, occupies about 75% of a square canvas. Strong readable silhouette at 32–64px. No text, labels, letters, panel, border, UI tile, checkerboard, floor, ground shadow, glow, extra objects, hands or characters. No potions or berries. No soft gradients or blurry edges.\nBackground: TRUE alpha transparency; preserve transparent corners and handle opening. Prefer native 64×64 geometry if possible; otherwise clean integer-upscaled pixel art. Output only the new item-bag icon.",
+      "referencedConcept": false,
+      "referenceAsset": "../../../public/sprites/ui/night/bag.png",
+      "generatedAt": "2026-10-01",
+      "edits": [
+        {
+          "prompt": "Use case: precise-object-edit.\nInput image 1 is the EDIT TARGET: the existing transparent Night Item Bag pixel-art icon.\nRemove ONLY the blue-and-red Great Ball sticking out of the right side pocket. The side pocket must remain as a normal empty brown backpack pouch, with its top edge cleanly finished in the same pixel-art style.\nKeep EVERYTHING ELSE unchanged: the backpack silhouette, front-facing view, canvas size and framing, carry handle, ochre/brown colours, pixel scale, deep-navy outlines, main flap, red-and-white Poké Ball clasp centered on the front, lower pocket and gold buckle, left pocket, highlights, placement and transparent padding. Do not remove or change the Poké Ball clasp on the FRONT; remove only the Great Ball on the SIDE.\nNo replacement object. No text, labels, additional decorations or shadows. Preserve the true alpha-transparent background and transparent handle opening. Output the cleaned item-bag icon only.",
+          "reference": "Initial output from the creation prompt above",
+          "tool": "built-in image_gen",
+          "transparentBackground": true
+        }
+      ]
+    },
+    {
       "id": "achievements",
       "prompt": "Use case: background-extraction. Create ONE reusable game UI icon faithfully based on the attached Night mobile concept. Target: a round gold medal with a warm pink center and two red ribbon tails. Preserve the target icon's recognizable appearance, outline, color palette and viewpoint from the reference. Output only this single object, centered, on a TRUE TRANSPARENT background. NO surrounding button, panel, badge, UI text, caption, frame, checkerboard, glow or ground shadow. GBA pixel art with strong stepped navy-black outline, simple chunky 48px sprite geometry, limited colors, hard discrete highlights, excellent legibility at 32–64px. No gradients or smooth vector curves. Consistent small transparent padding; content occupies about 70% of a square canvas. Prefer a native 64x64 PNG if supported; otherwise integer upscaled pixel sprite. File identity: achievements. The input image is a visual reference only; isolate the named icon, not the screen or other items.",
       "referencedConcept": true

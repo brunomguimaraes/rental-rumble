@@ -1,0 +1,10 @@
+{
+  "name": "Sunny Meadow interactive route",
+  "image": "meadow.webp",
+  "width": 1254,
+  "height": 1254,
+  "generationTool": "Built-in image_gen",
+  "generatedAt": "2026-10-01",
+  "formatConversion": "cwebp quality 80; original dimensions preserved",
+  "prompt": "Use case: stylized-concept. Asset type: background artwork for an interactive mobile Pokémon collecting-game route called Sunny Meadow. Create a beautiful clean 16-bit GBA-era pixel art explorable meadow, a square image, viewed from a gentle high three-quarter angle, filling the entire frame. Bright late morning, warm sunlight, inviting emerald and lime grassy fields, little cream flowers, blue sky only the upper 10 percent, distant low hills. Layout for gameplay hotspots: a large distinctive dense tall-grass patch in the lower LEFT (around x25%, y67%); a curving sandy path winding from bottom center into the middle RIGHT (x72%, y52%) with a small EMPTY clear space where an NPC sprite will later be placed by the interface; in the upper LEFT at x28%, y30% a little wooden signpost by the path; an old broad-canopied oak in the upper RIGHT; a small sunflower patch in the middle LEFT. Keep each of these landmarks clearly readable at phone size, separated with generous clear spaces. Cohesive handcrafted tile-game pixel art with crisply square pixels, defined clusters of 2D color, limited palette, textured grass, no gradients, no antialiasing, no blur. No characters, no Pokémon, no creatures, no text, no UI, no buttons, no labels, no border, no watermark. This is only the background layer, all interactive interface elements will be real HTML buttons over it."
+}

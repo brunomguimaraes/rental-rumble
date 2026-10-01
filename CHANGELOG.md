@@ -19,13 +19,15 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 - **World map** — Hearthvale, a pixel-art region with Hearth Town and Sunny Meadow as its first playable locations. Drag, zoom and recenter the map, or browse the list; Sunny Meadow shows its landmarks.
 - **Your party** — choose up to six Pokémon, reorder them and pick a lead. The party is saved to your account, and every trip starts with the party you set.
 - **Install app** — a hub button with step-by-step iPhone and Android guides for adding the game to your home screen so it opens full-screen; Android Chrome gets a one-tap Install.
-- **Night icon library** — reusable transparent menu and navigation icons, with the original mobile concept, an asset index, and a preview gallery.
+- **Night icon library** — reusable transparent menu and navigation icons, with the original mobile concept, an asset index, and a preview gallery. Includes an Item Bag backpack with a Poké Ball clasp.
 - **Professor Andre** — new trainers meet a stone and fossil researcher with a custom sprite; existing Oak mentor records and the non-fossil starter pool are preserved.
 - **Trainer route** — pick the Trainer profession; Professor Oak offers three weak, three-stage starters from a pool of ten, fixed per account, and you keep one.
 - **Box** — nickname your Pokémon; starters evolve twice, early, caught Pokémon later.
 - **Accounts** — sign in with email and password, Discord or Google; email verification and password reset via Resend. Login is now required to play.
 
 ### Changed
+- **Bag button** — the Hub, town and route use the Night backpack icon, framed touch-sized buttons, and a ball count where inventory is shown.
+- **Sunny Meadow** — explore an interactive illustrated route: tap grass, the path, or the trail, then confirm one clear search. Encounters and results stay in the meadow; the Bag opens over the scene, catch odds and the one-throw cost stay visible, and party, survey, field guide, and battle rewards unfold when needed.
 - **Growth** — levels are hidden. A Pokémon shows an EXP bar and six stats; when the bar fills it grows: each stat rolls against its potential (read out in Judge words) and rises by one, up to the species' ceiling. Evolution carries every point over and adds a bonus. A fully trained Pokémon fights exactly as strong as before.
 - **Growth** — stats grow more slowly, so reaching the top of the EXP curve no longer means every stat is maxed: most Pokémon end with a few stats still short of their ceiling, and only a lucky few max all six. Wild Pokémon at Mirror Lake, Flint Quarry, Cloudcap Trail and Starfall Ruins are a little weaker to match.
 - **Pokédex** — rebuilt as a pixel-art handheld: a detail screen on top (stats, ability, moves, signs) and the species list below, with crisp sprites and arrow-key browsing. The game's backdrop moves to the new "Night" pixel style.
