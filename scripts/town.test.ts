@@ -106,6 +106,7 @@ for (const d of TOWN_DESTINATIONS) {
   if (d.kind === 'exit') check(`${d.id}: an exit leads to a playable place`, d.link !== null && isPlayableId(d.link));
 }
 check('the Village market opens the market', townDestinationById('market')?.link === 'market');
+check('only the Village market opens the market', TOWN_DESTINATIONS.filter((d) => d.link === 'market').map((d) => d.id).join() === 'market');
 
 // --- Web images --------------------------------------------------------------------
 // The screen loads WebP derivatives, not the multi-megabyte PNG masters. It lays
