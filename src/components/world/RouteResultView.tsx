@@ -10,7 +10,7 @@ import { growthLines, monName, POKEBALL, speciesName } from './scene';
 import { inventoryChangeText } from './route-copy';
 
 const OUTCOME_LABEL = {
-  caught: 'A new companion', escaped: 'The Pokémon escaped', won: 'Battle won', lost: 'Your party was defeated',
+  caught: 'A new companion', escaped: 'The Pokémon escaped', won: 'Battle won', lost: 'Your party is out of strength',
   left: 'Back to the meadow', talked: 'A moment in the meadow', accepted: 'Meadow survey accepted', found: 'Supplies found',
 };
 
@@ -31,7 +31,8 @@ export function RouteResultView({ event, box, busy, onDone, onReplay }: {
         <p className="text-base">{monName(caught)} joined your Box. Edit your party to bring them along.</p>
       </div>}
       {event.catch && <p className="mt-2 text-sm text-ink-dim">Used 1 {itemById(event.catch.ballId)?.name ?? 'ball'}. {event.catch.caught ? 'Caught!' : 'The throw is finished. You can look for another Pokémon.'}</p>}
-      {event.outcome === 'lost' && <p className="mt-2 text-sm text-ink-dim">No EXP earned. Your party is ready for another encounter.</p>}
+      {event.outcome === 'lost' && <p className="mt-2 text-sm text-ink-dim">Your party is out of strength. You hurried back to Hearth Town. No EXP earned; the Pokémon Center will heal everyone for free.</p>}
+      {event.outcome !== 'lost' && (event.battle?.fielded ?? []).some((f) => f.hp === 0) && <p className="mt-2 text-sm text-ink-dim">{event.battle!.fielded!.filter((f) => f.hp === 0).map((f) => { const mon = box.find((m) => m.id === f.id); return mon ? monName(mon) : 'A Pokémon'; }).join(', ')} fainted and earned no EXP.</p>}
       {event.outcome === 'left' && <p className="mt-2 text-sm text-ink-dim">The search action stays spent. Any battle rewards and discoveries are already saved.</p>}
       {event.outcome === 'accepted' && <p className="mt-2 text-sm">Discover the three meadow landmarks. Your earlier discoveries already count. Check Meadow survey on the route for your progress.</p>}
       {event.outcome === 'talked' && <p className="mt-2 text-sm">Your quest progress is saved on the route panel.</p>}
@@ -57,6 +58,6 @@ export function RouteResultView({ event, box, busy, onDone, onReplay }: {
         </li>;
       })}</ul>
     </section>}
-    {event.phase === 'resolved' && <div className="m-2"><button type="button" disabled={busy} onClick={onDone} className="ui-button-primary ui-focus min-h-12 w-full px-3 font-label text-[11px] uppercase">Continue to Sunny Meadow</button></div>}
+    {event.phase === 'resolved' && <div className="m-2"><button type="button" disabled={busy} onClick={onDone} className="ui-button-primary ui-focus min-h-12 w-full px-3 font-label text-[11px] uppercase">{event.outcome === 'lost' ? 'Go to the Pokémon Center' : 'Continue to Sunny Meadow'}</button></div>}
   </>;
 }

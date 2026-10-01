@@ -16,8 +16,8 @@ export type TownDestinationId =
   | 'town-square'
   | 'north-exit';
 
-/** What a destination's card opens: a screen (party, dex, box) or a place (`r1`, Sunny Meadow). */
-export type TownLink = 'party' | 'dex' | 'box' | 'r1';
+/** What a destination's card opens: a screen (party, dex, box), the Center, or a place (`r1`, Sunny Meadow). */
+export type TownLink = 'party' | 'dex' | 'box' | 'center' | 'r1';
 
 export interface TownDestination {
   id: TownDestinationId;
@@ -85,8 +85,8 @@ export const TOWN_DESTINATIONS: readonly TownDestination[] = [
     bounds: { x: 938, y: 303, width: 282, height: 216 },
     anchor: { x: 1069, y: 491 },
     description: 'A small country Pokémon Center with a covered entrance, bright red roof, and garden borders.',
-    role: 'The town’s welcoming stop for trainers and their partners.',
-    link: 'party',
+    role: 'Rest your Pokémon here: the nurse restores every one of them to full health, free of charge.',
+    link: 'center',
   },
   {
     id: 'library',

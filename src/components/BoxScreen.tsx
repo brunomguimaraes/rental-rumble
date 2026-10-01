@@ -9,6 +9,7 @@ import { CREATURES_BY_ID } from '../game/pokemon';
 import { signLabel } from '../game/zodiac';
 import { MiniSprite } from './MiniSprite';
 import { ExpBar } from './ui/ExpBar';
+import { HpBar } from './ui/HpBar';
 import { GrowthStats } from './GrowthStats';
 
 // The box: every owned individual, newest first, with a detail drawer. No level
@@ -122,6 +123,7 @@ export function BoxScreen({ box, onBack, onRenamed, onUpdated }: {
               <MiniSprite creature={c} className="h-9 w-9" />
               <span className="w-full truncate text-[10px] text-white/70">{c.name}</span>
               <ExpBar level={m.level} exp={m.exp} />
+              <HpBar mon={m} />
             </button>
           );
         })}
@@ -137,6 +139,7 @@ export function BoxScreen({ box, onBack, onRenamed, onUpdated }: {
               <div className="text-xs text-white/50">{originLabel(open)}</div>
               {closeToEvolving(open) && <div className="text-xs text-emerald-300/80">Close to evolving</div>}
               <div className="mt-2"><ExpBar level={open.level} exp={open.exp} showPercent /></div>
+              <div className="mt-1"><HpBar mon={open} showNumbers /></div>
             </div>
           </div>
           <GrowthStats mon={open} />

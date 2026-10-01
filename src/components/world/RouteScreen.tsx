@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ballUrl } from '../../game/balls';
 import { ownedMonToCreature, type OwnedMon } from '../../game/box';
+import { isFainted } from '../../game/health';
 import { ballCount, itemById, itemQuantity } from '../../game/items';
 import { partyMembers } from '../../game/party';
 import { altColorPortraitUrl, miniUrl, portraitUrl, shinyPortraitUrl } from '../../game/pokemon';
@@ -16,25 +17,24 @@ import { dismissResult as dismissLegacyResult } from '../../game/world-client';
 import { scrollToTop } from '../../ui-scroll';
 import { BagScreen } from '../BagScreen';
 import { ExpBar } from '../ui/ExpBar';
+import { HpBar } from '../ui/HpBar';
 import { PixelSprite } from '../ui/PixelSprite';
 import { Backdrop } from './Backdrop';
 import { BattleReplay } from './BattleReplay';
+import { CenterView } from './CenterView';
+import { Panel } from './Panel';
 import { RouteResultView } from './RouteResultView';
 import { backdropUrl, formatDuration, growthLines, monName, POKEBALL, speciesName } from './scene';
 import { TownAvatar, TownSummary, TownView, type TownService } from './TownView';
 import { WorldMap, type MapView } from './WorldMap';
 
-type Page = 'map' | 'list' | 'home' | 'r1' | 'encounter';
+type Page = 'map' | 'list' | 'home' | 'center' | 'r1' | 'encounter';
 
 /** Where the world screen opens instead of its map: Sunny Meadow, or inside Hearth Town at a destination. */
 export type WorldEntry = { place: 'r1' } | { place: 'home'; spot: TownDestinationId };
 
 // The town opens on its road to Sunny Meadow, the way on to the playable route.
 const TOWN_START: TownDestinationId = TOWN_DESTINATIONS.find((d) => d.link === 'r1')?.id ?? TOWN_DESTINATIONS[0].id;
-
-function Panel({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
-  return <section className="ui-window m-2 p-3"><div className="mb-2 flex items-center justify-between gap-2"><h2 className="font-label text-[11px] uppercase text-info">{title}</h2>{aside}</div>{children}</section>;
-}
 
 function AllowanceView({ state, onRefresh }: { state: RouteState; onRefresh: () => void }) {
   const [clock, setClock] = useState(() => ({ serverNow: state.serverNow, at: performance.now(), elapsed: 0 }));
@@ -98,6 +98,8 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     return next;
   };
 
+  const openCenter = () => { scrollToTop(); setSelected('home'); setSpot('pokemon-center'); setPage('center'); };
+
   const refresh = async () => {
     if (inFlight.current) return;
     inFlight.current = true;
@@ -138,13 +140,16 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
       setPage(fresh.activeEvent || fresh.result ? 'encounter' : 'r1');
       const event = fresh.activeEvent ?? fresh.result;
       if (command.operation === 'choose' && command.input.choice === 'battle' && event?.id === command.input.eventId && event.battle) setReplay(event);
+    } else if (command.operation === 'heal') {
+      setPage('center');
+      setNotice('Your Pokémon are fully healed. We hope to see you again!');
     } else {
       setPage('r1');
       if (command.operation === 'quest-claim') setNotice(`Meadow survey complete. ${ROUTE_RULES.questGreatBalls} Great Balls are saved in your Bag.`);
     }
   };
 
-  const dismiss = async (eventId: string) => {
+  const dismiss = async (eventId: string, then: 'r1' | 'center' = 'r1') => {
     if (inFlight.current || pending) return;
     inFlight.current = true;
     setBusy(true);
@@ -159,7 +164,8 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
       return;
     }
     adopt(reply.state, reply.box);
-    setPage('r1');
+    if (then === 'center') openCenter();
+    else setPage('r1');
   };
 
   const dismissLegacy = async (activityId: string) => {
@@ -178,6 +184,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
   };
 
   const party = partyMembers(partyIds, box);
+  const partyDown = party.length > 0 && party.every(isFainted);
   const route = routeById('r1')!;
   const home = placeById('home')!;
   const event = (resultOnly ? state?.result : state?.activeEvent ?? state?.result) ?? null;
@@ -206,8 +213,8 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
 
   return <div className="mx-auto min-h-[100dvh] max-w-[430px] px-2 py-4 pb-[max(2rem,env(safe-area-inset-bottom))] font-pixel text-ink">
     <header className="mb-4 flex items-center gap-2 px-2">
-      <button type="button" onClick={() => { setReplay(null); if (page === 'map' || page === 'list') onBack(); else if (page === 'encounter') setPage('r1'); else setPage(from); }} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">◀ {page === 'map' || page === 'list' ? 'Back' : page === 'encounter' ? 'Route' : 'Map'}</button>
-      <h1 className="min-w-0 flex-1 font-label text-[12px] uppercase text-accent [text-shadow:2px_2px_0_#000]">{page === 'home' ? home.name : page === 'r1' || page === 'encounter' ? route.name : 'Hearthvale'}</h1>
+      <button type="button" onClick={() => { setReplay(null); if (page === 'map' || page === 'list') onBack(); else if (page === 'encounter') setPage('r1'); else if (page === 'center') setPage('home'); else setPage(from); }} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">◀ {page === 'map' || page === 'list' ? 'Back' : page === 'encounter' ? 'Route' : page === 'center' ? 'Town' : 'Map'}</button>
+      <h1 className="min-w-0 flex-1 font-label text-[12px] uppercase text-accent [text-shadow:2px_2px_0_#000]">{page === 'home' || page === 'center' ? (page === 'center' ? 'Pokémon Center' : home.name) : page === 'r1' || page === 'encounter' ? route.name : 'Hearthvale'}</h1>
       {page === 'map' || page === 'list' ? <button type="button" onClick={() => setPage(page === 'map' ? 'list' : 'map')} aria-pressed={page === 'list'} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">{page === 'map' ? 'List' : 'Map'}</button>
         : <button type="button" onClick={() => setBagOpen(true)} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">Bag</button>}
     </header>
@@ -223,7 +230,10 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
           : <Panel title={placeTitle(route)}><p className="text-sm text-ink-dim">{route.blurb}</p><button type="button" onClick={() => openPlace('r1', 'map')} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[11px] uppercase">Visit {route.name}</button></Panel>}
       </>}
       {page === 'list' && <Panel title="Places"><ul className="flex flex-col gap-2">{[home, route].map((place) => <li key={place.id}><button type="button" onClick={() => openPlace(place.id as 'home' | 'r1', 'list')} className="ui-focus flex min-h-14 w-full items-center gap-3 rounded-[3px] bg-slot p-3 text-left"><span className="min-w-0 flex-1"><span className="block text-base">{placeTitle(place)}</span><span className="text-sm text-ink-dim">{place.id === 'home' ? 'Home town' : 'Wild Pokémon, friendly trainers, and landmarks'}</span></span>{place.id === 'home' && <TownAvatar className="h-10 w-10" />}</button></li>)}</ul></Panel>}
-      {page === 'home' && <TownView spot={spot} onSpot={setSpot} onOpen={(screen) => onVisit(screen, spot)} onWalk={walkTo} />}
+      {page === 'home' && <TownView spot={spot} onSpot={setSpot} onOpen={(screen) => onVisit(screen, spot)} onWalk={walkTo} onCenter={openCenter} />}
+      {page === 'center' && <CenterView state={state} box={box} partyIds={partyIds} busy={locked}
+        onHeal={() => void submit({ operation: 'heal', input: { requestId: newRouteRequestId() } })}
+        onEditParty={() => onVisit('party', 'pokemon-center')} onOpenBox={() => onVisit('box', 'pokemon-center')} />}
       {page === 'r1' && <>
         <div className="ui-window relative m-2 h-36 overflow-hidden" aria-hidden="true"><Backdrop src={backdropUrl(route)} /></div>
         <Panel title="Route 1 · Meadow"><p className="text-sm leading-relaxed">{route.blurb}</p><p className="mt-2 text-sm text-ink-dim">Find a wild Pokémon, meet someone, or explore. Each search finds something. Win battles to grow your party.</p></Panel>
@@ -240,14 +250,15 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
           </>}
         </Panel>}
         <Panel title="Your party" aside={<button type="button" onClick={onEditParty} className="ui-button ui-focus min-h-11 px-2 font-label text-[9px] uppercase">Edit party</button>}>
-          {party.length === 0 ? <p className="text-sm">Choose at least one Pokémon in your party before searching.</p> : <ol className="flex flex-wrap gap-2">{party.map((mon) => <li key={mon.id} className="flex w-14 flex-col items-center rounded-[3px] bg-slot px-1 py-2"><PixelSprite src={ownedMonToCreature(mon)?.portrait ?? POKEBALL} fallback={POKEBALL} size={40} alt="" /><span className="w-full truncate text-center text-xs">{monName(mon)}</span><ExpBar level={mon.level} exp={mon.exp} /></li>)}</ol>}
+          {party.length === 0 ? <p className="text-sm">Choose at least one Pokémon in your party before searching.</p> : <ol className="flex flex-wrap gap-2">{party.map((mon) => <li key={mon.id} className="flex w-14 flex-col items-center rounded-[3px] bg-slot px-1 py-2"><PixelSprite src={ownedMonToCreature(mon)?.portrait ?? POKEBALL} fallback={POKEBALL} size={40} alt="" /><span className="w-full truncate text-center text-xs">{monName(mon)}</span><ExpBar level={mon.level} exp={mon.exp} /><HpBar mon={mon} /></li>)}</ol>}
         </Panel>
         <Panel title="Capture supplies" aside={<button type="button" onClick={() => setBagOpen(true)} className="ui-button ui-focus min-h-11 px-3 font-label text-[9px] uppercase">Open Bag</button>}><p className="text-sm">Poké Balls: {itemQuantity(state.inventory, 'poke')} · Great Balls: {itemQuantity(state.inventory, 'great')}</p><p className="mt-2 text-sm text-ink-dim">Catching uses one ball. Battle first for a better chance, or try your luck right away.</p>{balls === 0 && <p className="mt-2 text-sm text-accent">No balls left. {state.activeEvent ? 'Finish or leave your encounter, then ' : ''}Explore guarantees {ROUTE_RULES.pokeBundleQuantity} Poké Balls for 1 action.</p>}</Panel>
+        {partyDown && <Panel title="Your party needs care"><p className="text-sm">Every Pokémon in your party has fainted. Visit the Pokémon Center in Hearth Town, or bring healthy Pokémon from your Box.</p><button type="button" onClick={openCenter} className="ui-button-primary ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">Go to the Pokémon Center</button></Panel>}
         <Panel title="What will you find?"><div className="flex flex-col gap-3">{([
           ['wild', 'Find wild Pokémon', 'Find one wild Pokémon. Choose to catch, battle, or leave.'],
           ['npc', 'Find NPC', 'Meet a friendly trainer for a battle or a researcher with a quest.'],
           ['explore', 'Explore', balls === 0 ? `Find ${ROUTE_RULES.pokeBundleQuantity} Poké Balls, guaranteed while your Bag has no capture balls. You may also discover a landmark.` : 'Find a wild Pokémon, an NPC, or items. You may also discover a landmark.'],
-        ] as const).map(([kind, label, hint]) => <div key={kind}><p className="mb-1 text-sm text-ink-dim">{hint}</p><button type="button" disabled={locked || !state.activated || state.legacy.pending || state.activeEvent !== null || party.length === 0 || state.allowance.available === 0} onClick={() => search(kind)} className="ui-button-primary ui-focus min-h-12 w-full px-2 font-label text-[10px] uppercase">{label} · 1 action</button></div>)}</div></Panel>
+        ] as const).map(([kind, label, hint]) => <div key={kind}><p className="mb-1 text-sm text-ink-dim">{hint}</p><button type="button" disabled={locked || !state.activated || state.legacy.pending || state.activeEvent !== null || party.length === 0 || partyDown || state.allowance.available === 0} onClick={() => search(kind)} className="ui-button-primary ui-focus min-h-12 w-full px-2 font-label text-[10px] uppercase">{label} · 1 action</button></div>)}</div></Panel>
         {state.result && <Panel title="Latest find"><p className="text-sm">Your latest encounter and saved rewards are ready to view.</p><button type="button" onClick={() => { setResultOnly(true); setPage('encounter'); }} className="ui-button ui-focus mt-2 min-h-11 w-full px-3 font-label text-[10px] uppercase">View result</button></Panel>}
         <Panel title="Meadow survey"><p className="text-sm">{state.quest.status === 'not-accepted' ? 'Meet the Meadow Researcher to start a survey of the three landmarks. Earlier discoveries will count.' : state.quest.status === 'claimed' ? 'Survey complete. Your Great Ball reward is saved in your Bag.' : `Landmarks recorded: ${state.quest.landmarks.length} / ${state.quest.required.length}. Discover all three to receive ${ROUTE_RULES.questGreatBalls} Great Balls.`}</p>{state.quest.status === 'ready' && <button type="button" disabled={locked} onClick={() => void submit({ operation: 'quest-claim', input: { requestId: newRouteRequestId(), questId: 'meadow-survey' } })} className="ui-button-primary ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">Claim {ROUTE_RULES.questGreatBalls} Great Balls · free</button>}</Panel>
         <Panel title="Landmarks"><ul className="flex flex-col gap-3">{MEADOW_LANDMARKS.map((landmark) => {
@@ -256,11 +267,11 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
         })}</ul></Panel>
         <Panel title="Possible encounters"><ul className="grid grid-cols-3 gap-2 min-[380px]:grid-cols-4">{route.wild.pool.map((entry) => <li key={entry.dexId} className="flex min-w-0 flex-col items-center rounded-[3px] bg-slot pb-2"><PixelSprite src={miniUrl(entry.dexId)} size={64} sheet alt="" /><span className="w-full truncate px-1 text-center text-xs">{speciesName(entry.dexId)}</span>{entry.rare && <span className="font-label text-[8px] uppercase text-caught-shiny">Rare</span>}</li>)}</ul></Panel>
       </>}
-      {page === 'encounter' && (replay?.battle && replay.foe ? <BattleReplay key={`${replay.id}:${replay.revision}`} events={replay.battle.events} party={replay.party} foe={replay.foe} trainerName={replay.kind === 'trainer' ? replay.npc?.name : undefined} backdrop={backdropUrl(route)} onDone={() => setReplay(null)} /> : event ? <>
+      {page === 'encounter' && (replay?.battle && replay.foe ? <BattleReplay key={`${replay.id}:${replay.revision}`} events={replay.battle.events} party={replay.battle.fielded ? replay.party.filter((m) => replay.battle!.fielded!.some((f) => f.id === m.id)) : replay.party} foe={replay.foe} trainerName={replay.kind === 'trainer' ? replay.npc?.name : undefined} backdrop={backdropUrl(route)} onDone={() => setReplay(null)} /> : event ? <>
         {event.phase !== 'resolved' && <Panel title={event.kind === 'wild' ? event.phase === 'catch' ? 'One catch attempt remains' : 'A wild Pokémon appeared' : event.npc?.name ?? 'An encounter'}>
           {event.npc && <div className="mb-3 flex items-center gap-3"><img src={`${import.meta.env.BASE_URL}sprites/trainers/${event.npc.spriteKey}.png`} alt="" className="h-24 w-24 shrink-0 object-contain [image-rendering:pixelated]" /><p className="text-sm leading-relaxed">{event.npc.text}</p></div>}
           {event.foe && <div className="flex items-center gap-3 rounded-[3px] bg-slot p-3"><PixelSprite src={event.foe.shiny ? shinyPortraitUrl(event.foe.dexId) : event.foe.altColor ? altColorPortraitUrl(event.foe.dexId) : portraitUrl(event.foe.dexId)} fallback={POKEBALL} size={80} alt="" /><div className="min-w-0"><p className="text-lg">{speciesName(event.foe.dexId)}</p><p className="text-sm text-ink-dim">{[event.foe.rare ? 'Rare' : '', event.foe.shiny ? 'Shiny' : event.foe.altColor ? 'Alternate color' : '', event.kind === 'trainer' ? 'Trainer’s Pokémon' : 'Wild Pokémon'].filter(Boolean).join(' · ')}</p></div></div>}
-          <p className="mt-3 text-sm text-ink-dim">Your party for this encounter: {event.party.map(monName).join(', ')}. These choices use no extra actions.</p>
+          <p className="mt-3 text-sm text-ink-dim">Your party for this encounter: {event.party.map((m) => isFainted(m) ? `${monName(m)} (fainted, sits out)` : monName(m)).join(', ')}. These choices use no extra actions.</p>
           {event.kind === 'wild' && <p className="mt-2 text-sm">One throw per encounter. A throw uses one ball and ends the encounter, whether it succeeds or fails.</p>}
           {event.phase === 'researcher' && <p className="mt-3 text-sm">{state.quest.status === 'not-accepted' ? 'Accept Meadow survey to record your landmark discoveries. You can claim the reward from the route when it is ready.' : state.quest.status === 'ready' ? 'You have found every landmark. Claim your reward from the route panel.' : state.quest.status === 'claimed' ? 'Thank you for completing the survey.' : `Survey progress: ${state.quest.landmarks.length} / ${state.quest.required.length} landmarks.`}</p>}
           {event.choices.includes('catch') && <div className="mt-3">
@@ -282,7 +293,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
             {event.choices.includes('leave') && <button type="button" disabled={locked} onClick={() => choose('leave')} className="ui-button ui-focus min-h-11 px-3 font-label text-[10px] uppercase">Leave encounter</button>}
           </div>
         </Panel>}
-        {(event.phase === 'resolved' || event.battle) && <RouteResultView event={event} box={box} busy={locked} onDone={() => void dismiss(event.id)} onReplay={() => setReplay(event)} />}
+        {(event.phase === 'resolved' || event.battle) && <RouteResultView event={event} box={box} busy={locked} onDone={() => void dismiss(event.id, event.outcome === 'lost' ? 'center' : 'r1')} onReplay={() => setReplay(event)} />}
         {event.phase !== 'resolved' && event.newLandmarks.length > 0 && <Panel title="Discovered along the way"><p className="text-sm">{event.newLandmarks.map((id) => MEADOW_LANDMARKS.find((landmark) => landmark.id === id)?.name ?? id).join(', ')} — already recorded in your survey.</p></Panel>}
       </> : <Panel title="Ready to explore"><p className="text-sm">This encounter is finished and your progress is saved.</p><button type="button" onClick={() => setPage('r1')} className="ui-button-primary ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">Return to Sunny Meadow</button></Panel>)}
     </>}

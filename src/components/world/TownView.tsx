@@ -10,14 +10,14 @@ import {
 
 // Hearth Town from the inside: the town art with a numbered marker on each of
 // its eight destinations, the same eight as a menu, and the selected one's
-// card. The Center, library and daycare open the party, Pokédex and box; the
-// north road leads to Sunny Meadow. Nothing here writes game state. The route
+// card. The library and daycare open the Pokédex and box, the Center heals, and
+// the north road leads to Sunny Meadow. Nothing here writes game state. The route
 // screen draws the header (◀ Map, the town's name, Bag) above it.
 
-/** The screens a destination opens (the rest of TownLink are places). */
-export type TownService = Exclude<TownLink, PlayableId>;
+/** The screens a destination opens (the Center is a view inside the town; the rest of TownLink are places). */
+export type TownService = Exclude<TownLink, PlayableId | 'center'>;
 /** The places a destination leads to. */
-export type TownRoad = Exclude<TownLink, TownService>;
+export type TownRoad = Exclude<TownLink, TownService | 'center'>;
 
 // The town art is a painted illustration, not a native-size tileset, and a phone
 // always shows it scaled down (about 0.2–0.75 of its pixels at 320–430 px, DPR
@@ -35,6 +35,7 @@ const ACTION_LABEL: Record<TownLink, string> = {
   party: 'Open your party',
   dex: 'Open the Pokédex',
   box: 'Open your box',
+  center: 'Visit the nurse',
   r1: `Walk to ${routeById('r1')?.name ?? 'Route 1'}`,
 };
 
@@ -97,13 +98,16 @@ export function TownView({
   onSpot,
   onOpen,
   onWalk,
+  onCenter,
 }: {
   spot: TownDestinationId;
   onSpot: (id: TownDestinationId) => void;
-  /** The Center, library and daycare: the party editor, Pokédex or box. */
+  /** The library and daycare: the Pokédex or box. */
   onOpen: (screen: TownService) => void;
   /** The north road: that place's own screen. */
   onWalk: (place: TownRoad) => void;
+  /** The Pokémon Center: its own view inside the town. */
+  onCenter: () => void;
 }) {
   const current = townDestinationById(spot) ?? TOWN_DESTINATIONS[0];
   const { bounds } = current;
@@ -112,7 +116,8 @@ export function TownView({
   const last = TOWN_DESTINATIONS[TOWN_DESTINATIONS.length - 1].number;
 
   const act = (to: TownLink) => {
-    if (to === 'party' || to === 'dex' || to === 'box') onOpen(to);
+    if (to === 'center') onCenter();
+    else if (to === 'party' || to === 'dex' || to === 'box') onOpen(to);
     else onWalk(to);
   };
 
