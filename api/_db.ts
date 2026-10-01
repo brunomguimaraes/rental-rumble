@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import type { AbilityId, BaseStats, Build, Sign } from '../src/game/types.js';
 import type { CatchOrigin, MintSpec, OwnedMon } from '../src/game/box.js';
 import { expectedStats, isBaseStats } from '../src/game/growth.js';
+import type { TravelPlace } from '../src/game/travel.js';
 import type { TrainerIdentity } from '../src/game/trainer-identity.js';
 import { parseTrainerColors, type TrainerColors } from '../src/game/trainer-colors.js';
 
@@ -73,6 +74,10 @@ const COLUMN_ADDS = [
   'alter table idle_sessions add column seen_at integer',
   // Pokédollars for the Village market; always changed through changeMoney.
   'alter table route_accounts add column money integer not null default 0 check (money >= 0)',
+  // Travel stamina and the trainer's place. Null reads as a full meter and the place derived from history.
+  'alter table route_accounts add column travel integer',
+  'alter table route_accounts add column travel_refilled_at integer',
+  'alter table route_accounts add column location text',
 ];
 
 /** Apply db/schema.sql (idempotent) plus the additive column changes. */
@@ -747,6 +752,9 @@ export interface RouteAccountRow {
   refilledAt: number;
   inventoryRevision: number;
   money: number;
+  travel: number | null;
+  travelRefilledAt: number | null;
+  location: TravelPlace | null;
   revision: number;
   transition: unknown;
   trainerAt: 'home' | 'r1' | null;
@@ -757,15 +765,22 @@ export async function readRouteAccount(db: Executor, uid: string): Promise<Route
   const r = rs.rows[0];
   return r ? {
     activatedAt: Number(r.activated_at), actions: Number(r.actions), refilledAt: Number(r.refilled_at),
-    inventoryRevision: Number(r.inventory_revision), money: Number(r.money) || 0, revision: Number(r.revision), transition: parseJson(r.transition),
+    inventoryRevision: Number(r.inventory_revision), money: Number(r.money) || 0,
+    travel: r.travel == null ? null : Number(r.travel),
+    travelRefilledAt: r.travel_refilled_at == null ? null : Number(r.travel_refilled_at),
+    location: r.location === 'home' || r.location === 'r1' ? r.location : null,
+    revision: Number(r.revision), transition: parseJson(r.transition),
     trainerAt: r.trainer_at === 'home' || r.trainer_at === 'r1' ? r.trainer_at : null,
   } : null;
 }
 
-export async function insertRouteAccount(db: Executor, uid: string, actions: number, now: number, transition: unknown): Promise<void> {
+/** The travel meter stays null (full on read); the trainer starts where they pressed Begin exploring. */
+export async function insertRouteAccount(
+  db: Executor, a: { uid: string; actions: number; now: number; location: TravelPlace; transition: unknown },
+): Promise<void> {
   await db.execute({
-    sql: 'insert into route_accounts (user_id, activated_at, actions, refilled_at, transition) values (?, ?, ?, ?, ?)',
-    args: [uid, now, actions, now, transition === null ? null : JSON.stringify(transition)],
+    sql: 'insert into route_accounts (user_id, activated_at, actions, refilled_at, location, transition) values (?, ?, ?, ?, ?, ?)',
+    args: [a.uid, a.now, a.actions, a.now, a.location, a.transition === null ? null : JSON.stringify(a.transition)],
   });
 }
 
@@ -788,6 +803,13 @@ export async function healAllOwned(db: Executor, uid: string): Promise<number> {
 
 export async function writeTrainerAt(db: Executor, uid: string, at: 'home' | 'r1'): Promise<void> {
   await db.execute({ sql: 'update route_accounts set trainer_at = ? where user_id = ?', args: [at, uid] });
+}
+
+export async function writeTravel(db: Executor, uid: string, travel: number, refilledAt: number, location: TravelPlace): Promise<void> {
+  await db.execute({
+    sql: 'update route_accounts set travel = ?, travel_refilled_at = ?, location = ? where user_id = ?',
+    args: [travel, refilledAt, location, uid],
+  });
 }
 
 export async function readInventoryRows(db: Executor, uid: string): Promise<{ itemId: string; quantity: number }[]> {

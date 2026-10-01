@@ -1,21 +1,25 @@
 import type { ReactNode } from 'react';
+import type { MeterView } from '../game/meter';
+import { StaminaMeter } from './ui/StaminaMeter';
+import { useServerClock } from './ui/useServerClock';
 
 const ICON = (name: string) => `${import.meta.env.BASE_URL}sprites/ui/night/96/${name}.png`;
 
 /**
- * The Hub's trainer bar: the trainer's portrait, the trainer and their mentor,
- * mail (not open yet) and settings, and what the Bag holds.
+ * The trainer bar on the Hub and in the world: the trainer's portrait, the trainer and their mentor,
+ * mail (not open yet) and settings, what the Bag holds, and both stamina meters once the world is activated.
  */
-export function HubTrainerBar({ portrait, displayName, mentorName, balls, onOpenSettings }: {
+export function TrainerBar({ portrait, displayName, mentorName, balls, stamina, onOpenSettings }: {
   portrait: ReactNode;
   displayName: string;
   mentorName: string;
   /** Omit while the world is unavailable; zero is a real, empty Bag. */
   balls?: number;
+  stamina?: { travel: MeterView; actions: MeterView; serverNow: number };
   onOpenSettings: () => void;
 }) {
   return (
-    <header className="ui-window grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 p-2 min-[400px]:gap-x-3">
+    <section aria-label="Trainer" className="ui-window grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 p-2 min-[400px]:gap-x-3">
       <div className={`${balls === undefined ? 'row-span-2' : 'row-span-3'} grid place-items-center self-start rounded-[3px] border-2 border-window-frame bg-slot p-1`}>
         {portrait}
       </div>
@@ -43,6 +47,19 @@ export function HubTrainerBar({ portrait, displayName, mentorName, balls, onOpen
           <span className="sr-only">{balls === 1 ? 'ball' : 'balls'} in your Bag</span>
         </p>
       )}
-    </header>
+
+      {stamina && <StaminaRows stamina={stamina} />}
+    </section>
+  );
+}
+
+function StaminaRows({ stamina }: { stamina: { travel: MeterView; actions: MeterView; serverNow: number } }) {
+  const now = useServerClock(stamina.serverNow);
+  return (
+    <div className="col-span-3 flex flex-col gap-1 border-t-2 border-window-frame pt-1">
+      {/* Travel can run into debt down to -capacity after a whiteout; actions stop at zero. */}
+      <StaminaMeter label="Travel" meter={stamina.travel} min={-stamina.travel.capacity} now={now} fill="bg-info" />
+      <StaminaMeter label="Actions" meter={stamina.actions} min={0} now={now} fill="bg-exp" />
+    </div>
   );
 }

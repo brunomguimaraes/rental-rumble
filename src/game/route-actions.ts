@@ -3,6 +3,8 @@ import type { BattleEvent } from './battle.js';
 import type { MintSpec, OwnedMon } from './box.js';
 import type { LevelRange, WildRules } from './world.js';
 import type { WildView } from './wilds.js';
+import type { MeterView } from './meter.js';
+import type { TravelPlace, TravelQuote } from './travel.js';
 
 /** The active Route 1 contract. Historical expedition contracts remain separate. */
 export type CaptureBallId = 'poke' | 'great';
@@ -157,11 +159,20 @@ export interface RouteState {
   inventory: InventoryState;
   quest: RouteQuest;
   places: PlaceView[];
-  trainerAt: 'home' | 'r1';
+  /** Where the trainer stands; searches need the route, trips leave from here. */
+  trainerAt: TravelPlace;
+  travel: MeterView;
+  /** One quote per place reachable from `trainerAt`. The server prices trips; the client only shows them. */
+  quotes: TravelQuote[];
   ownedCount: number;
   activeEvent: RouteEvent | null;
   result: RouteEvent | null;
   legacy: { pending: boolean; notice: string | null; result: ActivityResult | null };
+}
+export interface RouteTravelInput {
+  requestId: string;
+  to: TravelPlace;
+  partyIds: string[];
 }
 export interface RouteSearchInput {
   requestId: string;

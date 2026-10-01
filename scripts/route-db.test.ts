@@ -2,11 +2,11 @@
 import {
   acceptRouteQuest, applySchema, changeInventory, changeMoney, countOwned, insertDiscovery, insertRouteEvent, readDiscoveries,
   openWriteTx, readActivity, readOpenActivity, readOwnedByUser, readRouteAccount, readRouteEvent,
-  updateOwnedNickname, updateProfileParty, updateRouteEvent, writeOwnedHp, writeRouteAllowance, type Db,
+  isMissingSchema, updateOwnedNickname, updateProfileParty, updateRouteEvent, writeOwnedHp, writeRouteAllowance, type Db,
 } from '../api/_db.js';
 import {
   activateRoute, chooseRoute, claimRouteQuest, dismissRouteResult, finishLegacyRoute,
-  healParty, loadRouteState, RouteError, searchRoute, tradeMarket,
+  healParty, loadRouteState, RouteError, searchRoute, tradeMarket, travelRoute,
 } from '../api/_route-actions.js';
 import { dismissResult, startActivity, stepExpedition } from '../api/_world.js';
 import { legalChoices, rollCapture, rollRouteFind, simulateRouteBattle } from '../src/game/route-rules.js';
@@ -458,5 +458,62 @@ try {
   try { await insertRouteEvent(db, 'constraint', { ...duplicate, id: 'constraint-b' }); } catch { constrained = true; }
   check('database enforces one unresolved event per account', constrained);
   await acceptRouteQuest(db, 'u2', 'meadow-survey', T);
+
+  // Travel stamina: activation stands the trainer in Sunny Meadow on a full meter; existing route players stay there.
+  await onboardUser(db, 'walker', 10, 5);
+  await activateRoute(db, 'walker', 'activate', T);
+  const fresh = await loadRouteState(db, 'walker', T);
+  const freshRow = await readRouteAccount(db, 'walker');
+  check('activation places the trainer in Sunny Meadow', fresh.trainerAt === 'r1' && freshRow?.location === 'r1' && fresh.travel.available === 12);
+  check('a new account reads a full travel meter without writing it', fresh.travel.nextRefillAt === null && freshRow?.travel === null && freshRow?.travelRefilledAt === null);
+  check('the meadow quotes a 4-point walk to Hearth Town', eq(fresh.quotes, [{ to: 'home', walk: 4, cost: 4, mode: 'walk', via: null }]));
+  await db.execute({ sql: 'update route_accounts set location = null where user_id = ?', args: ['u1'] });
+  check('an account with route history backfills into Sunny Meadow', (await loadRouteState(db, 'u1', T)).trainerAt === 'r1');
+  const walkerParty = async () => [(await readOwnedByUser(db, 'walker')).find((m) => m.origin === 'starter')!.id];
+  const go = async (to: 'home' | 'r1', now = T, requestId = rid()) => travelRoute(db, 'walker', { requestId, to, partyIds: await walkerParty() }, now);
+  const home = await go('home', T, 'walk-home');
+  check('walking home costs 4 and town quotes a 4-point walk back', home.state.travel.available === 8 && home.state.trainerAt === 'home' && eq(home.state.quotes, [{ to: 'r1', walk: 4, cost: 4, mode: 'walk', via: null }]));
+  await rejects('a search away from Sunny Meadow is refused', searchRoute(db, 'walker', { requestId: rid(), locationId: 'r1', kind: 'wild', partyIds: await walkerParty() }, T), 400);
+  check('the refused search spent no action', (await loadRouteState(db, 'walker', T)).allowance.available === 12);
+  const arrived = await go('r1', T, 'walk-out');
+  check('walking out costs 4 and moves the trainer', arrived.state.travel.available === 4 && arrived.state.trainerAt === 'r1' && eq(arrived.state.quotes.map((q) => q.to), ['home']));
+  const arrivedAgain = await go('r1', T + 1, 'walk-out');
+  check('a retried trip replays without a second debit', arrivedAgain.replayed === true && arrivedAgain.state.travel.available === 4);
+  await rejects('a second tap after arriving is refused', go('r1', T + 1), 400);
+  check('the refused second tap spent nothing', (await loadRouteState(db, 'walker', T + 1)).travel.available === 4);
+  const wild = await searchRoute(db, 'walker', { requestId: rid(), locationId: 'r1', kind: 'wild', partyIds: await walkerParty() }, T);
+  await rejects('an open encounter keeps the trainer on the route', go('home'), 409);
+  await leave(db, 'walker', wild.event!);
+  await go('home');
+  try { await go('r1'); check('an empty meter refuses the trip', false); }
+  catch (e) { check('an empty meter refuses the trip with the wait', e instanceof RouteError && e.status === 400 && e.message === 'Not enough travel stamina — next point in 15 min.'); }
+  check('the stranded trainer stays put with nothing spent', (await loadRouteState(db, 'walker', T)).trainerAt === 'home' && (await loadRouteState(db, 'walker', T)).travel.available === 0);
+  check('four refills later the walk back is affordable', (await go('r1', T + 4 * 900_000)).state.travel.available === 0);
+
+  // Mounts come from the saved party, re-read on the server.
+  const starterId = (await walkerParty())[0];
+  const rapidash = await mintMon(db, 'walker', { dexId: 78, level: 30 });
+  await updateProfileParty(db, 'walker', [starterId, rapidash.id]);
+  const mounted = await loadRouteState(db, 'walker', T + 40 * 900_000);
+  check('Rapidash in the party halves the quote', eq(mounted.quotes, [{ to: 'home', walk: 4, cost: 2, mode: 'land', via: 'Rapidash' }]));
+  await rejects('a stale party is refused before any debit', travelRoute(db, 'walker', { requestId: rid(), to: 'home', partyIds: [starterId] }, T + 40 * 900_000), 409);
+  const rode = await travelRoute(db, 'walker', { requestId: rid(), to: 'home', partyIds: [starterId, rapidash.id] }, T + 40 * 900_000);
+  check('riding debits the server quote', rode.state.travel.available === 10 && rode.state.trainerAt === 'home');
+
+  // Before db:setup adds the columns: state still loads; a trip fails as missing schema.
+  const preTravel = await tempDb('routes-pre-travel');
+  try {
+    await onboardUser(preTravel.db, 'early', 10, 5);
+    await activateRoute(preTravel.db, 'early', 'activate', T);
+    for (const col of ['travel', 'travel_refilled_at', 'location']) await preTravel.db.execute(`alter table route_accounts drop column ${col}`);
+    const early = await loadRouteState(preTravel.db, 'early', T);
+    check('state loads before db:setup with backfilled travel', early.travel.available === 12 && early.trainerAt === 'home');
+    const earlyParty = [(await readOwnedByUser(preTravel.db, 'early'))[0].id];
+    try { await travelRoute(preTravel.db, 'early', { requestId: 'early-trip', to: 'r1', partyIds: earlyParty }, T); check('a trip before db:setup is a schema failure', false); }
+    catch (e) { check('a trip before db:setup is a schema failure', isMissingSchema(e)); }
+    await onboardUser(preTravel.db, 'late', 10, 5);
+    try { await activateRoute(preTravel.db, 'late', 'late-activate', T); check('activation before db:setup is a schema failure that grants nothing', false); }
+    catch (e) { check('activation before db:setup is a schema failure that grants nothing', isMissingSchema(e) && await readRouteAccount(preTravel.db, 'late') === null && (await loadRouteState(preTravel.db, 'late', T)).inventory.stacks.length === 0); }
+  } finally { preTravel.cleanup(); }
 } finally { t.cleanup(); }
 finish();

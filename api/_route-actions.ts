@@ -5,9 +5,11 @@ import {
   insertRouteReceipt, markRouteQuestClaimed, newId, openWriteTx, readActiveRouteEvent, readActivity,
   readDiscoveries, readInventoryRows, readLastRouteId, readOpenActivity, readOwnedByIds, readOwnedByUser,
   readProfile, readProgress, readRouteAccount, readRouteEvent, readRouteQuest, readRouteReceipt,
-  readUnseenResult, readUnseenRouteEvent, recordCaughtDex, updateOwnedGrowth, updateRouteEvent, writeOwnedHp, writeRouteAllowance, writeTrainerAt,
-  type Db, type Executor, type RouteEventRow,
+  readUnseenResult, readUnseenRouteEvent, recordCaughtDex, updateOwnedGrowth, updateRouteEvent, writeOwnedHp, writeRouteAllowance, writeTrainerAt, writeTravel,
+  type Db, type Executor, type RouteAccountRow, type RouteEventRow,
 } from './_db.js';
+import { isTravelPlace, quoteTravel, spendTravel, TRAVEL_RULES, travelQuotes, travelView, type TravelPlace } from '../src/game/travel.js';
+import type { MeterRecord } from '../src/game/meter.js';
 import { retireLegacyActivity } from './_world.js';
 import { parseResult, planGrowth } from '../src/game/activity.js';
 import { isFainted, partyStanding } from '../src/game/health.js';
@@ -20,7 +22,7 @@ import {
 } from '../src/game/route-rules.js';
 import type {
   InventoryState, MarketTradeInput, RouteChooseInput, RouteEvent, RouteQuestInput, RouteReply, RouteSearchInput,
-  RouteState, StoredRouteEvent,
+  RouteState, RouteTravelInput, StoredRouteEvent,
 } from '../src/game/route-actions.js';
 
 /** Known gameplay rejections roll back every part of the command. */
@@ -47,6 +49,12 @@ export function parseRouteQuest(body: Record<string, unknown>): RouteQuestInput 
   return validId(body.requestId) && body.questId === 'meadow-survey' ? { requestId: body.requestId, questId: 'meadow-survey' } : null;
 }
 
+export function parseRouteTravel(body: Record<string, unknown>): RouteTravelInput | null {
+  const partyIds = parsePartyInput(body.partyIds);
+  if (!validId(body.requestId) || !isTravelPlace(body.to) || !partyIds) return null;
+  return { requestId: body.requestId, to: body.to, partyIds };
+}
+
 /** Lazy config, mandatory only when an unsettled historical activity exists. */
 function cutoverTime(): number {
   const raw = process.env.ROUTE_ACTIONS_CUTOVER_AT;
@@ -71,25 +79,42 @@ export async function loadRouteState(db: Db, uid: string, now: number): Promise<
   finally { await tx.rollback(); tx.close(); }
 }
 
+/** A row from before travel stamina reads as a full meter starting now. */
+function travelRecord(account: RouteAccountRow | null, now: number): MeterRecord {
+  return account?.travel == null || account.travelRefilledAt == null
+    ? { available: TRAVEL_RULES.capacity, refilledAt: now }
+    : { available: account.travel, refilledAt: account.travelRefilledAt };
+}
+const derivedLocation = (routeVisited: boolean, lastRoute: string | null): TravelPlace => routeVisited || lastRoute === 'r1' ? 'r1' : 'home';
+async function currentLocation(tx: Executor, uid: string, account: RouteAccountRow | null): Promise<TravelPlace> {
+  if (account?.location) return account.location;
+  const [routeVisited, lastRoute] = await Promise.all([hasRouteEvents(tx, uid), readLastRouteId(tx, uid)]);
+  return derivedLocation(routeVisited, lastRoute);
+}
+
 /** All fields and their revisions are read from the same transaction snapshot. */
 async function loadRouteStateInTx(db: Executor, uid: string, now: number): Promise<RouteState> {
-  const [account, inventory, active, unseen, discoveries, progress, quest, open, lastRoute, routeVisited, ownedCount, legacyResult] = await Promise.all([
+  const [account, inventory, active, unseen, discoveries, progress, quest, open, lastRoute, routeVisited, owned, profile, legacyResult] = await Promise.all([
     readRouteAccount(db, uid), inventoryState(db, uid), readActiveRouteEvent(db, uid), readUnseenRouteEvent(db, uid),
     readDiscoveries(db, uid), readProgress(db, uid), readRouteQuest(db, uid, 'meadow-survey'), readOpenActivity(db, uid),
-    readLastRouteId(db, uid), hasRouteEvents(db, uid), countOwned(db, uid), readUnseenResult(db, uid),
+    readLastRouteId(db, uid), hasRouteEvents(db, uid), readOwnedByUser(db, uid), readProfile(db, uid), readUnseenResult(db, uid),
   ]);
   const landmarks = discoveries.filter((d) => d.locationId === 'r1' && d.kind === 'landmark').map((d) => d.ref);
   const seen = discoveries.filter((d) => d.locationId === 'r1' && d.kind === 'seen').map((d) => Number(d.ref));
   const p = progress.find((r) => r.locationId === 'r1');
   const required = MEADOW_LANDMARKS.map((l) => l.id);
   const transition = account?.transition as { notice?: string } | null;
+  const trainerAt = account?.location ?? derivedLocation(routeVisited, lastRoute);
+  const party = profile ? partyMembers(resolveParty(profile.party, owned, profile.starterId), owned) : [];
   return {
     serverNow: now, revision: account?.revision ?? 0, activated: account !== null,
     allowance: allowanceView({ available: account?.actions ?? 0, refilledAt: account?.refilledAt ?? now }, now),
     inventory,
     quest: { id: 'meadow-survey', status: quest?.claimedAt != null ? 'claimed' : !quest ? 'not-accepted' : required.every((id) => landmarks.includes(id)) ? 'ready' : 'active', landmarks, required },
     places: [{ id: 'r1', state: routeVisited || p ? 'discovered' : 'available', progress: { ...EMPTY_PROGRESS, ...p, clearedAt: null, clears: 0, landmarks, seen } }],
-    trainerAt: account?.trainerAt ?? (routeVisited || lastRoute === 'r1' ? 'r1' : 'home'), ownedCount,
+    trainerAt, ownedCount: owned.length,
+    travel: travelView(travelRecord(account, now), now),
+    quotes: travelQuotes(trainerAt, party),
     activeEvent: active ? stored(active).event : null,
     result: unseen ? stored(unseen).event : null,
     legacy: { pending: open !== null, notice: transition?.notice ?? (parseResult(legacyResult?.result) ? 'Your previous journey rewards were already saved.' : null), result: parseResult(legacyResult?.result) },
@@ -131,7 +156,8 @@ export async function activateRoute(db: Db, uid: string, requestId: string, now:
     if (await readRouteAccount(tx, uid)) return;
     const open = await readOpenActivity(tx, uid);
     const transition = open ? await retireLegacyActivity(tx, uid, open, now, cutoverTime()) : null;
-    await insertRouteAccount(tx, uid, ROUTE_RULES.initialActions, now, transition);
+    // Begin exploring is pressed in Sunny Meadow, so the trainer starts there.
+    await insertRouteAccount(tx, { uid, actions: ROUTE_RULES.initialActions, now, location: 'r1', transition });
     await changeInventory(tx, uid, 'poke', ROUTE_RULES.starterBalls);
   });
 }
@@ -142,10 +168,35 @@ async function requireActivated(tx: Executor, uid: string) {
   return account;
 }
 
+export async function travelRoute(db: Db, uid: string, input: RouteTravelInput, now: number): Promise<RouteReply> {
+  return writeCommand(db, uid, input.requestId, JSON.stringify(['travel', input.to, input.partyIds]), now, async (tx) => {
+    const account = await requireActivated(tx, uid);
+    if (await readActiveRouteEvent(tx, uid)) fail(409, 'Finish or leave your encounter before you travel.');
+    const profile = await readProfile(tx, uid);
+    if (!profile) return fail(400, 'Finish onboarding first.');
+    const owned = await readOwnedByUser(tx, uid);
+    const partyIds = resolveParty(profile.party, owned, profile.starterId);
+    if (!sameParty(partyIds, input.partyIds)) throw new RouteError(409, 'Your party changed. Check it and try again.', partyIds);
+    const from = await currentLocation(tx, uid, account);
+    if (from === input.to) fail(400, 'You’re already here.');
+    // The price comes from the saved party, never from the request.
+    const quote = quoteTravel({ from, to: input.to, party: partyMembers(partyIds, owned) });
+    if (!quote) return fail(400, 'You can’t get there from here.');
+    const record = travelRecord(account, now);
+    const spent = spendTravel(record, now, quote.cost);
+    if (!spent) {
+      const next = travelView(record, now).nextRefillAt ?? now;
+      return fail(400, `Not enough travel stamina — next point in ${Math.max(1, Math.ceil((next - now) / 60_000))} min.`);
+    }
+    await writeTravel(tx, uid, spent.available, spent.refilledAt, input.to);
+  });
+}
+
 export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, now: number): Promise<RouteReply> {
   return writeCommand(db, uid, input.requestId, JSON.stringify(['search', input.locationId, input.kind, input.partyIds]), now, async (tx) => {
     const account = await requireActivated(tx, uid);
     if (input.locationId !== 'r1') fail(400, 'Only Sunny Meadow is available.');
+    if (await currentLocation(tx, uid, account) !== input.locationId) fail(400, 'You can only search Sunny Meadow while you’re there.');
     if (await readActiveRouteEvent(tx, uid)) fail(409, 'Finish or leave your current encounter first.');
     const profile = await readProfile(tx, uid);
     if (!profile) return fail(400, 'Finish onboarding first.');

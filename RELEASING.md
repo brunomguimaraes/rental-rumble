@@ -82,6 +82,9 @@ and production release as separate, explicitly approved operations.
    (idempotent). Run `db:setup` before the deploy that ships the market: on a database
    without the column, battle wins, coin pouches, survey claims and market trades
    return 503 "The world map isn't ready yet." until it does.
+   Travel stamina adds `travel`, `travel_refilled_at` and `location` to `route_accounts`
+   the same way. Run `db:setup` before the deploy that ships it: without those columns,
+   trips and first activations return the same 503 (the state still loads).
 2. After the owner's confirmation, apply the schema to the target database before
    switching traffic to the new handlers. Without those tables the world returns
    an unavailable state while the Hub, Box, and Pokédex remain usable.

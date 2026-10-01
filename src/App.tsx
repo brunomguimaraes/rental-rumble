@@ -2,7 +2,9 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { fetchMe, type AccountUser } from './game/account';
 import { fetchBox, type OwnedMon } from './game/box';
+import { ballCount } from './game/items';
 import { fetchProfile, type Profile } from './game/profile';
+import { professorById } from './game/professions';
 import { partyMembers, resolveParty } from './game/party';
 import { fetchRouteState, reconcileRouteState, shouldApplyHydratedBox } from './game/route-actions-client';
 import type { RouteState } from './game/route-actions';
@@ -13,6 +15,8 @@ import { scrollToTop } from './ui-scroll';
 import { DevPanel } from './components/DevPanel';
 import { LoginScreen } from './components/LoginScreen';
 import { HubScreen } from './components/HubScreen';
+import { TrainerBar } from './components/TrainerBar';
+import { TrainerPortrait } from './components/TrainerPortrait';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { BoxScreen } from './components/BoxScreen';
 
@@ -45,9 +49,9 @@ export default function App() {
   const [box, setBox] = useState<OwnedMon[]>([]);
   const [world, setWorld] = useState<RouteState | null>(null);
   const worldRef = useRef<RouteState | null>(null);
+  // `performance.now()` when `world` arrived, to read the server's clock later without trusting the device's.
+  const worldAppliedAt = useRef(0);
   const [worldError, setWorldError] = useState<string | null>(null);
-  // Browsing a place is free. Keep the last visited scene while navigating this session.
-  const [visitedPlace, setVisitedPlace] = useState<'home' | 'r1' | null>(null);
   const [mapView, setMapView] = useState<MapView | null>(null);
   // Where the world screen opens: null is its map. While it is set, the party
   // editor, box and Pokédex go back to the world there instead of to the hub.
@@ -64,7 +68,6 @@ export default function App() {
     setWorld(null);
     worldRef.current = null;
     setWorldError(null);
-    setVisitedPlace(null);
     setHydrateFailed(false);
     setProfileChecked(false);
   };
@@ -80,6 +83,7 @@ export default function App() {
     const current = worldRef.current;
     if (reconcileRouteState(current, s) !== s) return;
     worldRef.current = s;
+    worldAppliedAt.current = performance.now();
     setWorld(s);
     if (updatedBox) setBox(updatedBox);
     setWorldError(null);
@@ -160,9 +164,20 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me]);
 
+  // A meter's next point lands on the server's clock. Reload the world just after it, while the trainer bar
+  // shows, so the meters and the travel button move on; the client never projects a meter itself.
+  useEffect(() => {
+    if (!world?.activated || (phase !== 'hub' && phase !== 'world')) return;
+    const pending = [world.travel.nextRefillAt, world.allowance.nextRefillAt].filter((at): at is number => at !== null);
+    if (pending.length === 0) return;
+    const serverClock = world.serverNow + (performance.now() - worldAppliedAt.current);
+    const timer = window.setTimeout(() => void refreshWorld(), Math.max(0, Math.min(...pending) - serverClock) + 1000);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, world]);
+
   const openWorld = (entry: WorldEntry | null = null) => {
     scrollToTop();
-    if (entry) setVisitedPlace(entry.place);
     setWorldEntry(entry);
     setPhase('world');
   };
@@ -219,21 +234,29 @@ export default function App() {
       );
     }
     const partyIds = profile.party.length > 0 ? profile.party : resolveParty(null, box, profile.starterId);
+    const trainerBar = (
+      <TrainerBar
+        displayName={me.displayName || ''}
+        mentorName={professorById(profile.mentor)?.name ?? 'Professor'}
+        portrait={<TrainerPortrait avatarId={profile.avatarId} colors={profile.avatarColors} />}
+        balls={world?.activated ? ballCount(world.inventory) : undefined}
+        stamina={world?.activated ? { travel: world.travel, actions: world.allowance, serverNow: world.serverNow } : undefined}
+        onOpenSettings={() => setPhase('account')}
+      />
+    );
     switch (phase) {
       case 'hub':
         return (
           <HubScreen
-            me={me}
+            trainerBar={trainerBar}
             box={box}
-            profile={profile}
             party={partyMembers(partyIds, box)}
             world={world}
             worldError={worldError}
-            location={visitedPlace ?? world?.trainerAt ?? 'home'}
+            location={world?.trainerAt ?? 'home'}
             onViewBox={() => openScreen('box')}
             onViewDex={() => openScreen('dex')}
             onViewGuide={() => setPhase('guide')}
-            onViewAccount={() => setPhase('account')}
             onEditParty={() => openScreen('party')}
             onOpenMap={() => openWorld()}
             onVisit={openWorld}
@@ -247,7 +270,11 @@ export default function App() {
             box={box}
             party={partyIds}
             activityRunning={Boolean(world?.activeEvent)}
-            onSaved={(party) => setProfile((p) => (p ? { ...p, party } : p))}
+            onSaved={(party) => {
+              setProfile((p) => (p ? { ...p, party } : p));
+              // Trip quotes come from the saved party; reload them so the travel button shows the new price.
+              void refreshWorld();
+            }}
             onBack={closeScreen}
             onExpired={expire}
           />
@@ -256,14 +283,13 @@ export default function App() {
         return (
           <RouteScreen
             accountKey={me.id}
+            trainerBar={trainerBar}
             state={world}
             error={worldError}
             box={box}
             partyIds={partyIds}
             view={mapView}
             onView={setMapView}
-            onLocation={setVisitedPlace}
-            location={visitedPlace ?? world?.trainerAt ?? 'home'}
             entry={worldEntry ?? undefined}
             onState={applyWorld}
             onPartyChanged={(party) => setProfile((p) => (p ? { ...p, party } : p))}

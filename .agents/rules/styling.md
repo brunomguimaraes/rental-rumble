@@ -18,6 +18,7 @@ in text-shadows.
 | `accent` | Menu cursor, selection, focus ring, the one highlight per window |
 | `info` | Small section labels |
 | `exp` | EXP and progress fills |
+| `danger` | Debt and over-limit readouts (travel stamina below zero) |
 | `slot`, `button` | Sprite slots inside windows, button fill |
 | `caught-normal/alt/shiny` | Collection layers on Night surfaces |
 | `dex-*`, `lcd*`, `paper*`, `select`, `caught-*-ink` | **Pokédex only** (`src/components/pokedex/`) |

@@ -188,6 +188,7 @@ create table if not exists world_discoveries (
 -- Active Route 1 gameplay. Historical idle data remains untouched.
 -- `trainer_at` (COLUMN_ADDS) is 'home' after a whiteout or a Center visit and
 -- 'r1' after a search; null derives the position from route history.
+-- travel, travel_refilled_at and location are added by COLUMN_ADDS; null reads as a full meter at the derived place.
 create table if not exists route_accounts (
   user_id text primary key,
   activated_at integer not null,

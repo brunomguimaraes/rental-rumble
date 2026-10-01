@@ -1,10 +1,10 @@
 /** Client recovery boundaries: failed loads, exact retries, and out-of-order inventory snapshots. */
 import {
   chooseRoute, clearPendingRouteCommand, fetchRouteState, healAtCenter, readPendingRouteCommand, reconcileRouteState,
-  runRouteCommand, savePendingRouteCommand, searchRoute, shouldApplyHydratedBox, tradeMarket, type RouteCommand,
+  runRouteCommand, savePendingRouteCommand, searchRoute, shouldApplyHydratedBox, tradeMarket, travelRoute, type RouteCommand,
 } from '../src/game/route-actions-client.js';
 import type { RouteEvent, RouteState } from '../src/game/route-actions.js';
-import { inventoryChangeText, moneyChangeText, resultFind, tradeText } from '../src/components/world/route-copy.js';
+import { inventoryChangeText, moneyChangeText, resultFind, tradeText, travelBlock } from '../src/components/world/route-copy.js';
 import { placeHighlights } from '../src/components/world/place-highlights.js';
 
 let passed = 0;
@@ -19,7 +19,9 @@ const state: RouteState = {
   allowance: { available: 12, capacity: 48, refillEveryMs: 600_000, nextRefillAt: 601_000 },
   inventory: { revision: 1, money: 0, stacks: [{ itemId: 'poke', quantity: 20 }, { itemId: 'great', quantity: 0 }] },
   quest: { id: 'meadow-survey', status: 'not-accepted', landmarks: [], required: ['signpost', 'sunflowers', 'hilltop-oak'] },
-  places: [], trainerAt: 'home', ownedCount: 1, activeEvent: null, result: null,
+  places: [], trainerAt: 'home',
+  travel: { available: 12, capacity: 12, refillEveryMs: 900_000, nextRefillAt: null },
+  quotes: [{ to: 'r1', walk: 4, cost: 4, mode: 'walk', via: null }], ownedCount: 1, activeEvent: null, result: null,
   legacy: { pending: false, notice: null, result: null },
 };
 let reply: () => Promise<Response> = () => Promise.reject(new Error('Offline'));
@@ -147,6 +149,29 @@ check('earned survey rewards link to the survey, not another encounter', placeHi
 check('claimed surveys do not keep advertising a quest or reward', placeHighlights({ ...state, quest: { ...state.quest, status: 'claimed' } }).length === 0);
 check('resolved sightings open results instead of reviving an encounter', placeHighlights({ ...state, result: { ...wild, phase: 'resolved', choices: [], outcome: 'left' } })[0]?.focus === 'result');
 check('survey progress counts only its required unique landmarks', placeHighlights({ ...state, quest: { ...state.quest, status: 'active', landmarks: ['signpost', 'signpost', 'unrelated'] } })[0]?.detail.startsWith('1 of 3'));
+
+reply = json(200, { ok: true, state: { ...state, travel: undefined } });
+check('a state without a travel meter is not trusted', !(await fetchRouteState()).ok);
+reply = json(200, { ok: true, state: { ...state, quotes: [{ to: 'r1', walk: 4, cost: -1, mode: 'walk', via: null }] } });
+check('a negative trip cost is rejected', !(await fetchRouteState()).ok);
+reply = json(200, { ok: true, state: { ...state, travel: { ...state.travel, available: -4, nextRefillAt: 900_000 } } });
+check('travel debt is a valid meter', (await fetchRouteState()).ok);
+reply = json(200, { ok: true, state: { ...state, trainerAt: 'r1' } });
+const moved = await travelRoute({ requestId: 'trip-one', to: 'r1', partyIds: ['starter'] });
+check('travel posts to its action with the request body', moved.ok && lastUrl === '/api/world/travel' && lastInit?.method === 'POST' && JSON.parse(String(lastInit.body)).to === 'r1');
+const tripCommand: RouteCommand = { operation: 'travel', input: { requestId: 'trip-two', to: 'home', partyIds: ['starter'] } };
+savePendingRouteCommand('acct', tripCommand);
+check('an uncertain trip survives a reload for an exact retry', readPendingRouteCommand('acct')?.input.requestId === 'trip-two');
+clearPendingRouteCommand('acct');
+
+const walk = { to: 'r1' as const, walk: 4, cost: 4, mode: 'walk' as const, via: null };
+const meter = (available: number, nextRefillAt: number | null) => ({ available, capacity: 12, refillEveryMs: 900_000, nextRefillAt });
+check('an affordable trip has no block', travelBlock({ quote: walk, travel: meter(4, 0), encounterOpen: false, now: 0 }) === null);
+check('an open encounter blocks travel first', travelBlock({ quote: walk, travel: meter(12, null), encounterOpen: true, now: 0 }) === 'Finish or leave your encounter before you travel.');
+check('a short meter names the wait for enough points', travelBlock({ quote: walk, travel: meter(1, 600_000), encounterOpen: false, now: 0 }) === 'Not enough travel stamina. Enough to travel in 40 min.');
+check('debt counts every missing point', travelBlock({ quote: walk, travel: meter(-4, 900_000), encounterOpen: false, now: 0 }) === 'Not enough travel stamina. Enough to travel in 2 h.');
+check('a wait over an hour names hours and minutes', travelBlock({ quote: walk, travel: meter(-2, 900_000), encounterOpen: false, now: 0 }) === 'Not enough travel stamina. Enough to travel in 1 h 30 min.');
+check('no route there is its own reason', travelBlock({ quote: null, travel: meter(12, null), encounterOpen: false, now: 0 }) === 'You can’t get there from here.');
 
 console.log(`${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

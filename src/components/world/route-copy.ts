@@ -1,4 +1,6 @@
 import { formatMoney, itemById } from '../../game/items.js';
+import type { MeterView } from '../../game/meter.js';
+import type { TravelQuote } from '../../game/travel.js';
 import type { ItemDefinition, ItemGrant, MarketTrade, RouteEvent } from '../../game/route-actions.js';
 
 /** Signed item receipts describe grants and consumption using different verbs. */
@@ -31,4 +33,23 @@ export function tradeText(trade: MarketTrade): string {
   const item = itemById(trade.itemId);
   const name = trade.quantity === 1 ? item?.name ?? trade.itemId : item?.plural ?? trade.itemId;
   return `${trade.side === 'buy' ? 'Bought' : 'Sold'} ${trade.quantity} ${name} for ${formatMoney(trade.total)}.`;
+}
+
+export function waitText(ms: number): string {
+  const minutes = Math.max(1, Math.ceil(ms / 60_000));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours} h ${rest} min` : `${hours} h`;
+}
+
+/** Why a trip cannot start right now, or null. Mirrors the server's checks for a disabled button. */
+export function travelBlock({ quote, travel, encounterOpen, now }: { quote: TravelQuote | null; travel: MeterView; encounterOpen: boolean; now: number }): string | null {
+  if (encounterOpen) return 'Finish or leave your encounter before you travel.';
+  if (!quote) return 'You can’t get there from here.';
+  const missing = quote.cost - travel.available;
+  if (missing <= 0) return null;
+  const firstAt = travel.nextRefillAt ?? now;
+  const readyAt = firstAt + (missing - 1) * travel.refillEveryMs;
+  return `Not enough travel stamina. Enough to travel in ${waitText(readyAt - now)}.`;
 }

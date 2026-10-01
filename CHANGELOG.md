@@ -27,14 +27,16 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 - **Trainer route** — pick the Trainer profession; Professor Oak offers three weak, three-stage starters from a pool of ten, fixed per account, and you keep one.
 - **Box** — nickname your Pokémon; starters evolve twice, early, caught Pokémon later.
 - **Accounts** — sign in with email and password, Discord or Google; email verification and password reset via Resend. Login is now required to play.
+- **Travel stamina** — trips between Hearth Town and Sunny Meadow cost travel points that refill over time, cheaper with a ride Pokémon in your party. The trainer bar shows Travel and Actions on the Hub and across the world.
 
 ### Changed
 - **Explore finds** — now include harvest goods and coin pouches.
 - **Explore** — the guaranteed Poké Balls apply only when you have no balls and under ₽200.
 - **Trainer bar** — the Hub header is a Night window with your trainer portrait, your name and mentor, Mail (coming soon) and Settings buttons, and your Bag's ball count.
-- **Home and places** — an illustrated Hearth Town or Sunny Meadow scene now leads Home, with your partner, real sighting and survey highlights, and direct links to their details. Home follows the place you last visited during the session; the party sits below the scene. Town and meadow lead with their surroundings, and trail energy is tucked into a detail panel.
+- **Home and places** — an illustrated Hearth Town or Sunny Meadow scene now leads Home, with your partner, real sighting and survey highlights, and direct links to their details. Home follows where your trainer stands, saved to your account; the party sits below the scene. Town and meadow lead with their surroundings, and trail energy is tucked into a detail panel.
 - **Bag button** — the Hub, town and route use the Night backpack icon and framed touch-sized buttons that open your saved inventory.
 - **Sunny Meadow** — explore an interactive illustrated route: tap grass, the path, or the trail, then confirm one clear search. Encounters and results stay in the meadow; the Bag opens over the scene, catch odds and the one-throw cost stay visible, and party, survey, field guide, and battle rewards unfold when needed.
+- **Sunny Meadow searches** — need you to be there; travel from the map first.
 - **Growth** — levels are hidden. A Pokémon shows an EXP bar and six stats; when the bar fills it grows: each stat rolls against its potential (read out in Judge words) and rises by one, up to the species' ceiling. Evolution carries every point over and adds a bonus. A fully trained Pokémon fights exactly as strong as before.
 - **Growth** — stats grow more slowly, so reaching the top of the EXP curve no longer means every stat is maxed: most Pokémon end with a few stats still short of their ceiling, and only a lucky few max all six. Wild Pokémon at Mirror Lake, Flint Quarry, Cloudcap Trail and Starfall Ruins are a little weaker to match.
 - **Pokédex** — rebuilt as a pixel-art handheld: a detail screen on top (stats, ability, moves, signs) and the species list below, with crisp sprites and arrow-key browsing. The game's backdrop moves to the new "Night" pixel style.
