@@ -126,11 +126,11 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     setResultOnly(false);
     setSelectedBall(null);
     if (command.operation === 'travel') {
-      // The fresh state says where the trainer now stands. A trip home from the market's travel panel
-      // goes back into the market.
+      // The fresh state says where the trainer now stands. A trip home from the market's or the Center's
+      // travel panel goes back into that building.
       const to = fresh.trainerAt;
       setSelected(to);
-      setPage((current) => (current === 'market' && to === 'home' ? 'market' : to));
+      setPage((current) => ((current === 'market' || current === 'center') && to === 'home' ? current : to));
       scrollToTop();
       return;
     }
@@ -166,7 +166,8 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     }
     // Done returns to where the trainer stands; a result can be read after travelling home.
     const fresh = adopt(reply.state, reply.box);
-    if (then === 'center' && fresh.trainerAt === 'home') openCenter();
+    // After a whiteout the server already stands the trainer in town; away from it, the Center page offers the trip.
+    if (then === 'center') openCenter();
     else { setPage(fresh.trainerAt); scrollToTop(); }
   };
 
@@ -212,9 +213,9 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     if (locked) return;
     void submit({ operation: 'travel', input: { requestId: newRouteRequestId(), to, partyIds } });
   };
-  // A place page the trainer is not at (a Hub deep link, a stale page) shows the trip there instead.
-  // The market is in Hearth Town.
-  const awayFrom: 'home' | 'r1' | null = roams ? null : page === 'market' ? (here === 'home' ? null : 'home')
+  // A place page the trainer is not at (a Hub deep link, a stale page, the meadow's care panel) shows the
+  // trip there instead. The market and the Pokémon Center are in Hearth Town.
+  const awayFrom: 'home' | 'r1' | null = roams ? null : page === 'market' || page === 'center' ? (here === 'home' ? null : 'home')
     : (page === 'home' || page === 'r1') && page !== here ? page : null;
 
   return <div className="mx-auto min-h-[100dvh] max-w-[430px] px-2 py-4 pb-[max(2rem,env(safe-area-inset-bottom))] font-pixel text-ink">
@@ -239,7 +240,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
       {page === 'list' && <Panel title="Places"><ul className="flex flex-col gap-2">{[home, route].map((place) => <li key={place.id}><button type="button" onClick={() => openPlace(place.id as 'home' | 'r1', 'list')} className="ui-focus flex min-h-14 w-full items-center gap-3 rounded-[3px] bg-slot p-3 text-left"><span className="min-w-0 flex-1"><span className="block text-base">{placeTitle(place)}</span><span className="text-sm text-ink-dim">{place.id === 'home' ? 'Home town' : 'Wild Pokémon, friendly trainers, and landmarks'}</span></span>{place.id === 'home' && <TownAvatar className="h-10 w-10" />}</button></li>)}</ul></Panel>}
       {awayFrom && <TravelPanel to={awayFrom} state={state} busy={locked} onTravel={travel} />}
       {page === 'home' && !awayFrom && <TownView spot={spot} onSpot={setSpot} onOpen={(screen) => onVisit(screen, spot)} onWalk={walkTo} onCenter={openCenter} onMarket={() => { scrollToTop(); setPage('market'); }} />}
-      {page === 'center' && <CenterView state={state} box={box} partyIds={partyIds} busy={locked}
+      {page === 'center' && !awayFrom && <CenterView state={state} box={box} partyIds={partyIds} busy={locked}
         onHeal={() => void submit({ operation: 'heal', input: { requestId: newRouteRequestId() } })}
         onEditParty={() => onVisit('party', 'pokemon-center')} onOpenBox={() => onVisit('box', 'pokemon-center')} />}
       {page === 'market' && !awayFrom && (state.activated && !state.legacy.pending

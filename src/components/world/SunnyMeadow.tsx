@@ -48,7 +48,7 @@ export interface SunnyMeadowProps {
   onResult: () => void;
   onBag: () => void;
   onEditParty: () => void;
-  /** Opens the Pokémon Center in Hearth Town. */
+  /** The Pokémon Center page; away from Hearth Town it offers the paid trip there first. */
   onCenter: () => void;
   onRefresh: () => void;
   onClaim: () => void;
@@ -110,7 +110,7 @@ export function SunnyMeadow({ state, party, locked, busy, showSurvey, onSearch, 
           <button type="button" onClick={onEditParty} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[10px] uppercase">Choose your party</button>
         </> : partyDown ? <>
           <h2 className="text-xl">Your party needs care</h2><p className="mt-1 text-sm text-ink-dim">Every Pokémon in your party has fainted. Visit the Pokémon Center in Hearth Town, or bring healthy Pokémon from your Box.</p>
-          <button type="button" onClick={onCenter} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[10px] uppercase">Go to the Pokémon Center</button>
+          <button type="button" onClick={onCenter} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[10px] uppercase">Travel to Hearth Town</button>
         </> : noActions ? <>
           <h2 className="text-xl">Time for a breather.</h2><p className="mt-1 text-sm text-ink-dim">Recover 1 action every {Math.round(state.allowance.refillEveryMs / 60000)} minutes. Your Bag, party, and survey are still available.</p>
           <button type="button" disabled={locked} onClick={onRefresh} className="ui-button ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">Check for an action</button>

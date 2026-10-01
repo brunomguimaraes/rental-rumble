@@ -20,7 +20,10 @@ export function CenterView({ state, box, partyIds, busy, onHeal, onEditParty, on
   const party = partyMembers(partyIds, box);
   const hurtInBox = box.filter((m) => !partyIds.includes(m.id) && isHurt(m)).length;
   const anyHurt = box.some(isHurt);
-  const reason = state.activeEvent ? 'Finish or leave your Sunny Meadow encounter first, then come back to heal.'
+  // The route screen shows the trip to town instead of this view; this guards a stale render.
+  const away = state.activated && state.trainerAt !== 'home';
+  const reason = away ? 'Walk back to Hearth Town to visit the Pokémon Center.'
+    : state.activeEvent ? 'Finish or leave your Sunny Meadow encounter first, then come back to heal.'
     : !anyHurt ? 'Your Pokémon are all in perfect health.' : null;
   return <>
     <Panel title="Pokémon Center">
@@ -35,7 +38,7 @@ export function CenterView({ state, box, partyIds, busy, onHeal, onEditParty, on
       {hurtInBox > 0 && <p className="mt-2 text-sm text-ink-dim">{hurtInBox} Pokémon in your Box also {hurtInBox === 1 ? 'needs' : 'need'} care. Healing covers them too.</p>}
     </Panel>
     <div className="m-2 flex flex-col gap-2">
-      <button type="button" disabled={busy || reason !== null} onClick={onHeal} className="ui-button-primary ui-focus min-h-12 w-full px-3 font-label text-[11px] uppercase">{busy ? 'Healing…' : 'Heal my Pokémon · free'}</button>
+      {!away && <button type="button" disabled={busy || reason !== null} onClick={onHeal} className="ui-button-primary ui-focus min-h-12 w-full px-3 font-label text-[11px] uppercase">{busy ? 'Healing…' : 'Heal my Pokémon · free'}</button>}
       {reason && <p className="text-sm text-ink-dim">{reason}</p>}
       <button type="button" onClick={onOpenBox} className="ui-button ui-focus min-h-11 w-full px-3 font-label text-[10px] uppercase">Open your Box</button>
     </div>
