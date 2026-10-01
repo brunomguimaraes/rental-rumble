@@ -123,7 +123,7 @@ Before running `npm run db:setup` against the production database:
 2. Know what `db:setup` changes, all idempotent and safe to re-run: the
    `nickname` column on `owned_pokemon`; the `stats` column on `owned_pokemon`
    (each Pokémon's six current stats; rows without it read as an average
-   individual); the `party` column on `profiles`; the `hp_lost` column on `owned_pokemon` (battle damage carried between battles; existing rows read as full health); the `trainer_at` column on `route_accounts`; the
+   individual); the `party` column on `profiles`; the `hp_lost` column on `owned_pokemon` (battle damage carried between battles; existing rows read as full health); the
    activity columns on `idle_sessions` (`mode`, `rules_version`,
    `party_snapshot`, `config`, `state`, `step`, `request_id`, `result`,
    `seen_at`); the tables `world_progress` and `world_discoveries`; and the

@@ -5,7 +5,7 @@ import {
   insertRouteReceipt, markRouteQuestClaimed, newId, openWriteTx, readActiveRouteEvent, readActivity,
   readDiscoveries, readInventoryRows, readLastRouteId, readOpenActivity, readOwnedByIds, readOwnedByUser,
   readProfile, readProgress, readRouteAccount, readRouteEvent, readRouteQuest, readRouteReceipt,
-  readUnseenResult, readUnseenRouteEvent, recordCaughtDex, updateOwnedGrowth, updateRouteEvent, writeOwnedHp, writeRouteAllowance, writeTrainerAt, writeTravel,
+  readUnseenResult, readUnseenRouteEvent, recordCaughtDex, updateOwnedGrowth, updateRouteEvent, writeOwnedHp, writeRouteAllowance, writeTravel,
   type Db, type Executor, type RouteAccountRow, type RouteEventRow,
 } from './_db.js';
 import { isTravelPlace, quoteTravel, spendTravel, TRAVEL_RULES, travelQuotes, travelView, type TravelPlace } from '../src/game/travel.js';
@@ -230,7 +230,6 @@ export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, 
     for (const item of find.items) await changeInventory(tx, uid, item.itemId, item.quantity);
     if (find.money > 0) await changeMoney(tx, uid, find.money);
     await writeRouteAllowance(tx, uid, spent.available, spent.refilledAt);
-    await writeTrainerAt(tx, uid, 'r1');
     await dismissPriorRouteEvents(tx, uid, now);
     const data: StoredRouteEvent = { event, seed, config: ROUTE_RULES, foe: find.foe };
     await insertRouteEvent(tx, uid, { id: event.id, createdAt: now, revision: 0, active: phase !== 'resolved', seenAt: null, data });
@@ -240,7 +239,7 @@ export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, 
 
 export async function chooseRoute(db: Db, uid: string, input: RouteChooseInput, now: number): Promise<RouteReply> {
   return writeCommand(db, uid, input.requestId, JSON.stringify(['choose', input.eventId, input.expectedRevision, input.choice, input.ballId ?? null]), now, async (tx) => {
-    await requireActivated(tx, uid);
+    const account = await requireActivated(tx, uid);
     const row = await readRouteEvent(tx, uid, input.eventId);
     if (!row) return fail(404, 'No such encounter.');
     const data = stored(row);
@@ -272,7 +271,11 @@ export async function chooseRoute(db: Db, uid: string, input: RouteChooseInput, 
         };
       } else { e.phase = 'resolved'; e.outcome = 'lost'; }
       // Whiteout: nobody left standing sends the trainer back to Hearth Town.
-      if (!partyStanding(e.party, fielded)) await writeTrainerAt(tx, uid, 'home');
+      if (!partyStanding(e.party, fielded)) {
+        // The travel meter is written back unchanged: the whiteout's walking debit is travel slice 2.
+        const meter = travelRecord(account, now);
+        await writeTravel(tx, uid, meter.available, meter.refilledAt, 'home');
+      }
     } else if (input.choice === 'catch') {
       if (!isCaptureBallId(input.ballId) || !data.foe || e.kind !== 'wild') return fail(400, 'Choose an owned capture ball for a wild Pokémon.');
       if (await countOwned(tx, uid) >= BOX_LIMIT) fail(409, 'Your Box is full. You can still battle or leave.');
@@ -342,7 +345,8 @@ export async function healParty(db: Db, uid: string, requestId: string, now: num
   return writeCommand(db, uid, requestId, JSON.stringify(['heal']), now, async (tx) => {
     if (await readActiveRouteEvent(tx, uid)) fail(409, 'Finish or leave your Sunny Meadow encounter first, then come back to heal.');
     await healAllOwned(tx, uid);
-    await writeTrainerAt(tx, uid, 'home');
+    const meter = travelRecord(await readRouteAccount(tx, uid), now);
+    await writeTravel(tx, uid, meter.available, meter.refilledAt, 'home');
   });
 }
 

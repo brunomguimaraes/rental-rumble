@@ -402,12 +402,14 @@ try {
   await writeOwnedHp(db, 'whiteout', [{ id: wo.id, hpLost: ownedMaxHp(wo) - 1 }]);
   const lostFight = (await start(db, 'whiteout')).event!;
   const moneyBeforeLoss = await moneyOf(db, 'whiteout');
+  const travelBeforeLoss = (await loadRouteState(db, 'whiteout', T)).travel.available;
   await forceKind(db, 'whiteout', lostFight, 'wild', 'hp');
   await forceBattle(db, 'whiteout', lostFight, (b) => !b.won);
   const lost = await chooseRoute(db, 'whiteout', { requestId: rid(), eventId: lostFight.id, expectedRevision: 0, choice: 'battle' }, T);
   const woAfter = (await readOwnedByUser(db, 'whiteout')).find((m) => m.id === wo.id)!;
   check('a loss whites out: party fainted, trainer home, no EXP, no ₽', lost.event?.outcome === 'lost' && isFainted(woAfter) && lost.state.trainerAt === 'home' && woAfter.exp === wo.exp
     && !lost.event.money && lost.state.inventory.money === moneyBeforeLoss);
+  check('a whiteout moves the stored location home without a travel debit yet', (await readRouteAccount(db, 'whiteout'))?.location === 'home' && lost.state.travel.available === travelBeforeLoss);
 
   console.log('[Pokémon Center]');
   const boxPatient = await mintMon(db, 'whiteout', { dexId: 10, level: 5 });
@@ -422,8 +424,9 @@ try {
   check('another account’s Pokémon stay hurt', (await readOwnedByUser(db, 'u2')).find((m) => m.id === strangerMon.id)!.hpLost === 3);
   const healedAgain = await healParty(db, 'whiteout', 'heal-1', T + 1);
   check('a retried heal returns its receipt', healedAgain.replayed === true);
+  const walkedOut = await travelRoute(db, 'whiteout', { requestId: rid(), to: 'r1', partyIds: [wo.id] }, T);
   const backOut = await start(db, 'whiteout');
-  check('a search after healing puts the trainer back in the meadow', backOut.state.trainerAt === 'r1');
+  check('a healed trainer walks back to the meadow and searches again', walkedOut.state.trainerAt === 'r1' && backOut.event !== undefined && !backOut.event.party[0].hpLost);
   await rejects('healing waits for the open encounter', healParty(db, 'whiteout', 'heal-2', T), 409);
   await leave(db, 'whiteout', backOut.event!);
   // 'activate' is the committed activation receipt; with no open encounter, only the reused request ID can refuse.

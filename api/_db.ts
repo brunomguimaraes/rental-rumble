@@ -52,8 +52,6 @@ const COLUMN_ADDS = [
   'alter table owned_pokemon add column nickname text',
   // Battle damage an owned Pokémon carries between battles; 0 is full health.
   'alter table owned_pokemon add column hp_lost integer not null default 0',
-  // Where the trainer stands after a whiteout or a Center visit; null derives it.
-  'alter table route_accounts add column trainer_at text',
   // The six current stats on the growth model's scale, JSON text. Null on rows
   // minted before the growth system; rowToOwned backfills those on read.
   'alter table owned_pokemon add column stats text',
@@ -757,7 +755,6 @@ export interface RouteAccountRow {
   location: TravelPlace | null;
   revision: number;
   transition: unknown;
-  trainerAt: 'home' | 'r1' | null;
 }
 
 export async function readRouteAccount(db: Executor, uid: string): Promise<RouteAccountRow | null> {
@@ -770,7 +767,6 @@ export async function readRouteAccount(db: Executor, uid: string): Promise<Route
     travelRefilledAt: r.travel_refilled_at == null ? null : Number(r.travel_refilled_at),
     location: r.location === 'home' || r.location === 'r1' ? r.location : null,
     revision: Number(r.revision), transition: parseJson(r.transition),
-    trainerAt: r.trainer_at === 'home' || r.trainer_at === 'r1' ? r.trainer_at : null,
   } : null;
 }
 
@@ -799,10 +795,6 @@ export async function writeOwnedHp(db: Executor, uid: string, rows: readonly { i
 export async function healAllOwned(db: Executor, uid: string): Promise<number> {
   const rs = await db.execute({ sql: 'update owned_pokemon set hp_lost = 0 where user_id = ? and hp_lost > 0', args: [uid] });
   return rs.rowsAffected;
-}
-
-export async function writeTrainerAt(db: Executor, uid: string, at: 'home' | 'r1'): Promise<void> {
-  await db.execute({ sql: 'update route_accounts set trainer_at = ? where user_id = ?', args: [at, uid] });
 }
 
 export async function writeTravel(db: Executor, uid: string, travel: number, refilledAt: number, location: TravelPlace): Promise<void> {
