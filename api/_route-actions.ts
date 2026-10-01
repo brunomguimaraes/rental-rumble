@@ -5,10 +5,10 @@ import {
   insertRouteReceipt, markRouteQuestClaimed, newId, openWriteTx, readActiveRouteEvent, readActivity,
   readDiscoveries, readInventoryRows, readLastRouteId, readOpenActivity, readOwnedByIds, readOwnedByUser,
   readProfile, readProgress, readRouteAccount, readRouteEvent, readRouteQuest, readRouteReceipt,
-  readUnseenResult, readUnseenRouteEvent, recordCaughtDex, updateOwnedGrowth, updateRouteEvent, writeRouteAllowance,
+  readUnseenResult, readUnseenRouteEvent, recordCaughtDex, updateOwnedGrowth, updateRouteEvent, writeRouteAllowance, writeTravel,
   type Db, type Executor, type RouteAccountRow, type RouteEventRow,
 } from './_db.js';
-import { TRAVEL_RULES, travelQuotes, travelView, type TravelPlace } from '../src/game/travel.js';
+import { isTravelPlace, quoteTravel, spendTravel, TRAVEL_RULES, travelQuotes, travelView, type TravelPlace } from '../src/game/travel.js';
 import type { MeterRecord } from '../src/game/meter.js';
 import { retireLegacyActivity } from './_world.js';
 import { parseResult, planGrowth } from '../src/game/activity.js';
@@ -21,7 +21,7 @@ import {
 } from '../src/game/route-rules.js';
 import type {
   InventoryState, MarketTradeInput, RouteChooseInput, RouteEvent, RouteQuestInput, RouteReply, RouteSearchInput,
-  RouteState, StoredRouteEvent,
+  RouteState, RouteTravelInput, StoredRouteEvent,
 } from '../src/game/route-actions.js';
 
 /** Known gameplay rejections roll back every part of the command. */
@@ -46,6 +46,12 @@ export function parseRouteChoose(body: Record<string, unknown>): RouteChooseInpu
 }
 export function parseRouteQuest(body: Record<string, unknown>): RouteQuestInput | null {
   return validId(body.requestId) && body.questId === 'meadow-survey' ? { requestId: body.requestId, questId: 'meadow-survey' } : null;
+}
+
+export function parseRouteTravel(body: Record<string, unknown>): RouteTravelInput | null {
+  const partyIds = parsePartyInput(body.partyIds);
+  if (!validId(body.requestId) || !isTravelPlace(body.to) || !partyIds) return null;
+  return { requestId: body.requestId, to: body.to, partyIds };
 }
 
 /** Lazy config, mandatory only when an unsettled historical activity exists. */
@@ -73,13 +79,13 @@ export async function loadRouteState(db: Db, uid: string, now: number): Promise<
 }
 
 /** A row from before travel stamina reads as a full meter starting now. */
-export function travelRecord(account: RouteAccountRow | null, now: number): MeterRecord {
+function travelRecord(account: RouteAccountRow | null, now: number): MeterRecord {
   return account?.travel == null || account.travelRefilledAt == null
     ? { available: TRAVEL_RULES.capacity, refilledAt: now }
     : { available: account.travel, refilledAt: account.travelRefilledAt };
 }
 const derivedLocation = (routeVisited: boolean, lastRoute: string | null): TravelPlace => routeVisited || lastRoute === 'r1' ? 'r1' : 'home';
-export async function currentLocation(tx: Executor, uid: string, account: RouteAccountRow | null): Promise<TravelPlace> {
+async function currentLocation(tx: Executor, uid: string, account: RouteAccountRow | null): Promise<TravelPlace> {
   if (account?.location) return account.location;
   const [routeVisited, lastRoute] = await Promise.all([hasRouteEvents(tx, uid), readLastRouteId(tx, uid)]);
   return derivedLocation(routeVisited, lastRoute);
@@ -160,10 +166,35 @@ async function requireActivated(tx: Executor, uid: string) {
   return account;
 }
 
+export async function travelRoute(db: Db, uid: string, input: RouteTravelInput, now: number): Promise<RouteReply> {
+  return writeCommand(db, uid, input.requestId, JSON.stringify(['travel', input.to, input.partyIds]), now, async (tx) => {
+    const account = await requireActivated(tx, uid);
+    if (await readActiveRouteEvent(tx, uid)) fail(409, 'Finish or leave your encounter before you travel.');
+    const profile = await readProfile(tx, uid);
+    if (!profile) return fail(400, 'Finish onboarding first.');
+    const owned = await readOwnedByUser(tx, uid);
+    const partyIds = resolveParty(profile.party, owned, profile.starterId);
+    if (!sameParty(partyIds, input.partyIds)) throw new RouteError(409, 'Your party changed. Check it and try again.', partyIds);
+    const from = await currentLocation(tx, uid, account);
+    if (from === input.to) fail(400, 'You’re already here.');
+    // The price comes from the saved party, never from the request.
+    const quote = quoteTravel({ from, to: input.to, party: partyMembers(partyIds, owned) });
+    if (!quote) return fail(400, 'You can’t get there from here.');
+    const record = travelRecord(account, now);
+    const spent = spendTravel(record, now, quote.cost);
+    if (!spent) {
+      const next = travelView(record, now).nextRefillAt ?? now;
+      return fail(400, `Not enough travel stamina — next point in ${Math.max(1, Math.ceil((next - now) / 60_000))} min.`);
+    }
+    await writeTravel(tx, uid, spent.available, spent.refilledAt, input.to);
+  });
+}
+
 export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, now: number): Promise<RouteReply> {
   return writeCommand(db, uid, input.requestId, JSON.stringify(['search', input.locationId, input.kind, input.partyIds]), now, async (tx) => {
     const account = await requireActivated(tx, uid);
     if (input.locationId !== 'r1') fail(400, 'Only Sunny Meadow is available.');
+    if (await currentLocation(tx, uid, account) !== input.locationId) fail(400, 'You can only search Sunny Meadow while you’re there.');
     if (await readActiveRouteEvent(tx, uid)) fail(409, 'Finish or leave your current encounter first.');
     const profile = await readProfile(tx, uid);
     if (!profile) return fail(400, 'Finish onboarding first.');
