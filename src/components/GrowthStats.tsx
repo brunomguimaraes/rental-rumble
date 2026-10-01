@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { OwnedMon } from '../game/box';
-import { STAT_KEYS, STAT_LABELS, potentialSentence, speciesGrowth, type StatKey } from '../game/growth';
+import { STAT_KEYS, STAT_LABELS, expectedStats, isBaseStats, potentialSentence, speciesGrowth, type StatKey } from '../game/growth';
+import { clampLevel } from '../game/levels';
 import { StatBar } from './ui/StatBar';
 
 /**
@@ -11,10 +12,12 @@ export function GrowthStats({ mon }: { mon: OwnedMon }) {
   const [openKey, setOpenKey] = useState<StatKey | null>(null);
   const g = speciesGrowth(mon.dexId, mon.build);
   if (!g) return null;
+  // A row without stats (stale server) reads as an average individual.
+  const stats = isBaseStats(mon.stats) ? mon.stats : expectedStats(mon.dexId, clampLevel(mon.level), mon.build);
   return (
     <ul className="mt-4 flex flex-col gap-1.5">
       {STAT_KEYS.map((k) => {
-        const value = mon.stats[k];
+        const value = stats[k];
         const capped = value >= g.ceiling[k];
         const open = openKey === k;
         return (

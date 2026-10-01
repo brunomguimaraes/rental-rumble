@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { ownedMonToCreature, type OwnedMon } from '../game/box';
 import { setNickname, cleanNickname, NICKNAME_MAX } from '../game/profile';
 import { evolutionLevel } from '../game/evolution';
-import { STAT_KEYS, STAT_LABELS, evolutionLines, growthLines, speciesGrowth } from '../game/growth';
+import { STAT_KEYS, STAT_LABELS, evolutionLines, expectedStats, growthLines, isBaseStats, speciesGrowth } from '../game/growth';
+import { clampLevel } from '../game/levels';
 import { DEV, devGrowOnce } from '../game/dev';
 import { CREATURES_BY_ID } from '../game/pokemon';
 import { signLabel } from '../game/zodiac';
@@ -28,6 +29,7 @@ function originLabel(mon: OwnedMon): string {
 /** Dev-only readout of what the player never sees: the hidden level, exact potential and ceilings, and a Grow once button. */
 function DevGrowth({ mon, busy, onGrow }: { mon: OwnedMon; busy: boolean; onGrow: () => void }) {
   const g = speciesGrowth(mon.dexId, mon.build);
+  const stats = isBaseStats(mon.stats) ? mon.stats : expectedStats(mon.dexId, clampLevel(mon.level), mon.build);
   return (
     <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-300/5 p-3 text-[11px] text-amber-100/80">
       <div className="flex items-center justify-between gap-2">
@@ -43,7 +45,7 @@ function DevGrowth({ mon, busy, onGrow }: { mon: OwnedMon; busy: boolean; onGrow
           </thead>
           <tbody>
             {STAT_KEYS.map((k) => (
-              <tr key={k}><td>{STAT_LABELS[k].short}</td><td>{mon.stats[k]}</td><td>{g.potential[k]}%</td><td>{g.ceiling[k]}</td></tr>
+              <tr key={k}><td>{STAT_LABELS[k].short}</td><td>{stats[k]}</td><td>{g.potential[k]}%</td><td>{g.ceiling[k]}</td></tr>
             ))}
           </tbody>
         </table>
