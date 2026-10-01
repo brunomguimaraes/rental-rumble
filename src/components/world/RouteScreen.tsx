@@ -14,14 +14,16 @@ import { scrollToTop } from '../../ui-scroll';
 import { BagButton } from '../ui/BagButton';
 import { BattleReplay } from './BattleReplay';
 import { RouteResultView } from './RouteResultView';
+import { tradeText } from './route-copy';
 import { backdropUrl } from './scene';
 import { SunnyMeadow } from './SunnyMeadow';
+import { MarketScreen } from './MarketScreen';
 import { MeadowEncounter } from './MeadowEncounter';
 import { RouteBagDialog } from './RouteBagDialog';
 import { TownAvatar, TownSummary, TownView, type TownService } from './TownView';
 import { WorldMap, type MapView } from './WorldMap';
 
-type Page = 'map' | 'list' | 'home' | 'r1' | 'encounter';
+type Page = 'map' | 'list' | 'home' | 'r1' | 'encounter' | 'market';
 
 /** Where the world screen opens instead of its map: Sunny Meadow, or inside Hearth Town at a destination. */
 export type WorldEntry = { place: 'r1'; focus?: 'encounter' | 'result' | 'survey' } | { place: 'home'; spot: TownDestinationId };
@@ -119,6 +121,8 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
       scrollToTop();
       const event = fresh.activeEvent ?? fresh.result;
       if (command.operation === 'choose' && command.input.choice === 'battle' && event?.id === command.input.eventId && event.battle) setReplay(event);
+    } else if (command.operation === 'market-trade') {
+      if (reply.trade) setNotice(tradeText(reply.trade));
     } else {
       setPage('r1');
       if (command.operation === 'quest-claim') setNotice(`Meadow survey complete. ${ROUTE_RULES.questGreatBalls} Great Balls are saved in your Bag.`);
@@ -180,8 +184,8 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
 
   return <div className="mx-auto min-h-[100dvh] max-w-[430px] px-2 py-4 pb-[max(2rem,env(safe-area-inset-bottom))] font-pixel text-ink">
     <header className="mb-4 flex items-center gap-2 px-2">
-      <button type="button" onClick={() => { setReplay(null); if (page === 'map' || page === 'list') onBack(); else if (page === 'encounter') setPage('r1'); else setPage(from); }} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">◀ {page === 'map' || page === 'list' ? 'Back' : page === 'encounter' ? 'Route' : 'Map'}</button>
-      <h1 className="min-w-0 flex-1 font-label text-[12px] uppercase text-accent [text-shadow:2px_2px_0_#000]">{page === 'home' ? home.name : page === 'r1' || page === 'encounter' ? route.name : 'Hearthvale'}</h1>
+      <button type="button" onClick={() => { setReplay(null); if (page === 'map' || page === 'list') onBack(); else if (page === 'encounter') setPage('r1'); else if (page === 'market') setPage('home'); else setPage(from); }} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">◀ {page === 'map' || page === 'list' ? 'Back' : page === 'encounter' ? 'Route' : page === 'market' ? 'Town' : 'Map'}</button>
+      <h1 className="min-w-0 flex-1 font-label text-[12px] uppercase text-accent [text-shadow:2px_2px_0_#000]">{page === 'market' ? 'Village market' : page === 'home' ? home.name : page === 'r1' || page === 'encounter' ? route.name : 'Hearthvale'}</h1>
       {page === 'map' || page === 'list' ? <button type="button" onClick={() => setPage(page === 'map' ? 'list' : 'map')} aria-pressed={page === 'list'} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">{page === 'map' ? 'List' : 'Map'}</button>
         : <BagButton compact opensDialog disabled={!state} onClick={() => setBagOpen(true)} />}
     </header>
@@ -196,7 +200,10 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
           : <Panel title={placeTitle(route)}><p className="text-sm text-ink-dim">{route.blurb}</p><button type="button" onClick={() => openPlace('r1', 'map')} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[11px] uppercase">Visit {route.name}</button></Panel>}
       </>}
       {page === 'list' && <Panel title="Places"><ul className="flex flex-col gap-2">{[home, route].map((place) => <li key={place.id}><button type="button" onClick={() => openPlace(place.id as 'home' | 'r1', 'list')} className="ui-focus flex min-h-14 w-full items-center gap-3 rounded-[3px] bg-slot p-3 text-left"><span className="min-w-0 flex-1"><span className="block text-base">{placeTitle(place)}</span><span className="text-sm text-ink-dim">{place.id === 'home' ? 'Home town' : 'Wild Pokémon, friendly trainers, and landmarks'}</span></span>{place.id === 'home' && <TownAvatar className="h-10 w-10" />}</button></li>)}</ul></Panel>}
-      {page === 'home' && <TownView spot={spot} onSpot={setSpot} onOpen={(screen) => onVisit(screen, spot)} onWalk={walkTo} onMarket={() => {}} />}
+      {page === 'home' && <TownView spot={spot} onSpot={setSpot} onOpen={(screen) => onVisit(screen, spot)} onWalk={walkTo} onMarket={() => { scrollToTop(); setPage('market'); }} />}
+      {page === 'market' && (state.activated && !state.legacy.pending
+        ? <MarketScreen state={state} busy={locked} onTrade={(trade) => void submit({ operation: 'market-trade', input: { requestId: newRouteRequestId(), ...trade } })} />
+        : <Panel title="Village market"><p className="text-sm">Begin exploring Sunny Meadow to open your account at the market.</p><button type="button" onClick={() => walkTo('r1')} className="ui-button-primary ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">Walk to Sunny Meadow</button></Panel>)}
       {page === 'r1' && <SunnyMeadow state={state} party={party} locked={locked} busy={busy}
         showSurvey={entry?.place === 'r1' && entry.focus === 'survey'}
         onSearch={search} onActivate={() => void submit({ operation: 'activate', input: { requestId: newRouteRequestId() } })}
