@@ -15,7 +15,7 @@ import { TypeBadges } from '../TypeBadge';
 import { PixelSprite } from '../ui/PixelSprite';
 import { StatBar } from '../ui/StatBar';
 import { Backdrop } from './Backdrop';
-import { POKEBALL, speciesName } from './scene';
+import { BATTLE_SHADOW, POKEBALL, speciesName } from './scene';
 
 // Plays the server's event log with the old Rental Rumble choreography. It
 // never simulates: the server decided the battle and sent what happened. The
@@ -39,20 +39,24 @@ const DELAY: Record<BattleEvent['kind'], number> = {
   faint: 1150,
   end: 650,
 };
-// The arena is `h-64`. Each combatant stands on a zero-size feet anchor; the
-// horizontal spots sit about where the old screen centred a body, held far
-// enough from the edge that the widest resting body (about 100px either side
-// of its feet at 2x: Eternatus, Guzzlord) stays inside even at phone width.
-// The foe stands a little above the old 38% so a dual-type player card (taller
-// at 320px) leaves its feet visible, while the tallest resting foe body (144px
-// at 2x, Rayquaza) still clears the arena's top.
+// The arena is `h-64`. Each combatant stands on a zero-size ground anchor, the
+// centre of its resting shadow; the horizontal spots sit about where the old
+// screen centred a body, held far enough from the edge that the widest resting
+// body (about 100px either side of its ground at 2x: Eternatus, Guzzlord) stays
+// inside even at phone width. The foe stands a little above the old 38% so a
+// dual-type player card (taller at 320px) leaves its feet visible, while the
+// tallest resting foe body (130px above its ground at 2x, Rayquaza) still clears
+// the arena's top. The player's ground sits high enough that the lowest-hanging
+// resting body (34px below its ground at 2x, Guzzlord) stays inside the bottom.
 const ARENA_PX = 256;
 const ANCHOR: Record<Side, { x: CSSProperties; bottom: number }> = {
   foe: { x: { right: 'max(calc(14% + 48px), 104px)' }, bottom: 112 },
-  player: { x: { left: 'max(calc(10% + 48px), 104px)' }, bottom: 16 },
+  player: { x: { left: 'max(calc(10% + 48px), 104px)' }, bottom: 36 },
 };
 // The flat fallback sprite (no PMD sheet) and the height its pop clears.
 const FALLBACK_PX = 96;
+// The medium PMD shadow under a flat sprite, at 2x its 14x6 art.
+const FALLBACK_SHADOW = { width: 28, height: 12 };
 // Damage pop: gap above the body's top, its upward drift (damage-pop in
 // index.css), its tallest text line and the margin it keeps inside the arena.
 const POP_GAP_PX = 6;
@@ -65,7 +69,7 @@ const FILL_DELAY_MS = 820;
 const FILL_TICKS = 12;
 const FILL_TICK_MS = 40;
 
-/** Height above the feet anchor for a damage pop, clamped inside the arena. */
+/** Height above the ground anchor for a damage pop, clamped inside the arena. */
 function popLift(side: Side, bodyPx: number): number {
   const highest = ARENA_PX - ANCHOR[side].bottom - POP_RISE_PX - POP_TEXT_PX - POP_EDGE_PX;
   return Math.min(bodyPx + POP_GAP_PX, highest);
@@ -89,7 +93,7 @@ function animFor({ side, board, event, at, settled, live }: {
   return { kind: 'idle', loop: true, token: -1 };
 }
 
-// Children of the zero-size feet anchor get explicit widths: preflight's
+// Children of the zero-size ground anchor get explicit widths: preflight's
 // `img { max-width: 100% }` would otherwise shrink their images to nothing.
 function BallFx({ side, ball }: { side: Side; ball: string }) {
   return (
@@ -101,6 +105,25 @@ function BallFx({ side, ball }: { side: Side; ball: string }) {
         className={`relative h-6 w-6 object-contain [image-rendering:pixelated] ${side === 'player' ? 'animate-ball-toss-player' : 'animate-ball-toss-foe'}`}
       />
     </div>
+  );
+}
+
+/** A sprite with no PMD sheet: the shadow centres on the anchor and the shake moves only the sprite. */
+function FlatSprite({ src, shakeClass, shakeKey }: { src: string; shakeClass: string; shakeKey: number }) {
+  return (
+    <>
+      <img
+        src={BATTLE_SHADOW}
+        alt=""
+        className="pointer-events-none absolute left-0 top-0 max-w-none -translate-x-1/2 -translate-y-1/2 opacity-60 [image-rendering:pixelated]"
+        style={{ width: FALLBACK_SHADOW.width, height: FALLBACK_SHADOW.height }}
+      />
+      <div key={`shake-${shakeKey}`} className={shakeClass}>
+        <div className="absolute bottom-0 left-0 -translate-x-1/2" style={{ width: FALLBACK_PX }}>
+          <PixelSprite src={src} fallback={POKEBALL} size={FALLBACK_PX} alt="" />
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -122,14 +145,11 @@ function Combatant({ side, board, anim, live, hit, shake, shakeKey, onAnimEnd }:
   if (!view) return null;
   const pmd = hasPmdSprite(view.dexId);
   const body = pmd ? pmdBody(view.dexId) : null;
-  const bodyPx = body ? body.h * PMD_SCALE : FALLBACK_PX;
-  const fallback = (
-    <div className="absolute bottom-0 left-0 -translate-x-1/2" style={{ width: FALLBACK_PX }}>
-      <PixelSprite src={side === 'player' ? view.back : view.sprite} fallback={POKEBALL} size={FALLBACK_PX} alt="" />
-    </div>
-  );
-  // The root is a zero-size feet anchor: the shadow centres on it, the sprite
-  // stands on it, and the wrappers' transforms (materialize, shake) move the
+  const bodyPx = body ? body.top * PMD_SCALE : FALLBACK_PX;
+  const shakeClass = shake ? 'animate-shake' : '';
+  const fallback = <FlatSprite src={side === 'player' ? view.back : view.sprite} shakeClass={shakeClass} shakeKey={shakeKey} />;
+  // The root is a zero-size ground anchor: the resting shadow centres on it and
+  // the wrappers' transforms (materialize, then the body-only shake) move the
   // absolutely placed shadow and sprite around it.
   return (
     <div className="absolute h-0 w-0" style={{ ...ANCHOR[side].x, bottom: ANCHOR[side].bottom }}>
@@ -145,25 +165,24 @@ function Combatant({ side, board, anim, live, hit, shake, shakeKey, onAnimEnd }:
       )}
       {live && <BallFx key={`ball-${board.spawnAt}`} side={side} ball={view.ball} />}
       <div key={`${view.dexId}-${board.spawnAt}`} className={live ? 'animate-materialize' : ''}>
-        {/* The shadow forms with the Pokémon; the shake below leaves it still. */}
-        <div className="absolute left-0 top-0 h-2 w-16 -translate-x-1/2 -translate-y-1/2 bg-edge/60" />
-        <div key={`shake-${shakeKey}`} className={shake ? 'animate-shake' : ''}>
-          {pmd ? (
-            <PmdSprite
-              dexId={view.dexId}
-              side={side}
-              kind={anim.kind}
-              loop={anim.loop}
-              playToken={anim.token}
-              shiny={view.shiny}
-              altColor={view.altColor}
-              onAnimEnd={() => onAnimEnd(side)}
-              fallback={fallback}
-            />
-          ) : (
-            fallback
-          )}
-        </div>
+        {/* The shadow forms with the Pokémon; the shake moves only the body. */}
+        {pmd ? (
+          <PmdSprite
+            dexId={view.dexId}
+            side={side}
+            kind={anim.kind}
+            loop={anim.loop}
+            playToken={anim.token}
+            shiny={view.shiny}
+            altColor={view.altColor}
+            onAnimEnd={() => onAnimEnd(side)}
+            fallback={fallback}
+            bodyClassName={shakeClass}
+            bodyKey={`shake-${shakeKey}`}
+          />
+        ) : (
+          fallback
+        )}
       </div>
     </div>
   );

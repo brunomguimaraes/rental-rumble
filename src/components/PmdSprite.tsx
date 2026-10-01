@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { Side } from '../game/types';
 import {
   dirRow,
   hasAltColorPmdSprite,
   hasShinyPmdSprite,
+  PMD_DEFAULT_GROUND,
   PMD_FRAME_MS,
   pmdBody,
   pmdFrameBox,
+  pmdShadowUrl,
   pmdSheetUrl,
   pmdSheetUrls,
   resolvePmdAnim,
@@ -25,9 +27,12 @@ const prefersReducedMotion = () =>
  * something CSS `steps()` can't express.
  *
  * Every frame is drawn at PMD_SCALE and centred on the sheet's shared origin,
- * lifted by the species' resting feet offset for this side (pmdFrameBox): the parent is a
- * zero-size feet anchor, the resting feet land on it, and a larger attack or
- * hurt canvas grows around the same centre instead of making the body jump.
+ * shifted by the species' resting ground point for this side (pmdFrameBox): the
+ * parent is a zero-size ground anchor, the resting shadow centres on it, and a
+ * larger attack or hurt canvas grows around the same centre instead of making
+ * the body jump. The shadow sheet shares the frame grid, so each frame's shadow
+ * follows the body through lunges and faints; `bodyClassName` (keyed by
+ * `bodyKey`) animates the body alone, so a shake leaves the shadow on the ground.
  *
  * Falls back to `fallback` (the flat Essentials front/back PNG) when a species
  * has no bundled PMD sprite, so the battle always renders something.
@@ -43,6 +48,8 @@ export function PmdSprite({
   altColor = false,
   onAnimEnd,
   fallback,
+  bodyClassName = '',
+  bodyKey,
 }: {
   dexId: number;
   side: Side;
@@ -57,6 +64,10 @@ export function PmdSprite({
   altColor?: boolean;
   onAnimEnd?: () => void;
   fallback: ReactNode;
+  /** Classes for the body layer only (a hit shake); the shadow stays still. */
+  bodyClassName?: string;
+  /** Remounts the body layer when it changes, restarting its CSS animation. */
+  bodyKey?: string | number;
 }) {
   const anim = resolvePmdAnim(dexId, kind);
   // Pick the recolour to render, but only when this species ships its full set
@@ -139,27 +150,29 @@ export function PmdSprite({
 
   if (!anim) return <>{fallback}</>;
 
-  const box = pmdFrameBox({ fw: anim.fw, fh: anim.fh, foot: pmdBody(dexId)?.foot[side] ?? 0 });
+  const box = pmdFrameBox({ fw: anim.fw, fh: anim.fh, ground: pmdBody(dexId)?.ground[side] ?? PMD_DEFAULT_GROUND });
   const row = dirRow(side, anim.rows);
   // Guard against a stale index landing past the current sheet (blank cell).
   const safeFrame = Math.min(Math.max(frame, 0), frames - 1);
+  const layer = (url: string): CSSProperties => ({
+    position: 'absolute',
+    left: box.left,
+    top: box.top,
+    width: box.width,
+    height: box.height,
+    backgroundImage: `url(${url})`,
+    backgroundRepeat: 'no-repeat',
+    backgroundSize: `${anim.frames * box.width}px ${anim.rows * box.height}px`,
+    backgroundPosition: `${-safeFrame * box.width}px ${-row * box.height}px`,
+    imageRendering: 'pixelated',
+  });
 
   return (
-    <div
-      aria-hidden
-      style={{
-        position: 'absolute',
-        left: box.left,
-        top: box.top,
-        width: box.width,
-        height: box.height,
-        backgroundImage: `url(${pmdSheetUrl(dexId, anim.sheet, variant)})`,
-        backgroundRepeat: 'no-repeat',
-        backgroundSize: `${anim.frames * box.width}px ${anim.rows * box.height}px`,
-        backgroundPosition: `${-safeFrame * box.width}px ${-row * box.height}px`,
-        imageRendering: 'pixelated',
-      }}
-      className="pointer-events-none"
-    />
+    <>
+      <div aria-hidden style={layer(pmdShadowUrl(dexId, anim.sheet))} className="pointer-events-none opacity-60" />
+      <div key={bodyKey} className={bodyClassName}>
+        <div aria-hidden style={layer(pmdSheetUrl(dexId, anim.sheet, variant))} className="pointer-events-none" />
+      </div>
+    </>
   );
 }

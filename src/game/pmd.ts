@@ -61,7 +61,7 @@ export function hasPmdSprite(dexId: number): boolean {
   return PMD_SPRITES[dexId] !== undefined;
 }
 
-/** A species' resting body (feet offset, visible height), or null when unmeasured. */
+/** Where a species' resting body stands (ground point, height above it), or null when unmeasured. */
 export function pmdBody(dexId: number): PmdBody | null {
   return PMD_BODIES[dexId] ?? null;
 }
@@ -87,16 +87,25 @@ export function pmdSheetUrl(
 }
 
 /**
- * Every distinct sheet URL a species can render. Used to preload (decode) sheets
- * up front so switching animations mid-battle never flashes a blank frame while
- * the browser fetches the not-yet-seen sheet.
+ * A sheet's ground shadow (scripts/build-pmd-shadows.py): the same frame grid as
+ * the sheet, one shadow per frame where SpriteCollab places it. Recolours share
+ * the base geometry, so every variant uses the base folder's shadows.
+ */
+export function pmdShadowUrl(dexId: number, sheet: string): string {
+  return `${ASSET}sprites/pmd/${dexId}/${sheet}-Shadow.png`;
+}
+
+/**
+ * Every distinct sheet and shadow URL a species can render. Used to preload
+ * (decode) them up front so switching animations mid-battle never flashes a
+ * blank frame while the browser fetches the not-yet-seen sheet.
  */
 export function pmdSheetUrls(dexId: number, variant: PmdVariant = undefined): string[] {
   const entry: PmdEntry | undefined = PMD_SPRITES[dexId];
   if (!entry) return [];
   const sheets = new Set<string>();
   for (const anim of Object.values(entry)) sheets.add(anim.sheet);
-  return [...sheets].map((sheet) => pmdSheetUrl(dexId, sheet, variant));
+  return [...sheets].flatMap((sheet) => [pmdSheetUrl(dexId, sheet, variant), pmdShadowUrl(dexId, sheet)]);
 }
 
 /** Resolve a logical anim to a concrete sheet for a species, or null if unbundled. */
@@ -130,17 +139,21 @@ export const PMD_FRAME_MS = 1000 / 60;
  */
 export const PMD_SCALE = 2;
 
+/** SpriteCollab's resting ground point, source px from the canvas centre, for an unmeasured species. */
+export const PMD_DEFAULT_GROUND = { x: 0, y: 4 };
+
 /**
- * Where to draw one frame of a species' sheet, in screen px relative to its
- * feet anchor. Every anim of a species shares the canvas centre as its origin,
- * so centring each frame on the same point keeps idle, hurt and attack frames
- * from jumping; `foot` (the side's PMD_BODIES feet line, source px below that
- * centre) lifts the centre so the resting feet land on the anchor.
+ * Where to draw one frame of a species' sheet (and its shadow sheet), in screen
+ * px relative to its ground anchor. Every anim of a species shares the canvas
+ * centre as its origin, so centring each frame on the same point keeps idle,
+ * hurt and attack frames from jumping; `ground` (the side's PMD_BODIES resting
+ * shadow centre, source px from that centre) shifts the frame so the resting
+ * shadow lands on the anchor and the body stands where SpriteCollab put it.
  */
-export function pmdFrameBox({ fw, fh, foot }: { fw: number; fh: number; foot: number }): {
+export function pmdFrameBox({ fw, fh, ground }: { fw: number; fh: number; ground: { x: number; y: number } }): {
   left: number; top: number; width: number; height: number;
 } {
   const width = fw * PMD_SCALE;
   const height = fh * PMD_SCALE;
-  return { left: -width / 2, top: -height / 2 - foot * PMD_SCALE, width, height };
+  return { left: -width / 2 - ground.x * PMD_SCALE, top: -height / 2 - ground.y * PMD_SCALE, width, height };
 }

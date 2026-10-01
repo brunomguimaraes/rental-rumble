@@ -16,8 +16,10 @@
 // disk (the reliable source of truth): we re-parse the saved AnimData.xml and
 // read each PNG's header for its real dimensions.
 //
-// After a sprite refresh, rerun the body metrics too, or battle sprites float
-// off their shadows: python3 scripts/build-pmd-bodies.py (writes pmdBodies.gen.ts).
+// After a sprite refresh, rebuild the ground shadows and then the body metrics,
+// or battle sprites float off their shadows: python3 scripts/build-pmd-shadows.py
+// (writes <Anim>-Shadow.png beside each sheet), then python3
+// scripts/build-pmd-bodies.py (writes pmdBodies.gen.ts).
 //
 // Run: node scripts/fetch-battle-sprites.mjs              (full download)
 //      node scripts/fetch-battle-sprites.mjs --resume     (skip files already saved)

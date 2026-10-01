@@ -45,7 +45,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 - **Pokédex** — species you haven't caught stay a mystery: a silhouette and "???" with no stats, ability, moves, or signs, and search by name only finds ones you've caught.
 - **Hub** — the six-slot Night party window shows your saved party, lead first, with Edit; below it sit the World map and Your box, and what your trainer is doing right now.
 - **Login required** — anonymous play is gone; the hub and box are per-account.
-- **Battles come alive** — Sunny Meadow battles play like the original Rental Rumble: animated Pokémon that attack, flinch and faint, a Poké Ball toss on send-out, damage numbers, effectiveness banners, and status and sign badges on each Pokémon's card. Pokémon are drawn at their true relative size and stand on their shadows, and each HP bar fills visibly on send-out. Next and Skip work as before.
+- **Battles come alive** — Sunny Meadow battles play like the original Rental Rumble: animated Pokémon that attack, flinch and faint, a Poké Ball toss on send-out, damage numbers, effectiveness banners, and status and sign badges on each Pokémon's card. Pokémon are drawn at their true relative size, each over a small, medium or large shadow that follows it as it lunges, flinches and faints, and each HP bar fills visibly on send-out. Next and Skip work as before.
 
 ### Fixed
 - **Trainer colors** — rebuilt all 40 portrait masks to correct missed skin patches and color bleeding into hats and clothes. Dark skin preserves freckles, nose highlights and ear shadows; cleaner hairlines, intact ink outlines and softer hair highlights keep the original portrait detail.

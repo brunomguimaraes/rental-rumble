@@ -31,6 +31,8 @@ export const TRAINER = {
 };
 
 export const POKEBALL = `${ASSET}sprites/ui/pokeball.png`;
+/** The medium PMD ground shadow (scripts/build-pmd-shadows.py), for battle sprites with no PMD sheet. */
+export const BATTLE_SHADOW = `${ASSET}sprites/ui/battle-shadow.png`;
 
 export const STATE_LABEL: Record<PlaceState, string> = {
   undiscovered: 'Undiscovered',

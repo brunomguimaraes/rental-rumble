@@ -4,6 +4,9 @@
  *
  *   npx --yes tsx scripts/battle-board.test.ts
  */
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { BattleEvent } from '../src/game/battle.js';
 import { boardAt, combatantFromCreature, wildCombatant, type CombatantView, type Narration } from '../src/game/battle-board.js';
 import { type OwnedMon } from '../src/game/box.js';
@@ -111,23 +114,40 @@ const hurtBoard = boardAt({ events: hurtBattle.events, upTo: hurtOut, player: [s
 check('a hurt member enters the replay board at its stored HP out of its full max', hurtOut >= 0 && hurtBoard.player.hp === 3 && hurtBoard.player.maxHp === ownedMaxHp(mon));
 
 
-// PMD frames stand on a feet anchor (Charizard, real resting and hurt geometry):
-// every frame is centred on the same point, the side's feet line above the
-// anchor, so the resting feet land on it and a larger hurt canvas never jumps.
+// PMD frames stand on a ground anchor (Charizard, real resting and hurt
+// geometry): every frame is centred on the same point, shifted by the side's
+// resting shadow centre, so that shadow lands on the anchor and a larger hurt
+// canvas never jumps.
 const charizard = pmdBody(6);
 const idle = resolvePmdAnim(6, 'idle');
 const hurtAnim = resolvePmdAnim(6, 'hurt');
 if (!charizard || !idle || !hurtAnim) throw new Error('Charizard PMD fixture is unavailable');
 const centre = (box: { left: number; top: number; width: number; height: number }) => [box.left + box.width / 2, box.top + box.height / 2];
-check('idle and hurt frames share one centre, lifted by each side\'s own feet line', (['player', 'foe'] as const).every((side) => {
-  const foot = charizard.foot[side];
-  const centres = [idle, hurtAnim].map((anim) => centre(pmdFrameBox({ fw: anim.fw, fh: anim.fh, foot })));
-  return centres.every(([x, y]) => x === 0 && y === -foot * PMD_SCALE);
+check('idle and hurt frames share one centre, shifted by each side\'s own ground point', (['player', 'foe'] as const).every((side) => {
+  const ground = charizard.ground[side];
+  const centres = [idle, hurtAnim].map((anim) => centre(pmdFrameBox({ fw: anim.fw, fh: anim.fh, ground })));
+  return centres.every(([x, y]) => x === -ground.x * PMD_SCALE && y === -ground.y * PMD_SCALE);
 }));
 const unmeasured = Object.keys(PMD_SPRITES).map(Number).filter((id) => {
   const body = pmdBody(id);
-  return !(body && body.h > 0 && Number.isFinite(body.foot?.player) && Number.isFinite(body.foot?.foe));
+  return !(body && body.top > 0 && (['player', 'foe'] as const).every((side) => Number.isFinite(body.ground?.[side]?.x) && Number.isFinite(body.ground?.[side]?.y)));
 });
-check(`every bundled PMD sprite has a measured body with both feet lines (rerun scripts/build-pmd-bodies.py): ${unmeasured.slice(0, 5).join(', ')}`, unmeasured.length === 0);
+check(`every bundled PMD sprite has a measured body with both ground points (rerun scripts/build-pmd-bodies.py): ${unmeasured.slice(0, 5).join(', ')}`, unmeasured.length === 0);
+
+// PmdSprite draws <sheet>-Shadow.png with the sheet's own frame offsets, so
+// every sheet a species can render needs a shadow sheet of the same size.
+const pngSize = (path: string): string | null => {
+  if (!existsSync(path)) return null;
+  const head = readFileSync(path).subarray(16, 24);
+  return `${head.readUInt32BE(0)}x${head.readUInt32BE(4)}`;
+};
+const pmdDir = fileURLToPath(new URL('../public/sprites/pmd/', import.meta.url));
+const unshadowed = Object.entries(PMD_SPRITES).flatMap(([id, entry]) => [...new Set(Object.values(entry).map((anim) => anim.sheet))]
+  .filter((sheet) => {
+    const size = pngSize(join(pmdDir, id, `${sheet}-Shadow.png`));
+    return size === null || size !== pngSize(join(pmdDir, id, `${sheet}-Anim.png`));
+  })
+  .map((sheet) => `${id}/${sheet}`));
+check(`every bundled PMD sheet has a ground shadow on its own grid (rerun scripts/build-pmd-shadows.py): ${unshadowed.slice(0, 5).join(', ')}`, unshadowed.length === 0);
 console.log(`Battle board: ${passed} passed, ${failed} failed.`);
 process.exit(failed ? 1 : 0);
