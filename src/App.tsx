@@ -294,7 +294,7 @@ export default function App() {
             onState={applyWorld}
             onPartyChanged={(party) => setProfile((p) => (p ? { ...p, party } : p))}
             onEditParty={() => openScreen('party', { place: 'r1' })}
-            onVisit={(screen, spot) => openScreen(screen, { place: 'home', spot })}
+            onVisit={(screen, back) => openScreen(screen, back)}
             onBack={() => { scrollToTop(); setPhase('hub'); }}
             onRetry={() => void refreshWorld()}
             onExpired={expire}
