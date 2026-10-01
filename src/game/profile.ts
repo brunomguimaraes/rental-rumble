@@ -1,5 +1,7 @@
 import type { OwnedMon } from './box.js';
 import type { ProfessionId, ProfessorId } from './professions.js';
+import type { TrainerIdentity } from './trainer-identity.js';
+import type { TrainerColors } from './trainer-colors.js';
 
 // The player's role-play identity, and the same-origin wrappers for it.
 
@@ -12,6 +14,9 @@ export interface Profile {
   createdAt: number;
   /** The party in effect, lead first: the saved one, else the starter (resolved by the server). */
   party: string[];
+  /** Null/absent on trainers who joined before the portrait picker. */
+  avatarId?: string | null;
+  avatarColors?: TrainerColors | null;
 }
 
 /** A profile from the server, with `party` always an array (older servers omit it). */
@@ -55,16 +60,17 @@ export interface OnboardResult {
   starter?: OwnedMon;
   box?: OwnedMon[];
   error?: string;
+  displayName?: string;
 }
 
 /** Start the journey with one of the three offered starters (by base-form dex id). */
-export async function onboard(starter: number): Promise<OnboardResult> {
+export async function onboard(input: TrainerIdentity & { starter: number }): Promise<OnboardResult> {
   try {
     const res = await fetch('/api/me/onboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ profession: 'trainer', starter }),
+      body: JSON.stringify({ profession: 'trainer', ...input }),
     });
     const data = (await res.json().catch(() => ({}))) as OnboardResult;
     if (!res.ok || !data.ok) return { ok: false, error: data.error ?? 'could not start your journey' };
