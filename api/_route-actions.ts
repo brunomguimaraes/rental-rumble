@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
-  acceptRouteQuest, advanceRouteRevision, BOX_LIMIT, changeInventory, countOwned, dismissPriorRouteEvents,
+  acceptRouteQuest, advanceRouteRevision, BOX_LIMIT, changeInventory, changeMoney, countOwned, dismissPriorRouteEvents,
   dismissRouteEvent, hasRouteEvents, insertDiscovery, insertOwned, insertRouteAccount, insertRouteEvent,
   insertRouteReceipt, markRouteQuestClaimed, newId, openWriteTx, readActiveRouteEvent, readActivity,
   readDiscoveries, readInventoryRows, readLastRouteId, readOpenActivity, readOwnedByIds, readOwnedByUser,
@@ -14,7 +14,7 @@ import { parsePartyInput, partyMembers, resolveParty, sameParty } from '../src/g
 import { EMPTY_PROGRESS } from '../src/game/world.js';
 import { isCaptureBallId, isItemId } from '../src/game/items.js';
 import {
-  allowanceView, captureChance, legalChoices, MEADOW_LANDMARKS, rollCapture, rollRouteFind,
+  allowanceView, battlePrize, captureChance, legalChoices, MEADOW_LANDMARKS, rollCapture, rollRouteFind,
   ROUTE_RULES, simulateRouteBattle, spendAllowance,
 } from '../src/game/route-rules.js';
 import type {
@@ -60,7 +60,7 @@ function stored(row: RouteEventRow): StoredRouteEvent {
 }
 async function inventoryState(db: Executor, uid: string): Promise<InventoryState> {
   const [account, rows] = await Promise.all([readRouteAccount(db, uid), readInventoryRows(db, uid)]);
-  return { revision: account?.inventoryRevision ?? 0, money: 0, stacks: rows.filter((r): r is InventoryState['stacks'][number] => isItemId(r.itemId)) };
+  return { revision: account?.inventoryRevision ?? 0, money: account?.money ?? 0, stacks: rows.filter((r): r is InventoryState['stacks'][number] => isItemId(r.itemId)) };
 }
 
 /** State is strictly read-only, including allowance projection and legacy notices. */
@@ -166,7 +166,7 @@ export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, 
         poke: captureChance({ rare: find.foe?.view.rare ?? false, wonBattle: false, ballId: 'poke', rules: ROUTE_RULES }),
         great: captureChance({ rare: find.foe?.view.rare ?? false, wonBattle: false, ballId: 'great', rules: ROUTE_RULES }),
       } : null,
-      battle: null, members: [], catch: null, items: find.items, newSeen: [], newLandmarks: [], outcome: phase === 'resolved' ? 'found' : null,
+      battle: null, members: [], catch: null, items: find.items, newSeen: [], newLandmarks: [], outcome: phase === 'resolved' ? 'found' : null, money: find.money,
     };
     for (const landmark of find.landmarks) {
       if (await insertDiscovery(tx, { uid, locationId: 'r1', kind: 'landmark', ref: landmark, foundAt: now })) event.newLandmarks.push(landmark);
@@ -174,6 +174,7 @@ export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, 
     // A trainer's Pokémon counts as seen too, as in the games.
     if (find.foe && await insertDiscovery(tx, { uid, locationId: 'r1', kind: 'seen', ref: String(find.foe.view.dexId), foundAt: now })) event.newSeen.push(find.foe.view.dexId);
     for (const item of find.items) await changeInventory(tx, uid, item.itemId, item.quantity);
+    if (find.money > 0) await changeMoney(tx, uid, find.money);
     await writeRouteAllowance(tx, uid, spent.available, spent.refilledAt);
     await dismissPriorRouteEvents(tx, uid, now);
     const data: StoredRouteEvent = { event, seed, config: ROUTE_RULES, foe: find.foe };
@@ -200,6 +201,9 @@ export async function chooseRoute(db: Db, uid: string, input: RouteChooseInput, 
         const growth = planGrowth(current, e.party, e.kind === 'wild' ? data.config.wildExp : data.config.trainerExp, data.config.recommended, e.id);
         for (const mon of growth.changed) await updateOwnedGrowth(tx, uid, mon);
         e.members = growth.members;
+        const prize = battlePrize(e.kind, data.config);
+        if (prize > 0 && !await changeMoney(tx, uid, prize)) throw new Error('Balance overflow');
+        e.money = (e.money ?? 0) + prize;
         e.phase = e.kind === 'wild' ? 'catch' : 'resolved';
         e.outcome = 'won';
         if (e.kind === 'wild') e.catchChances = {
@@ -243,6 +247,7 @@ export async function claimRouteQuest(db: Db, uid: string, input: RouteQuestInpu
     if (!MEADOW_LANDMARKS.every((l) => found.includes(l.id))) fail(400, 'Find every Sunny Meadow landmark to finish the survey.');
     if (!await markRouteQuestClaimed(tx, uid, input.questId, now)) fail(409, 'You have already received this quest reward.');
     await changeInventory(tx, uid, 'great', ROUTE_RULES.questGreatBalls);
+    if (!await changeMoney(tx, uid, ROUTE_RULES.questMoney)) throw new Error('Balance overflow');
   });
 }
 

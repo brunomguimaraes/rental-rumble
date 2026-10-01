@@ -62,6 +62,8 @@ const COLUMN_ADDS = [
   'alter table idle_sessions add column request_id text',
   'alter table idle_sessions add column result text',
   'alter table idle_sessions add column seen_at integer',
+  // Pokédollars for the Village market; always changed through changeMoney.
+  'alter table route_accounts add column money integer not null default 0 check (money >= 0)',
 ];
 
 /** Apply db/schema.sql (idempotent) plus the additive column changes. */
@@ -724,6 +726,7 @@ export interface RouteAccountRow {
   actions: number;
   refilledAt: number;
   inventoryRevision: number;
+  money: number;
   revision: number;
   transition: unknown;
 }
@@ -733,7 +736,7 @@ export async function readRouteAccount(db: Executor, uid: string): Promise<Route
   const r = rs.rows[0];
   return r ? {
     activatedAt: Number(r.activated_at), actions: Number(r.actions), refilledAt: Number(r.refilled_at),
-    inventoryRevision: Number(r.inventory_revision), revision: Number(r.revision), transition: parseJson(r.transition),
+    inventoryRevision: Number(r.inventory_revision), money: Number(r.money) || 0, revision: Number(r.revision), transition: parseJson(r.transition),
   } : null;
 }
 
@@ -771,6 +774,17 @@ export async function changeInventory(db: Executor, uid: string, itemId: string,
   }
   await db.execute({ sql: 'update route_accounts set inventory_revision = inventory_revision + 1 where user_id = ?', args: [uid] });
   return true;
+}
+
+/** Shared ₽ path. A debit that would go below zero, or a credit past the safe range, changes nothing. */
+export async function changeMoney(db: Executor, uid: string, delta: number): Promise<boolean> {
+  if (!Number.isSafeInteger(delta) || delta === 0) throw new Error('Invalid money change');
+  const rs = await db.execute({
+    sql: `update route_accounts set money = money + ?, inventory_revision = inventory_revision + 1
+          where user_id = ? and money + ? >= 0 and money + ? <= 9007199254740991`,
+    args: [delta, uid, delta, delta],
+  });
+  return rs.rowsAffected === 1;
 }
 
 export interface RouteEventRow {
