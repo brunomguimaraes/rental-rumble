@@ -116,12 +116,12 @@ check('a hurt member enters the replay board at its stored HP out of its full ma
 // anchor, so the resting feet land on it and a larger hurt canvas never jumps.
 const charizard = pmdBody(6);
 const idle = resolvePmdAnim(6, 'idle');
-const hurt = resolvePmdAnim(6, 'hurt');
-if (!charizard || !idle || !hurt) throw new Error('Charizard PMD fixture is unavailable');
+const hurtAnim = resolvePmdAnim(6, 'hurt');
+if (!charizard || !idle || !hurtAnim) throw new Error('Charizard PMD fixture is unavailable');
 const centre = (box: { left: number; top: number; width: number; height: number }) => [box.left + box.width / 2, box.top + box.height / 2];
 check('idle and hurt frames share one centre, lifted by each side\'s own feet line', (['player', 'foe'] as const).every((side) => {
   const foot = charizard.foot[side];
-  const centres = [idle, hurt].map((anim) => centre(pmdFrameBox({ fw: anim.fw, fh: anim.fh, foot })));
+  const centres = [idle, hurtAnim].map((anim) => centre(pmdFrameBox({ fw: anim.fw, fh: anim.fh, foot })));
   return centres.every(([x, y]) => x === 0 && y === -foot * PMD_SCALE);
 }));
 const unmeasured = Object.keys(PMD_SPRITES).map(Number).filter((id) => {
