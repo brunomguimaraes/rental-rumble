@@ -49,6 +49,8 @@ export default function App() {
   const [box, setBox] = useState<OwnedMon[]>([]);
   const [world, setWorld] = useState<RouteState | null>(null);
   const worldRef = useRef<RouteState | null>(null);
+  // `performance.now()` when `world` arrived, to read the server's clock later without trusting the device's.
+  const worldAppliedAt = useRef(0);
   const [worldError, setWorldError] = useState<string | null>(null);
   const [mapView, setMapView] = useState<MapView | null>(null);
   // Where the world screen opens: null is its map. While it is set, the party
@@ -81,6 +83,7 @@ export default function App() {
     const current = worldRef.current;
     if (reconcileRouteState(current, s) !== s) return;
     worldRef.current = s;
+    worldAppliedAt.current = performance.now();
     setWorld(s);
     if (updatedBox) setBox(updatedBox);
     setWorldError(null);
@@ -160,6 +163,18 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', onVisible);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me]);
+
+  // A meter's next point lands on the server's clock. Reload the world just after it, while the trainer bar
+  // shows, so the meters and the travel button move on; the client never projects a meter itself.
+  useEffect(() => {
+    if (!world?.activated || (phase !== 'hub' && phase !== 'world')) return;
+    const pending = [world.travel.nextRefillAt, world.allowance.nextRefillAt].filter((at): at is number => at !== null);
+    if (pending.length === 0) return;
+    const serverClock = world.serverNow + (performance.now() - worldAppliedAt.current);
+    const timer = window.setTimeout(() => void refreshWorld(), Math.max(0, Math.min(...pending) - serverClock) + 1000);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, world]);
 
   const openWorld = (entry: WorldEntry | null = null) => {
     scrollToTop();
