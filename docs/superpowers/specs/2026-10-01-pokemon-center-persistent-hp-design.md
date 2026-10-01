@@ -43,9 +43,11 @@ Pokémon to full, instantly and for free. This gives Sunny Meadow a reason to co
   arrives with travel slice 2.
 - **Growth and evolution.** `hpLost` is kept through growth, so current HP rises by the max-HP increase.
 - **New Pokémon.** Caught, gifted, and starter Pokémon start at full HP (`hpLost` 0).
-- **Healing.** The Center sets `hpLost` to 0 on every owned Pokémon of the account in one statement and
-  moves the trainer to `home`. It costs no action and no item. It is refused (409) while a route encounter
-  is unresolved. Healing when nothing is hurt succeeds and changes nothing.
+- **Healing.** The Center sets `hpLost` to 0 on every owned Pokémon of the account in one statement. It
+  costs no action and no item. It is refused (409) while a route encounter is unresolved. Healing when
+  nothing is hurt succeeds and changes nothing. Following the travel-stamina spec (home is never free), the
+  trainer must already stand in Hearth Town: elsewhere it is refused (409, "Walk back to Hearth Town to
+  visit the Pokémon Center.") and healing never moves the trainer.
 
 ### Out of scope
 
@@ -96,8 +98,9 @@ one `api/_db.ts` helper that updates a set of the user's owned rows by id, scope
   debit until travel slice 2 adds it. The snapshot HP equals current HP because healing is
   refused during an encounter and there is only one active encounter.
 - **heal (new):** `healParty(db, uid, requestId, now)` through `writeCommand`, so it gets receipts,
-  revision, and the same-payload retry behavior. Refuse with 409 when an encounter is active. Otherwise
-  run `healAllOwned`, set `location = 'home'`, and return `{ state, box }`.
+  revision, and the same-payload retry behavior. Refuse with 409 when an encounter is active, then with
+  409 when `location` is not `home` (travel-stamina spec), writing nothing. Otherwise run `healAllOwned`
+  and return `{ state, box }`; the trainer's place is unchanged.
 - **state:** `trainerAt` is travel's `location`. Searches never move the trainer; trips do (travel-stamina spec).
 - Old stored events with a party snapshot that lacks `hpLost` battle at full health. `rulesVersion` stays 2.
 

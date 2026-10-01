@@ -340,13 +340,15 @@ export async function tradeMarket(db: Db, uid: string, input: MarketTradeInput, 
   });
 }
 
-/** The Pokémon Center: instant, free, every owned Pokémon; never during an open encounter. */
+/**
+ * The Pokémon Center: instant, free, every owned Pokémon. It is in Hearth Town, so the trainer must stand
+ * there (trips are paid travel), and never during an open encounter. Healing never moves the trainer.
+ */
 export async function healParty(db: Db, uid: string, requestId: string, now: number): Promise<RouteReply> {
   return writeCommand(db, uid, requestId, JSON.stringify(['heal']), now, async (tx) => {
     if (await readActiveRouteEvent(tx, uid)) fail(409, 'Finish or leave your Sunny Meadow encounter first, then come back to heal.');
+    if (await currentLocation(tx, uid, await readRouteAccount(tx, uid)) !== 'home') fail(409, 'Walk back to Hearth Town to visit the Pokémon Center.');
     await healAllOwned(tx, uid);
-    const meter = travelRecord(await readRouteAccount(tx, uid), now);
-    await writeTravel(tx, uid, meter.available, meter.refilledAt, 'home');
   });
 }
 
