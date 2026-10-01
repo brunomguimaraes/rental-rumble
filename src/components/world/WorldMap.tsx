@@ -49,6 +49,7 @@ export function WorldMap({
   onSelect: (id: LocationId) => void;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
+  const selectedRef = useRef<HTMLButtonElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const drag = useRef<{ id: number; x0: number; y0: number; start: MapView; moved: boolean } | null>(null);
   const suppressClick = useRef(false);
@@ -62,6 +63,13 @@ export function WorldMap({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
+  }, []);
+
+  // Focus returns to the selected place when the map opens. Not autoFocus: that
+  // scrolls the clipped viewport to reveal the button, and the map pans by
+  // transform, so the art would jump away from the saved view.
+  useEffect(() => {
+    selectedRef.current?.focus({ preventScroll: true });
   }, []);
 
   const trainerPlace = placeById(trainerAt === 'r1' ? 'r1' : 'home');
@@ -196,7 +204,7 @@ export function WorldMap({
               <button
                 key={place.id}
                 type="button"
-                autoFocus={isSelected}
+                ref={isSelected ? selectedRef : undefined}
                 onClick={() => onSelect(place.id)}
                 aria-pressed={isSelected}
                 aria-label={`${place.name}${state ? `, ${STATE_LABEL[state]}` : ', your home town'}${here ? ', you are here' : ''}`}
