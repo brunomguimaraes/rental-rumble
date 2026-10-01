@@ -6,8 +6,10 @@ import {
   readDiscoveries, readInventoryRows, readLastRouteId, readOpenActivity, readOwnedByIds, readOwnedByUser,
   readProfile, readProgress, readRouteAccount, readRouteEvent, readRouteQuest, readRouteReceipt,
   readUnseenResult, readUnseenRouteEvent, recordCaughtDex, updateOwnedGrowth, updateRouteEvent, writeRouteAllowance,
-  type Db, type Executor, type RouteEventRow,
+  type Db, type Executor, type RouteAccountRow, type RouteEventRow,
 } from './_db.js';
+import { TRAVEL_RULES, travelQuotes, travelView, type TravelPlace } from '../src/game/travel.js';
+import type { MeterRecord } from '../src/game/meter.js';
 import { retireLegacyActivity } from './_world.js';
 import { parseResult, planGrowth } from '../src/game/activity.js';
 import { parsePartyInput, partyMembers, resolveParty, sameParty } from '../src/game/party.js';
@@ -70,25 +72,42 @@ export async function loadRouteState(db: Db, uid: string, now: number): Promise<
   finally { await tx.rollback(); tx.close(); }
 }
 
+/** A row from before travel stamina reads as a full meter starting now. */
+export function travelRecord(account: RouteAccountRow | null, now: number): MeterRecord {
+  return account?.travel == null || account.travelRefilledAt == null
+    ? { available: TRAVEL_RULES.capacity, refilledAt: now }
+    : { available: account.travel, refilledAt: account.travelRefilledAt };
+}
+const derivedLocation = (routeVisited: boolean, lastRoute: string | null): TravelPlace => routeVisited || lastRoute === 'r1' ? 'r1' : 'home';
+export async function currentLocation(tx: Executor, uid: string, account: RouteAccountRow | null): Promise<TravelPlace> {
+  if (account?.location) return account.location;
+  const [routeVisited, lastRoute] = await Promise.all([hasRouteEvents(tx, uid), readLastRouteId(tx, uid)]);
+  return derivedLocation(routeVisited, lastRoute);
+}
+
 /** All fields and their revisions are read from the same transaction snapshot. */
 async function loadRouteStateInTx(db: Executor, uid: string, now: number): Promise<RouteState> {
-  const [account, inventory, active, unseen, discoveries, progress, quest, open, lastRoute, routeVisited, ownedCount, legacyResult] = await Promise.all([
+  const [account, inventory, active, unseen, discoveries, progress, quest, open, lastRoute, routeVisited, owned, profile, legacyResult] = await Promise.all([
     readRouteAccount(db, uid), inventoryState(db, uid), readActiveRouteEvent(db, uid), readUnseenRouteEvent(db, uid),
     readDiscoveries(db, uid), readProgress(db, uid), readRouteQuest(db, uid, 'meadow-survey'), readOpenActivity(db, uid),
-    readLastRouteId(db, uid), hasRouteEvents(db, uid), countOwned(db, uid), readUnseenResult(db, uid),
+    readLastRouteId(db, uid), hasRouteEvents(db, uid), readOwnedByUser(db, uid), readProfile(db, uid), readUnseenResult(db, uid),
   ]);
   const landmarks = discoveries.filter((d) => d.locationId === 'r1' && d.kind === 'landmark').map((d) => d.ref);
   const seen = discoveries.filter((d) => d.locationId === 'r1' && d.kind === 'seen').map((d) => Number(d.ref));
   const p = progress.find((r) => r.locationId === 'r1');
   const required = MEADOW_LANDMARKS.map((l) => l.id);
   const transition = account?.transition as { notice?: string } | null;
+  const trainerAt = account?.location ?? derivedLocation(routeVisited, lastRoute);
+  const party = profile ? partyMembers(resolveParty(profile.party, owned, profile.starterId), owned) : [];
   return {
     serverNow: now, revision: account?.revision ?? 0, activated: account !== null,
     allowance: allowanceView({ available: account?.actions ?? 0, refilledAt: account?.refilledAt ?? now }, now),
     inventory,
     quest: { id: 'meadow-survey', status: quest?.claimedAt != null ? 'claimed' : !quest ? 'not-accepted' : required.every((id) => landmarks.includes(id)) ? 'ready' : 'active', landmarks, required },
     places: [{ id: 'r1', state: routeVisited || p ? 'discovered' : 'available', progress: { ...EMPTY_PROGRESS, ...p, clearedAt: null, clears: 0, landmarks, seen } }],
-    trainerAt: routeVisited || lastRoute === 'r1' ? 'r1' : 'home', ownedCount,
+    trainerAt, ownedCount: owned.length,
+    travel: travelView(travelRecord(account, now), now),
+    quotes: travelQuotes(trainerAt, party),
     activeEvent: active ? stored(active).event : null,
     result: unseen ? stored(unseen).event : null,
     legacy: { pending: open !== null, notice: transition?.notice ?? (parseResult(legacyResult?.result) ? 'Your previous journey rewards were already saved.' : null), result: parseResult(legacyResult?.result) },

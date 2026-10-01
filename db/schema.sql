@@ -184,6 +184,7 @@ create table if not exists world_discoveries (
 );
 
 -- Active Route 1 gameplay. Historical idle data remains untouched.
+-- travel, travel_refilled_at and location are added by COLUMN_ADDS; null reads as a full meter at the derived place.
 create table if not exists route_accounts (
   user_id text primary key,
   activated_at integer not null,

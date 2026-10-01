@@ -19,7 +19,9 @@ const state: RouteState = {
   allowance: { available: 12, capacity: 48, refillEveryMs: 600_000, nextRefillAt: 601_000 },
   inventory: { revision: 1, money: 0, stacks: [{ itemId: 'poke', quantity: 20 }, { itemId: 'great', quantity: 0 }] },
   quest: { id: 'meadow-survey', status: 'not-accepted', landmarks: [], required: ['signpost', 'sunflowers', 'hilltop-oak'] },
-  places: [], trainerAt: 'home', ownedCount: 1, activeEvent: null, result: null,
+  places: [], trainerAt: 'home',
+  travel: { available: 12, capacity: 12, refillEveryMs: 900_000, nextRefillAt: null },
+  quotes: [{ to: 'r1', walk: 4, cost: 4, mode: 'walk', via: null }], ownedCount: 1, activeEvent: null, result: null,
   legacy: { pending: false, notice: null, result: null },
 };
 let reply: () => Promise<Response> = () => Promise.reject(new Error('Offline'));

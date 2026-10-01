@@ -345,5 +345,15 @@ try {
   try { await insertRouteEvent(db, 'constraint', { ...duplicate, id: 'constraint-b' }); } catch { constrained = true; }
   check('database enforces one unresolved event per account', constrained);
   await acceptRouteQuest(db, 'u2', 'meadow-survey', T);
+
+  // Travel stamina: new accounts backfill a full meter in town; existing route players stay in the meadow.
+  await onboardUser(db, 'walker', 10, 5);
+  await activateRoute(db, 'walker', 'activate', T);
+  const fresh = await loadRouteState(db, 'walker', T);
+  const freshRow = await readRouteAccount(db, 'walker');
+  check('a new account reads a full travel meter in town without writing it', fresh.travel.available === 12 && fresh.travel.nextRefillAt === null && fresh.trainerAt === 'home' && freshRow?.travel === null && freshRow?.location === null);
+  check('town quotes a 4-point walk to Sunny Meadow', eq(fresh.quotes, [{ to: 'r1', walk: 4, cost: 4, mode: 'walk', via: null }]));
+  await db.execute({ sql: 'update route_accounts set location = null where user_id = ?', args: ['u1'] });
+  check('an account with route history backfills into Sunny Meadow', (await loadRouteState(db, 'u1', T)).trainerAt === 'r1');
 } finally { t.cleanup(); }
 finish();
