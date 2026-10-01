@@ -1,4 +1,4 @@
-import type { Creature } from './types.js';
+import type { Creature, Sign } from './types.js';
 import type { GuardianSpec, PoolEntry, WildRules } from './world.js';
 import type { RNG } from './rng.js';
 import { CREATURES_BY_ID, withSign, withAbility, withBuild, asShiny, asAltColor } from './pokemon.js';
@@ -18,6 +18,8 @@ export interface WildView {
   altColor: boolean;
   rare: boolean;
   guardian: boolean;
+  /** The foe's sign, for its battle card. Absent on events stored before it was sent. */
+  sign?: Sign;
 }
 
 export interface RolledWild {

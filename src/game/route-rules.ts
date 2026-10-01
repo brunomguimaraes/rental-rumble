@@ -124,7 +124,7 @@ function mintFoe({ dexId, level, rare, statMult, rng }: {
   const mint = { dexId, level, ...identity, stats: mintStats(dexId, level, rng, identity.build) };
   return {
     mint,
-    view: { dexId, level, shiny: mint.shiny, altColor: mint.altColor, rare, guardian: false },
+    view: { dexId, level, shiny: mint.shiny, altColor: mint.altColor, rare, guardian: false, sign: mint.sign },
     statMult,
   };
 }
