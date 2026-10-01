@@ -207,9 +207,11 @@ export default function App() {
       return (
         <OnboardingScreen
           me={me}
-          onDone={(b, p) => {
+          onDone={(b, p, displayName) => {
             setBox(b);
             setProfile(p);
+            setMe((user) => user ? { ...user, displayName } : user);
+            localStorage.setItem('lb-name', displayName);
             setPhase('hub');
             void refreshWorld();
           }}
@@ -261,12 +263,13 @@ export default function App() {
             view={mapView}
             onView={setMapView}
             onLocation={setVisitedPlace}
+            location={visitedPlace ?? world?.trainerAt ?? 'home'}
             entry={worldEntry ?? undefined}
             onState={applyWorld}
             onPartyChanged={(party) => setProfile((p) => (p ? { ...p, party } : p))}
             onEditParty={() => openScreen('party', { place: 'r1' })}
             onVisit={(screen, spot) => openScreen(screen, { place: 'home', spot })}
-            onBack={() => setPhase('hub')}
+            onBack={() => { scrollToTop(); setPhase('hub'); }}
             onRetry={() => void refreshWorld()}
             onExpired={expire}
           />

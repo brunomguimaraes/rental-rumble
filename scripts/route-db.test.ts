@@ -1,16 +1,16 @@
 /** Atomic route commands against a disposable file database, including lost replies and legacy cutover. */
 import {
-  acceptRouteQuest, applySchema, changeInventory, countOwned, insertDiscovery, insertRouteEvent, readDiscoveries,
+  acceptRouteQuest, applySchema, changeInventory, changeMoney, countOwned, insertDiscovery, insertRouteEvent, readDiscoveries,
   openWriteTx, readActivity, readOpenActivity, readOwnedByUser, readRouteAccount, readRouteEvent,
   updateOwnedNickname, updateProfileParty, updateRouteEvent, writeOwnedHp, writeRouteAllowance, type Db,
 } from '../api/_db.js';
 import {
   activateRoute, chooseRoute, claimRouteQuest, dismissRouteResult, finishLegacyRoute,
-  healParty, loadRouteState, RouteError, searchRoute,
+  healParty, loadRouteState, RouteError, searchRoute, tradeMarket,
 } from '../api/_route-actions.js';
 import { dismissResult, startActivity, stepExpedition } from '../api/_world.js';
 import { legalChoices, rollCapture, rollRouteFind, simulateRouteBattle } from '../src/game/route-rules.js';
-import type { CaptureBallId, RouteBattle, RouteEvent, SearchKind, StoredRouteEvent } from '../src/game/route-actions.js';
+import type { CaptureBallId, RouteBattle, RouteEvent, RouteRules, RouteRulesV2, SearchKind, StoredRouteEvent } from '../src/game/route-actions.js';
 import { currentHp, isFainted, ownedMaxHp } from '../src/game/health.js';
 import { check, finish, legacyDb, legacyOnboard, mintMon, onboardUser, tempDb } from './world-test-kit.js';
 
@@ -29,13 +29,14 @@ async function start(db: Db, uid: string, kind: SearchKind = 'wild', now = T, id
 async function leave(db: Db, uid: string, event: RouteEvent) {
   return chooseRoute(db, uid, { requestId: rid(), eventId: event.id, expectedRevision: event.revision, choice: event.phase === 'researcher' ? 'decline' : 'leave' }, T);
 }
+const moneyOf = async (db: Db, uid: string) => (await loadRouteState(db, uid, T)).inventory.money;
 /** Controlled persisted fixture uses the real find rules; production gets its seed from crypto. */
 async function forceKind(db: Db, uid: string, e: RouteEvent, kind: 'wild' | 'trainer' | 'researcher' | 'item', seedPrefix = 'fixture') {
   const row = (await readRouteEvent(db, uid, e.id))!;
   const data = row.data as StoredRouteEvent;
   for (let i = 0; ; i++) {
     const seed = `${seedPrefix}-${i}`;
-    const find = rollRouteFind({ seed, kind: kind === 'wild' ? 'wild' : kind === 'item' ? 'explore' : 'npc', knownLandmarks: [], questClaimed: false, inventory: { revision: 0, stacks: [{ itemId: 'poke', quantity: 20 }] } });
+    const find = rollRouteFind({ seed, kind: kind === 'wild' ? 'wild' : kind === 'item' ? 'explore' : 'npc', knownLandmarks: [], questClaimed: false, inventory: { revision: 0, money: 0, stacks: [{ itemId: 'poke', quantity: 20 }] } });
     if (find.kind !== kind) continue;
     data.seed = seed; data.foe = find.foe;
     data.event.kind = kind; data.event.foe = find.foe?.view ?? null; data.event.npc = find.npc;
@@ -90,6 +91,7 @@ try {
   check('activation gives 12 actions and 20 owned Poké Balls', a.state.allowance.available === 12 && a.state.inventory.stacks.find((s) => s.itemId === 'poke')?.quantity === 20);
   const repeated = await activateRoute(db, 'u1', 'activate', T + 1);
   const again = await activateRoute(db, 'u1', 'activate-new-id', T + 1);
+  check('activation starts with no money', a.state.inventory.money === 0);
   check('lost and new activation requests do not repeat starter supply', repeated.replayed === true && again.state.inventory.stacks[0].quantity === 20 && again.state.allowance.available === 12);
   await activateRoute(db, 'u2', 'activate', T);
   const input = { requestId: 'find-one', locationId: 'r1' as const, kind: 'wild' as const, partyIds: [starter.id] };
@@ -162,6 +164,7 @@ try {
   await rejects('empty Bag catch consumes no action and stays unresolved', chooseRoute(db, 'u1', { requestId: rid(), eventId: emptyWild.id, expectedRevision: 0, choice: 'catch', ballId: 'poke' }, T), 409);
   check('failed item check retains encounter and zero inventory', (await loadRouteState(db, 'u1', T)).activeEvent?.id === emptyWild.id && (await loadRouteState(db, 'u1', T)).inventory.stacks.every((s) => s.quantity === 0));
   await leave(db, 'u1', emptyWild);
+  await db.execute({ sql: 'update route_accounts set money = 0 where user_id = ?', args: ['u1'] });
   const resupply = await start(db, 'u1', 'explore');
   check('empty Bag Explore guarantees persisted three Poké Balls for one action', resupply.event?.kind === 'item' && resupply.event.items[0]?.itemId === 'poke' && resupply.event.items[0]?.quantity === 3 && resupply.state.allowance.available === 46);
   const fullEvent = (await start(db, 'u1')).event!;
@@ -175,17 +178,42 @@ try {
   await chooseRoute(db, 'u1', { requestId: rid(), eventId: researcher.event.id, expectedRevision: 0, choice: 'accept' }, T);
   for (const ref of ['signpost', 'sunflowers', 'hilltop-oak']) await insertDiscovery(db, { uid: 'u1', locationId: 'r1', kind: 'landmark', ref, foundAt: T });
   const claim = { requestId: 'claim', questId: 'meadow-survey' as const };
+  const moneyBeforeQuest = await moneyOf(db, 'u1');
   const claims = await Promise.all([claimRouteQuest(db, 'u1', claim, T), claimRouteQuest(db, 'u1', claim, T)]);
   check('quest acceptance and existing landmarks yield one raced reward', claims.every((c) => c.state.quest.status === 'claimed') && (await loadRouteState(db, 'u1', T)).inventory.stacks.find((s) => s.itemId === 'great')?.quantity === 3);
+  check('the survey pays ₽500 exactly once', await moneyOf(db, 'u1') === moneyBeforeQuest + 500);
   await rejects('new request cannot duplicate quest reward', claimRouteQuest(db, 'u1', { ...claim, requestId: rid() }, T), 409);
   const trainer = await forceKind(db, 'u1', (await start(db, 'u1', 'npc')).event!, 'trainer');
   await rejects('trainer capture is invalid before debit', chooseRoute(db, 'u1', { requestId: rid(), eventId: trainer.event.id, expectedRevision: 0, choice: 'catch', ballId: 'great' }, T), 400);
-  const trained = await chooseRoute(db, 'u1', { requestId: rid(), eventId: trainer.event.id, expectedRevision: 0, choice: 'battle' }, T);
-  check('trainer battle pays once and closes encounter', trained.event?.outcome === 'won' && trained.state.activeEvent === null && trained.event.members[0].expGained === 12);
+  const trained = await chooseRoute(db, 'u1', { requestId: 'trainer-battle', eventId: trainer.event.id, expectedRevision: 0, choice: 'battle' }, T);
+  const trainedRetry = await chooseRoute(db, 'u1', { requestId: 'trainer-battle', eventId: trainer.event.id, expectedRevision: 0, choice: 'battle' }, T);
+  check('trainer battle pays EXP and ₽200 once and closes encounter', trained.event?.outcome === 'won' && trained.state.activeEvent === null && trained.event.members[0].expGained === 12 && trained.event.money === 200 && trained.state.inventory.money === trainedRetry.state.inventory.money);
+  const wildWin = await forceKind(db, 'u1', (await start(db, 'u1')).event!, 'wild');
+  const beforeWild = await moneyOf(db, 'u1');
+  const wildWon = await chooseRoute(db, 'u1', { requestId: 'wild-win', eventId: wildWin.event.id, expectedRevision: 0, choice: 'battle' }, T);
+  await chooseRoute(db, 'u1', { requestId: 'wild-win', eventId: wildWin.event.id, expectedRevision: 0, choice: 'battle' }, T);
+  check('a wild win pays ₽100 once across retries', wildWon.event?.outcome === 'won' && wildWon.event.money === 100 && await moneyOf(db, 'u1') === beforeWild + 100);
+  const beforeLeave = await moneyOf(db, 'u1');
+  await chooseRoute(db, 'u1', { requestId: rid(), eventId: wildWon.event!.id, expectedRevision: wildWon.event!.revision, choice: 'leave' }, T);
+  check('leaving after a win pays nothing more', await moneyOf(db, 'u1') === beforeLeave);
+  const frozen = await forceKind(db, 'u1', (await start(db, 'u1')).event!, 'wild');
+  const frozenRow = (await readRouteEvent(db, 'u1', frozen.event.id))!;
+  const v2Rules: Partial<RouteRules> = { ...(frozen.config as RouteRules) };
+  delete v2Rules.itemFinds; delete v2Rules.harvest; delete v2Rules.pouchMoney;
+  delete v2Rules.wildMoney; delete v2Rules.trainerMoney; delete v2Rules.questMoney;
+  const frozenEvent: Partial<RouteEvent> = { ...frozen.event, rulesVersion: 2 };
+  delete frozenEvent.money;
+  const frozenData = { ...frozen, config: { ...v2Rules, version: 2, pokeBundleChance: 0.75 } as unknown as RouteRulesV2, event: frozenEvent as RouteEvent };
+  await updateRouteEvent(db, 'u1', { ...frozenRow, data: frozenData }, frozenRow.revision);
+  const beforeFrozen = await moneyOf(db, 'u1');
+  const frozenWon = await chooseRoute(db, 'u1', { requestId: rid(), eventId: frozen.event.id, expectedRevision: 0, choice: 'battle' }, T);
+  check('an encounter frozen under rules v2 still settles and pays no ₽', frozenWon.event?.outcome === 'won' && await moneyOf(db, 'u1') === beforeFrozen);
+  if (frozenWon.event?.phase !== 'resolved') await leave(db, 'u1', frozenWon.event!);
+  const revisionBeforeRollback = (await loadRouteState(db, 'u1', T)).inventory.revision;
   const aTx = await openWriteTx(db);
   await changeInventory(aTx, 'u1', 'poke', 1);
   await aTx.rollback(); aTx.close();
-  check('rolled-back item changes do not alter inventory revision', (await loadRouteState(db, 'u1', T)).inventory.revision === trained.state.inventory.revision);
+  check('rolled-back item changes do not alter inventory revision', (await loadRouteState(db, 'u1', T)).inventory.revision === revisionBeforeRollback);
 
   console.log('[failure and inventory concurrency]');
   await onboardUser(db, 'failure', 6, 30);
@@ -199,6 +227,10 @@ try {
   const afterFailure = await loadRouteState(db, 'failure', T);
   check('receipt persistence failure rolls back catch, ball, dex and phase', rolledBack && await countOwned(db, 'failure') === 1 && eq(afterFailure.inventory, beforeFailure.inventory) && afterFailure.activeEvent?.revision === 0 && Number((await db.execute({ sql: 'select count(*) as n from pokedex_cells where user_id = ?', args: ['failure'] })).rows[0].n) === 0);
   await db.execute('drop trigger reject_route_receipt');
+  check('money cannot go negative', !await changeMoney(db, 'failure', -1) && await moneyOf(db, 'failure') === 0);
+  const revBefore = (await loadRouteState(db, 'failure', T)).inventory.revision;
+  check('a money credit bumps the inventory revision', await changeMoney(db, 'failure', 50) && (await loadRouteState(db, 'failure', T)).inventory.revision === revBefore + 1 && await moneyOf(db, 'failure') === 50);
+  await changeMoney(db, 'failure', -50);
   await acceptRouteQuest(db, 'failure', 'meadow-survey', T);
   for (const ref of ['signpost', 'sunflowers', 'hilltop-oak']) await insertDiscovery(db, { uid: 'failure', locationId: 'r1', kind: 'landmark', ref, foundAt: T });
   await changeInventory(db, 'failure', 'great', 1);
@@ -211,6 +243,45 @@ try {
   const beforeRead = await readRouteAccount(db, 'failure');
   await loadRouteState(db, 'failure', T + 86400000);
   check('long-absence reads cannot mutate allowances, revisions or item balances', eq(beforeRead, await readRouteAccount(db, 'failure')));
+  console.log('[market]');
+  await onboardUser(db, 'shopper', 6, 30);
+  await rejects('an unactivated account cannot trade', tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'poke', side: 'sell', quantity: 1 }, T), 409);
+  await activateRoute(db, 'shopper', 'activate', T);
+  const shop = () => loadRouteState(db, 'shopper', T);
+  const have = async (id: string) => (await shop()).inventory.stacks.find((s) => s.itemId === id)?.quantity ?? 0;
+  await rejects('buying with too little money is a conflict', tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'poke', side: 'buy', quantity: 1 }, T), 409);
+  check('a refused purchase changes nothing', (await shop()).inventory.money === 0 && await have('poke') === 20);
+  const revisionBeforeSale = (await shop()).inventory.revision;
+  const sale = { requestId: 'sell-five', itemId: 'poke' as const, side: 'sell' as const, quantity: 5 };
+  const sold = await tradeMarket(db, 'shopper', sale, T);
+  check('selling 5 Poké Balls pays ₽500 and removes them', eq(sold.trade, { itemId: 'poke', side: 'sell', quantity: 5, total: 500 }) && sold.state.inventory.money === 500 && await have('poke') === 15);
+  check('a trade increases the inventory revision', sold.state.inventory.revision > revisionBeforeSale);
+  const resold = await tradeMarket(db, 'shopper', sale, T + 1);
+  check('a retried sale replays its receipt without paying twice', resold.replayed === true && eq(resold.trade, sold.trade) && resold.state.inventory.money === 500 && await have('poke') === 15);
+  await rejects('a reused request ID with a different trade conflicts', tradeMarket(db, 'shopper', { ...sale, quantity: 4 }, T), 409);
+  const bought = await tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'poke', side: 'buy', quantity: 2 }, T);
+  check('buying 2 Poké Balls costs ₽400', bought.trade?.total === 400 && bought.state.inventory.money === 100 && await have('poke') === 17);
+  try { await tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'great', side: 'buy', quantity: 1 }, T); check('short purchase names the shortfall', false); }
+  catch (err) { check('short purchase names the shortfall', err instanceof RouteError && err.status === 409 && err.message === 'You need ₽500 more.'); }
+  await rejects('selling a valuable you lack is a conflict', tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'honey', side: 'sell', quantity: 1 }, T), 409);
+  await rejects('valuables cannot be bought', tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'honey', side: 'buy', quantity: 1 }, T), 400);
+  await changeInventory(db, 'shopper', 'big-mushroom', 1);
+  const mushroom = await tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'big-mushroom', side: 'sell', quantity: 1 }, T);
+  check('a Big Mushroom sells for ₽1,000 and leaves an empty stack', mushroom.state.inventory.money === 1100 && await have('big-mushroom') === 0);
+  // Review focus 2: two tabs, funds for one purchase.
+  await db.execute({ sql: 'update route_accounts set money = 200 where user_id = ?', args: ['shopper'] });
+  const raced = await Promise.allSettled([
+    tradeMarket(db, 'shopper', { requestId: 'tab-a', itemId: 'poke', side: 'buy', quantity: 1 }, T),
+    tradeMarket(db, 'shopper', { requestId: 'tab-b', itemId: 'poke', side: 'buy', quantity: 1 }, T),
+  ]);
+  check('racing purchases with funds for one buy exactly one ball', raced.filter((r) => r.status === 'fulfilled').length === 1 && (await shop()).inventory.money === 0 && await have('poke') === 18);
+  // Review focus 3: buy mid-encounter, then throw the bought ball.
+  await db.execute({ sql: 'update route_accounts set money = 600 where user_id = ?', args: ['shopper'] });
+  const open = (await start(db, 'shopper')).event!;
+  const midTrade = await tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'great', side: 'buy', quantity: 1 }, T);
+  check('a trade leaves the open encounter untouched', midTrade.state.activeEvent?.id === open.id && midTrade.state.activeEvent.revision === open.revision);
+  const greatThrow = await chooseRoute(db, 'shopper', { requestId: rid(), eventId: open.id, expectedRevision: open.revision, choice: 'catch', ballId: 'great' }, T);
+  check('the bought Great Ball can be thrown', greatThrow.event?.catch?.ballId === 'great' && await have('great') === 0);
   console.log('[consistent state snapshot]');
   await onboardUser(db, 'snapshot', 6, 30);
   await activateRoute(db, 'snapshot', 'activate', T);

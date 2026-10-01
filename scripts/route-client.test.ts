@@ -1,10 +1,11 @@
 /** Client recovery boundaries: failed loads, exact retries, and out-of-order inventory snapshots. */
 import {
   chooseRoute, clearPendingRouteCommand, fetchRouteState, healAtCenter, readPendingRouteCommand, reconcileRouteState,
-  runRouteCommand, savePendingRouteCommand, searchRoute, shouldApplyHydratedBox, type RouteCommand,
+  runRouteCommand, savePendingRouteCommand, searchRoute, shouldApplyHydratedBox, tradeMarket, type RouteCommand,
 } from '../src/game/route-actions-client.js';
-import type { RouteState } from '../src/game/route-actions.js';
-import { inventoryChangeText } from '../src/components/world/route-copy.js';
+import type { RouteEvent, RouteState } from '../src/game/route-actions.js';
+import { inventoryChangeText, moneyChangeText, resultFind, tradeText } from '../src/components/world/route-copy.js';
+import { placeHighlights } from '../src/components/world/place-highlights.js';
 
 let passed = 0;
 let failed = 0;
@@ -16,7 +17,7 @@ function check(label: string, ok: boolean) {
 const state: RouteState = {
   serverNow: 1_000, revision: 1, activated: true,
   allowance: { available: 12, capacity: 48, refillEveryMs: 600_000, nextRefillAt: 601_000 },
-  inventory: { revision: 1, stacks: [{ itemId: 'poke', quantity: 20 }, { itemId: 'great', quantity: 0 }] },
+  inventory: { revision: 1, money: 0, stacks: [{ itemId: 'poke', quantity: 20 }, { itemId: 'great', quantity: 0 }] },
   quest: { id: 'meadow-survey', status: 'not-accepted', landmarks: [], required: ['signpost', 'sunflowers', 'hilltop-oak'] },
   places: [], trainerAt: 'home', ownedCount: 1, activeEvent: null, result: null,
   legacy: { pending: false, notice: null, result: null },
@@ -38,7 +39,7 @@ check('an unavailable Bag is an error, not zero inventory', !unavailable.ok && u
 reply = json(401, { ok: false, error: 'Sign in again to explore.' });
 const expired = await fetchRouteState();
 check('expired login preserves the server sentence and signals sign-in', !expired.ok && expired.expired === true && expired.error === 'Sign in again to explore.');
-reply = json(200, { ok: true, state: { ...state, inventory: { revision: 1, stacks: [{ itemId: 'poke', quantity: -1 }] } } });
+reply = json(200, { ok: true, state: { ...state, inventory: { revision: 1, money: 0, stacks: [{ itemId: 'poke', quantity: -1 }] } } });
 check('invalid owned quantity is rejected instead of displayed', !(await fetchRouteState()).ok);
 reply = json(200, { ok: true, state: { ...state, inventory: null } });
 check('missing inventory is not a successful empty Bag', !(await fetchRouteState()).ok);
@@ -64,7 +65,7 @@ reply = json(409, { ok: false, error: 'Your party changed.', party: ['new-party'
 const partyConflict = await searchRoute(command.input);
 check('party conflict provides saved party IDs for the next search', !partyConflict.ok && partyConflict.party?.[0] === 'new-party');
 
-const newer: RouteState = { ...state, revision: 4, serverNow: 4_000, inventory: { revision: 3, stacks: [{ itemId: 'poke', quantity: 18 }, { itemId: 'great', quantity: 3 }] } };
+const newer: RouteState = { ...state, revision: 4, serverNow: 4_000, inventory: { revision: 3, money: 0, stacks: [{ itemId: 'poke', quantity: 18 }, { itemId: 'great', quantity: 3 }] } };
 check('old receipt never overwrites newer item quantities', reconcileRouteState(newer, state) === newer);
 check('out-of-order same-revision read cannot rewind allowance clock', reconcileRouteState(newer, { ...newer, serverNow: 2_000 }) === newer);
 check('inconsistent older inventory is rejected even with a later route revision', reconcileRouteState(newer, { ...state, revision: 5, serverNow: 5_000 }) === newer);
@@ -98,6 +99,54 @@ check('settled command is removed before the next action', readPendingRouteComma
 
 check('a consumed ball is described as used, not a negative supply find', inventoryChangeText({ itemId: 'poke', quantity: -1 }) === 'Used 1 Poké Ball from your Bag.');
 check('a multi-ball supply find uses a positive grant and plural', inventoryChangeText({ itemId: 'great', quantity: 3 }) === '+3 Great Balls added to your Bag.');
+
+const stocked: RouteState = { ...state, inventory: { revision: 4, money: 1100, stacks: [{ itemId: 'honey', quantity: 2 }, { itemId: 'poke', quantity: 20 }] } };
+reply = json(200, { ok: true, state: stocked, trade: { itemId: 'poke', side: 'buy', quantity: 3, total: 600 } });
+const trade = { requestId: 'trade-one', itemId: 'poke' as const, side: 'buy' as const, quantity: 3 };
+const traded = await tradeMarket(trade);
+check('a trade posts to market-trade with credentials', lastUrl === '/api/world/market-trade' && lastInit?.method === 'POST' && lastInit.credentials === 'include' && lastInit.body === JSON.stringify(trade));
+check('a trade reply carries the receipt, valuables and balance', traded.ok && traded.trade?.total === 600 && traded.state.inventory.money === 1100 && traded.state.inventory.stacks[0].itemId === 'honey');
+reply = json(200, { ok: true, state: { ...stocked, inventory: { ...stocked.inventory, money: -5 } } });
+check('a negative balance is an incomplete reply, not a state', !(await fetchRouteState()).ok);
+reply = json(200, { ok: true, state: { ...stocked, inventory: { ...stocked.inventory, stacks: [{ itemId: 'master', quantity: 1 }] } } });
+check('an unknown item stack is an incomplete reply', !(await fetchRouteState()).ok);
+const afterTrade = { ...stocked, revision: 6, inventory: { ...stocked.inventory, revision: 6, money: 500 } };
+check('a late reply cannot rewind the balance after a trade', reconcileRouteState(afterTrade, stocked) === afterTrade);
+const tradeCommand: RouteCommand = { operation: 'market-trade', input: trade };
+savePendingRouteCommand('trainer-m', tradeCommand);
+check('a pending trade survives a reload with its request ID', JSON.stringify(readPendingRouteCommand('trainer-m')) === JSON.stringify(tradeCommand));
+clearPendingRouteCommand('trainer-m');
+check('valuables use their plural', inventoryChangeText({ itemId: 'tiny-mushroom', quantity: 2 }) === '+2 Tiny Mushrooms added to your Bag.' && inventoryChangeText({ itemId: 'honey', quantity: 1 }) === '+1 Honey added to your Bag.');
+check('battle and pouch money read as earnings', moneyChangeText({ kind: 'wild', money: 100 }) === '+₽100 prize money.' && moneyChangeText({ kind: 'item', money: 300 }) === 'Found a coin pouch: +₽300.' && moneyChangeText({ kind: 'wild', money: 0 }) === null && moneyChangeText({ kind: 'wild' }) === null);
+const honeyFind = resultFind({ items: [{ itemId: 'honey', quantity: 2 }], money: 0 });
+check('an Explore find of Honey is shown as Honey, not capture supplies', honeyFind?.kind === 'item' && honeyFind.item.id === 'honey');
+const ballFind = resultFind({ items: [{ itemId: 'poke', quantity: -1 }, { itemId: 'great', quantity: 3 }] });
+check('a ball find is shown by the ball it granted, skipping used balls', ballFind?.kind === 'item' && ballFind.item.id === 'great');
+const pouch = resultFind({ items: [], money: 300 });
+check('a coin pouch with no items is shown as money', pouch?.kind === 'money' && pouch.amount === 300);
+check('a find with no grant and no money has nothing to show', resultFind({ items: [] }) === null);
+check("trade receipts read in the player's words", tradeText({ itemId: 'poke', side: 'buy', quantity: 3, total: 600 }) === 'Bought 3 Poké Balls for ₽600.' && tradeText({ itemId: 'honey', side: 'sell', quantity: 1, total: 150 }) === 'Sold 1 Honey for ₽150.');
+// Home must not advertise made-up quests or label previously seen Pokémon as new.
+const wild: RouteEvent = {
+  id: 'wild', locationId: 'r1', searchKind: 'wild', kind: 'wild', rulesVersion: 2, revision: 0,
+  startedAt: 1_000, resolvedAt: null, phase: 'wild', party: [],
+  foe: { dexId: 16, level: 5, shiny: false, altColor: false, rare: false, guardian: false },
+  npc: null, choices: ['battle', 'catch', 'leave'], catchChances: { poke: 0.5, great: 0.7 },
+  battle: null, members: [], catch: null, items: [], newSeen: [16], newLandmarks: [], outcome: null,
+};
+check('without a researcher Home offers a survey hint, not a new quest', placeHighlights(state).every((h) => h.label !== 'New quest' && h.focus === 'survey'));
+const newSighting = placeHighlights({ ...state, activeEvent: wild });
+check('first sighting opens the saved encounter and identifies its Pokémon', newSighting[0]?.label === 'New sighting' && newSighting[0]?.focus === 'encounter' && newSighting[0]?.dexId === 16);
+check('repeat wild visits do not claim a new sighting', placeHighlights({ ...state, activeEvent: { ...wild, newSeen: [] } })[0]?.label === 'In the tall grass');
+const researcher: RouteEvent = { ...wild, kind: 'researcher', phase: 'researcher', foe: null, newSeen: [], npc: { id: 'researcher', name: 'Meadow Researcher', spriteKey: 'random-scientist-f', text: 'Help with my survey.' } };
+check('a waiting researcher offers the actual quest interaction', placeHighlights({ ...state, activeEvent: researcher })[0]?.label === 'New quest' && placeHighlights({ ...state, activeEvent: researcher })[0]?.focus === 'encounter');
+for (const status of ['active', 'ready', 'claimed'] as const) {
+  check(`a saved researcher conversation remains reachable when its survey is ${status}`, placeHighlights({ ...state, activeEvent: researcher, quest: { ...state.quest, status } }).some((h) => h.focus === 'encounter'));
+}
+check('earned survey rewards link to the survey, not another encounter', placeHighlights({ ...state, quest: { ...state.quest, status: 'ready' } })[0]?.focus === 'survey' && placeHighlights({ ...state, quest: { ...state.quest, status: 'ready' } })[0]?.label === 'Reward ready');
+check('claimed surveys do not keep advertising a quest or reward', placeHighlights({ ...state, quest: { ...state.quest, status: 'claimed' } }).length === 0);
+check('resolved sightings open results instead of reviving an encounter', placeHighlights({ ...state, result: { ...wild, phase: 'resolved', choices: [], outcome: 'left' } })[0]?.focus === 'result');
+check('survey progress counts only its required unique landmarks', placeHighlights({ ...state, quest: { ...state.quest, status: 'active', landmarks: ['signpost', 'signpost', 'unrelated'] } })[0]?.detail.startsWith('1 of 3'));
 
 console.log(`${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

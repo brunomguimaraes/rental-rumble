@@ -15,9 +15,9 @@ import {
 // screen draws the header (◀ Map, the town's name, Bag) above it.
 
 /** The screens a destination opens (the Center is a view inside the town; the rest of TownLink are places). */
-export type TownService = Exclude<TownLink, PlayableId | 'center'>;
+export type TownService = Exclude<TownLink, PlayableId | 'market' | 'center'>;
 /** The places a destination leads to. */
-export type TownRoad = Exclude<TownLink, TownService | 'center'>;
+export type TownRoad = Exclude<TownLink, TownService | 'market' | 'center'>;
 
 // The town art is a painted illustration, not a native-size tileset, and a phone
 // always shows it scaled down (about 0.2–0.75 of its pixels at 320–430 px, DPR
@@ -36,6 +36,7 @@ const ACTION_LABEL: Record<TownLink, string> = {
   dex: 'Open the Pokédex',
   box: 'Open your box',
   center: 'Visit the nurse',
+  market: 'Enter the market',
   r1: `Walk to ${routeById('r1')?.name ?? 'Route 1'}`,
 };
 
@@ -99,6 +100,7 @@ export function TownView({
   onOpen,
   onWalk,
   onCenter,
+  onMarket,
 }: {
   spot: TownDestinationId;
   onSpot: (id: TownDestinationId) => void;
@@ -108,6 +110,8 @@ export function TownView({
   onWalk: (place: TownRoad) => void;
   /** The Pokémon Center: its own view inside the town. */
   onCenter: () => void;
+  /** The Village market: the shop screen. */
+  onMarket: () => void;
 }) {
   const current = townDestinationById(spot) ?? TOWN_DESTINATIONS[0];
   const { bounds } = current;
@@ -117,13 +121,15 @@ export function TownView({
 
   const act = (to: TownLink) => {
     if (to === 'center') onCenter();
+    else if (to === 'market') onMarket();
     else if (to === 'party' || to === 'dex' || to === 'box') onOpen(to);
     else onWalk(to);
   };
 
   return (
     <>
-      <section aria-label="Town map" className="ui-window m-2 p-1">
+      <section aria-label="Town map" className="ui-window m-2 overflow-hidden">
+        <div className="flex min-h-9 items-center justify-between gap-2 border-b-2 border-window-frame px-3 font-label text-[9px] uppercase"><span className="text-info">Your surroundings</span><span className="text-ink-dim">Home town</span></div>
         {/* Image and markers share one box, so the markers stay on their buildings at any width. */}
         <div className="relative aspect-[3/2] w-full rounded-[3px] bg-slot">
           <img
@@ -149,6 +155,7 @@ export function TownView({
             <Marker key={place.id} place={place} active={place.id === current.id} onSelect={() => onSpot(place.id)} />
           ))}
         </div>
+        <div className="flex items-center justify-between gap-3 border-t-2 border-window-frame px-3 py-2 text-sm"><span className="text-ink-dim">A familiar face around every corner.</span><span className="shrink-0 font-label text-[9px] uppercase text-accent">◆ You are here</span></div>
       </section>
 
       <section aria-labelledby="town-places-heading" className="ui-window m-2 mt-4 p-2">

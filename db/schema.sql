@@ -111,6 +111,7 @@ create index if not exists owned_user_idx on owned_pokemon (user_id, caught_at d
 -- of owned ids, lead first; null until the player saves one (the starter leads).
 -- `current_route` is left over from the paused idle routes and unused.
 create table if not exists profiles (
+  -- avatar_id and avatar_colors are added by COLUMN_ADDS; null preserves existing onboarding.
   user_id       text primary key,
   profession    text not null,
   mentor        text not null,

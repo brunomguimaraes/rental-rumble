@@ -16,8 +16,8 @@ export type TownDestinationId =
   | 'town-square'
   | 'north-exit';
 
-/** What a destination's card opens: a screen (party, dex, box), the Center, or a place (`r1`, Sunny Meadow). */
-export type TownLink = 'party' | 'dex' | 'box' | 'center' | 'r1';
+/** What a destination's card opens: a screen (party, dex, box, market), the Center, or a place (`r1`, Sunny Meadow). */
+export type TownLink = 'party' | 'dex' | 'box' | 'market' | 'center' | 'r1';
 
 export interface TownDestination {
   id: TownDestinationId;
@@ -33,7 +33,7 @@ export interface TownDestination {
   description: string;
   /** What the place is to the town, in the game's voice. */
   role: string;
-  /** What the destination's card opens; null = nothing to open yet. */
+  /** A screen (party, dex, box, market) or a place; null = nothing to open yet. */
   link: TownLink | null;
 }
 
@@ -75,7 +75,7 @@ export const TOWN_DESTINATIONS: readonly TownDestination[] = [
     anchor: { x: 777, y: 283 },
     description: 'A timber shop and open produce stalls under striped awnings.',
     role: 'Where the town’s gardens and orchards send their harvest.',
-    link: null,
+    link: 'market',
   },
   {
     id: 'pokemon-center',

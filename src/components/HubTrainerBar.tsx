@@ -1,17 +1,15 @@
-import type { Creature } from '../game/types';
-import { PixelSprite } from './ui/PixelSprite';
+import type { ReactNode } from 'react';
 
 const ICON = (name: string) => `${import.meta.env.BASE_URL}sprites/ui/night/96/${name}.png`;
-const POKEBALL = `${import.meta.env.BASE_URL}sprites/ui/pokeball.png`;
 
 /**
- * The Hub's trainer bar: the partner's portrait, the trainer and their mentor,
+ * The Hub's trainer bar: the trainer's portrait, the trainer and their mentor,
  * mail (not open yet) and settings, and what the Bag holds.
  */
-export function HubTrainerBar({ displayName, mentorName, partner, balls, onOpenSettings }: {
+export function HubTrainerBar({ portrait, displayName, mentorName, balls, onOpenSettings }: {
+  portrait: ReactNode;
   displayName: string;
   mentorName: string;
-  partner: Creature | null;
   /** Omit while the world is unavailable; zero is a real, empty Bag. */
   balls?: number;
   onOpenSettings: () => void;
@@ -19,11 +17,7 @@ export function HubTrainerBar({ displayName, mentorName, partner, balls, onOpenS
   return (
     <header className="ui-window grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 p-2 min-[400px]:gap-x-3">
       <div className={`${balls === undefined ? 'row-span-2' : 'row-span-3'} grid place-items-center self-start rounded-[3px] border-2 border-window-frame bg-slot p-1`}>
-        {partner ? (
-          <PixelSprite src={partner.portrait} fallback={POKEBALL} size={40} alt={`Partner: ${partner.name}`} className="min-[400px]:h-20 min-[400px]:w-20" />
-        ) : (
-          <img src={POKEBALL} alt="" width={40} height={40} className="h-10 w-10 object-contain [image-rendering:pixelated] min-[400px]:h-20 min-[400px]:w-20" />
-        )}
+        {portrait}
       </div>
 
       <div className="min-w-0">

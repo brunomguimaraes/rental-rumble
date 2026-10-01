@@ -28,7 +28,7 @@ async function call(action: string, body?: unknown, uid: string | null = 'route-
 try {
   const s = await onboardUser(t.db, 'route-user', 1);
   await onboardUser(t.db, 'other', 4);
-  for (const action of ['state', 'activate', 'search', 'choose', 'quest-claim', 'result-dismiss', 'heal']) {
+  for (const action of ['state', 'activate', 'search', 'choose', 'quest-claim', 'result-dismiss', 'heal', 'market-trade']) {
     check(`${action} requires login`, (await call(action, {}, null)).status === 401);
     if (action !== 'state') {
       const r = await call(action, {}, 'route-user', 'GET');
@@ -69,6 +69,24 @@ try {
   const dismissedAgain = await call('result-dismiss', { eventId: e.id });
   check('result dismissal is idempotent and does not alter actions', dismissed.status === 200 && dismissedAgain.status === 200 && (dismissedAgain.body.state as RouteState).allowance.available === 11 && (dismissedAgain.body.state as RouteState).revision === (dismissed.body.state as RouteState).revision);
   check('unaccepted quest does not grant rewards', (await call('quest-claim', { requestId: 'quest', questId: 'meadow-survey' })).status === 400);
+  for (const [label, body] of [
+    ['unknown item', { requestId: 'm1', itemId: 'master', side: 'buy', quantity: 1 }],
+    ['buying a valuable', { requestId: 'm2', itemId: 'honey', side: 'buy', quantity: 1 }],
+    ['quantity 0', { requestId: 'm3', itemId: 'poke', side: 'sell', quantity: 0 }],
+    ['quantity 100', { requestId: 'm4', itemId: 'poke', side: 'sell', quantity: 100 }],
+    ['fractional quantity', { requestId: 'm5', itemId: 'poke', side: 'sell', quantity: 1.5 }],
+    ['string quantity', { requestId: 'm6', itemId: 'poke', side: 'sell', quantity: '3' }],
+    ['unknown side', { requestId: 'm7', itemId: 'poke', side: 'steal', quantity: 1 }],
+    ['missing request ID', { itemId: 'poke', side: 'sell', quantity: 1 }],
+  ] as const) {
+    const r = await call('market-trade', body);
+    check(`market rejects ${label} with a sentence`, r.status === 400 && r.body.ok === false && typeof r.body.error === 'string');
+  }
+  const sale = await call('market-trade', { requestId: 'sell-one', itemId: 'poke', side: 'sell', quantity: 1 });
+  const saleReply = sale.body as unknown as RouteReply;
+  check('a market sale returns the trade and the new balance', sale.status === 200 && JSON.stringify(saleReply.trade) === JSON.stringify({ itemId: 'poke', side: 'sell', quantity: 1, total: 100 }) && saleReply.state.inventory.money === 100 && sale.headers['cache-control'] === 'no-store');
+  const short = await call('market-trade', { requestId: 'buy-great', itemId: 'great', side: 'buy', quantity: 1 });
+  check('a short purchase is a 409 with recovery state', short.status === 409 && short.body.error === 'You need ₽500 more.' && (short.body.state as RouteState).inventory.money === 100);
   for (const action of ['start', 'step']) {
     const retired = await call(action, { mode: 'train', locationId: 'r1' });
     check(`legacy ${action} has a refresh response`, retired.status === 409 && retired.body.retired === true);

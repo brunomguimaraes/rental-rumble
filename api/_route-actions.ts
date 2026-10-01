@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
-  acceptRouteQuest, advanceRouteRevision, BOX_LIMIT, changeInventory, countOwned, dismissPriorRouteEvents, healAllOwned,
-  dismissRouteEvent, hasRouteEvents, insertDiscovery, insertOwned, insertRouteAccount, insertRouteEvent,
+  acceptRouteQuest, advanceRouteRevision, BOX_LIMIT, changeInventory, changeMoney, countOwned, dismissPriorRouteEvents,
+  dismissRouteEvent, healAllOwned, hasRouteEvents, insertDiscovery, insertOwned, insertRouteAccount, insertRouteEvent,
   insertRouteReceipt, markRouteQuestClaimed, newId, openWriteTx, readActiveRouteEvent, readActivity,
   readDiscoveries, readInventoryRows, readLastRouteId, readOpenActivity, readOwnedByIds, readOwnedByUser,
   readProfile, readProgress, readRouteAccount, readRouteEvent, readRouteQuest, readRouteReceipt,
@@ -13,13 +13,13 @@ import { parseResult, planGrowth } from '../src/game/activity.js';
 import { isFainted, partyStanding } from '../src/game/health.js';
 import { parsePartyInput, partyMembers, resolveParty, sameParty } from '../src/game/party.js';
 import { EMPTY_PROGRESS } from '../src/game/world.js';
-import { isCaptureBallId } from '../src/game/items.js';
+import { formatMoney, isCaptureBallId, isItemId, itemById, tradeTotal } from '../src/game/items.js';
 import {
-  allowanceView, captureChance, legalChoices, MEADOW_LANDMARKS, rollCapture, rollRouteFind,
+  allowanceView, battlePrize, captureChance, legalChoices, MEADOW_LANDMARKS, rollCapture, rollRouteFind,
   ROUTE_RULES, simulateRouteBattle, spendAllowance,
 } from '../src/game/route-rules.js';
 import type {
-  InventoryState, RouteChooseInput, RouteEvent, RouteQuestInput, RouteReply, RouteSearchInput,
+  InventoryState, MarketTradeInput, RouteChooseInput, RouteEvent, RouteQuestInput, RouteReply, RouteSearchInput,
   RouteState, StoredRouteEvent,
 } from '../src/game/route-actions.js';
 
@@ -56,12 +56,12 @@ function cutoverTime(): number {
 }
 function stored(row: RouteEventRow): StoredRouteEvent {
   const value = row.data as StoredRouteEvent | null;
-  if (!value || value.config?.version !== 2 || value.event?.id !== row.id) throw new Error('Unreadable route event');
+  if (!value || (value.config?.version !== 2 && value.config?.version !== 3) || value.event?.id !== row.id) throw new Error('Unreadable route event');
   return value;
 }
 async function inventoryState(db: Executor, uid: string): Promise<InventoryState> {
   const [account, rows] = await Promise.all([readRouteAccount(db, uid), readInventoryRows(db, uid)]);
-  return { revision: account?.inventoryRevision ?? 0, stacks: rows.filter((r): r is InventoryState['stacks'][number] => isCaptureBallId(r.itemId)) };
+  return { revision: account?.inventoryRevision ?? 0, money: account?.money ?? 0, stacks: rows.filter((r): r is InventoryState['stacks'][number] => isItemId(r.itemId)) };
 }
 
 /** State is strictly read-only, including allowance projection and legacy notices. */
@@ -96,9 +96,10 @@ async function loadRouteStateInTx(db: Executor, uid: string, now: number): Promi
   };
 }
 
+type CommandResult = Pick<RouteReply, 'event' | 'trade'>;
 async function writeCommand(
   db: Db, uid: string, requestId: string, payload: string, now: number,
-  work: (tx: Executor) => Promise<RouteEvent | undefined>,
+  work: (tx: Executor) => Promise<CommandResult | void>,
 ): Promise<RouteReply> {
   const tx = await openWriteTx(db);
   try {
@@ -112,9 +113,9 @@ async function writeCommand(
       await tx.rollback();
       return reply;
     }
-    const event = await work(tx);
+    const result = await work(tx);
     await advanceRouteRevision(tx, uid);
-    const reply: RouteReply = { state: await loadRouteStateInTx(tx, uid, now), box: await readOwnedByUser(tx, uid), ...(event ? { event } : {}) };
+    const reply: RouteReply = { state: await loadRouteStateInTx(tx, uid, now), box: await readOwnedByUser(tx, uid), ...result };
     await insertRouteReceipt(tx, uid, requestId, payload, reply, now);
     await tx.commit();
     return reply;
@@ -161,14 +162,14 @@ export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, 
     const find = rollRouteFind({ seed, kind: input.kind, knownLandmarks: discoveries.filter((d) => d.locationId === 'r1' && d.kind === 'landmark').map((d) => d.ref), questClaimed: quest?.claimedAt != null, inventory: await inventoryState(tx, uid), rules: ROUTE_RULES });
     const phase = find.kind === 'item' ? 'resolved' : find.kind;
     const event: RouteEvent = {
-      id: newId(), locationId: 'r1', searchKind: input.kind, kind: find.kind, rulesVersion: 2, revision: 0,
+      id: newId(), locationId: 'r1', searchKind: input.kind, kind: find.kind, rulesVersion: ROUTE_RULES.version, revision: 0,
       startedAt: now, resolvedAt: phase === 'resolved' ? now : null, phase, party: partyMembers(partyIds, owned),
       foe: find.foe?.view ?? null, npc: find.npc, choices: legalChoices(phase),
       catchChances: find.kind === 'wild' ? {
         poke: captureChance({ rare: find.foe?.view.rare ?? false, wonBattle: false, ballId: 'poke', rules: ROUTE_RULES }),
         great: captureChance({ rare: find.foe?.view.rare ?? false, wonBattle: false, ballId: 'great', rules: ROUTE_RULES }),
       } : null,
-      battle: null, members: [], catch: null, items: find.items, newSeen: [], newLandmarks: [], outcome: phase === 'resolved' ? 'found' : null,
+      battle: null, members: [], catch: null, items: find.items, newSeen: [], newLandmarks: [], outcome: phase === 'resolved' ? 'found' : null, money: find.money,
     };
     for (const landmark of find.landmarks) {
       if (await insertDiscovery(tx, { uid, locationId: 'r1', kind: 'landmark', ref: landmark, foundAt: now })) event.newLandmarks.push(landmark);
@@ -176,12 +177,13 @@ export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, 
     // A trainer's Pokémon counts as seen too, as in the games.
     if (find.foe && await insertDiscovery(tx, { uid, locationId: 'r1', kind: 'seen', ref: String(find.foe.view.dexId), foundAt: now })) event.newSeen.push(find.foe.view.dexId);
     for (const item of find.items) await changeInventory(tx, uid, item.itemId, item.quantity);
+    if (find.money > 0) await changeMoney(tx, uid, find.money);
     await writeRouteAllowance(tx, uid, spent.available, spent.refilledAt);
     await writeTrainerAt(tx, uid, 'r1');
     await dismissPriorRouteEvents(tx, uid, now);
     const data: StoredRouteEvent = { event, seed, config: ROUTE_RULES, foe: find.foe };
     await insertRouteEvent(tx, uid, { id: event.id, createdAt: now, revision: 0, active: phase !== 'resolved', seenAt: null, data });
-    return event;
+    return { event };
   });
 }
 
@@ -208,6 +210,9 @@ export async function chooseRoute(db: Db, uid: string, input: RouteChooseInput, 
         const growth = planGrowth(current, e.party.filter((m) => standing.has(m.id)), e.kind === 'wild' ? data.config.wildExp : data.config.trainerExp, data.config.recommended, e.id);
         for (const mon of growth.changed) await updateOwnedGrowth(tx, uid, mon);
         e.members = growth.members;
+        const prize = battlePrize(e.kind, data.config);
+        if (prize > 0 && !await changeMoney(tx, uid, prize)) throw new Error('Balance overflow');
+        e.money = (e.money ?? 0) + prize;
         e.phase = e.kind === 'wild' ? 'catch' : 'resolved';
         e.outcome = 'won';
         if (e.kind === 'wild') e.catchChances = {
@@ -238,7 +243,7 @@ export async function chooseRoute(db: Db, uid: string, input: RouteChooseInput, 
     if (e.phase === 'resolved') { e.resolvedAt = now; e.catchChances = null; }
     const changed = await updateRouteEvent(tx, uid, { ...row, revision: e.revision, active: e.phase !== 'resolved', data }, input.expectedRevision);
     if (!changed) fail(409, 'That encounter changed. Check the current result.');
-    return e;
+    return { event: e };
   });
 }
 
@@ -253,6 +258,31 @@ export async function claimRouteQuest(db: Db, uid: string, input: RouteQuestInpu
     if (!MEADOW_LANDMARKS.every((l) => found.includes(l.id))) fail(400, 'Find every Sunny Meadow landmark to finish the survey.');
     if (!await markRouteQuestClaimed(tx, uid, input.questId, now)) fail(409, 'You have already received this quest reward.');
     await changeInventory(tx, uid, 'great', ROUTE_RULES.questGreatBalls);
+    if (!await changeMoney(tx, uid, ROUTE_RULES.questMoney)) throw new Error('Balance overflow');
+  });
+}
+
+export function parseMarketTrade(body: Record<string, unknown>): MarketTradeInput | null {
+  if (!validId(body.requestId) || !isItemId(body.itemId) || (body.side !== 'buy' && body.side !== 'sell')) return null;
+  if (tradeTotal(body.itemId, body.side, body.quantity) === null) return null;
+  return { requestId: body.requestId, itemId: body.itemId, side: body.side, quantity: body.quantity as number };
+}
+
+/** One market trade: money and stock move together or not at all; a retry replays the receipt. */
+export async function tradeMarket(db: Db, uid: string, input: MarketTradeInput, now: number): Promise<RouteReply> {
+  return writeCommand(db, uid, input.requestId, JSON.stringify(['market-trade', input.itemId, input.side, input.quantity]), now, async (tx) => {
+    const account = await requireActivated(tx, uid);
+    const total = tradeTotal(input.itemId, input.side, input.quantity);
+    const item = itemById(input.itemId);
+    if (total === null || !item) return fail(400, 'The market doesn’t trade that item that way.');
+    if (input.side === 'buy') {
+      if (!await changeMoney(tx, uid, -total)) fail(409, `You need ${formatMoney(total - account.money)} more.`);
+      await changeInventory(tx, uid, input.itemId, input.quantity);
+    } else {
+      if (!await changeInventory(tx, uid, input.itemId, -input.quantity)) fail(409, `You don’t have ${input.quantity} ${input.quantity === 1 ? item.name : item.plural} to sell.`);
+      if (!await changeMoney(tx, uid, total)) throw new Error('Balance overflow');
+    }
+    return { trade: { itemId: input.itemId, side: input.side, quantity: input.quantity, total } };
   });
 }
 

@@ -22,6 +22,7 @@ import { hasPmdSprite, type PmdAnimKind } from '../game/pmd';
 import { autoWinEnabled } from '../game/dev';
 import { ballUrl } from '../game/balls';
 import { backdropFor } from '../game/backgrounds';
+import { STATUS_LABEL, VOLATILE_LABEL, statusIconUrl, volatileIconUrl } from '../game/battle-labels';
 import { HpBar } from './HpBar';
 import { TypeBadges } from './TypeBadge';
 import { TrainerSprite } from './TrainerSprite';
@@ -37,8 +38,6 @@ const REDUCED_MOTION =
   typeof window !== 'undefined' &&
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-const ASSET = import.meta.env?.BASE_URL ?? '/';
-
 // Battle speed is a player preference that should stick across battles and
 // reloads, so it lives in localStorage rather than resetting to 1× each time.
 const SPEED_KEY = 'battle-speed';
@@ -50,22 +49,6 @@ const readStoredSpeed = (): number => {
   if (typeof window === 'undefined') return 1;
   const stored = Number(window.localStorage.getItem(SPEED_KEY));
   return SPEED_CYCLE.includes(stored) ? stored : 1;
-};
-const statusIconUrl = (s: Exclude<StatusKind, null>) =>
-  `${ASSET}sprites/status/${s}.png`;
-const STATUS_LABEL: Record<Exclude<StatusKind, null>, string> = {
-  burn: 'Burned',
-  stun: 'Paralyzed',
-  poison: 'Badly poisoned',
-  sleep: 'Asleep',
-  frostbite: 'Frostbitten',
-};
-// Volatile afflictions render their own pill alongside the primary status badge.
-const volatileIconUrl = (v: VolatileKind) => `${ASSET}sprites/status/${v}.png`;
-const VOLATILE_LABEL: Record<VolatileKind, string> = {
-  weight: 'Weighed down — Speed cut',
-  blind: 'Blinded — accuracy down',
-  disarm: 'Disarmed — strongest move sealed',
 };
 
 interface ActiveView {

@@ -99,13 +99,15 @@ for (const id of ['', 'nowhere', 'Bakery', ' bakery', 'bakery ']) {
 // to a route the world map does not have.
 
 console.log('\n[4] cards');
-const SCREENS = new Set<string>(['party', 'dex', 'box', 'center']);
+const SCREENS = new Set<string>(['party', 'dex', 'box', 'center', 'market']);
 check('the Pokémon Center opens the Center', townDestinationById('pokemon-center')?.link === 'center');
 for (const d of TOWN_DESTINATIONS) {
   check(`${d.id}: has card copy`, d.description.trim() !== '' && d.role.trim() !== '');
   if (d.link !== null && !SCREENS.has(d.link)) check(`${d.id}: link "${d.link}" is a playable place`, isPlayableId(d.link));
   if (d.kind === 'exit') check(`${d.id}: an exit leads to a playable place`, d.link !== null && isPlayableId(d.link));
 }
+check('the Village market opens the market', townDestinationById('market')?.link === 'market');
+check('only the Village market opens the market', TOWN_DESTINATIONS.filter((d) => d.link === 'market').map((d) => d.id).join() === 'market');
 
 // --- Web images --------------------------------------------------------------------
 // The screen loads WebP derivatives, not the multi-megabyte PNG masters. It lays

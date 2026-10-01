@@ -2,6 +2,7 @@ import type { OwnedMon } from './box.js';
 import type {
   ActionAllowance, AllowanceRecord, CaptureBallId, FrozenRouteFoe, InventoryState,
   RouteBattle, RouteChoice, RouteFind, RouteNpc, RoutePhase, RouteRules, SearchKind,
+  StoredRouteRules,
 } from './route-actions.js';
 import { partyCreatures } from './activity.js';
 import { simulateBattle } from './battle.js';
@@ -10,6 +11,7 @@ import { currentHp, isFainted, ownedMaxHp } from './health.js';
 import { mintStats } from './growth.js';
 import { rollIdentity } from './identity.js';
 import { ballCount, isCaptureBallId, itemById } from './items.js';
+import { meterView, projectMeter, spendMeter, type MeterRules } from './meter.js';
 import { CREATURES_BY_ID } from './pokemon.js';
 import { RNG } from './rng.js';
 import { pickFromPool } from './wilds.js';
@@ -17,7 +19,7 @@ import { placeById, placeTitle } from './world.js';
 
 /** Live route rules. Legacy activity config and its seeded content stay unchanged. */
 export const ROUTE_RULES: RouteRules = {
-  version: 2,
+  version: 3,
   capacity: 48,
   initialActions: 12,
   refillEveryMs: 600_000,
@@ -45,7 +47,6 @@ export const ROUTE_RULES: RouteRules = {
   exploreWildChance: 0.45,
   exploreNpcChance: 0.3,
   landmarkChance: 0.5,
-  pokeBundleChance: 0.75,
   pokeBundleQuantity: 3,
   greatBundleQuantity: 1,
   questGreatBalls: 3,
@@ -54,7 +55,43 @@ export const ROUTE_RULES: RouteRules = {
   battleCatchBonus: 0.2,
   greatCatchBonus: itemById('great')!.catchBonus,
   maxCatchChance: 0.95,
+  itemFinds: { poke: 50, great: 15, harvest: 20, pouch: 15 },
+  harvest: [
+    { itemId: 'honey', weight: 6 },
+    { itemId: 'tiny-mushroom', weight: 3 },
+    { itemId: 'big-mushroom', weight: 1 },
+  ],
+  pouchMoney: 300,
+  wildMoney: 100,
+  trainerMoney: 200,
+  questMoney: 500,
 };
+
+// Rules version 3 changed only the Explore item table. The stream names stay at
+// 2, so wild, NPC, landmark and catch rolls replay identically across versions.
+const STREAM = 'route:2';
+
+/** Weighted pick over entries in their listed order. */
+function pickWeighted<T extends { weight: number }>(entries: readonly T[], rng: RNG): T {
+  const total = entries.reduce((sum, e) => sum + e.weight, 0);
+  let roll = rng.next() * total;
+  for (const entry of entries) {
+    roll -= entry.weight;
+    if (roll < 0) return entry;
+  }
+  return entries[entries.length - 1];
+}
+
+/** Explore's free resupply: no capture balls and not enough ₽ to buy one. */
+export function guaranteesSupplies(inventory: InventoryState): boolean {
+  return ballCount(inventory) === 0 && inventory.money < (itemById('poke')?.price.buy ?? 0);
+}
+
+/** ₽ a won battle pays under the encounter's frozen rules; v2 encounters pay nothing. */
+export function battlePrize(kind: RouteFind['kind'], rules: StoredRouteRules): number {
+  if (rules.version !== 3) return 0;
+  return kind === 'wild' ? rules.wildMoney : kind === 'trainer' ? rules.trainerMoney : 0;
+}
 
 export const MEADOW_LANDMARKS = [
   { id: 'signpost', name: 'Old Signpost', blurb: 'Weathered arrows point to places you haven’t been yet.' },
@@ -85,35 +122,20 @@ export function wildAreas(dexId: number, rules: RouteRules = ROUTE_RULES): { nam
   return entry && place ? [{ name: placeTitle(place), rare: Boolean(entry.rare) }] : [];
 }
 
+const allowanceMeter = (rules: RouteRules): MeterRules => ({ capacity: rules.capacity, refillEveryMs: rules.refillEveryMs, floor: 0 });
+
 /** Read-only projection. At capacity there is no banked overflow or partial interval. */
 export function projectAllowance(record: AllowanceRecord, now: number, rules: RouteRules = ROUTE_RULES): AllowanceRecord {
-  const effectiveNow = Math.max(now, record.refilledAt);
-  const available = Math.max(0, Math.min(rules.capacity, Math.floor(record.available)));
-  if (available === rules.capacity) return { available, refilledAt: effectiveNow };
-  const elapsedIntervals = Math.floor((effectiveNow - record.refilledAt) / rules.refillEveryMs);
-  const replenished = Math.min(rules.capacity, available + elapsedIntervals);
-  return {
-    available: replenished,
-    refilledAt: replenished === rules.capacity
-      ? effectiveNow
-      : record.refilledAt + elapsedIntervals * rules.refillEveryMs,
-  };
+  return projectMeter(record, now, allowanceMeter(rules));
 }
 
 export function allowanceView(record: AllowanceRecord, now: number, rules: RouteRules = ROUTE_RULES): ActionAllowance {
-  const current = projectAllowance(record, now, rules);
-  return {
-    available: current.available,
-    capacity: rules.capacity,
-    refillEveryMs: rules.refillEveryMs,
-    nextRefillAt: current.available === rules.capacity ? null : current.refilledAt + rules.refillEveryMs,
-  };
+  return meterView(record, now, allowanceMeter(rules));
 }
 
 /** A transaction persists this projection together with its new encounter. */
 export function spendAllowance(record: AllowanceRecord, now: number, rules: RouteRules = ROUTE_RULES): AllowanceRecord | null {
-  const current = projectAllowance(record, now, rules);
-  return current.available > 0 ? { ...current, available: current.available - 1 } : null;
+  return spendMeter(record, now, 1, allowanceMeter(rules));
 }
 
 function mintFoe({ dexId, level, rare, statMult, rng }: {
@@ -125,7 +147,7 @@ function mintFoe({ dexId, level, rare, statMult, rng }: {
   const mint = { dexId, level, ...identity, stats: mintStats(dexId, level, rng, identity.build) };
   return {
     mint,
-    view: { dexId, level, shiny: mint.shiny, altColor: mint.altColor, rare, guardian: false },
+    view: { dexId, level, shiny: mint.shiny, altColor: mint.altColor, rare, guardian: false, sign: mint.sign },
     statMult,
   };
 }
@@ -139,9 +161,9 @@ export function rollRouteFind({ seed, kind, knownLandmarks, questClaimed, invent
   inventory: InventoryState;
   rules?: RouteRules;
 }): RouteFind {
-  const rng = new RNG(`route:${rules.version}:${seed}:find`);
+  const rng = new RNG(`${STREAM}:${seed}:find`);
   let primary: SearchKind | 'item' = kind;
-  const guaranteedSupplies = kind === 'explore' && ballCount(inventory) === 0;
+  const guaranteedSupplies = kind === 'explore' && guaranteesSupplies(inventory);
   if (guaranteedSupplies) primary = 'item';
   else if (kind === 'explore') {
     const category = rng.next();
@@ -152,29 +174,36 @@ export function rollRouteFind({ seed, kind, knownLandmarks, questClaimed, invent
   const landmarks: string[] = [];
   if (kind === 'explore') {
     const missing = MEADOW_LANDMARKS.filter((landmark) => !knownLandmarks.includes(landmark.id));
-    const landmarkRng = new RNG(`route:${rules.version}:${seed}:landmark`);
+    const landmarkRng = new RNG(`${STREAM}:${seed}:landmark`);
     if (missing.length > 0 && landmarkRng.chance(rules.landmarkChance)) landmarks.push(landmarkRng.pick(missing).id);
   }
 
   if (primary === 'item') {
-    const basic = guaranteedSupplies || rng.chance(rules.pokeBundleChance);
-    return {
-      kind: 'item', foe: null, npc: null, landmarks,
-      items: [{ itemId: basic ? 'poke' : 'great', quantity: basic ? rules.pokeBundleQuantity : rules.greatBundleQuantity }],
-    };
+    const found = (items: RouteFind['items'], money = 0): RouteFind => ({ kind: 'item', foe: null, npc: null, landmarks, items, money });
+    if (guaranteedSupplies) return found([{ itemId: 'poke', quantity: rules.pokeBundleQuantity }]);
+    const { find } = pickWeighted([
+      { find: 'poke', weight: rules.itemFinds.poke },
+      { find: 'great', weight: rules.itemFinds.great },
+      { find: 'harvest', weight: rules.itemFinds.harvest },
+      { find: 'pouch', weight: rules.itemFinds.pouch },
+    ] as const, rng);
+    if (find === 'poke') return found([{ itemId: 'poke', quantity: rules.pokeBundleQuantity }]);
+    if (find === 'great') return found([{ itemId: 'great', quantity: rules.greatBundleQuantity }]);
+    if (find === 'harvest') return found([{ itemId: pickWeighted(rules.harvest, rng).itemId, quantity: 1 }]);
+    return found([], rules.pouchMoney);
   }
   if (primary === 'npc') {
     if (!questClaimed && !rng.chance(rules.npcTrainerChance)) {
-      return { kind: 'researcher', foe: null, npc: { ...RESEARCHER }, items: [], landmarks };
+      return { kind: 'researcher', foe: null, npc: { ...RESEARCHER }, items: [], money: 0, landmarks };
     }
     const { dexId, ...npc } = rng.pick(TRAINERS);
     const foe = mintFoe({ dexId, level: rules.trainerLevel, rare: false, statMult: rules.trainerStatMult, rng });
-    return { kind: 'trainer', foe, npc, items: [], landmarks };
+    return { kind: 'trainer', foe, npc, items: [], money: 0, landmarks };
   }
   const entry = pickFromPool(rules.wild.pool, rng);
   const level = rng.int(rules.wild.min, rules.wild.max);
   const foe = mintFoe({ dexId: entry.dexId, level, rare: Boolean(entry.rare), statMult: rules.wild.statMult, rng });
-  return { kind: 'wild', foe, npc: null, items: [], landmarks };
+  return { kind: 'wild', foe, npc: null, items: [], money: 0, landmarks };
 }
 
 export function legalChoices(phase: RoutePhase): RouteChoice[] {
@@ -188,7 +217,7 @@ export function legalChoices(phase: RoutePhase): RouteChoice[] {
 }
 
 export function captureChance({ rare, wonBattle, ballId, rules = ROUTE_RULES }: {
-  rare: boolean; wonBattle: boolean; ballId: CaptureBallId; rules?: RouteRules;
+  rare: boolean; wonBattle: boolean; ballId: CaptureBallId; rules?: StoredRouteRules;
 }): number {
   if (!isCaptureBallId(ballId)) throw new Error('Unsupported capture ball');
   const base = rare ? rules.rareCatchChance : rules.basicCatchChance;
@@ -198,9 +227,9 @@ export function captureChance({ rare, wonBattle, ballId, rules = ROUTE_RULES }: 
 }
 
 export function rollCapture({ seed, rare, wonBattle, ballId, rules = ROUTE_RULES }: {
-  seed: string; rare: boolean; wonBattle: boolean; ballId: CaptureBallId; rules?: RouteRules;
+  seed: string; rare: boolean; wonBattle: boolean; ballId: CaptureBallId; rules?: StoredRouteRules;
 }): boolean {
-  return new RNG(`route:${rules.version}:${seed}:catch`).chance(captureChance({ rare, wonBattle, ballId, rules }));
+  return new RNG(`${STREAM}:${seed}:catch`).chance(captureChance({ rare, wonBattle, ballId, rules }));
 }
 
 export function simulateRouteBattle({ party, foe, seed }: {

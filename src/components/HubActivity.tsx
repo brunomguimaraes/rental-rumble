@@ -22,19 +22,17 @@ export function HubActivity({ world, worldError, location, lead, onVisit, onRetr
 
   return <section aria-label="Your location" className="space-y-4">
     <div className="ui-window">
-      <LocationScene place={location} footer={<div className="flex items-center justify-between gap-2">
-        <span className="font-pixel text-sm text-ink">{town ? 'A little town. A whole world ahead.' : 'Tall grass. New faces. Your next discovery.'}</span>
-        <span aria-hidden="true" className="text-accent">✦</span>
+      <LocationScene place={location} footer={<div>
+        <p className="font-label text-[8px] uppercase tracking-widest text-info">Hearthvale</p>
+        <h1 className="mt-1 font-pixel text-2xl text-ink">{town ? 'Hearth Town' : 'Sunny Meadow'}</h1>
       </div>}>
-        {companion && <div className={`pointer-events-none absolute ${town ? 'bottom-[23%] left-[46%]' : 'bottom-[21%] left-[54%]'}`}>
+        {companion && <div className={`pointer-events-none absolute ${town ? 'bottom-[30%] left-[46%]' : 'bottom-[29%] left-[54%]'}`}>
           <PixelSprite src={companion.mini} size={64} sheet alt={`${lead?.nickname ?? companion.name} is with you`} />
         </div>}
       </LocationScene>
       <div className="border-t-2 border-window-frame p-3">
-        <p className="font-label text-[9px] uppercase tracking-widest text-info">Hearthvale</p>
-        <h1 className="mt-1 font-pixel text-3xl text-ink">{town ? 'Hearth Town' : 'Sunny Meadow'}</h1>
-        <p className="mt-1 text-sm text-ink-dim">{town ? 'Wander the square, visit your Pokémon, or take the road north.' : 'Follow the trail, meet the locals, and see what stirs in the grass.'}</p>
-        <button type="button" onClick={enter} className="ui-button-primary ui-focus mt-3 flex min-h-12 w-full items-center justify-center gap-3 px-3 font-label text-[11px] uppercase">
+        <p className="text-sm text-ink-dim">{town ? 'A familiar face around every corner.' : 'Tall grass. New faces. Your next discovery.'}</p>
+        <button type="button" onClick={enter} className="ui-button-primary ui-focus mt-2 flex min-h-12 w-full items-center justify-center gap-3 px-3 font-label text-[11px] uppercase">
           <span aria-hidden="true">▶</span>{town ? 'Explore the town' : 'Explore the meadow'}
         </button>
       </div>

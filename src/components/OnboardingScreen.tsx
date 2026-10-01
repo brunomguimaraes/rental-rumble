@@ -7,12 +7,15 @@ import { CREATURES_BY_ID } from '../game/pokemon';
 import { signLabel } from '../game/zodiac';
 import { MiniSprite } from './MiniSprite';
 import { PixelSprite } from './ui/PixelSprite';
+import { TrainerIdentityPicker } from './TrainerIdentityPicker';
+import type { TrainerIdentity } from '../game/trainer-identity';
+import { scrollToTop } from '../ui-scroll';
 
-// First minute: profession → Professor Andre offers three weak, three-stage lines
+// First minute: trainer identity → profession → Professor Andre offers three weak, three-stage lines
 // (fixed per account) → starter reveal + optional nickname → hub. The server
 // re-derives the offer, checks the pick and mints the starter with the profile.
 
-type Step = 'profession' | 'pick' | 'starter';
+type Step = 'identity' | 'profession' | 'pick' | 'starter';
 
 const PROFESSOR = PROFESSORS[0];
 
@@ -21,9 +24,11 @@ export function OnboardingScreen({
   onDone,
 }: {
   me: AccountUser;
-  onDone: (box: OwnedMon[], profile: Profile) => void;
+  onDone: (box: OwnedMon[], profile: Profile, displayName: string) => void;
 }) {
-  const [step, setStep] = useState<Step>('profession');
+  const [step, setStep] = useState<Step>('identity');
+  const [identity, setIdentity] = useState<TrainerIdentity | null>(null);
+  const [savedName, setSavedName] = useState(me.displayName);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -38,18 +43,21 @@ export function OnboardingScreen({
   const starterCreature = useMemo(() => (starter ? ownedMonToCreature(starter) : null), [starter]);
 
   const pick = async (dexId: number) => {
+    if (!identity || busy) return;
     setBusy(true);
     setError(null);
-    const r = await onboard(dexId);
+    const r = await onboard({ starter: dexId, ...identity });
     setBusy(false);
     if (!r.ok || !r.profile || !r.starter) {
       setError(r.error ?? 'Could not start your journey.');
       return;
     }
     setProfile(r.profile);
+    setSavedName(r.displayName ?? identity.displayName);
     setStarter(r.starter);
     setBox(r.box ?? [r.starter]);
     setStep('starter');
+    scrollToTop();
   };
 
   const confirmStarter = async () => {
@@ -70,14 +78,27 @@ export function OnboardingScreen({
       }
       finalBox = box.map((m) => (m.id === starter.id ? { ...m, nickname: clean } : m));
     }
-    onDone(finalBox, profile);
+    onDone(finalBox, profile, savedName);
   };
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-2xl flex-col px-5 py-8">
+    <div className="mx-auto flex min-h-[100dvh] max-w-2xl flex-col px-5 py-8 font-pixel text-ink">
+      {step === 'identity' && (
+        <TrainerIdentityPicker initialName={me.displayName} initialIdentity={identity} onContinue={(choice) => {
+          setIdentity(choice);
+          setStep('profession');
+          scrollToTop();
+        }} />
+      )}
+      {(step === 'profession' || step === 'pick') && (
+        <button type="button" disabled={busy} onClick={() => { setError(null); setStep('identity'); scrollToTop(); }}
+          className="ui-button ui-focus mb-6 min-h-11 self-start px-3 font-label text-[9px] uppercase">
+          ← Edit trainer
+        </button>
+      )}
       {step === 'profession' && (
         <>
-          <h1 className="text-2xl font-black text-white">Who are you, {me.displayName || 'friend'}?</h1>
+          <h1 className="text-2xl font-bold text-ink">Choose your path, {identity?.displayName || 'friend'}.</h1>
           <p className="mt-2 text-sm text-white/60">Pick a profession. Only the Trainer road is open for now.</p>
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             {PROFESSIONS.map((p) => (

@@ -15,10 +15,13 @@ import {
   readSeenDexIds,
   updateOwnedNickname,
   updateOwnedGrowth,
+  isMissingSchema,
   type Db,
 } from '../_db.js';
 import { PROFESSORS, starterFromOffer } from '../../src/game/professions.js';
 import { cleanNickname } from '../../src/game/profile.js';
+import { cleanTrainerName, findTrainerPortrait } from '../../src/game/trainer-identity.js';
+import { parseTrainerColors, type TrainerColors } from '../../src/game/trainer-colors.js';
 import { isLocalDev } from '../_dev.js';
 import { applyGrowthWithEvolution } from '../../src/game/evolution.js';
 import { expToNext, MAX_LEVEL } from '../../src/game/levels.js';
@@ -150,10 +153,10 @@ async function box(req: VercelRequest, res: VercelResponse) {
 // --- profile / onboard / nickname / party -----------------------------------
 
 function toProfile(
-  p: { profession: string; mentor: string; starterId: string; currentRoute: string; createdAt: number },
+  p: { profession: string; mentor: string; starterId: string; currentRoute: string; createdAt: number; avatarId?: string | null; avatarColors?: TrainerColors | null },
   party: string[],
 ) {
-  return { profession: p.profession, mentor: p.mentor, starterId: p.starterId, currentRoute: p.currentRoute, createdAt: p.createdAt, party };
+  return { profession: p.profession, mentor: p.mentor, starterId: p.starterId, currentRoute: p.currentRoute, createdAt: p.createdAt, party, avatarId: p.avatarId ?? null, avatarColors: p.avatarColors ?? null };
 }
 
 async function profile(req: VercelRequest, res: VercelResponse) {
@@ -188,6 +191,20 @@ async function onboard(req: VercelRequest, res: VercelResponse) {
   if (body.profession !== 'trainer') {
     return res.status(400).json({ ok: false, error: 'only the Trainer route is open for now' });
   }
+  // Older open clients may still send the pre-portrait request. If either
+  // identity field is present, both must be valid; never silently drop a pick.
+  const hasIdentity = body.displayName !== undefined || body.avatarId !== undefined || body.colors !== undefined;
+  const displayName = cleanTrainerName(body.displayName);
+  const portrait = findTrainerPortrait(body.avatarId);
+  if (hasIdentity && !displayName) {
+    return res.status(400).json({ ok: false, error: 'Choose a trainer name of 1–24 characters.' });
+  }
+  if (hasIdentity && !portrait) {
+    return res.status(400).json({ ok: false, error: 'Choose a portrait from the gallery.' });
+  }
+  const colors = parseTrainerColors(body.colors);
+  if (!colors) return res.status(400).json({ ok: false, error: 'Choose skin and hair colors from the palette.' });
+  const identity = displayName && portrait ? { displayName, avatarId: portrait.id, colors } : undefined;
   // One professor for now; the pick must be one of the three lines this
   // account was offered (recomputed here from the uid, never trusted).
   const professor = PROFESSORS[0];
@@ -202,12 +219,22 @@ async function onboard(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ ok: false, error: 'you already have a profile' });
     }
     const now = Date.now();
-    const base = { userId: uid, profession: 'trainer', mentor: professor.id, currentRoute: 'r1', createdAt: now };
+    const base = { userId: uid, profession: 'trainer', mentor: professor.id, currentRoute: 'r1', createdAt: now, identity };
     const starter = await insertProfileWithStarter(db, base, spec, now);
-    const row = { ...base, starterId: starter.id };
-    const box = await readOwnedByUser(db, uid);
-    return res.status(200).json({ ok: true, profile: toProfile(row, [starter.id]), starter, box });
+    const row = { ...base, starterId: starter.id, avatarId: identity?.avatarId, avatarColors: identity?.colors };
+    // The write already committed. A failed optional box refresh must not
+    // report onboarding as failed and invite a second starter request.
+    let box;
+    try { box = await readOwnedByUser(db, uid); }
+    catch (err) { console.error('[me/onboard] box refresh failed:', err); }
+    return res.status(200).json({ ok: true, profile: toProfile(row, [starter.id]), starter, box, displayName: identity?.displayName });
   } catch (err) {
+    if (String(err).includes('UNIQUE constraint failed: profiles.user_id')) {
+      return res.status(409).json({ ok: false, error: 'Your trainer is already set up. Refresh to continue.' });
+    }
+    if (isMissingSchema(err)) {
+      return res.status(503).json({ ok: false, error: 'Trainer setup is being updated. Please try again shortly.' });
+    }
     console.error('[me/onboard] failed:', err);
     return res.status(503).json({ ok: false, error: 'could not start your journey' });
   }

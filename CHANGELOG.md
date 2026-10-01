@@ -13,10 +13,12 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 
 ### Added
 - **Pokémon Center** — HP now carries over between Sunny Meadow battles. Fainted Pokémon sit out, only Pokémon still standing earn EXP, and losing with your whole party sends you back to Hearth Town. The nurse in the Pokémon Center heals every Pokémon you own, instantly and for free. HP bars appear in Sunny Meadow and its encounters, and on the party, Box and Center screens.
+- **Village market** — buy Poké Balls and Great Balls with Pokédollars (₽) in Hearth Town, and sell balls, Honey, and mushrooms. Battle wins, coin pouches, and the Meadow survey pay ₽; retries never pay or charge twice.
+- **Trainer portraits** — new players choose their display name and a portrait before meeting their professor. The gallery offers 20 masculine and 20 feminine faces, including Golden Ribbon, with eight skin tones and twelve hair colors rendered through material masks. The selected portrait, colors and name persist on the account and appear in the trainer header. Existing trainers keep their onboarding state and use a default portrait.
 - **Pokédex seen and caught** — like the games, each entry is unseen (a silhouette), seen (name, sprite and types) or caught (every tab). The counter shows both totals, list rows mark seen and caught species, meeting a trainer's Pokémon counts as seeing it, and your starter and every form your Pokémon have evolved through count as caught. A new Area tab lists where each species lives in the wild, rare finds included, even before you've seen it; the Sunny Meadow screen no longer lists its possible encounters.
 - **Bag and catching** — persistent Poké Ball and Great Ball stacks, starting supplies, Explore finds, and inventory-backed capture. Each throw consumes one ball; retries cannot duplicate catches or item rewards.
 - **Sunny Meadow encounters** — Find wild Pokémon, Find NPC, or Explore for one action. Battle to grow your party, catch the wild individual you meet, discover landmarks, and complete the Meadow survey for Great Balls. Actions recover every ten minutes up to 48; encounters and results resume across visits.
-- **Hearth Town** — enter the town from the world map. Its six services, the town square and the road north each have a numbered marker on the town map, a row in Places to visit, and a card. The library and daycare open your Pokédex and box, and the Pokémon Center heals your Pokémon; the north road leads on to Sunny Meadow; the bakery, market and lab open in a later update. The art pack's guide and clickable preview stay in `docs/art/night/hearth-town-v2/`.
+- **Hearth Town** — enter the town from the world map. Its six services, the town square and the road north each have a numbered marker on the town map, a row in Places to visit, and a card. The library and daycare open your Pokédex and box, and the Pokémon Center heals your Pokémon; the north road leads on to Sunny Meadow; the bakery and lab open in a later update. The art pack's guide and clickable preview stay in `docs/art/night/hearth-town-v2/`.
 - **World map** — Hearthvale, a pixel-art region with Hearth Town and Sunny Meadow as its first playable locations. Drag, zoom and recenter the map, or browse the list; Sunny Meadow shows its landmarks.
 - **Your party** — choose up to six Pokémon, reorder them and pick a lead. The party is saved to your account, and every trip starts with the party you set.
 - **Install app** — a hub button with step-by-step iPhone and Android guides for adding the game to your home screen so it opens full-screen; Android Chrome gets a one-tap Install.
@@ -27,8 +29,11 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 - **Accounts** — sign in with email and password, Discord or Google; email verification and password reset via Resend. Login is now required to play.
 
 ### Changed
-- **Trainer bar** — the Hub header is a Night window with your partner's portrait, your name and mentor, Mail (coming soon) and Settings buttons, and your Bag's ball count.
-- **Bag button** — the Hub, town and route use the Night backpack icon, framed touch-sized buttons, and a ball count where inventory is shown.
+- **Explore finds** — now include harvest goods and coin pouches.
+- **Explore** — the guaranteed Poké Balls apply only when you have no balls and under ₽200.
+- **Trainer bar** — the Hub header is a Night window with your trainer portrait, your name and mentor, Mail (coming soon) and Settings buttons, and your Bag's ball count.
+- **Home and places** — an illustrated Hearth Town or Sunny Meadow scene now leads Home, with your partner, real sighting and survey highlights, and direct links to their details. Home follows the place you last visited during the session; the party sits below the scene. Town and meadow lead with their surroundings, and trail energy is tucked into a detail panel.
+- **Bag button** — the Hub, town and route use the Night backpack icon and framed touch-sized buttons that open your saved inventory.
 - **Sunny Meadow** — explore an interactive illustrated route: tap grass, the path, or the trail, then confirm one clear search. Encounters and results stay in the meadow; the Bag opens over the scene, catch odds and the one-throw cost stay visible, and party, survey, field guide, and battle rewards unfold when needed.
 - **Growth** — levels are hidden. A Pokémon shows an EXP bar and six stats; when the bar fills it grows: each stat rolls against its potential (read out in Judge words) and rises by one, up to the species' ceiling. Evolution carries every point over and adds a bonus. A fully trained Pokémon fights exactly as strong as before.
 - **Growth** — stats grow more slowly, so reaching the top of the EXP curve no longer means every stat is maxed: most Pokémon end with a few stats still short of their ceiling, and only a lucky few max all six. Wild Pokémon at Mirror Lake, Flint Quarry, Cloudcap Trail and Starfall Ruins are a little weaker to match.
@@ -36,6 +41,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 - **Pokédex** — species you haven't caught stay a mystery: a silhouette and "???" with no stats, ability, moves, or signs, and search by name only finds ones you've caught.
 - **Hub** — the six-slot Night party window shows your saved party, lead first, with Edit; below it sit the World map and Your box, and what your trainer is doing right now.
 - **Login required** — anonymous play is gone; the hub and box are per-account.
+- **Battles come alive** — Sunny Meadow battles play like the original Rental Rumble: animated Pokémon that attack, flinch and faint, a Poké Ball toss on send-out, damage numbers, effectiveness banners, and status and sign badges on each Pokémon's card. Next and Skip work as before.
 
 ### Removed
 - Idle training, checkpoint expeditions, guardian gates, and playable routes beyond Sunny Meadow. Existing sessions retire once with eligible pre-cutover rewards preserved.

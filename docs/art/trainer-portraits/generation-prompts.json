@@ -1,0 +1,331 @@
+{
+  "tool": "Built-in image_gen",
+  "styleReference": "Screenshot 2026-10-01 at 07.04.15.png",
+  "characterReference": "Screenshot 2026-10-01 at 07.05.31.png",
+  "portraits": [
+    {
+      "id": "m01",
+      "name": "Trail Cap",
+      "gender": "masculine",
+      "description": "A friendly boy with a soft oval face, light peach skin, large brown eyes, short tousled black hair, backward navy-and-gold baseball cap and white shirt. Closely match the face/head crop and pixel drawing language of the boy reference.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: A friendly boy with a soft oval face, light peach skin, large brown eyes, short tousled black hair, backward navy-and-gold baseball cap and white shirt. Closely match the face/head crop and pixel drawing language of the boy reference.",
+      "source": "public/sprites/trainer-portraits/v1/source/m01.png"
+    },
+    {
+      "id": "f01",
+      "name": "Golden Ribbon",
+      "gender": "feminine",
+      "description": "Recreate the girl in reference image 2 as a selectable trainer portrait: fair warm skin, long honey-blonde hair, side-swept layered bangs, dark brown eyes, soft rounded face, gentle closed-mouth smile, dark brown headband, small black neck ribbon and white collar. Keep her recognizable hair silhouette and expression.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Recreate the girl in reference image 2 as a selectable trainer portrait: fair warm skin, long honey-blonde hair, side-swept layered bangs, dark brown eyes, soft rounded face, gentle closed-mouth smile, dark brown headband, small black neck ribbon and white collar. Keep her recognizable hair silhouette and expression.",
+      "source": "public/sprites/trainer-portraits/v1/source/f01.png"
+    },
+    {
+      "id": "m02",
+      "name": "Ember",
+      "gender": "masculine",
+      "description": "Warm tan skin, square face, amber eyes, short spiky auburn hair, small nose, confident smile, red collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Warm tan skin, square face, amber eyes, short spiky auburn hair, small nose, confident smile, red collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/m02.png"
+    },
+    {
+      "id": "f02",
+      "name": "Meadow",
+      "gender": "feminine",
+      "description": "Deep brown skin, round face, big amber eyes, a puff of dense dark curls with a green bandana, cheerful smile and cream shirt.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Deep brown skin, round face, big amber eyes, a puff of dense dark curls with a green bandana, cheerful smile and cream shirt.",
+      "source": "public/sprites/trainer-portraits/v1/source/f02.png"
+    },
+    {
+      "id": "m03",
+      "name": "Cobalt",
+      "gender": "masculine",
+      "description": "Deep brown skin, broad round face, dark brown eyes, close-cropped black coils, blue headband, open cheerful smile and navy collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Deep brown skin, broad round face, dark brown eyes, close-cropped black coils, blue headband, open cheerful smile and navy collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/m03.png"
+    },
+    {
+      "id": "f03",
+      "name": "Marina",
+      "gender": "feminine",
+      "description": "Light olive skin, angular face, blue eyes, chin-length wavy dark teal bob, side part, small silver hair clip, calm smile, navy collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Light olive skin, angular face, blue eyes, chin-length wavy dark teal bob, side part, small silver hair clip, calm smile, navy collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f03.png"
+    },
+    {
+      "id": "m04",
+      "name": "Fern",
+      "gender": "masculine",
+      "description": "Olive skin, narrow long face, green eyes, wavy chin-length dark brown hair tucked behind one ear, thoughtful smile, moss-green collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Olive skin, narrow long face, green eyes, wavy chin-length dark brown hair tucked behind one ear, thoughtful smile, moss-green collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/m04.png"
+    },
+    {
+      "id": "f04",
+      "name": "Poppy",
+      "gender": "feminine",
+      "description": "Fair pink skin, heart-shaped face, hazel eyes, short curly copper bob, freckles, wide smile, red collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Fair pink skin, heart-shaped face, hazel eyes, short curly copper bob, freckles, wide smile, red collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f04.png"
+    },
+    {
+      "id": "m05",
+      "name": "Copper",
+      "gender": "masculine",
+      "description": "Fair freckled skin, round face, hazel eyes, unruly copper curls, broad friendly grin, orange scarf.",
+      "prompt": "Use case: stylized-concept. Asset type: one retro monster-tamer game trainer portrait sprite. Exactly ONE MALE trainer, isolated head and a little shoulder, centered in a square TRANSPARENT image. A young adult man with a masculine oval face, defined jaw, thick eyebrows, friendly narrow hazel eyes, short tousled copper curls ending above the ears, a few freckles, warm fair skin, orange scarf. Consistent crisp Nintendo DS/GBA era pixel-art anime face, dark pixel outlines and flat cel shading, expressive but compact masculine eyes, visible discrete pixel blocks, drawn as a 64x64 pixel sprite enlarged nearest-neighbor. Three-quarter view facing slightly right, both eyes visible; face center x32 y36, chin y47, hair top y6; shoulders end y58. Full hair silhouette fits inside x7..58. A clearly distinct BOY/MAN, no eyelashes, no long hair. Friendly youthful adventure game style, not realistic. No text, no frame, no checkerboard, no props, no smooth gradients, no background.",
+      "source": "public/sprites/trainer-portraits/v1/source/m05.png",
+      "references": []
+    },
+    {
+      "id": "f05",
+      "name": "Saffron",
+      "gender": "feminine",
+      "description": "Warm medium-brown skin, oval face, dark eyes, long black braid over one shoulder, mustard headband, friendly smile, cream collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Warm medium-brown skin, oval face, dark eyes, long black braid over one shoulder, mustard headband, friendly smile, cream collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f05.png"
+    },
+    {
+      "id": "m06",
+      "name": "Ash",
+      "gender": "masculine",
+      "description": "Cool beige skin, sharp jaw, narrow gray eyes, asymmetrical charcoal undercut, reserved closed-mouth smile, burgundy collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one retro monster-tamer game trainer portrait sprite. Exactly ONE MALE trainer, isolated head and a little shoulder, centered in a square TRANSPARENT image. A young adult man with a strong squared jaw, straight thick eyebrows, narrow gray eyes, short asymmetrical charcoal undercut with clearly shaved sides, cool beige skin, reserved smile, burgundy shirt collar. Consistent crisp Nintendo DS/GBA era pixel-art anime face, dark pixel outlines and flat cel shading, expressive but compact masculine eyes, visible discrete pixel blocks, drawn as a 64x64 pixel sprite enlarged nearest-neighbor. Three-quarter view facing slightly right, both eyes visible; face center x32 y36, chin y47, hair top y6; shoulders end y58. Full hair silhouette fits inside x7..58. A clearly distinct BOY/MAN, no eyelashes, no long hair. Friendly youthful adventure game style, not realistic. No text, no frame, no checkerboard, no props, no smooth gradients, no background.",
+      "source": "public/sprites/trainer-portraits/v1/source/m06.png",
+      "references": []
+    },
+    {
+      "id": "f06",
+      "name": "Lilac",
+      "gender": "feminine",
+      "description": "Cool pale skin, narrow face, gray eyes, a lavender pixie cut with longer side-swept fringe, confident smile, charcoal collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Cool pale skin, narrow face, gray eyes, a lavender pixie cut with longer side-swept fringe, confident smile, charcoal collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f06.png"
+    },
+    {
+      "id": "m07",
+      "name": "Sunny",
+      "gender": "masculine",
+      "description": "Golden brown skin, wide soft face, brown eyes, short sunny-blonde curls, dimples, teal crewneck.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Golden brown skin, wide soft face, brown eyes, short sunny-blonde curls, dimples, teal crewneck.",
+      "source": "public/sprites/trainer-portraits/v1/source/m07.png"
+    },
+    {
+      "id": "f07",
+      "name": "Coral",
+      "gender": "feminine",
+      "description": "Golden tan skin, broad face, warm brown eyes, dark curly hair in two buns, coral hair ties, joyful smile, aqua collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Golden tan skin, broad face, warm brown eyes, dark curly hair in two buns, coral hair ties, joyful smile, aqua collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f07.png"
+    },
+    {
+      "id": "m08",
+      "name": "Indigo",
+      "gender": "masculine",
+      "description": "Medium warm skin, heart-shaped face, blue eyes, straight navy-black bowl cut with side part, shy smile, cream collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Medium warm skin, heart-shaped face, blue eyes, straight navy-black bowl cut with side part, shy smile, cream collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/m08.png"
+    },
+    {
+      "id": "f08",
+      "name": "Willow",
+      "gender": "feminine",
+      "description": "Fair skin, long face, green eyes, chestnut straight hair with blunt bangs, cream beret, gentle smile, green collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Fair skin, long face, green eyes, chestnut straight hair with blunt bangs, cream beret, gentle smile, green collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f08.png"
+    },
+    {
+      "id": "m09",
+      "name": "Rowan",
+      "gender": "masculine",
+      "description": "Ruddy light skin, strong broad jaw, brown eyes, chestnut side-part hair, thick brows, slight chin stubble, ochre collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Ruddy light skin, strong broad jaw, brown eyes, chestnut side-part hair, thick brows, slight chin stubble, ochre collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/m09.png"
+    },
+    {
+      "id": "f09",
+      "name": "Raven",
+      "gender": "feminine",
+      "description": "Deep brown skin, high cheekbones, dark eyes, long sleek black hair swept to one side, quiet confident smile, violet collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Deep brown skin, high cheekbones, dark eyes, long sleek black hair swept to one side, quiet confident smile, violet collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f09.png"
+    },
+    {
+      "id": "m10",
+      "name": "Mint",
+      "gender": "masculine",
+      "description": "Pale warm skin, slim round face, turquoise eyes, mint-green short tousled hair, round black glasses, small smile, white collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Pale warm skin, slim round face, turquoise eyes, mint-green short tousled hair, round black glasses, small smile, white collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/m10.png"
+    },
+    {
+      "id": "f10",
+      "name": "Skye",
+      "gender": "feminine",
+      "description": "Light peach skin, round face, blue eyes, fluffy short sky-blue hair, tiny yellow star hairpin, mischievous grin, white collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Light peach skin, round face, blue eyes, fluffy short sky-blue hair, tiny yellow star hairpin, mischievous grin, white collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f10.png"
+    },
+    {
+      "id": "m11",
+      "name": "Jasper",
+      "gender": "masculine",
+      "description": "Dark warm brown skin, angular cheekbones, brown eyes, black locs gathered into a short high ponytail, confident smile, red bandana at neck.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Dark warm brown skin, angular cheekbones, brown eyes, black locs gathered into a short high ponytail, confident smile, red bandana at neck.",
+      "source": "public/sprites/trainer-portraits/v1/source/m11.png"
+    },
+    {
+      "id": "f11",
+      "name": "Hazel",
+      "gender": "feminine",
+      "description": "Warm olive skin, square jaw, hazel eyes, short dark brown waves, round tortoiseshell glasses, soft smile, orange collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Warm olive skin, square jaw, hazel eyes, short dark brown waves, round tortoiseshell glasses, soft smile, orange collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f11.png"
+    },
+    {
+      "id": "m12",
+      "name": "Slate",
+      "gender": "masculine",
+      "description": "Light olive skin, rectangular face, dark eyes, shaved head with dark eyebrows, gentle smile, purple collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Light olive skin, rectangular face, dark eyes, shaved head with dark eyebrows, gentle smile, purple collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/m12.png"
+    },
+    {
+      "id": "f12",
+      "name": "Rose",
+      "gender": "feminine",
+      "description": "Medium brown skin, heart-shaped face, dark eyes, long rose-pink wavy ponytail, thick brows, playful smile, burgundy collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Medium brown skin, heart-shaped face, dark eyes, long rose-pink wavy ponytail, thick brows, playful smile, burgundy collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f12.png"
+    },
+    {
+      "id": "m13",
+      "name": "Reed",
+      "gender": "masculine",
+      "description": "Medium brown skin, small oval face, brown eyes, fluffy dark curls under a forest-green knit beanie, relaxed grin, yellow collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Medium brown skin, small oval face, brown eyes, fluffy dark curls under a forest-green knit beanie, relaxed grin, yellow collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/m13.png"
+    },
+    {
+      "id": "f13",
+      "name": "Clover",
+      "gender": "feminine",
+      "description": "Fair freckled skin, small round face, amber eyes, bright ginger twin braids, green cap, friendly grin, cream collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Fair freckled skin, small round face, amber eyes, bright ginger twin braids, green cap, friendly grin, cream collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f13.png"
+    },
+    {
+      "id": "m14",
+      "name": "Frost",
+      "gender": "masculine",
+      "description": "Pale rosy skin, heart-shaped face, blue eyes, short swept-back white hair with dark roots, friendly smirk, blue high collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Pale rosy skin, heart-shaped face, blue eyes, short swept-back white hair with dark roots, friendly smirk, blue high collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/m14.png"
+    },
+    {
+      "id": "f14",
+      "name": "Dune",
+      "gender": "feminine",
+      "description": "Rich warm brown skin, long oval face, brown eyes, tidy dark taupe headscarf framing the face and covering the hair, gentle smile, turquoise shirt collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Rich warm brown skin, long oval face, brown eyes, tidy dark taupe headscarf framing the face and covering the hair, gentle smile, turquoise shirt collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f14.png"
+    },
+    {
+      "id": "m15",
+      "name": "Kai",
+      "gender": "masculine",
+      "description": "Warm tan skin, wide cheekbones, dark eyes, straight black shoulder-length hair held by a red band, serene smile, cream collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one retro monster-tamer game trainer portrait sprite. Exactly ONE MALE trainer, isolated head and a little shoulder, centered in a square TRANSPARENT image. A young adult man with a broad rounded masculine face and sturdy neck, dark thick eyebrows, small brown anime eyes, short black crew cut, thin red sport headband, warm tan skin, cream sports shirt. Consistent crisp Nintendo DS/GBA era pixel-art anime face, dark pixel outlines and flat cel shading, expressive but compact masculine eyes, visible discrete pixel blocks, drawn as a 64x64 pixel sprite enlarged nearest-neighbor. Three-quarter view facing slightly right, both eyes visible; face center x32 y36, chin y47, hair top y6; shoulders end y58. Full hair silhouette fits inside x7..58. A clearly distinct BOY/MAN, no eyelashes, no long hair. Friendly youthful adventure game style, not realistic. No text, no frame, no checkerboard, no props, no smooth gradients, no background.",
+      "source": "public/sprites/trainer-portraits/v1/source/m15.png",
+      "references": []
+    },
+    {
+      "id": "f15",
+      "name": "Pearl",
+      "gender": "feminine",
+      "description": "Pale cool skin, sharp cheekbones, violet eyes, silver hair in a low side ponytail, dark bow, composed smile, navy collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Pale cool skin, sharp cheekbones, violet eyes, silver hair in a low side ponytail, dark bow, composed smile, navy collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f15.png"
+    },
+    {
+      "id": "m16",
+      "name": "Finch",
+      "gender": "masculine",
+      "description": "Fair skin, long thin face, amber eyes, messy sandy hair, rectangular glasses, noticeable freckles, friendly smile, rust collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one retro monster-tamer game trainer portrait sprite. Exactly ONE MALE trainer, isolated head and a little shoulder, centered in a square TRANSPARENT image. A young adult man with an angular masculine face and small chin, thick eyebrows, round black eyeglasses, short sandy-blond cropped hair with a few unruly spikes ending above ears, fair skin, shy friendly smile, rust-red jacket collar. Consistent crisp Nintendo DS/GBA era pixel-art anime face, dark pixel outlines and flat cel shading, expressive but compact masculine eyes, visible discrete pixel blocks, drawn as a 64x64 pixel sprite enlarged nearest-neighbor. Three-quarter view facing slightly right, both eyes visible; face center x32 y36, chin y47, hair top y6; shoulders end y58. Full hair silhouette fits inside x7..58. A clearly distinct BOY/MAN, no eyelashes, no long hair. Friendly youthful adventure game style, not realistic. No text, no frame, no checkerboard, no props, no smooth gradients, no background.",
+      "source": "public/sprites/trainer-portraits/v1/source/m16.png",
+      "references": []
+    },
+    {
+      "id": "f16",
+      "name": "Maple",
+      "gender": "feminine",
+      "description": "Golden skin, soft square face, amber eyes, dark auburn wavy hair to shoulders, yellow bandana, warm smile, olive collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Golden skin, soft square face, amber eyes, dark auburn wavy hair to shoulders, yellow bandana, warm smile, olive collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f16.png"
+    },
+    {
+      "id": "m17",
+      "name": "Flint",
+      "gender": "masculine",
+      "description": "Deep dark skin, square face, warm brown eyes, short black high-top fade, a fine eyebrow notch, bright smile, turquoise collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Deep dark skin, square face, warm brown eyes, short black high-top fade, a fine eyebrow notch, bright smile, turquoise collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/m17.png"
+    },
+    {
+      "id": "f17",
+      "name": "Violet",
+      "gender": "feminine",
+      "description": "Warm light skin, oval face, brown eyes, dark purple undercut with long swept fringe, small ear stud, confident grin, black collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Warm light skin, oval face, brown eyes, dark purple undercut with long swept fringe, small ear stud, confident grin, black collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f17.png"
+    },
+    {
+      "id": "m18",
+      "name": "Orion",
+      "gender": "masculine",
+      "description": "Medium beige skin, oval face, purple eyes, short dark purple wavy hair with parted fringe, fine brows, calm smile, lavender collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Medium beige skin, oval face, purple eyes, short dark purple wavy hair with parted fringe, fine brows, calm smile, lavender collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/m18.png"
+    },
+    {
+      "id": "f18",
+      "name": "Juniper",
+      "gender": "feminine",
+      "description": "Dark brown skin, round cheeks, green eyes, short natural black coils with a cream headband, dimples, bright smile, green collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Dark brown skin, round cheeks, green eyes, short natural black coils with a cream headband, dimples, bright smile, green collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f18.png"
+    },
+    {
+      "id": "m19",
+      "name": "Cedar",
+      "gender": "masculine",
+      "description": "Copper brown skin, broad face, dark eyes, long straight black hair in a low ponytail, strong brows, easy smile, moss collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Copper brown skin, broad face, dark eyes, long straight black hair in a low ponytail, strong brows, easy smile, moss collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/m19.png"
+    },
+    {
+      "id": "f19",
+      "name": "Amber",
+      "gender": "feminine",
+      "description": "Light tan skin, angular face, amber eyes, dark blonde shag haircut with shaggy fringe, subtle freckles, adventurous grin, red scarf.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Light tan skin, angular face, amber eyes, dark blonde shag haircut with shaggy fringe, subtle freckles, adventurous grin, red scarf.",
+      "source": "public/sprites/trainer-portraits/v1/source/f19.png"
+    },
+    {
+      "id": "m20",
+      "name": "Beacon",
+      "gender": "masculine",
+      "description": "Light warm skin, round cheeks, brown eyes, short dark hair beneath a red-and-cream forward cap, thick brows, enthusiastic smile, navy collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Light warm skin, round cheeks, brown eyes, short dark hair beneath a red-and-cream forward cap, thick brows, enthusiastic smile, navy collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/m20.png"
+    },
+    {
+      "id": "f20",
+      "name": "Luna",
+      "gender": "feminine",
+      "description": "Medium cool brown skin, heart-shaped face, dark eyes, long black twin ponytails with blue ties, crescent-shaped hair clip, gentle grin, lavender collar.",
+      "prompt": "Use case: stylized-concept. Asset type: one selectable trainer face portrait for a retro Pokémon collecting game. Create exactly ONE isolated head-and-shoulders character sprite, square image, genuinely transparent background. Reference image 1 gives the required drawing style: crisp hand-placed GBA/DS-era pixel art, dark 1px-equivalent outlines, limited flat cel-shaded palette, expressive anime eyes, compact proportions, no smooth vector edges, no painterly brushwork. Reference image 2 is the requested blonde girl character and only supplies identity when the subject description asks for it. Render as if the original sprite is 96 by 96 pixels then enlarged using nearest-neighbor: visibly coherent pixel blocks, no blur, no gradients, no antialiasing. Center the face, eyes near the middle, top of hair fully inside the frame with 6% clear margin, head fills 75% width, neck and a little shirt end cleanly at bottom 92%; full hair silhouette included. Three-quarter face with both eyes visible, friendly young adult trainer, same face scale across the set. No border, tile, frame, checkerboard, lettering, props, Pokémon or extra characters. Subject: Medium cool brown skin, heart-shaped face, dark eyes, long black twin ponytails with blue ties, crescent-shaped hair clip, gentle grin, lavender collar.",
+      "source": "public/sprites/trainer-portraits/v1/source/f20.png"
+    }
+  ]
+}

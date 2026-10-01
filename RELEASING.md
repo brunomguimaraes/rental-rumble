@@ -78,6 +78,10 @@ and production release as separate, explicitly approved operations.
    table, pre-check `select user_id, count(*) from route_events where active = 1
    group by user_id having count(*) > 1` before creating `route_one_active_idx`.
    Resolve duplicates deliberately; do not discard saves.
+   The Village market adds a `money` column to `route_accounts` through `COLUMN_ADDS`
+   (idempotent). Run `db:setup` before the deploy that ships the market: on a database
+   without the column, battle wins, coin pouches, survey claims and market trades
+   return 503 "The world map isn't ready yet." until it does.
 2. After the owner's confirmation, apply the schema to the target database before
    switching traffic to the new handlers. Without those tables the world returns
    an unavailable state while the Hub, Box, and Pokédex remain usable.
