@@ -1,4 +1,4 @@
-import type { Creature } from './types.js';
+import type { Creature, Sign } from './types.js';
 import type { GuardianSpec, PoolEntry, WildRules } from './world.js';
 import type { RNG } from './rng.js';
 import { CREATURES_BY_ID, withSign, withAbility, withBuild, asShiny, asAltColor } from './pokemon.js';
@@ -10,7 +10,7 @@ import { mintStats, toEngineStats } from './growth.js';
 // battle creature in buildWild, which mints the individual's stats the way a
 // catch would (growth.ts) and hands the engine those × 2.5.
 
-/** What the player may see of a wild: never its seed or rolled sign. */
+/** What the player may see of a wild: never its seed or mint. */
 export interface WildView {
   dexId: number;
   level: number;
@@ -18,6 +18,8 @@ export interface WildView {
   altColor: boolean;
   rare: boolean;
   guardian: boolean;
+  /** The foe's sign, for its battle card. Absent on events stored before it was sent. */
+  sign?: Sign;
 }
 
 export interface RolledWild {

@@ -49,6 +49,7 @@ check('seeded wild retains a complete individual, including emotion and unhandic
   dexId: 401, level: 2, sign: 'cancer', ability: 'swarm', shiny: false, altColor: false, emotion: 'Normal',
   stats: { hp: 3, atk: 2, eatk: 2, def: 3, edef: 4, spd: 2 },
 }));
+check('the public foe view carries the frozen sign', wild.foe?.view.sign === 'cancer');
 check('same search seed replays exactly', same(wild, rollRouteFind({ ...findBase, seed: 'test-0', kind: 'wild' })));
 const meadow = rollRouteFind({ ...findBase, seed: 'test-3', kind: 'explore' });
 check('Explore can find a wild and a new landmark together', meadow.kind === 'wild' && meadow.foe?.mint.dexId === 187 && same(meadow.landmarks, ['sunflowers']));
