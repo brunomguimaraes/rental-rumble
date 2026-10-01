@@ -101,7 +101,7 @@ export function SunnyMeadow({ state, party, locked, busy, showSurvey, onSearch, 
           <button type="button" disabled={locked} onClick={onRefresh} className="ui-button ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">Check for an action</button>
         </> : spot ? <>
           <div className="flex items-center justify-between gap-2"><h2 className="text-xl">{spot.name}</h2><span className="shrink-0 font-label text-[9px] uppercase text-accent">1 action</span></div>
-          <p className="mt-1 text-sm text-ink-dim">{spot.kind === 'explore' && guaranteed ? `Your Bag is empty. Exploring guarantees ${ROUTE_RULES.pokeBundleQuantity} Poké Balls, and may reveal a landmark.` : spot.description}</p>
+          <p className="mt-1 text-sm text-ink-dim">{spot.kind === 'explore' && guaranteed ? `You have no capture balls. Exploring guarantees ${ROUTE_RULES.pokeBundleQuantity} Poké Balls, and may reveal a landmark.` : spot.description}</p>
           <button type="button" disabled={!canSearch} onClick={() => onSearch(spot.kind)} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[10px] uppercase">{busy ? 'Searching…' : `${spot.action} · 1 action`}</button>
         </> : <>
           <p className="font-label text-[10px] uppercase text-info">Your next adventure</p><h2 className="mt-1 text-xl">Where will you go?</h2><p className="mt-2 text-sm text-ink-dim">Tap the tall grass, the path, or the trail above. Looking around is free; each search costs 1 action.</p>

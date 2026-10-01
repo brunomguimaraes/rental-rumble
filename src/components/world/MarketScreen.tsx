@@ -20,6 +20,7 @@ function TradeRow({ item, side, state, busy, onTrade }: {
   const max = Math.min(MAX_TRADE_QUANTITY, side === 'buy' ? (unit > 0 ? Math.floor(state.inventory.money / unit) : 0) : owned);
   const [wanted, setWanted] = useState(1);
   const quantity = Math.max(1, Math.min(wanted, Math.max(max, 1)));
+  const reasonId = useId();
   const reason = max > 0 ? null : side === 'buy' ? `You need ${formatMoney(unit - state.inventory.money)} more` : 'None to sell';
   return <li className="rounded-[3px] bg-slot p-3">
     <div className="flex items-center gap-3">
@@ -33,10 +34,11 @@ function TradeRow({ item, side, state, busy, onTrade }: {
       <button type="button" aria-label={`One fewer ${item.name}`} disabled={busy || quantity <= 1} onClick={() => setWanted(quantity - 1)} className="ui-button ui-focus min-h-11 min-w-11 font-label text-[11px]">−</button>
       <output aria-live="polite" aria-label={`Quantity of ${item.name}`} className="min-w-8 text-center font-label text-[11px]">{quantity}</output>
       <button type="button" aria-label={`One more ${item.name}`} disabled={busy || quantity >= max} onClick={() => setWanted(quantity + 1)} className="ui-button ui-focus min-h-11 min-w-11 font-label text-[11px]">+</button>
-      <button type="button" disabled={busy || reason !== null} onClick={() => onTrade({ itemId: item.id, side, quantity })} className="ui-button-primary ui-focus min-h-11 flex-1 px-2 font-label text-[10px] uppercase">
-        {reason ?? `${side === 'buy' ? 'Buy' : 'Sell'} ×${quantity} · ${formatMoney(unit * quantity)}`}
+      <button type="button" disabled={busy || reason !== null} aria-describedby={reason ? reasonId : undefined} onClick={() => onTrade({ itemId: item.id, side, quantity })} className="ui-button-primary ui-focus min-h-11 flex-1 px-2 font-label text-[10px] uppercase">
+        {side === 'buy' ? 'Buy' : 'Sell'} ×{quantity} · {formatMoney(unit * quantity)}
       </button>
     </div>
+    {reason && <p id={reasonId} className="mt-2 text-sm text-ink-dim">{reason}</p>}
   </li>;
 }
 
