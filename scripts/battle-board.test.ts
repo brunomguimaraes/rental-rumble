@@ -12,7 +12,8 @@ import { starterFromOffer } from '../src/game/professions.js';
 import { rollRouteFind, simulateRouteBattle } from '../src/game/route-rules.js';
 import type { InventoryState } from '../src/game/route-actions.js';
 import type { Side } from '../src/game/types.js';
-import { pmdScale } from '../src/game/pmd.js';
+import { pmdBody, pmdFrameBox, resolvePmdAnim } from '../src/game/pmd.js';
+import { PMD_SPRITES } from '../src/game/pmdSprites.gen.js';
 
 let passed = 0;
 let failed = 0;
@@ -102,11 +103,17 @@ check('seeded final board counts the loser’s faint', (battle.won ? final.foe.f
 check('seeded battle shows the foe’s sign from the view', final.foe.view?.sign === find.foe.mint.sign);
 
 
-// PMD frames scale by whole numbers on route battles (styling.md), never below 1x.
-check('a small 24px frame doubles', pmdScale({ refHeight: 24, heightPx: 84, wholeScale: true }) === 2);
-check('a mid 48px frame doubles', pmdScale({ refHeight: 48, heightPx: 84, wholeScale: true }) === 2);
-check('a large 104px frame stays native', pmdScale({ refHeight: 104, heightPx: 84, wholeScale: true }) === 1);
-check('a huge 200px frame never drops below 1x', pmdScale({ refHeight: 200, heightPx: 84, wholeScale: true }) === 1);
-check('the old battle screen keeps its relative scale', Math.abs(pmdScale({ refHeight: 48, heightPx: 84, wholeScale: false }) - 1.75) < 1e-9);
+// PMD frames stand on a feet anchor: the resting feet land on it and every anim
+// of a species shares the canvas centre, so hurt frames never jump (Charizard).
+const charizard = pmdBody(6);
+const idle = resolvePmdAnim(6, 'idle');
+const hurt = resolvePmdAnim(6, 'hurt');
+if (!charizard || !idle || !hurt) throw new Error('Charizard PMD fixture is unavailable');
+const idleBox = pmdFrameBox({ fw: idle.fw, fh: idle.fh, foot: charizard.foot });
+const hurtBox = pmdFrameBox({ fw: hurt.fw, fh: hurt.fh, foot: charizard.foot });
+check('the resting frame puts the feet on the anchor', idleBox.top + idleBox.height / 2 + charizard.foot * 2 === 0);
+check('resting and hurt frames share one centre', idleBox.left + idleBox.width / 2 === hurtBox.left + hurtBox.width / 2 && idleBox.top + idleBox.height / 2 === hurtBox.top + hurtBox.height / 2);
+const unmeasured = Object.keys(PMD_SPRITES).map(Number).filter((id) => !((pmdBody(id)?.h ?? 0) > 0));
+check(`every bundled PMD sprite has a measured body (rerun scripts/build-pmd-bodies.py): ${unmeasured.slice(0, 5).join(', ')}`, unmeasured.length === 0);
 console.log(`Battle board: ${passed} passed, ${failed} failed.`);
 process.exit(failed ? 1 : 0);
