@@ -1,76 +1,176 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { partyCreatures } from '../../game/activity';
 import type { BattleEvent } from '../../game/battle';
-import { ownedMonToCreature, type OwnedMon } from '../../game/box';
+import { boardAt, combatantFromCreature, wildCombatant, type SideBoard } from '../../game/battle-board';
+import { STATUS_LABEL, VOLATILE_LABEL, statusIconUrl, volatileIconUrl } from '../../game/battle-labels';
+import type { OwnedMon } from '../../game/box';
+import { ballUrl } from '../../game/balls';
+import { hasPmdSprite, type PmdAnimKind } from '../../game/pmd';
+import { TYPE_COLORS } from '../../game/typechart';
+import type { Side } from '../../game/types';
 import type { WildView } from '../../game/wilds';
-import { asAltColor, asShiny, backUrl, CREATURES_BY_ID, spriteUrl } from '../../game/pokemon';
+import { signIconUrl, signLabel } from '../../game/zodiac';
+import { PmdSprite } from '../PmdSprite';
+import { TypeBadges } from '../TypeBadge';
 import { PixelSprite } from '../ui/PixelSprite';
-import { Backdrop } from './Backdrop';
 import { StatBar } from '../ui/StatBar';
-import { POKEBALL, monName, speciesName } from './scene';
+import { Backdrop } from './Backdrop';
+import { POKEBALL, speciesName } from './scene';
 
-// A compact battle view that plays the server's event log line by line. It
-// never simulates: the server decided the battle and sent what happened.
+// Plays the server's event log with the old Rental Rumble choreography. It
+// never simulates: the server decided the battle and sent what happened. The
+// board comes from boardAt; animations come only from the current event.
 
-const STEP_MS = 700;
+// Pause before showing each kind of event (ms), tuned so attacks read.
+const DELAY: Record<BattleEvent['kind'], number> = {
+  sendout: 450,
+  withdraw: 700,
+  move: 900,
+  miss: 850,
+  hit: 820,
+  noeffect: 850,
+  status: 850,
+  stat: 800,
+  heal: 850,
+  statusTick: 800,
+  stunned: 800,
+  ability: 900,
+  transform: 950,
+  faint: 1150,
+  end: 650,
+};
+// Resting height (px) of a reference PMD frame; whole-scaled per species.
+const PMD_HEIGHT = 84;
+// When the send-out flash opens, matching the ball-burst beat in index.css.
+const FILL_MS = 620;
 
-/** The line to show for an event, or null for a beat with nothing to say. */
-function lineFor(e: BattleEvent, foe: WildView, trainerName?: string): string | null {
-  const prefix = trainerName ? `${trainerName}’s ` : foe.guardian ? 'The guardian ' : 'The wild ';
-  switch (e.kind) {
-    case 'sendout':
-      if (e.affected === 'foe') {
-        if (trainerName) return `${trainerName} sends out ${e.name ?? speciesName(foe.dexId)}!`;
-        return foe.guardian ? `The guardian ${e.name ?? speciesName(foe.dexId)} appears!` : `A wild ${e.name ?? speciesName(foe.dexId)} appeared!`;
-      }
-      return e.text || null;
-    case 'hit':
-      if (e.crit) return 'A critical hit!';
-      if (e.mult !== undefined && e.mult > 1) return 'It’s super effective!';
-      if (e.mult !== undefined && e.mult > 0 && e.mult < 1) return 'It’s not very effective…';
-      return null;
-    case 'faint':
-      return e.affected === 'foe' ? (e.text || '').replace(/^Foe /, prefix) : e.text || null;
-    case 'end':
-      return e.winner === 'player' ? 'You won the battle!' : 'Your party was defeated.';
-    default:
-      return e.text ? e.text.replace(/^Foe /, prefix) : null;
-  }
+interface Anim {
+  kind: PmdAnimKind;
+  loop: boolean;
+  token: number;
 }
 
-interface Board {
-  foeHp: number;
-  foeMax: number;
-  playerIndex: number;
-  playerHp: number;
-  playerMax: number;
-  line: string;
+/** What a side is doing on the current beat. One-shots settle to idle once they end. */
+function animFor({ side, board, event, at, settled, live }: {
+  side: Side; board: SideBoard; event: BattleEvent | undefined; at: number; settled: number; live: boolean;
+}): Anim {
+  if (board.hp <= 0 && board.faints > 0) return { kind: 'faint', loop: true, token: -2 };
+  if (live && event && settled !== at) {
+    if (event.kind === 'move' && event.actor === side) return { kind: event.moveAnim ?? 'attack', loop: false, token: at };
+    if (event.kind === 'hit' && event.affected === side) return { kind: 'hurt', loop: false, token: at };
+  }
+  return { kind: 'idle', loop: true, token: -1 };
 }
 
-/** Replay the log up to `upTo` (inclusive) into what the screen shows. */
-function boardAt({ events, upTo, foe, trainerName }: {
-  events: readonly BattleEvent[]; upTo: number; foe: WildView; trainerName?: string;
-}): Board {
-  const b: Board = { foeHp: 1, foeMax: 1, playerIndex: 0, playerHp: 1, playerMax: 1, line: '' };
-  for (let i = 0; i <= upTo && i < events.length; i++) {
-    const e = events[i];
-    if (e.kind === 'sendout' && e.affected === 'player' && typeof e.index === 'number') b.playerIndex = e.index;
-    if (typeof e.hp === 'number' && typeof e.maxHp === 'number') {
-      if (e.affected === 'foe') {
-        b.foeHp = e.hp;
-        b.foeMax = e.maxHp;
-      } else if (e.affected === 'player') {
-        b.playerHp = e.hp;
-        b.playerMax = e.maxHp;
-      }
-    }
-    if (e.kind === 'faint') {
-      if (e.affected === 'foe') b.foeHp = 0;
-      else b.playerHp = 0;
-    }
-    const line = lineFor(e, foe, trainerName);
-    if (line) b.line = line;
-  }
-  return b;
+function BallFx({ side, ball }: { side: Side; ball: string }) {
+  return (
+    <div className="pointer-events-none absolute bottom-6 left-1/2 z-20 -translate-x-1/2">
+      <span className="animate-ball-burst absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 bg-ink/80" />
+      <img
+        src={ballUrl(ball)}
+        alt=""
+        className={`relative h-6 w-6 object-contain [image-rendering:pixelated] ${side === 'player' ? 'animate-ball-toss-player' : 'animate-ball-toss-foe'}`}
+      />
+    </div>
+  );
+}
+
+// Module scope so it keeps its identity across beats: the PMD frame animator
+// stays mounted between events and only remounts on a fresh send-out.
+function Combatant({ side, board, anim, live, hit, shake, onAnimEnd }: {
+  side: Side;
+  board: SideBoard;
+  anim: Anim;
+  /** Play spawn effects (false after Skip and under reduced motion). */
+  live: boolean;
+  hit: { amount: number; crit: boolean; key: number } | null;
+  shake: boolean;
+  onAnimEnd: (side: Side) => void;
+}) {
+  const view = board.view;
+  if (!view) return null;
+  const pos = side === 'foe' ? 'right-[14%] bottom-[46%]' : 'left-[10%] bottom-4';
+  const fallback = (
+    <PixelSprite src={side === 'player' ? view.back : view.sprite} fallback={POKEBALL} size={96} alt="" />
+  );
+  return (
+    <div className={`absolute z-0 flex flex-col items-center ${pos}`}>
+      <div className="relative flex items-end justify-center">
+        {hit && (
+          <span key={hit.key} className={`dmg-number animate-damage-pop pointer-events-none absolute bottom-full left-1/2 z-30 mb-1 whitespace-nowrap leading-none ${hit.crit ? 'text-sm' : 'text-xs'}`}>
+            -{hit.amount}
+            {hit.crit && <span className="ml-1 font-label text-[8px] uppercase text-accent">Crit</span>}
+          </span>
+        )}
+        {live && <BallFx key={`ball-${board.spawnAt}`} side={side} ball={view.ball} />}
+        <div key={`${view.dexId}-${board.spawnAt}`} className={live ? 'animate-materialize' : ''}>
+          <div className={`flex items-end justify-center ${shake ? 'animate-shake' : ''}`}>
+            {hasPmdSprite(view.dexId) ? (
+              <PmdSprite
+                dexId={view.dexId}
+                side={side}
+                kind={anim.kind}
+                loop={anim.loop}
+                playToken={anim.token}
+                shiny={view.shiny}
+                altColor={view.altColor}
+                heightPx={PMD_HEIGHT}
+                wholeScale
+                onAnimEnd={() => onAnimEnd(side)}
+                fallback={fallback}
+              />
+            ) : (
+              fallback
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="mt-0.5 h-2 w-16 bg-edge/60" />
+    </div>
+  );
+}
+
+function InfoCard({ board, hp, pips, className }: {
+  board: SideBoard;
+  /** The HP to draw (0 while a fresh send-out's bar is filling). */
+  hp: number;
+  /** Party size for faint pips, or null for no pips. */
+  pips: number | null;
+  className: string;
+}) {
+  const view = board.view;
+  if (!view) return null;
+  return (
+    <div className={`animate-card-in absolute z-10 flex w-[48%] flex-col gap-1 rounded-[3px] border-2 border-window-frame bg-window/90 px-1.5 py-1 ${className}`}>
+      <div className="flex items-center gap-1 font-pixel text-xs">
+        <span className="truncate">{view.name}</span>
+        {view.shiny && <span className="text-caught-shiny" aria-label="Shiny">✦</span>}
+        {view.sign && <img src={signIconUrl(view.sign)} alt={signLabel(view.sign)} title={signLabel(view.sign)} className="h-4 w-4 shrink-0 object-contain" />}
+      </div>
+      <div className="flex flex-wrap items-center gap-1">
+        <TypeBadges types={view.types} />
+        {board.status && (
+          <img src={statusIconUrl(board.status)} alt={STATUS_LABEL[board.status]} title={STATUS_LABEL[board.status]} className="h-3.5 shrink-0 object-contain [image-rendering:pixelated]" />
+        )}
+        {board.volatiles.map((v) => (
+          <img key={v} src={volatileIconUrl(v)} alt={VOLATILE_LABEL[v]} title={VOLATILE_LABEL[v]} className="h-3.5 shrink-0 object-contain [image-rendering:pixelated]" />
+        ))}
+      </div>
+      <StatBar value={hp} max={board.maxHp} tone="night" label={`${view.name} HP`} segments={12} />
+      <div className="flex items-center justify-between gap-1">
+        <span className="font-label text-[10px] tabular-nums text-ink-dim">
+          {Math.max(0, Math.ceil(hp))} / {board.maxHp}
+        </span>
+        {pips !== null && (
+          <span className="flex gap-0.5" aria-label={`${pips - board.faints} of ${pips} able to battle`}>
+            {Array.from({ length: pips }, (_, i) => (
+              <span key={i} className={`h-2 w-2 ${i < pips - board.faints ? 'bg-ink' : 'border border-ink-dim'}`} />
+            ))}
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function BattleReplay({
@@ -90,61 +190,86 @@ export function BattleReplay({
   onDone: () => void;
 }) {
   const [at, setAt] = useState(0);
+  // True once Skip is used: the board jumps and no effect replays.
+  const [jumped, setJumped] = useState(false);
+  // The event index each side's one-shot animation finished on.
+  const [settled, setSettled] = useState<Record<Side, number>>({ player: -1, foe: -1 });
+  // The send-out index whose HP bar has finished filling.
+  const [filled, setFilled] = useState(-1);
   const last = events.length - 1;
   const done = at >= last;
   const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const live = !jumped && !reduced;
+
+  // Building creatures derives movesets; do it once per battle, not per beat.
+  const rosters = useMemo(() => {
+    const foeView = wildCombatant(foe);
+    return {
+      player: partyCreatures(party).map((c) => combatantFromCreature(c)),
+      foe: foeView ? [foeView] : [],
+    };
+  }, [party, foe]);
+  const board = boardAt({
+    events,
+    upTo: at,
+    player: rosters.player,
+    foe: rosters.foe,
+    narration: { foeName: speciesName(foe.dexId), guardian: foe.guardian, trainerName },
+  });
+  const event = events[at];
 
   useEffect(() => {
     if (done || reduced) return;
-    // Beats with nothing to say pass quickly.
-    const quiet = lineFor(events[at + 1] ?? events[at], foe, trainerName) === null;
-    const t = window.setTimeout(() => setAt((i) => Math.min(last, i + 1)), quiet ? STEP_MS / 3 : STEP_MS);
+    const next = events[at + 1];
+    const t = window.setTimeout(() => setAt((i) => Math.min(last, i + 1)), next ? DELAY[next.kind] : DELAY.end);
     return () => window.clearTimeout(t);
-  }, [at, done, events, foe, last, reduced, trainerName]);
+  }, [at, done, events, last, reduced]);
 
-  const b = boardAt({ events, upTo: at, foe, trainerName });
-  const lead = party[b.playerIndex] ?? party[0];
-  const foeBase = CREATURES_BY_ID[String(foe.dexId)];
-  const foeCreature = foeBase ? foe.shiny ? asShiny(foeBase) : foe.altColor ? asAltColor(foeBase) : foeBase : null;
-  const leadCreature = lead ? ownedMonToCreature(lead) : null;
+  useEffect(() => {
+    if (!live || event?.kind !== 'sendout') return;
+    const t = window.setTimeout(() => setFilled(at), FILL_MS);
+    return () => window.clearTimeout(t);
+  }, [at, event, live]);
+
+  const hpFor = (side: Side): number =>
+    live && event?.kind === 'sendout' && event.affected === side && filled !== at ? 0 : board[side].hp;
+  const hitOn = (side: Side) =>
+    live && event?.kind === 'hit' && event.affected === side
+      ? { amount: event.damage ?? 0, crit: Boolean(event.crit), key: at }
+      : null;
+  const settle = (side: Side) => setSettled((s) => ({ ...s, [side]: at }));
   const won = events[last]?.winner === 'player';
 
   return (
     <section aria-label="Battle" className="ui-window m-2 p-2">
-      <div className="relative h-56 overflow-hidden rounded-[3px] bg-slot">
+      <div className="relative h-64 overflow-hidden rounded-[3px] bg-slot">
         <Backdrop src={backdrop} anchor={0.6} />
-        <div className="absolute right-2 top-2 flex w-[48%] flex-col gap-1 rounded-[3px] border-2 border-window-frame bg-window/90 px-1.5 py-1">
-          <div className="flex items-center justify-between gap-1 text-xs">
-            <span className="truncate">
-              {speciesName(foe.dexId)}
-              {foe.shiny && <span className="ml-1 text-caught-shiny">✦</span>}
-            </span>
-          </div>
-          <StatBar value={b.foeHp} max={b.foeMax} tone="night" label={`${speciesName(foe.dexId)} HP`} segments={12} />
-        </div>
-        <PixelSprite src={foeCreature?.sprite ?? spriteUrl(foe.dexId)} fallback={POKEBALL} size={96} alt={speciesName(foe.dexId)} className={`absolute right-3 top-10 ${b.foeHp === 0 ? 'opacity-30' : ''}`} />
-
-        {lead && (
-          <>
-            <PixelSprite
-              src={leadCreature?.back ?? backUrl(lead.dexId)}
-              fallback={POKEBALL}
-              size={96}
-              alt={monName(lead)}
-              className={`absolute bottom-2 left-3 ${b.playerHp === 0 ? 'opacity-30' : ''}`}
-            />
-            <div className="absolute bottom-3 right-2 flex w-[48%] flex-col gap-1 rounded-[3px] border-2 border-window-frame bg-window/90 px-1.5 py-1">
-              <div className="flex items-center justify-between gap-1 text-xs">
-                <span className="truncate">{monName(lead)}</span>
-              </div>
-              <StatBar value={b.playerHp} max={b.playerMax} tone="night" label={`${monName(lead)} HP`} segments={12} />
-            </div>
-          </>
+        <InfoCard board={board.foe} hp={hpFor('foe')} pips={null} className="left-2 top-2" />
+        {(['foe', 'player'] as const).map((side) => (
+          <Combatant
+            key={side}
+            side={side}
+            board={board[side]}
+            anim={animFor({ side, board: board[side], event, at, settled: settled[side], live })}
+            live={live && board[side].spawnAt >= 0}
+            hit={hitOn(side)}
+            shake={hitOn(side) !== null}
+            onAnimEnd={settle}
+          />
+        ))}
+        <InfoCard board={board.player} hp={hpFor('player')} pips={rosters.player.length} className="bottom-2 right-2" />
+        {board.banner && (
+          <span
+            className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-[3px] border-2 bg-window px-2 py-0.5 font-label text-[10px] uppercase"
+            style={board.bannerType ? { borderColor: TYPE_COLORS[board.bannerType] } : undefined}
+          >
+            {board.banner}
+          </span>
         )}
       </div>
 
       <p aria-live="polite" className="mt-2 min-h-12 rounded-[3px] border-2 border-window-frame bg-edge px-2 py-1.5 text-sm">
-        {b.line || '…'}
+        {board.line || '…'}
       </p>
 
       <div className="mt-2 flex justify-end gap-2">
@@ -157,7 +282,14 @@ export function BattleReplay({
             <button type="button" onClick={() => setAt((i) => Math.min(last, i + 1))} className="ui-button ui-focus min-h-11 px-3 font-label text-[10px] uppercase">
               Next
             </button>
-            <button type="button" onClick={() => setAt(last)} className="ui-button ui-focus min-h-11 px-3 font-label text-[10px] uppercase">
+            <button
+              type="button"
+              onClick={() => {
+                setJumped(true);
+                setAt(last);
+              }}
+              className="ui-button ui-focus min-h-11 px-3 font-label text-[10px] uppercase"
+            >
               Skip
             </button>
           </>
