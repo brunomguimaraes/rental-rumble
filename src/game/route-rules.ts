@@ -10,6 +10,7 @@ import { ownedMonToCreature } from './box.js';
 import { mintStats } from './growth.js';
 import { rollIdentity } from './identity.js';
 import { ballCount, isCaptureBallId, itemById } from './items.js';
+import { meterView, projectMeter, spendMeter, type MeterRules } from './meter.js';
 import { CREATURES_BY_ID } from './pokemon.js';
 import { RNG } from './rng.js';
 import { pickFromPool } from './wilds.js';
@@ -120,35 +121,20 @@ export function wildAreas(dexId: number, rules: RouteRules = ROUTE_RULES): { nam
   return entry && place ? [{ name: placeTitle(place), rare: Boolean(entry.rare) }] : [];
 }
 
+const allowanceMeter = (rules: RouteRules): MeterRules => ({ capacity: rules.capacity, refillEveryMs: rules.refillEveryMs, floor: 0 });
+
 /** Read-only projection. At capacity there is no banked overflow or partial interval. */
 export function projectAllowance(record: AllowanceRecord, now: number, rules: RouteRules = ROUTE_RULES): AllowanceRecord {
-  const effectiveNow = Math.max(now, record.refilledAt);
-  const available = Math.max(0, Math.min(rules.capacity, Math.floor(record.available)));
-  if (available === rules.capacity) return { available, refilledAt: effectiveNow };
-  const elapsedIntervals = Math.floor((effectiveNow - record.refilledAt) / rules.refillEveryMs);
-  const replenished = Math.min(rules.capacity, available + elapsedIntervals);
-  return {
-    available: replenished,
-    refilledAt: replenished === rules.capacity
-      ? effectiveNow
-      : record.refilledAt + elapsedIntervals * rules.refillEveryMs,
-  };
+  return projectMeter(record, now, allowanceMeter(rules));
 }
 
 export function allowanceView(record: AllowanceRecord, now: number, rules: RouteRules = ROUTE_RULES): ActionAllowance {
-  const current = projectAllowance(record, now, rules);
-  return {
-    available: current.available,
-    capacity: rules.capacity,
-    refillEveryMs: rules.refillEveryMs,
-    nextRefillAt: current.available === rules.capacity ? null : current.refilledAt + rules.refillEveryMs,
-  };
+  return meterView(record, now, allowanceMeter(rules));
 }
 
 /** A transaction persists this projection together with its new encounter. */
 export function spendAllowance(record: AllowanceRecord, now: number, rules: RouteRules = ROUTE_RULES): AllowanceRecord | null {
-  const current = projectAllowance(record, now, rules);
-  return current.available > 0 ? { ...current, available: current.available - 1 } : null;
+  return spendMeter(record, now, 1, allowanceMeter(rules));
 }
 
 function mintFoe({ dexId, level, rare, statMult, rng }: {
