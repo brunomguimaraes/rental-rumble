@@ -15,9 +15,9 @@ import {
 // screen draws the header (◀ Map, the town's name, Bag) above it.
 
 /** The screens a destination opens (the rest of TownLink are places). */
-export type TownService = Exclude<TownLink, PlayableId>;
+export type TownService = Exclude<TownLink, PlayableId | 'market'>;
 /** The places a destination leads to. */
-export type TownRoad = Exclude<TownLink, TownService>;
+export type TownRoad = Exclude<TownLink, TownService | 'market'>;
 
 // The town art is a painted illustration, not a native-size tileset, and a phone
 // always shows it scaled down (about 0.2–0.75 of its pixels at 320–430 px, DPR
@@ -35,6 +35,7 @@ const ACTION_LABEL: Record<TownLink, string> = {
   party: 'Open your party',
   dex: 'Open the Pokédex',
   box: 'Open your box',
+  market: 'Enter the market',
   r1: `Walk to ${routeById('r1')?.name ?? 'Route 1'}`,
 };
 
@@ -97,6 +98,7 @@ export function TownView({
   onSpot,
   onOpen,
   onWalk,
+  onMarket,
 }: {
   spot: TownDestinationId;
   onSpot: (id: TownDestinationId) => void;
@@ -104,6 +106,8 @@ export function TownView({
   onOpen: (screen: TownService) => void;
   /** The north road: that place's own screen. */
   onWalk: (place: TownRoad) => void;
+  /** The Village market: the shop screen. */
+  onMarket: () => void;
 }) {
   const current = townDestinationById(spot) ?? TOWN_DESTINATIONS[0];
   const { bounds } = current;
@@ -112,7 +116,8 @@ export function TownView({
   const last = TOWN_DESTINATIONS[TOWN_DESTINATIONS.length - 1].number;
 
   const act = (to: TownLink) => {
-    if (to === 'party' || to === 'dex' || to === 'box') onOpen(to);
+    if (to === 'market') onMarket();
+    else if (to === 'party' || to === 'dex' || to === 'box') onOpen(to);
     else onWalk(to);
   };
 

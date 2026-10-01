@@ -223,7 +223,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
           : <Panel title={placeTitle(route)}><p className="text-sm text-ink-dim">{route.blurb}</p><button type="button" onClick={() => openPlace('r1', 'map')} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[11px] uppercase">Visit {route.name}</button></Panel>}
       </>}
       {page === 'list' && <Panel title="Places"><ul className="flex flex-col gap-2">{[home, route].map((place) => <li key={place.id}><button type="button" onClick={() => openPlace(place.id as 'home' | 'r1', 'list')} className="ui-focus flex min-h-14 w-full items-center gap-3 rounded-[3px] bg-slot p-3 text-left"><span className="min-w-0 flex-1"><span className="block text-base">{placeTitle(place)}</span><span className="text-sm text-ink-dim">{place.id === 'home' ? 'Home town' : 'Wild Pokémon, friendly trainers, and landmarks'}</span></span>{place.id === 'home' && <TownAvatar className="h-10 w-10" />}</button></li>)}</ul></Panel>}
-      {page === 'home' && <TownView spot={spot} onSpot={setSpot} onOpen={(screen) => onVisit(screen, spot)} onWalk={walkTo} />}
+      {page === 'home' && <TownView spot={spot} onSpot={setSpot} onOpen={(screen) => onVisit(screen, spot)} onWalk={walkTo} onMarket={() => {}} />}
       {page === 'r1' && <>
         <div className="ui-window relative m-2 h-36 overflow-hidden" aria-hidden="true"><Backdrop src={backdropUrl(route)} /></div>
         <Panel title="Route 1 · Meadow"><p className="text-sm leading-relaxed">{route.blurb}</p><p className="mt-2 text-sm text-ink-dim">Find a wild Pokémon, meet someone, or explore. Each search finds something. Win battles to grow your party.</p></Panel>

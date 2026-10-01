@@ -17,7 +17,7 @@ export type TownDestinationId =
   | 'north-exit';
 
 /** What a destination's card opens: a screen (party, dex, box) or a place (`r1`, Sunny Meadow). */
-export type TownLink = 'party' | 'dex' | 'box' | 'r1';
+export type TownLink = 'party' | 'dex' | 'box' | 'market' | 'r1';
 
 export interface TownDestination {
   id: TownDestinationId;
@@ -64,7 +64,7 @@ export const TOWN_DESTINATIONS: readonly TownDestination[] = [
     anchor: { x: 417, y: 490 },
     description: 'A warm brick bakery on the western lane, with an oven chimney, bread window, and striped awning.',
     role: 'Everyday food and a familiar face on the way through town.',
-    link: null,
+    link: 'market',
   },
   {
     id: 'market',
@@ -74,8 +74,8 @@ export const TOWN_DESTINATIONS: readonly TownDestination[] = [
     bounds: { x: 634, y: 80, width: 293, height: 240 },
     anchor: { x: 777, y: 283 },
     description: 'A timber shop and open produce stalls under striped awnings.',
-    role: 'Where the town’s gardens and orchards send their harvest.',
-    link: null,
+    role: "Where the town’s gardens and orchards send their harvest.",
+    link: 'market',
   },
   {
     id: 'pokemon-center',
@@ -85,7 +85,7 @@ export const TOWN_DESTINATIONS: readonly TownDestination[] = [
     bounds: { x: 938, y: 303, width: 282, height: 216 },
     anchor: { x: 1069, y: 491 },
     description: 'A small country Pokémon Center with a covered entrance, bright red roof, and garden borders.',
-    role: 'The town’s welcoming stop for trainers and their partners.',
+    role: "The town’s welcoming stop for trainers and their partners.",
     link: 'party',
   },
   {
@@ -113,13 +113,13 @@ export const TOWN_DESTINATIONS: readonly TownDestination[] = [
   {
     id: 'professors-lab',
     number: '06',
-    name: 'Professor’s lab',
+    name: "Professor’s lab",
     kind: 'service',
     bounds: { x: 216, y: 29, width: 331, height: 216 },
     anchor: { x: 394, y: 213 },
     description: 'A teal-roofed research house with a glass greenhouse and carefully tended beds.',
     role: 'Where the professor studies Pokémon and keeps notes on Hearthvale.',
-    link: null,
+    link: 'market',
   },
   {
     id: 'town-square',
@@ -128,9 +128,9 @@ export const TOWN_DESTINATIONS: readonly TownDestination[] = [
     kind: 'public-space',
     bounds: { x: 621, y: 367, width: 283, height: 244 },
     anchor: { x: 749, y: 568 },
-    description: 'A mature shade tree, well, benches, and flower beds connect the town’s paths.',
-    role: 'The town’s shared living room and central meeting point.',
-    link: null,
+    description: "A mature shade tree, well, benches, and flower beds connect the town’s paths.",
+    role: "The town’s shared living room and central meeting point.",
+    link: 'market',
   },
   {
     id: 'north-exit',
