@@ -398,6 +398,9 @@ try {
     const earlyParty = [(await readOwnedByUser(preTravel.db, 'early'))[0].id];
     try { await travelRoute(preTravel.db, 'early', { requestId: 'early-trip', to: 'r1', partyIds: earlyParty }, T); check('a trip before db:setup is a schema failure', false); }
     catch (e) { check('a trip before db:setup is a schema failure', isMissingSchema(e)); }
+    await onboardUser(preTravel.db, 'late', 10, 5);
+    try { await activateRoute(preTravel.db, 'late', 'late-activate', T); check('activation before db:setup is a schema failure that grants nothing', false); }
+    catch (e) { check('activation before db:setup is a schema failure that grants nothing', isMissingSchema(e) && await readRouteAccount(preTravel.db, 'late') === null && (await loadRouteState(preTravel.db, 'late', T)).inventory.stacks.length === 0); }
   } finally { preTravel.cleanup(); }
 } finally { t.cleanup(); }
 finish();

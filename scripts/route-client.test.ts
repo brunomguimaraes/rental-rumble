@@ -165,6 +165,7 @@ check('an affordable trip has no block', travelBlock({ quote: walk, travel: mete
 check('an open encounter blocks travel first', travelBlock({ quote: walk, travel: meter(12, null), encounterOpen: true, now: 0 }) === 'Finish or leave your encounter before you travel.');
 check('a short meter names the wait for enough points', travelBlock({ quote: walk, travel: meter(1, 600_000), encounterOpen: false, now: 0 }) === 'Not enough travel stamina. Enough to travel in 40 min.');
 check('debt counts every missing point', travelBlock({ quote: walk, travel: meter(-4, 900_000), encounterOpen: false, now: 0 }) === 'Not enough travel stamina. Enough to travel in 2 h.');
+check('a wait over an hour names hours and minutes', travelBlock({ quote: walk, travel: meter(-2, 900_000), encounterOpen: false, now: 0 }) === 'Not enough travel stamina. Enough to travel in 1 h 30 min.');
 check('no route there is its own reason', travelBlock({ quote: null, travel: meter(12, null), encounterOpen: false, now: 0 }) === 'You can’t get there from here.');
 
 console.log(`${passed} passed, ${failed} failed`);

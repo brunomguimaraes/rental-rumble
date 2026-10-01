@@ -19,7 +19,7 @@ export function TrainerBar({ portrait, displayName, mentorName, balls, stamina, 
   onOpenSettings: () => void;
 }) {
   return (
-    <header className="ui-window grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 p-2 min-[400px]:gap-x-3">
+    <section aria-label="Trainer" className="ui-window grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 p-2 min-[400px]:gap-x-3">
       <div className={`${balls === undefined ? 'row-span-2' : 'row-span-3'} grid place-items-center self-start rounded-[3px] border-2 border-window-frame bg-slot p-1`}>
         {portrait}
       </div>
@@ -49,7 +49,7 @@ export function TrainerBar({ portrait, displayName, mentorName, balls, stamina, 
       )}
 
       {stamina && <StaminaRows stamina={stamina} />}
-    </header>
+    </section>
   );
 }
 
@@ -57,8 +57,9 @@ function StaminaRows({ stamina }: { stamina: { travel: MeterView; actions: Meter
   const now = useServerClock(stamina.serverNow);
   return (
     <div className="col-span-3 flex flex-col gap-1 border-t-2 border-window-frame pt-1">
-      <StaminaMeter label="Travel" meter={stamina.travel} now={now} fill="bg-info" />
-      <StaminaMeter label="Actions" meter={stamina.actions} now={now} fill="bg-exp" />
+      {/* Travel can run into debt down to -capacity after a whiteout; actions stop at zero. */}
+      <StaminaMeter label="Travel" meter={stamina.travel} min={-stamina.travel.capacity} now={now} fill="bg-info" />
+      <StaminaMeter label="Actions" meter={stamina.actions} min={0} now={now} fill="bg-exp" />
     </div>
   );
 }

@@ -125,8 +125,9 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     setResultOnly(false);
     setSelectedBall(null);
     if (command.operation === 'travel') {
-      // A trip home from the market's travel panel goes back into the market.
-      const to = command.input.to;
+      // The fresh state says where the trainer now stands. A trip home from the market's travel panel
+      // goes back into the market.
+      const to = fresh.trainerAt;
       setSelected(to);
       setPage((current) => (current === 'market' && to === 'home' ? 'market' : to));
       scrollToTop();
