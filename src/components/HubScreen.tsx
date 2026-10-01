@@ -2,7 +2,7 @@ import type { AccountUser } from '../game/account';
 import { ownedMonToCreature, type OwnedMon } from '../game/box';
 import type { Profile } from '../game/profile';
 import { professorById } from '../game/professions';
-import type { WorldState } from '../game/activity';
+import type { RouteState } from '../game/route-actions';
 import { HubParty } from './HubParty';
 import { HubActivity } from './HubActivity';
 import { Credits } from './Credits';
@@ -11,14 +11,14 @@ import { InstallGuide } from './InstallGuide';
 
 export function HubScreen({
   me, box, profile, party, world, worldError, serverOffsetMs,
-  onViewBox, onViewDex, onViewGuide, onViewAccount, onEditParty, onOpenMap, onOpenActivity, onRetryWorld,
+  onViewBox, onViewDex, onViewGuide, onViewAccount, onEditParty, onOpenMap, onOpenActivity, onOpenBag, onRetryWorld,
 }: {
   me: AccountUser;
   box: OwnedMon[];
   profile: Profile;
   /** The saved party's rows, lead first. */
   party: OwnedMon[];
-  world: WorldState | null;
+  world: RouteState | null;
   worldError: string | null;
   serverOffsetMs: number;
   onViewBox: () => void;
@@ -28,6 +28,7 @@ export function HubScreen({
   onEditParty: () => void;
   onOpenMap: () => void;
   onOpenActivity: () => void;
+  onOpenBag: () => void;
   onRetryWorld: () => void;
 }) {
   const professor = professorById(profile.mentor);
@@ -54,6 +55,7 @@ export function HubScreen({
         serverOffsetMs={serverOffsetMs}
         onOpenMap={onOpenMap}
         onOpenActivity={onOpenActivity}
+        onOpenBag={onOpenBag}
         onOpenBox={onViewBox}
         onRetry={onRetryWorld}
       />

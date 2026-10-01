@@ -1,6 +1,6 @@
 # Rental Rumble
 
-A login-based collecting game with real Pokémon: a saved party, the Hearthvale world map, expeditions, and idle training (`src/game/world*.ts`, `api/world`). React 19 · TypeScript · Vite · Tailwind CSS v4 on the
+A login-based collecting game with real Pokémon: a saved party, the Hearthvale world map, active Sunny Meadow encounters, and a persistent Bag (`src/game/route-*.ts`, `src/game/items.ts`, `api/world`). Historical idle/expedition rules remain only for save compatibility. React 19 · TypeScript · Vite · Tailwind CSS v4 on the
 front; Vercel serverless functions in `api/` backed by Turso (libSQL/SQLite) and Upstash Redis on the back.
 
 `CLAUDE.md` points to `AGENTS.md`; `.claude/` points to `.agents/`. Edit the canonical files and keep both symlinks.

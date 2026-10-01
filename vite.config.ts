@@ -40,13 +40,14 @@ export default defineConfig({
   // nothing) is required to actually exclude them. App-code (src/) HMR is
   // unaffected; you just won't get auto-reload when editing a raw sprite/asset.
   server: {
-    port: 3000,
+    // Separate ports let browser checks use a disposable database beside a running dev session.
+    port: Number(process.env.DEV_WEB_PORT) || 3000,
     // Local API: Vite proxies /api/* to the standalone handler server
     // (scripts/dev-api.ts on :3001) instead of `vercel dev`, which can't watch
     // this repo's ~50k sprites without EMFILE. `npm run dev:local` runs both
     // together; plain `npm run dev` is frontend-only (so /api just won't answer).
     proxy: {
-      '/api': { target: 'http://localhost:3001', changeOrigin: false },
+      '/api': { target: `http://localhost:${Number(process.env.DEV_API_PORT) || 3001}`, changeOrigin: false },
     },
     watch: {
       ignored: (filePath: string) =>

@@ -1,9 +1,10 @@
 # Rental Rumble
 
 A web-based, login-based collecting game using **real Pokémon**. Pick a
-profession, choose one of three weak starters from Professor Oak, and build your
-box. Save a party of up to six, open the world map of Hearthvale, explore its
-routes checkpoint by checkpoint, and send your party to train while you're away.
+profession, choose one of three weak starters from Professor Andre, and build your
+box. Save a party of up to six, open the world map of Hearthvale, and visit
+Sunny Meadow for wild encounters, trainer battles, and exploration. Catch Pokémon
+with balls from your Bag and grow your party through active battles.
 
 > Private project for me and my friends — not for commercial use. Pokémon data
 > comes from [PokeAPI](https://pokeapi.co/). The static fallback battle sprites
@@ -37,12 +38,18 @@ routes checkpoint by checkpoint, and send your party to train while you're away.
 
 ## How it plays
 
-1. **Onboard** — pick the Trainer profession. Professor Oak offers three weak,
+1. **Onboard** — pick the Trainer profession. Professor Andre offers three weak,
    three-stage starters drawn from a pool of ten (Caterpie, Weedle, Pidgey,
    Oddish, Poliwag, Geodude, Mareep, Hoppip, Lotad, Starly). The three are fixed
-   per account; the server checks the pick and mints a level 5 starter.
-2. **Box** — nickname your Pokémon and see when each one evolves (starters at 8
-   and 16, others at 16 and 32). Nothing grants EXP until the next loop lands.
+   per account; the server checks the pick and mints your partner.
+2. **Explore** — visit Sunny Meadow through the map. Find a wild Pokémon, find
+   an NPC, or Explore for one action. Actions refill at six per hour up to 48.
+3. **Battle and catch** — win automatic battles to grow the party's six stats.
+   Try one throw before a wild battle or after a win; every throw consumes a
+   Poké Ball or Great Ball from your persistent Bag.
+4. **Collect** — discover three landmarks, complete the Meadow survey, and
+   find supplies. With an empty Bag, Explore guarantees three Poké Balls.
+   Catch unique Pokémon for your Box and choose your next saved party.
 
 Under it all: **1025 Pokémon** with real base stats and types
 (`scripts/gen-pokedex.ts` into `src/game/pokedex.gen.ts`), the real 18-type chart
@@ -59,9 +66,13 @@ npx tsx scripts/gen-pokedex.ts   # set MAX_DEX to change how many are included
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
+npm run dev:local # full stack at http://localhost:3000 (requires a local database)
 npm run build    # production build
 ```
+
+For an isolated dev session, set `TURSO_DATABASE_URL` to a disposable file database
+and use `DEV_WEB_PORT` / `DEV_API_PORT` to avoid existing servers. Apply the schema
+only to that test database; do not overwrite `local.db`.
 
 ## Tech
 

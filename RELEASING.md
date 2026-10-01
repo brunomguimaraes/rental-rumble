@@ -66,6 +66,41 @@ can't land or ship.
 
 ## Release checklist
 
+### Active Sunny Meadow and inventory rollout
+
+This feature is a sweeping gameplay redesign; use the **major** release path
+when the owner requests the release. Keep schema application, feature activation,
+and production release as separate, explicitly approved operations.
+
+1. Review the additive tables: `route_accounts`, `inventory_items`, `route_events`,
+   `route_receipts`, and `route_quests`. Existing owned Pokémon, progress, and idle
+   activity tables remain. If a deployment already has a prototype `route_events`
+   table, pre-check `select user_id, count(*) from route_events where active = 1
+   group by user_id having count(*) > 1` before creating `route_one_active_idx`.
+   Resolve duplicates deliberately; do not discard saves.
+2. After the owner's confirmation, apply the schema to the target database before
+   switching traffic to the new handlers. Without those tables the world returns
+   an unavailable state while the Hub, Box, and Pokédex remain usable.
+3. Choose and record one immutable `ROUTE_ACTIONS_CUTOVER_AT` value in epoch
+   milliseconds. Configure the same value on every deployment that serves this
+   database. It bounds old training rewards; never substitute the request time or
+   change it on later releases. Disable legacy gameplay writers when switching
+   traffic, including older deployments that still share the production database.
+4. First activation settles an account's open legacy activity and initializes its
+   12 actions and 20 Poké Balls atomically. Training only pays through the cutoff;
+   expeditions pay their banked EXP without another checkpoint/clear. No bulk save
+   rewrite or scheduled job is required. Missing cutoff configuration prevents a
+   legacy transition rather than extending rewards.
+5. Verify a fresh account, an account with an open old activity, an existing
+   collection, a lost-response retry, and Bag/catch consumption on the preview.
+   Use temporary file databases locally; do not overwrite `local.db`.
+6. Do not restore old gameplay writers after accounts start using the new route
+   flow: they would bypass the action bank and restart offline growth. Prefer a
+   forward fix, or a maintenance response for world mutations while correcting
+   the new handlers. Keep all additive tables and historical records intact.
+
+### Historical schema checklist
+
 Before running `npm run db:setup` against the production database:
 
 1. Confirm no account has more than one open idle session, since the unique

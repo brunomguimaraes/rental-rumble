@@ -8,11 +8,13 @@
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applySchema, readActivity, readOwnedByUser } from '../api/_db.js';
+import { startActivity } from '../api/_world.js';
 import { signSession } from '../api/_session.js';
 import { legacyDb, legacyOnboard, mintMon, check, finish } from './world-test-kit.js';
 
 const SECRET = 'world-api-test-secret-0123456789';
 process.env.AUTH_SECRET = SECRET;
+process.env.ROUTE_ACTIONS_CUTOVER_AT = String(Date.now());
 delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 
@@ -82,32 +84,25 @@ try {
   const wrongMethod = await call(world, 'GET', 'start', 'u1');
   check('GET on a write is 405 with Allow: POST', wrongMethod.status === 405 && wrongMethod.headers.allow === 'POST');
   check('an unknown action is 404', (await call(world, 'GET', 'nope', 'u1')).status === 404);
-  check('an empty start is 400', (await call(world, 'POST', 'start', 'u1', {})).status === 400);
-  check('a broken JSON body is 400, not a crash', (await call(world, 'POST', 'start', 'u1', '{nope')).status === 400);
+  check('an old empty start is retired', (await call(world, 'POST', 'start', 'u1', {})).status === 409);
+  check('a broken old request is retired without crashing', (await call(world, 'POST', 'start', 'u1', '{nope')).status === 409);
   check('the box needs a session', (await call(me, 'GET', 'box', null)).status === 401);
 
   console.log('\n[3] state, start, finish, dismiss');
   const state = await call(world, 'GET', 'state', 'u1');
   check('state has the map, the clock, and the trainer’s spot',
-    state.status === 200 && Array.isArray(state.body.places) && typeof state.body.serverNow === 'number' && state.body.trainerAt === 'home');
+    state.status === 200 && Array.isArray((state.body.state as { places: unknown[] }).places) && typeof (state.body.state as { serverNow: number }).serverNow === 'number' && (state.body.state as { trainerAt: string }).trainerAt === 'home');
   const profile = await call(me, 'GET', 'profile', 'u1');
   const party = (profile.body.profile as { party?: string[] } | undefined)?.party;
   check('the profile carries the resolved party (the starter)', JSON.stringify(party) === JSON.stringify([starter.id]));
-  const started = await call(world, 'POST', 'start', 'u1', { mode: 'train', locationId: 'r1', partyIds: [starter.id], requestId: 'r-1' });
-  const activity = started.body.activity as { id: string } | undefined;
-  check('a start returns the activity', started.status === 200 && started.body.ok === true && typeof activity?.id === 'string');
+  const retired = await call(world, 'POST', 'start', 'u1', { mode: 'train', locationId: 'r1', partyIds: [starter.id], requestId: 'r-1' });
+  check('old start requests receive a refresh response', retired.status === 409 && retired.body.retired === true);
+  const started = await startActivity(db, 'u1', { mode: 'train', locationId: 'r1', partyIds: [starter.id], requestId: 'legacy-fixture' }, Date.now() - 10000);
+  const activity = started.status === 'ok' ? started.activity : undefined;
   const seed = activity ? ((await readActivity(db, 'u1', activity.id))?.seed ?? '') : '';
-  check('the seed is not in the response', seed.length > 0 && !JSON.stringify(started.body).includes(seed));
-  const busy = await call(world, 'POST', 'start', 'u1', { mode: 'explore', locationId: 'r1', partyIds: [starter.id], requestId: 'r-2' });
-  check('a second start is 409 with the running activity', busy.status === 409 && (busy.body.activity as { id?: string })?.id === activity?.id);
-  const locked = await call(world, 'POST', 'start', 'u2', {
-    mode: 'train',
-    locationId: 'r2',
-    partyIds: [(await readOwnedByUser(db, 'u2'))[0]?.id],
-    requestId: 'r-3',
-  });
-  check('a locked route is 400', locked.status === 400 && locked.body.error === 'That place is still locked.');
-  check('stepping a training activity is 400', (await call(world, 'POST', 'step', 'u1', { activityId: activity?.id, step: 0, choice: 'fight' })).status === 400);
+  check('old steps cannot advance expeditions', (await call(world, 'POST', 'step', 'u1', { activityId: activity?.id, step: 0, choice: 'fight' })).status === 409);
+  const later = await call(world, 'POST', 'start', 'u2', { mode: 'explore', locationId: 'r2', requestId: 'later' });
+  check('later routes cannot start through legacy HTTP', later.status === 409 && later.body.retired === true);
   check('another trainer’s activity is 404', (await call(world, 'POST', 'finish', 'u2', { activityId: activity?.id })).status === 404);
   const done = await call(world, 'POST', 'finish', 'u1', { activityId: activity?.id });
   check('finishing returns the result and the box', done.status === 200 && typeof done.body.result === 'object' && Array.isArray(done.body.box));
@@ -129,8 +124,7 @@ try {
   const after = await call(me, 'GET', 'profile', 'u1');
   check('the profile shows it', JSON.stringify((after.body.profile as { party?: string[] }).party) === JSON.stringify([extra.id, starter.id]));
   const stale = await call(world, 'POST', 'start', 'u1', { mode: 'train', locationId: 'r1', partyIds: [starter.id], requestId: 'r-4' });
-  check('starting with the old party is 409 with the saved one',
-    stale.status === 409 && JSON.stringify(stale.body.party) === JSON.stringify([extra.id, starter.id]));
+  check('old starts stay retired after party changes', stale.status === 409 && stale.body.retired === true);
 } finally {
   t.cleanup();
 }

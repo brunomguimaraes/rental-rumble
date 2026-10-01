@@ -108,6 +108,10 @@ export async function openWriteTx(db: Db): Promise<Transaction> {
       return await db.transaction('write');
     } catch (err) {
       if (!errorText(err).includes('SQLITE_BUSY') || attempt >= 8) throw err;
+      // libsql's local driver retains the failed BEGIN statement on its idle
+      // connection. Reopen only that connection before retrying; successful
+      // transactions own separate connections and remain untouched.
+      if (db.protocol === 'file') await db.reconnect();
       await new Promise((r) => setTimeout(r, 25 * (attempt + 1)));
     }
   }
@@ -319,7 +323,7 @@ function ownedFromSpec(id: string, spec: MintSpec, origin: CatchOrigin, now: num
 
 /** Mint a new owned mon from a rolled spec. Returns the stored row. */
 export async function insertOwned(
-  db: Db,
+  db: Executor,
   uid: string,
   spec: MintSpec,
   origin: CatchOrigin,
@@ -701,4 +705,138 @@ export async function insertEncounterRows(
       args: [sessionId, e.slot, e.dexId, e.level, e.won ? 1 : 0],
     })),
   );
+}
+
+// --- Active routes and Bag ---------------------------------------------------
+// Multi-step writes below are called inside the route domain's write transaction.
+
+export interface RouteAccountRow {
+  activatedAt: number;
+  actions: number;
+  refilledAt: number;
+  inventoryRevision: number;
+  revision: number;
+  transition: unknown;
+}
+
+export async function readRouteAccount(db: Executor, uid: string): Promise<RouteAccountRow | null> {
+  const rs = await db.execute({ sql: 'select * from route_accounts where user_id = ?', args: [uid] });
+  const r = rs.rows[0];
+  return r ? {
+    activatedAt: Number(r.activated_at), actions: Number(r.actions), refilledAt: Number(r.refilled_at),
+    inventoryRevision: Number(r.inventory_revision), revision: Number(r.revision), transition: parseJson(r.transition),
+  } : null;
+}
+
+export async function insertRouteAccount(db: Executor, uid: string, actions: number, now: number, transition: unknown): Promise<void> {
+  await db.execute({
+    sql: 'insert into route_accounts (user_id, activated_at, actions, refilled_at, transition) values (?, ?, ?, ?, ?)',
+    args: [uid, now, actions, now, transition === null ? null : JSON.stringify(transition)],
+  });
+}
+
+export async function writeRouteAllowance(db: Executor, uid: string, actions: number, refilledAt: number): Promise<void> {
+  await db.execute({ sql: 'update route_accounts set actions = ?, refilled_at = ? where user_id = ?', args: [actions, refilledAt, uid] });
+}
+
+export async function readInventoryRows(db: Executor, uid: string): Promise<{ itemId: string; quantity: number }[]> {
+  const rs = await db.execute({ sql: 'select item_id, quantity from inventory_items where user_id = ? order by item_id', args: [uid] });
+  return rs.rows.map((r) => ({ itemId: String(r.item_id), quantity: Number(r.quantity) }));
+}
+
+/** Shared acquisition/consumption path. Negative changes are conditional, never clamped. */
+export async function changeInventory(db: Executor, uid: string, itemId: string, quantity: number): Promise<boolean> {
+  if (!Number.isSafeInteger(quantity) || quantity === 0) throw new Error('Invalid inventory change');
+  if (quantity < 0) {
+    const rs = await db.execute({
+      sql: 'update inventory_items set quantity = quantity + ? where user_id = ? and item_id = ? and quantity >= ?',
+      args: [quantity, uid, itemId, -quantity],
+    });
+    if (rs.rowsAffected !== 1) return false;
+  } else {
+    await db.execute({
+      sql: `insert into inventory_items (user_id, item_id, quantity) values (?, ?, ?)
+            on conflict (user_id, item_id) do update set quantity = inventory_items.quantity + excluded.quantity`,
+      args: [uid, itemId, quantity],
+    });
+  }
+  await db.execute({ sql: 'update route_accounts set inventory_revision = inventory_revision + 1 where user_id = ?', args: [uid] });
+  return true;
+}
+
+export interface RouteEventRow {
+  id: string;
+  createdAt: number;
+  revision: number;
+  active: boolean;
+  seenAt: number | null;
+  data: unknown;
+}
+function rowToRouteEvent(r: Record<string, unknown>): RouteEventRow {
+  return { id: String(r.id), createdAt: Number(r.created_at), revision: Number(r.revision), active: Number(r.active) === 1, seenAt: nullableNumber(r.seen_at), data: parseJson(r.data) };
+}
+export async function readRouteEvent(db: Executor, uid: string, eventId: string): Promise<RouteEventRow | null> {
+  const rs = await db.execute({ sql: 'select * from route_events where user_id = ? and id = ?', args: [uid, eventId] });
+  return rs.rows[0] ? rowToRouteEvent(rs.rows[0] as unknown as Record<string, unknown>) : null;
+}
+export async function readActiveRouteEvent(db: Executor, uid: string): Promise<RouteEventRow | null> {
+  const rs = await db.execute({ sql: 'select * from route_events where user_id = ? and active = 1 limit 1', args: [uid] });
+  return rs.rows[0] ? rowToRouteEvent(rs.rows[0] as unknown as Record<string, unknown>) : null;
+}
+export async function readUnseenRouteEvent(db: Executor, uid: string): Promise<RouteEventRow | null> {
+  const rs = await db.execute({ sql: 'select * from route_events where user_id = ? and active = 0 and seen_at is null order by created_at desc, rowid desc limit 1', args: [uid] });
+  return rs.rows[0] ? rowToRouteEvent(rs.rows[0] as unknown as Record<string, unknown>) : null;
+}
+export async function hasRouteEvents(db: Executor, uid: string): Promise<boolean> {
+  const rs = await db.execute({ sql: 'select id from route_events where user_id = ? limit 1', args: [uid] });
+  return rs.rows.length > 0;
+}
+export async function insertRouteEvent(db: Executor, uid: string, row: RouteEventRow): Promise<void> {
+  await db.execute({
+    sql: 'insert into route_events (id, user_id, created_at, revision, active, seen_at, data) values (?, ?, ?, ?, ?, ?, ?)',
+    args: [row.id, uid, row.createdAt, row.revision, row.active ? 1 : 0, row.seenAt, JSON.stringify(row.data)],
+  });
+}
+export async function updateRouteEvent(db: Executor, uid: string, row: RouteEventRow, expectedRevision: number): Promise<boolean> {
+  const rs = await db.execute({
+    sql: 'update route_events set revision = ?, active = ?, data = ? where user_id = ? and id = ? and revision = ?',
+    args: [row.revision, row.active ? 1 : 0, JSON.stringify(row.data), uid, row.id, expectedRevision],
+  });
+  return rs.rowsAffected === 1;
+}
+export async function dismissRouteEvent(db: Executor, uid: string, eventId: string, now: number): Promise<boolean> {
+  const rs = await db.execute({ sql: 'update route_events set seen_at = coalesce(seen_at, ?) where user_id = ? and id = ? and active = 0', args: [now, uid, eventId] });
+  return rs.rowsAffected === 1;
+}
+export async function dismissPriorRouteEvents(db: Executor, uid: string, now: number): Promise<void> {
+  await db.execute({ sql: 'update route_events set seen_at = coalesce(seen_at, ?) where user_id = ? and active = 0', args: [now, uid] });
+}
+export async function readRouteReceipt(db: Executor, uid: string, requestId: string): Promise<{ payload: string; receipt: unknown } | null> {
+  const rs = await db.execute({ sql: 'select payload, receipt from route_receipts where user_id = ? and request_id = ?', args: [uid, requestId] });
+  return rs.rows[0] ? { payload: String(rs.rows[0].payload), receipt: parseJson(rs.rows[0].receipt) } : null;
+}
+export async function insertRouteReceipt(db: Executor, uid: string, requestId: string, payload: string, receipt: unknown, now: number): Promise<void> {
+  await db.execute({ sql: 'insert into route_receipts (user_id, request_id, payload, receipt, created_at) values (?, ?, ?, ?, ?)', args: [uid, requestId, payload, JSON.stringify(receipt), now] });
+}
+export async function readRouteQuest(db: Executor, uid: string, questId: string): Promise<{ acceptedAt: number; claimedAt: number | null } | null> {
+  const rs = await db.execute({ sql: 'select accepted_at, claimed_at from route_quests where user_id = ? and quest_id = ?', args: [uid, questId] });
+  return rs.rows[0] ? { acceptedAt: Number(rs.rows[0].accepted_at), claimedAt: nullableNumber(rs.rows[0].claimed_at) } : null;
+}
+export async function acceptRouteQuest(db: Executor, uid: string, questId: string, now: number): Promise<void> {
+  await db.execute({ sql: 'insert or ignore into route_quests (user_id, quest_id, accepted_at) values (?, ?, ?)', args: [uid, questId, now] });
+}
+export async function markRouteQuestClaimed(db: Executor, uid: string, questId: string, now: number): Promise<boolean> {
+  const rs = await db.execute({ sql: 'update route_quests set claimed_at = ? where user_id = ? and quest_id = ? and claimed_at is null', args: [now, uid, questId] });
+  return rs.rowsAffected === 1;
+}
+export async function countOwned(db: Executor, uid: string): Promise<number> {
+  const rs = await db.execute({ sql: 'select count(*) as total from owned_pokemon where user_id = ?', args: [uid] });
+  return Number(rs.rows[0]?.total) || 0;
+}
+export async function recordCaughtDex(db: Executor, uid: string, mon: OwnedMon, now: number): Promise<void> {
+  await db.execute({ sql: 'insert or ignore into pokedex_cells (user_id, dex_id, layer, caught_at) values (?, ?, ?, ?)', args: [uid, mon.dexId, mon.shiny ? 's' : mon.altColor ? 'a' : 'n', now] });
+}
+
+export async function advanceRouteRevision(db: Executor, uid: string): Promise<void> {
+  await db.execute({ sql: 'update route_accounts set revision = revision + 1 where user_id = ?', args: [uid] });
 }

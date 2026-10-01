@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { BattleEvent } from '../../game/battle';
-import type { OwnedMon } from '../../game/box';
+import { ownedMonToCreature, type OwnedMon } from '../../game/box';
 import type { WildView } from '../../game/wilds';
-import { backUrl, spriteUrl } from '../../game/pokemon';
+import { asAltColor, asShiny, backUrl, CREATURES_BY_ID, spriteUrl } from '../../game/pokemon';
 import { PixelSprite } from '../ui/PixelSprite';
 import { Backdrop } from './Backdrop';
 import { StatBar } from '../ui/StatBar';
@@ -14,10 +14,12 @@ import { POKEBALL, monName, speciesName } from './scene';
 const STEP_MS = 700;
 
 /** The line to show for an event, or null for a beat with nothing to say. */
-function lineFor(e: BattleEvent, foe: WildView): string | null {
+function lineFor(e: BattleEvent, foe: WildView, trainerName?: string): string | null {
+  const prefix = trainerName ? `${trainerName}’s ` : foe.guardian ? 'The guardian ' : 'The wild ';
   switch (e.kind) {
     case 'sendout':
       if (e.affected === 'foe') {
+        if (trainerName) return `${trainerName} sends out ${e.name ?? speciesName(foe.dexId)}!`;
         return foe.guardian ? `The guardian ${e.name ?? speciesName(foe.dexId)} appears!` : `A wild ${e.name ?? speciesName(foe.dexId)} appeared!`;
       }
       return e.text || null;
@@ -27,11 +29,11 @@ function lineFor(e: BattleEvent, foe: WildView): string | null {
       if (e.mult !== undefined && e.mult > 0 && e.mult < 1) return 'It’s not very effective…';
       return null;
     case 'faint':
-      return e.affected === 'foe' ? (e.text || '').replace(/^Foe /, foe.guardian ? 'The guardian ' : 'The wild ') : e.text || null;
+      return e.affected === 'foe' ? (e.text || '').replace(/^Foe /, prefix) : e.text || null;
     case 'end':
       return e.winner === 'player' ? 'You won the battle!' : 'Your party was defeated.';
     default:
-      return e.text ? e.text.replace(/^Foe /, foe.guardian ? 'The guardian ' : 'The wild ') : null;
+      return e.text ? e.text.replace(/^Foe /, prefix) : null;
   }
 }
 
@@ -45,7 +47,9 @@ interface Board {
 }
 
 /** Replay the log up to `upTo` (inclusive) into what the screen shows. */
-function boardAt(events: readonly BattleEvent[], upTo: number, foe: WildView): Board {
+function boardAt({ events, upTo, foe, trainerName }: {
+  events: readonly BattleEvent[]; upTo: number; foe: WildView; trainerName?: string;
+}): Board {
   const b: Board = { foeHp: 1, foeMax: 1, playerIndex: 0, playerHp: 1, playerMax: 1, line: '' };
   for (let i = 0; i <= upTo && i < events.length; i++) {
     const e = events[i];
@@ -63,7 +67,7 @@ function boardAt(events: readonly BattleEvent[], upTo: number, foe: WildView): B
       if (e.affected === 'foe') b.foeHp = 0;
       else b.playerHp = 0;
     }
-    const line = lineFor(e, foe);
+    const line = lineFor(e, foe, trainerName);
     if (line) b.line = line;
   }
   return b;
@@ -74,6 +78,7 @@ export function BattleReplay({
   party,
   foe,
   backdrop,
+  trainerName,
   onDone,
 }: {
   events: readonly BattleEvent[];
@@ -81,22 +86,27 @@ export function BattleReplay({
   foe: WildView;
   /** The route's scene behind the arena. */
   backdrop: string;
+  trainerName?: string;
   onDone: () => void;
 }) {
   const [at, setAt] = useState(0);
   const last = events.length - 1;
   const done = at >= last;
+  const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   useEffect(() => {
-    if (done) return;
+    if (done || reduced) return;
     // Beats with nothing to say pass quickly.
-    const quiet = lineFor(events[at + 1] ?? events[at], foe) === null;
+    const quiet = lineFor(events[at + 1] ?? events[at], foe, trainerName) === null;
     const t = window.setTimeout(() => setAt((i) => Math.min(last, i + 1)), quiet ? STEP_MS / 3 : STEP_MS);
     return () => window.clearTimeout(t);
-  }, [at, done, events, foe, last]);
+  }, [at, done, events, foe, last, reduced, trainerName]);
 
-  const b = boardAt(events, at, foe);
+  const b = boardAt({ events, upTo: at, foe, trainerName });
   const lead = party[b.playerIndex] ?? party[0];
+  const foeBase = CREATURES_BY_ID[String(foe.dexId)];
+  const foeCreature = foeBase ? foe.shiny ? asShiny(foeBase) : foe.altColor ? asAltColor(foeBase) : foeBase : null;
+  const leadCreature = lead ? ownedMonToCreature(lead) : null;
   const won = events[last]?.winner === 'player';
 
   return (
@@ -112,12 +122,12 @@ export function BattleReplay({
           </div>
           <StatBar value={b.foeHp} max={b.foeMax} tone="night" label={`${speciesName(foe.dexId)} HP`} segments={12} />
         </div>
-        <PixelSprite src={spriteUrl(foe.dexId)} fallback={POKEBALL} size={96} alt={speciesName(foe.dexId)} className={`absolute right-3 top-10 ${b.foeHp === 0 ? 'opacity-30' : ''}`} />
+        <PixelSprite src={foeCreature?.sprite ?? spriteUrl(foe.dexId)} fallback={POKEBALL} size={96} alt={speciesName(foe.dexId)} className={`absolute right-3 top-10 ${b.foeHp === 0 ? 'opacity-30' : ''}`} />
 
         {lead && (
           <>
             <PixelSprite
-              src={backUrl(lead.dexId)}
+              src={leadCreature?.back ?? backUrl(lead.dexId)}
               fallback={POKEBALL}
               size={96}
               alt={monName(lead)}

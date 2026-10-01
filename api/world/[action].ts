@@ -3,37 +3,22 @@ import { getRedis } from '../_redis.js';
 import { rateLimit } from '../_ratelimit.js';
 import { readSession } from '../_session.js';
 import { getDb, isMissingSchema, type Db } from '../_db.js';
-import {
-  loadWorldState,
-  parseStartInput,
-  startActivity,
-  parseStepInput,
-  stepExpedition,
-  finishActivity,
-  dismissResult,
-} from '../_world.js';
+import { dismissResult } from '../_world.js';
 
-// The world map's endpoints behind one Vercel function (dynamic `[action]`
-// route): `/api/world/state`, `/start`, `/step`, `/finish`, `/dismiss`. Each
-// action is thin — method, session, rate limit, input — and api/_world.ts does
-// the work. The client sends intent and ids only; the server owns the seed,
-// the clock, every battle, and every reward.
+import {
+  activateRoute, chooseRoute, claimRouteQuest, dismissRouteResult, finishLegacyRoute, loadRouteState,
+  parseRouteChoose, parseRouteQuest, parseRouteSearch, RouteError, searchRoute, validRouteRequestId,
+} from '../_route-actions.js';
+
+/** Live routes, Bag and legacy compatibility behind the existing dispatcher. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = typeof req.query.action === 'string' ? req.query.action : '';
-  switch (action) {
-    case 'state':
-      return state(req, res);
-    case 'start':
-      return start(req, res);
-    case 'step':
-      return step(req, res);
-    case 'finish':
-      return finish(req, res);
-    case 'dismiss':
-      return dismiss(req, res);
-    default:
-      return res.status(404).json({ ok: false, error: 'not found' });
-  }
+  if (action === 'state') return state(req, res);
+  if (action === 'start' || action === 'step') return retired(req, res);
+  if (action === 'finish') return finish(req, res);
+  if (action === 'dismiss') return dismiss(req, res);
+  if (['activate', 'search', 'choose', 'quest-claim', 'result-dismiss'].includes(action)) return mutate(req, res, action);
+  return res.status(404).json({ ok: false, error: 'not found' });
 }
 
 /** The JSON body as an object; anything else (bad JSON, an array) reads as {}. */
@@ -90,78 +75,66 @@ function failed(res: VercelResponse, action: string, err: unknown, fallback: str
   return res.status(503).json({ ok: false, error: isMissingSchema(err) ? 'The world map isn’t ready yet.' : fallback });
 }
 
-// --- state ---------------------------------------------------------------------
-
 async function state(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return res.status(405).json({ ok: false, error: 'method not allowed' });
+  }
   const g = gate(req, res);
   if (!g) return;
-  try {
-    const s = await loadWorldState(g.db, g.uid, Date.now());
-    return res.status(200).json({ ok: true, ...s });
-  } catch (err) {
-    return failed(res, 'state', err, 'Couldn’t load the world.');
-  }
+  try { return res.status(200).json({ ok: true, state: await loadRouteState(g.db, g.uid, Date.now()) }); }
+  catch (err) { return failed(res, 'state', err, 'Couldn’t load the world.'); }
 }
 
-// --- start ---------------------------------------------------------------------
-
-async function start(req: VercelRequest, res: VercelResponse) {
+async function retired(req: VercelRequest, res: VercelResponse) {
   if (!requirePost(req, res)) return;
   const g = gate(req, res);
   if (!g) return;
   if (await limited(g.uid, res)) return;
-  const input = parseStartInput(parseBody(req));
-  if (!input) return res.status(400).json({ ok: false, error: 'Pick a place, a mode, and your party.' });
-  try {
-    const out = await startActivity(g.db, g.uid, input, Date.now());
-    switch (out.status) {
-      case 'ok':
-        return res.status(200).json({ ok: true, activity: out.activity });
-      case 'busy':
-        return res.status(409).json({ ok: false, error: 'Your trainer is already out.', activity: out.activity });
-      case 'party_changed':
-        return res.status(409).json({ ok: false, error: 'Your party changed. Check it and try again.', party: out.party });
-      case 'locked':
-        return res.status(400).json({ ok: false, error: 'That place is still locked.' });
-      case 'no_profile':
-        return res.status(400).json({ ok: false, error: 'Finish onboarding first.' });
-      case 'no_party':
-        return res.status(400).json({ ok: false, error: 'Choose at least one Pokémon for your party.' });
-    }
-  } catch (err) {
-    return failed(res, 'start', err, 'Couldn’t send your trainer out.');
-  }
+  return res.status(409).json({ ok: false, error: 'Idle training and expeditions have ended. Refresh to explore Sunny Meadow.', retired: true });
 }
 
-// --- step ----------------------------------------------------------------------
+async function domainFailure(res: VercelResponse, g: { uid: string; db: Db }, action: string, err: unknown) {
+  if (err instanceof RouteError) {
+    let state;
+    // Optional recovery state never hides the original, actionable rejection.
+    try { state = await loadRouteState(g.db, g.uid, Date.now()); } catch { /* unavailable schema */ }
+    return res.status(err.status).json({ ok: false, error: err.message, ...(state ? { state } : {}), ...(err.party ? { party: err.party } : {}) });
+  }
+  return failed(res, action, err, 'Couldn’t save that action. Please try again.');
+}
 
-async function step(req: VercelRequest, res: VercelResponse) {
+async function mutate(req: VercelRequest, res: VercelResponse, action: string) {
   if (!requirePost(req, res)) return;
   const g = gate(req, res);
   if (!g) return;
   if (await limited(g.uid, res)) return;
-  const input = parseStepInput(parseBody(req));
-  if (!input) return res.status(400).json({ ok: false, error: 'That choice isn’t available here.' });
+  const body = parseBody(req);
+  const now = Date.now();
   try {
-    const out = await stepExpedition(g.db, g.uid, input, Date.now());
-    switch (out.status) {
-      case 'ok':
-        return res.status(200).json({ ok: true, activity: out.activity, event: out.event, result: out.result, box: out.box });
-      case 'not_found':
-        return res.status(404).json({ ok: false, error: 'No such expedition.' });
-      case 'not_expedition':
-        return res.status(400).json({ ok: false, error: 'That isn’t an expedition.' });
-      case 'invalid_choice':
-        return res.status(400).json({ ok: false, error: 'That choice isn’t available here.' });
-      case 'conflict':
-        return res.status(409).json({ ok: false, error: 'That checkpoint was already decided.', activity: out.activity, result: out.result });
+    let out;
+    if (action === 'activate') {
+      if (!validRouteRequestId(body.requestId)) return res.status(400).json({ ok: false, error: 'A request ID is required.' });
+      out = await activateRoute(g.db, g.uid, body.requestId, now);
+    } else if (action === 'search') {
+      const input = parseRouteSearch(body);
+      if (!input) return res.status(400).json({ ok: false, error: 'Choose a Sunny Meadow search and your saved party.' });
+      out = await searchRoute(g.db, g.uid, input, now);
+    } else if (action === 'choose') {
+      const input = parseRouteChoose(body);
+      if (!input) return res.status(400).json({ ok: false, error: 'Choose an available encounter action and supported ball.' });
+      out = await chooseRoute(g.db, g.uid, input, now);
+    } else if (action === 'quest-claim') {
+      const input = parseRouteQuest(body);
+      if (!input) return res.status(400).json({ ok: false, error: 'Choose a valid quest reward.' });
+      out = await claimRouteQuest(g.db, g.uid, input, now);
+    } else {
+      if (!validRouteRequestId(body.eventId)) return res.status(400).json({ ok: false, error: 'Choose a settled encounter result.' });
+      out = await dismissRouteResult(g.db, g.uid, body.eventId, now);
     }
-  } catch (err) {
-    return failed(res, 'step', err, 'Couldn’t continue the expedition.');
-  }
+    return res.status(200).json({ ok: true, ...out });
+  } catch (err) { return domainFailure(res, g, action, err); }
 }
-
-// --- finish --------------------------------------------------------------------
 
 async function finish(req: VercelRequest, res: VercelResponse) {
   if (!requirePost(req, res)) return;
@@ -169,16 +142,9 @@ async function finish(req: VercelRequest, res: VercelResponse) {
   if (!g) return;
   if (await limited(g.uid, res)) return;
   const { activityId } = parseBody(req);
-  if (typeof activityId !== 'string' || activityId.length < 1 || activityId.length > 64) {
-    return res.status(404).json({ ok: false, error: 'Nothing to collect.' });
-  }
-  try {
-    const out = await finishActivity(g.db, g.uid, activityId, Date.now());
-    if (out.status === 'not_found') return res.status(404).json({ ok: false, error: 'Nothing to collect.' });
-    return res.status(200).json({ ok: true, result: out.result, box: out.box });
-  } catch (err) {
-    return failed(res, 'finish', err, 'Couldn’t bring your trainer home.');
-  }
+  if (!validRouteRequestId(activityId)) return res.status(404).json({ ok: false, error: 'Nothing to collect.' });
+  try { return res.status(200).json({ ok: true, ...await finishLegacyRoute(g.db, g.uid, activityId, Date.now()) }); }
+  catch (err) { return domainFailure(res, g, 'finish', err); }
 }
 
 // --- dismiss -------------------------------------------------------------------

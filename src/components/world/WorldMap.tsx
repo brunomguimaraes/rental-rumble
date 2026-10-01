@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
-import { MAP_SIZE, PLACE_LIST, placeById, type LocationId, type PlaceState } from '../../game/world';
+import { MAP_SIZE, PLACE_LIST, placeById, type LocationId } from '../../game/world';
 import type { PlaceView } from '../../game/activity';
 import { PixelIcon } from './PixelIcon';
 import { STATE_GLYPH, STATE_LABEL, TRAINER } from './scene';
@@ -16,9 +16,9 @@ export interface MapView {
 }
 
 const ART = `${import.meta.env.BASE_URL}sprites/world/hearthvale.png`;
-const FOG = `${import.meta.env.BASE_URL}sprites/world/fog.png`;
 const DRAG_SLOP = 6;
 const PAN_STEP = 48;
+const MAP_PLACES = PLACE_LIST.filter((place) => place.id === 'home' || place.id === 'r1');
 
 /** Keep the map covering the viewport (or centred when it is smaller). */
 function clampView(v: MapView, vw: number, vh: number): MapView {
@@ -64,7 +64,7 @@ export function WorldMap({
     return () => ro.disconnect();
   }, []);
 
-  const trainerPlace = placeById(trainerAt) ?? placeById('home');
+  const trainerPlace = placeById(trainerAt === 'r1' ? 'r1' : 'home');
   const trainerPoint = trainerPlace?.map ?? { x: MAP_SIZE.width / 2, y: MAP_SIZE.height / 2 };
 
   // First visit: centre the trainer. Later visits restore the saved view.
@@ -137,7 +137,9 @@ export function WorldMap({
     }
   };
 
-  const stateOf = new Map(places.map((p) => [p.id, p.state]));
+  // Historical guardian clears remain saved, but have no access or mastery
+  // meaning on the active two-location map.
+  const stateOf = new Map(places.map((p) => [p.id, p.state === 'completed' ? 'discovered' : p.state === 'locked' || p.state === 'undiscovered' ? 'available' : p.state]));
   const w = MAP_SIZE.width * v.zoom;
   const h = MAP_SIZE.height * v.zoom;
 
@@ -173,29 +175,6 @@ export function WorldMap({
             className="pointer-events-none block max-w-none [image-rendering:pixelated]"
           />
 
-          {PLACE_LIST.map((place) => {
-            const state = place.kind === 'home' ? null : (stateOf.get(place.id) ?? 'undiscovered');
-            if (state !== 'undiscovered') return null;
-            const r = 64 * v.zoom;
-            return (
-              <div
-                key={`fog-${place.id}`}
-                aria-hidden="true"
-                className="pointer-events-none absolute [image-rendering:pixelated]"
-                style={{
-                  left: place.map.x * v.zoom - r,
-                  top: place.map.y * v.zoom - r,
-                  width: r * 2,
-                  height: r * 2,
-                  backgroundImage: `url(${FOG})`,
-                  backgroundSize: `${32 * v.zoom}px ${32 * v.zoom}px`,
-                  maskImage:
-                    'radial-gradient(closest-side, #000 0 62%, rgb(0 0 0 / 0.7) 62% 80%, rgb(0 0 0 / 0.35) 80% 100%, transparent 100%)',
-                }}
-              />
-            );
-          })}
-
           {trainerPlace && (
             <img
               src={reduced ? TRAINER.still : TRAINER.walk}
@@ -208,27 +187,26 @@ export function WorldMap({
             />
           )}
 
-          {PLACE_LIST.map((place) => {
+          {MAP_PLACES.map((place) => {
             const home = place.kind === 'home';
-            const state: PlaceState | null = home ? null : (stateOf.get(place.id) ?? 'undiscovered');
-            const hidden = state === 'undiscovered';
-            const label = hidden ? '???' : place.name;
+            const state = home ? null : (stateOf.get(place.id) ?? 'available');
             const isSelected = selected === place.id;
             const here = trainerPlace?.id === place.id;
             return (
               <button
                 key={place.id}
                 type="button"
+                autoFocus={isSelected}
                 onClick={() => onSelect(place.id)}
                 aria-pressed={isSelected}
-                aria-label={`${hidden ? 'Undiscovered place' : place.name}${state ? `, ${STATE_LABEL[state]}` : ', your home town'}${here ? ', you are here' : ''}`}
+                aria-label={`${place.name}${state ? `, ${STATE_LABEL[state]}` : ', your home town'}${here ? ', you are here' : ''}`}
                 className="ui-focus absolute z-10 flex min-h-11 min-w-11 -translate-x-1/2 flex-col items-center"
                 style={{ left: place.map.x * v.zoom, top: place.map.y * v.zoom - 14 }}
               >
                 <span
                   className={`grid h-7 w-7 place-items-center rounded-[3px] border-2 ${
                     isSelected ? 'border-accent bg-window text-accent' : 'border-edge bg-window text-ink'
-                  } ${here && !reduced ? 'animate-world-beacon' : ''} ${state === 'completed' ? 'text-accent' : ''}`}
+                  } ${here && !reduced ? 'animate-world-beacon' : ''}`}
                 >
                   <PixelIcon name={home ? 'home' : STATE_GLYPH[state ?? 'undiscovered']} size={16} />
                 </span>
@@ -237,7 +215,7 @@ export function WorldMap({
                     isSelected ? 'bg-accent text-edge' : 'bg-window text-ink'
                   }`}
                 >
-                  {label}
+                  {place.name}
                 </span>
               </button>
             );

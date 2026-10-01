@@ -181,3 +181,50 @@ create table if not exists world_discoveries (
   found_at    integer not null default 0,
   primary key (user_id, location_id, kind, ref)
 );
+
+-- Active Route 1 gameplay. Historical idle data remains untouched.
+create table if not exists route_accounts (
+  user_id text primary key,
+  activated_at integer not null,
+  actions integer not null check (actions >= 0 and actions <= 48),
+  refilled_at integer not null,
+  inventory_revision integer not null default 0,
+  revision integer not null default 0,
+  transition text
+);
+
+create table if not exists inventory_items (
+  user_id text not null,
+  item_id text not null,
+  quantity integer not null check (quantity >= 0 and quantity <= 9007199254740991),
+  primary key (user_id, item_id)
+);
+
+create table if not exists route_events (
+  id text primary key,
+  user_id text not null,
+  created_at integer not null,
+  revision integer not null,
+  active integer not null check (active in (0, 1)),
+  seen_at integer,
+  data text not null
+);
+create unique index if not exists route_one_active_idx on route_events (user_id) where active = 1;
+create index if not exists route_events_user_time_idx on route_events (user_id, created_at desc);
+
+create table if not exists route_receipts (
+  user_id text not null,
+  request_id text not null,
+  payload text not null,
+  receipt text not null,
+  created_at integer not null,
+  primary key (user_id, request_id)
+);
+
+create table if not exists route_quests (
+  user_id text not null,
+  quest_id text not null,
+  accepted_at integer not null,
+  claimed_at integer,
+  primary key (user_id, quest_id)
+);

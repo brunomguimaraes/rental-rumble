@@ -4,10 +4,9 @@ import { fetchMe, type AccountUser } from './game/account';
 import { fetchBox, type OwnedMon } from './game/box';
 import { fetchProfile, type Profile } from './game/profile';
 import { partyMembers, resolveParty } from './game/party';
-import { fetchWorldState } from './game/world-client';
-import type { WorldState } from './game/activity';
+import { fetchRouteState, reconcileRouteState, shouldApplyHydratedBox } from './game/route-actions-client';
+import type { RouteState } from './game/route-actions';
 import type { MapView } from './components/world/WorldMap';
-import type { ActivityPatch } from './components/world/scene';
 import { hashIsGuide } from './guide/hash';
 import { DevPanel } from './components/DevPanel';
 import { LoginScreen } from './components/LoginScreen';
@@ -19,8 +18,8 @@ const GuideScreen = lazy(() => import('./components/Guide').then((m) => ({ defau
 const PokedexScreen = lazy(() => import('./components/PokedexScreen').then((m) => ({ default: m.PokedexScreen })));
 const AccountScreen = lazy(() => import('./components/AccountScreen').then((m) => ({ default: m.AccountScreen })));
 const PartyScreen = lazy(() => import('./components/PartyScreen').then((m) => ({ default: m.PartyScreen })));
-const WorldScreen = lazy(() => import('./components/world/WorldScreen').then((m) => ({ default: m.WorldScreen })));
-const ActivityScreen = lazy(() => import('./components/world/ActivityScreen').then((m) => ({ default: m.ActivityScreen })));
+const RouteScreen = lazy(() => import('./components/world/RouteScreen').then((m) => ({ default: m.RouteScreen })));
+const BagScreen = lazy(() => import('./components/BagScreen').then((m) => ({ default: m.BagScreen })));
 const TrainerSpritesScreen = import.meta.env.DEV
   ? lazy(() => import('./components/TrainerSpritesScreen').then((m) => ({ default: m.TrainerSpritesScreen })))
   : null;
@@ -33,7 +32,7 @@ function ScreenFallback() {
   );
 }
 
-type Phase = 'hub' | 'onboarding' | 'box' | 'dex' | 'guide' | 'account' | 'trainerSprites' | 'party' | 'world' | 'activity';
+type Phase = 'hub' | 'onboarding' | 'box' | 'dex' | 'guide' | 'account' | 'trainerSprites' | 'party' | 'world' | 'bag';
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>(() => (typeof window !== 'undefined' && hashIsGuide() ? 'guide' : 'hub'));
@@ -42,11 +41,14 @@ export default function App() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileChecked, setProfileChecked] = useState(false);
   const [box, setBox] = useState<OwnedMon[]>([]);
-  const [world, setWorld] = useState<WorldState | null>(null);
+  const [world, setWorld] = useState<RouteState | null>(null);
+  const worldRef = useRef<RouteState | null>(null);
   const [worldError, setWorldError] = useState<string | null>(null);
   // Server time minus local time, so clocks on screen follow the server.
   const [serverOffsetMs, setServerOffsetMs] = useState(0);
   const [mapView, setMapView] = useState<MapView | null>(null);
+  const [worldEntry, setWorldEntry] = useState<'r1' | undefined>();
+  const [partyReturn, setPartyReturn] = useState<'hub' | 'world'>('hub');
   const [accountResetToken, setAccountResetToken] = useState<string | null>(null);
   const [hydrateFailed, setHydrateFailed] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -57,6 +59,7 @@ export default function App() {
     setBox([]);
     setProfile(null);
     setWorld(null);
+    worldRef.current = null;
     setWorldError(null);
     setHydrateFailed(false);
     setProfileChecked(false);
@@ -69,14 +72,18 @@ export default function App() {
     setNote('Your session expired — sign in again.');
   };
 
-  const applyWorld = (s: WorldState) => {
+  const applyWorld = (s: RouteState, updatedBox?: OwnedMon[]) => {
+    const current = worldRef.current;
+    if (reconcileRouteState(current, s) !== s) return;
+    worldRef.current = s;
     setWorld(s);
+    if (updatedBox) setBox(updatedBox);
     setWorldError(null);
     setServerOffsetMs(s.serverNow - Date.now());
   };
 
   const refreshWorld = async () => {
-    const w = await fetchWorldState();
+    const w = await fetchRouteState();
     if (w.ok) return applyWorld(w.state);
     if (w.expired) return expire();
     setWorldError(w.error);
@@ -85,7 +92,8 @@ export default function App() {
   // Load everything a signed-in player needs: profile (null → onboarding), box, and the world.
   const hydrate = async () => {
     lastHydrateAt.current = Date.now();
-    const [p, b, w] = await Promise.all([fetchProfile(), fetchBox(), fetchWorldState()]);
+    const startedAtRevision = worldRef.current?.revision ?? null;
+    const [p, b, w] = await Promise.all([fetchProfile(), fetchBox(), fetchRouteState()]);
     if (p.expired || b.expired || (!w.ok && w.expired)) return expire();
     if (!p.ok || !b.ok) {
       setHydrateFailed(true);
@@ -94,24 +102,11 @@ export default function App() {
     }
     setHydrateFailed(false);
     setProfile(p.profile);
-    setBox(b.box);
+    if (shouldApplyHydratedBox({ startedAtRevision, current: worldRef.current, incoming: w.ok ? w.state : null })) setBox(b.box);
     setProfileChecked(true);
     if (w.ok) applyWorld(w.state);
     else setWorldError(w.error);
     if (!p.profile) setPhase('onboarding');
-  };
-
-  const applyActivity = (patch: ActivityPatch) => {
-    setWorld((w) =>
-      w
-        ? {
-            ...w,
-            ...(patch.activity !== undefined ? { activity: patch.activity } : {}),
-            ...(patch.result !== undefined ? { result: patch.result } : {}),
-          }
-        : w,
-    );
-    if (patch.box) setBox(patch.box);
   };
 
   useEffect(() => {
@@ -148,7 +143,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // The player may have onboarded, renamed, or trained on another device:
+  // The player may have onboarded, renamed, or played on another device:
   // refresh when the tab comes back into view (at most every 30 s).
   useEffect(() => {
     if (!me) return;
@@ -161,17 +156,6 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', onVisible);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me]);
-
-  // While the party trains, ask the server what it has resolved once a minute.
-  const training = world?.activity?.mode === 'train';
-  useEffect(() => {
-    if (!me || !training) return;
-    const t = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void refreshWorld();
-    }, 60_000);
-    return () => window.clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me, training]);
 
   const handleAuthed = (user: AccountUser) => {
     setMe(user);
@@ -226,9 +210,10 @@ export default function App() {
             onViewDex={() => setPhase('dex')}
             onViewGuide={() => setPhase('guide')}
             onViewAccount={() => setPhase('account')}
-            onEditParty={() => setPhase('party')}
-            onOpenMap={() => setPhase('world')}
-            onOpenActivity={() => setPhase('activity')}
+            onEditParty={() => { setPartyReturn('hub'); setPhase('party'); }}
+            onOpenMap={() => { setWorldEntry(undefined); setPhase('world'); }}
+            onOpenActivity={() => { setWorldEntry('r1'); setPhase('world'); }}
+            onOpenBag={() => setPhase('bag')}
             onRetryWorld={() => void refreshWorld()}
           />
         );
@@ -237,46 +222,39 @@ export default function App() {
           <PartyScreen
             box={box}
             party={partyIds}
-            activityRunning={Boolean(world?.activity)}
+            activityRunning={Boolean(world?.activeEvent)}
             onSaved={(party) => setProfile((p) => (p ? { ...p, party } : p))}
-            onBack={() => setPhase('hub')}
+            onBack={() => setPhase(partyReturn)}
             onExpired={expire}
           />
         );
       case 'world':
         return (
-          <WorldScreen
-            world={world}
-            worldError={worldError}
+          <RouteScreen
+            accountKey={me.id}
+            state={world}
+            error={worldError}
             box={box}
             partyIds={partyIds}
             view={mapView}
             onView={setMapView}
-            onStarted={(activity, notice) => {
-              applyActivity({ activity, result: null });
-              if (notice) setNote(notice);
-              setPhase('activity');
-            }}
+            initialPlace={worldEntry}
+            onState={applyWorld}
             onPartyChanged={(party) => setProfile((p) => (p ? { ...p, party } : p))}
-            onOpenActivity={() => setPhase('activity')}
-            onEditParty={() => setPhase('party')}
+            onEditParty={() => { setWorldEntry('r1'); setPartyReturn('world'); setPhase('party'); }}
             onBack={() => setPhase('hub')}
             onRetry={() => void refreshWorld()}
             onExpired={expire}
           />
         );
-      case 'activity':
+      case 'bag':
         return (
-          <ActivityScreen
-            world={world}
-            box={box}
-            partyIds={partyIds}
-            serverOffsetMs={serverOffsetMs}
-            onPatch={applyActivity}
-            onRefresh={refreshWorld}
-            onMap={() => setPhase('world')}
-            onHub={() => setPhase('hub')}
-            onExpired={expire}
+          <BagScreen
+            inventory={world?.activated ? world.inventory : null}
+            error={worldError ?? (!world?.activated ? 'Visit Sunny Meadow to collect your starting supplies.' : null)}
+            onBack={() => setPhase('hub')}
+            onRetry={() => void refreshWorld()}
+            onExplore={() => { setWorldEntry('r1'); setPhase('world'); }}
           />
         );
       case 'box':

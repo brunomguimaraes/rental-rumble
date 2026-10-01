@@ -124,7 +124,7 @@ async function hydrate(db: Executor, uid: string, row: ActivityRow): Promise<Liv
   } else {
     snapshot = normaliseSnapshot(row.partySnapshot);
   }
-  if (!snapshot) return null;
+  if (!snapshot || snapshot.length === 0) return null;
   const state = mode === 'explore' ? parseExpeditionState(row.state) : null;
   if (mode === 'explore' && !state) return null;
   return { row, mode, route, cfg, snapshot, legacy, state };
@@ -474,77 +474,114 @@ function expeditionPayout(live: Live, res: StepResolution, now: number): Payout 
  * the battles, and close the row. 'already' means another request settled it or
  * moved it first; the caller re-reads.
  */
+async function settleInTx(tx: Executor, uid: string, live: Live, p: Payout, now: number): Promise<{ result: ActivityResult; flags: Flags } | 'already'> {
+  const fresh = await readActivity(tx, uid, live.row.id);
+  if (!fresh || fresh.claimedAt !== null || (p.fromStep !== null && fresh.step !== p.fromStep)) {
+    return 'already';
+  }
+  const flags = await recordDiscoveries(tx, uid, live.route.id, p.seenNow, p.landmarksNow, now);
+  const current = await readOwnedByIds(tx, uid, live.snapshot.map((m) => m.id));
+  const growth = planGrowth(current, live.snapshot, p.rawExp, live.cfg.recommended, live.row.id);
+  const before = clearedSet(await readProgress(tx, uid));
+  const after = new Set(before);
+  if (p.cleared) after.add(live.route.id);
+  const result: ActivityResult = {
+    id: live.row.id,
+    mode: live.mode,
+    locationId: live.route.id,
+    outcome: p.outcome,
+    startedAt: live.row.startedAt,
+    endedAt: now,
+    elapsedMs: p.elapsedMs,
+    battles: p.battles,
+    wins: p.wins,
+    rawExp: p.rawExp,
+    members: growth.members,
+    seen: unique(p.tripSeen),
+    newSeen: unique([...p.priorNewSeen, ...flags.newSeen]),
+    landmarks: unique(p.tripLandmarks),
+    newLandmarks: unique([...p.priorNewLandmarks, ...flags.newLandmarks]),
+    cleared: p.cleared,
+    firstClear: p.cleared && !before.has(live.route.id),
+    unlocked: newlyUnlocked(before, after),
+    legacy: live.legacy,
+  };
+  const state = p.finalState ? withFlags(p.finalState, flags) : null;
+  const closed = await closeActivity(tx, {
+    id: live.row.id,
+    uid,
+    claimedAt: now,
+    stoppedBy: p.outcome,
+    encounters: p.battles.length,
+    step: p.step,
+    state,
+    result,
+  });
+  if (closed !== 1) {
+    return 'already';
+  }
+  for (const m of growth.changed) await updateOwnedGrowth(tx, uid, m);
+  await applyProgressSettlement(tx, {
+    uid,
+    locationId: live.route.id,
+    clearedAt: p.cleared ? now : null,
+    clears: p.cleared ? 1 : 0,
+    trainingWins: live.mode === 'train' ? p.wins : 0,
+  });
+  await insertEncounterRows(
+    tx,
+    live.row.id,
+    p.battles.map((b, slot) => ({ slot, dexId: b.foe.dexId, level: b.foe.level, won: b.won })),
+  );
+  return { result, flags };
+}
+
 async function settle(db: Db, uid: string, live: Live, p: Payout, now: number): Promise<{ result: ActivityResult; flags: Flags } | 'already'> {
   const tx = await openWriteTx(db);
   try {
-    const fresh = await readActivity(tx, uid, live.row.id);
-    if (!fresh || fresh.claimedAt !== null || (p.fromStep !== null && fresh.step !== p.fromStep)) {
-      await tx.rollback();
-      return 'already';
-    }
-    const flags = await recordDiscoveries(tx, uid, live.route.id, p.seenNow, p.landmarksNow, now);
-    const current = await readOwnedByIds(tx, uid, live.snapshot.map((m) => m.id));
-    const growth = planGrowth(current, live.snapshot, p.rawExp, live.cfg.recommended, live.row.id);
-    const before = clearedSet(await readProgress(tx, uid));
-    const after = new Set(before);
-    if (p.cleared) after.add(live.route.id);
-    const result: ActivityResult = {
-      id: live.row.id,
-      mode: live.mode,
-      locationId: live.route.id,
-      outcome: p.outcome,
-      startedAt: live.row.startedAt,
-      endedAt: now,
-      elapsedMs: p.elapsedMs,
-      battles: p.battles,
-      wins: p.wins,
-      rawExp: p.rawExp,
-      members: growth.members,
-      seen: unique(p.tripSeen),
-      newSeen: unique([...p.priorNewSeen, ...flags.newSeen]),
-      landmarks: unique(p.tripLandmarks),
-      newLandmarks: unique([...p.priorNewLandmarks, ...flags.newLandmarks]),
-      cleared: p.cleared,
-      firstClear: p.cleared && !before.has(live.route.id),
-      unlocked: newlyUnlocked(before, after),
-      legacy: live.legacy,
-    };
-    const state = p.finalState ? withFlags(p.finalState, flags) : null;
-    const closed = await closeActivity(tx, {
-      id: live.row.id,
-      uid,
-      claimedAt: now,
-      stoppedBy: p.outcome,
-      encounters: p.battles.length,
-      step: p.step,
-      state,
-      result,
-    });
-    if (closed !== 1) {
-      await tx.rollback();
-      return 'already';
-    }
-    for (const m of growth.changed) await updateOwnedGrowth(tx, uid, m);
-    await applyProgressSettlement(tx, {
-      uid,
-      locationId: live.route.id,
-      clearedAt: p.cleared ? now : null,
-      clears: p.cleared ? 1 : 0,
-      trainingWins: live.mode === 'train' ? p.wins : 0,
-    });
-    await insertEncounterRows(
-      tx,
-      live.row.id,
-      p.battles.map((b, slot) => ({ slot, dexId: b.foe.dexId, level: b.foe.level, won: b.won })),
-    );
-    await tx.commit();
-    return { result, flags };
+    const result = await settleInTx(tx, uid, live, p, now);
+    if (result === 'already') await tx.rollback();
+    else await tx.commit();
+    return result;
   } catch (err) {
     await tx.rollback().catch(() => {});
     throw err;
   } finally {
     tx.close();
   }
+}
+
+/** Legacy retirement participates in activation's transaction: no partial grant or payout. */
+export async function retireLegacyActivity(
+  tx: Executor, uid: string, row: ActivityRow, now: number, cutoverAt: number,
+): Promise<{ result: ActivityResult | null; notice: string }> {
+  if (row.claimedAt !== null) return { result: parseResult(row.result), notice: 'Your previous activity has already been settled.' };
+  const live = await hydrate(tx, uid, row);
+  if (!live) {
+    const notice = 'Your previous activity could not be read and was closed without changing your Pokémon. Its original records were preserved.';
+    await closeActivity(tx, { id: row.id, uid, claimedAt: now, stoppedBy: 'retired', encounters: row.encounters, step: row.step, state: null, result: { notice, originalResult: row.result } });
+    return { result: null, notice };
+  }
+  const earnedThrough = Math.min(now, cutoverAt);
+  let payout: Payout;
+  if (live.mode === 'explore' && live.state) {
+    const st = live.state;
+    payout = {
+      outcome: 'retreat',
+      battles: st.trail.filter((e) => e.turns !== undefined && e.foe !== undefined)
+        .map((e) => ({ foe: e.foe as BattleSummary['foe'], won: e.outcome !== 'lost', turns: e.turns ?? 0 })),
+      wins: st.wins, rawExp: st.expUnits, elapsedMs: Math.max(0, earnedThrough - row.startedAt), cleared: false,
+      seenNow: [], landmarksNow: [], tripSeen: st.seen, tripLandmarks: st.landmarks,
+      priorNewSeen: st.newSeen, priorNewLandmarks: st.newLandmarks, finalState: st, step: row.step, fromStep: row.step,
+    };
+  } else {
+    payout = trainingPayout(live, earnedThrough);
+  }
+  const settled = await settleInTx(tx, uid, live, payout, now);
+  return {
+    result: settled === 'already' ? parseResult((await readActivity(tx, uid, row.id))?.result) : settled.result,
+    notice: 'Your previous activity was closed. Only rewards earned before the route update were applied.',
+  };
 }
 
 // --- Expedition steps -----------------------------------------------------------------------

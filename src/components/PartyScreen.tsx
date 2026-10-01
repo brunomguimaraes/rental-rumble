@@ -106,7 +106,7 @@ export function PartyScreen({
 
       {activityRunning && (
         <p className="ui-window m-2 p-3 text-sm text-ink-dim">
-          Your trainer is out with the party they left with. Changes here apply to the next trip.
+          Your current encounter keeps its starting party. Changes here apply to the next search.
         </p>
       )}
 
