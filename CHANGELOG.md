@@ -31,8 +31,6 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 
 ### Changed
 - **Catching** — ball throws now arc into the meadow, draw the Pokémon inside, and build suspense with three shakes before a sparkling catch or breakout reveal. Skip the animation at any time; reduced motion shows a still result.
-- **Trainer editor** — a compact portrait beside Face, Skin tone and Hair color controls fits small phones without page scrolling. Faces open in a paged gallery and colors in live-preview menus. New 256px assets preserve facial detail from the original artwork, with versioned URLs for older clients.
-- **First journey** — new players go straight from their name and avatar to Professor Andre and starter selection, with the Trainer profession assigned automatically. Starter choices and the partner nickname screen share the avatar picker's Night windows, pixel typography, framed controls and gold focus states, with crisp portraits and clear saving and error messages.
 - **Explore finds** — now include harvest goods and coin pouches.
 - **Explore** — the guaranteed Poké Balls apply only when you have no balls and under ₽200.
 - **Trainer bar** — the Hub header is a Night window with your trainer portrait, your name and mentor, Mail (coming soon) and Settings buttons, and your Bag's ball count.
@@ -47,9 +45,6 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 - **Hub** — the six-slot Night party window shows your saved party, lead first, with Edit; below it sit the World map and Your box, and what your trainer is doing right now.
 - **Login required** — anonymous play is gone; the hub and box are per-account.
 - **Battles come alive** — Sunny Meadow battles play like the original Rental Rumble: animated Pokémon that attack, flinch and faint, a Poké Ball toss on send-out, damage numbers, effectiveness banners, and status and sign badges on each Pokémon's card. Pokémon are drawn at their true relative size and stand on their shadows, and each HP bar fills visibly on send-out. Next and Skip work as before.
-
-### Fixed
-- **Trainer colors** — rebuilt all 40 portrait masks to correct missed skin patches and color bleeding into hats and clothes. Dark skin keeps warm shading, with cleaner hairlines and fewer pale speckles.
 
 ### Removed
 - Idle training, checkpoint expeditions, guardian gates, and playable routes beyond Sunny Meadow. Existing sessions retire once with eligible pre-cutover rewards preserved.
