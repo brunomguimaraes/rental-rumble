@@ -12,10 +12,15 @@ import {
   insertProfileWithStarter,
   readOwnedByIds,
   updateOwnedNickname,
+  updateOwnedGrowth,
   type Db,
 } from '../_db.js';
 import { PROFESSORS, starterFromOffer } from '../../src/game/professions.js';
 import { cleanNickname } from '../../src/game/profile.js';
+import { isLocalDev } from '../_dev.js';
+import { applyGrowthWithEvolution } from '../../src/game/evolution.js';
+import { expToNext, MAX_LEVEL } from '../../src/game/levels.js';
+import { RNG } from '../../src/game/rng.js';
 
 // The per-account endpoints behind one Vercel function (dynamic `[action]`
 // route): `/api/me/pokedex`, `/api/me/box`, `/api/me/profile`, …. Same URLs,
@@ -35,6 +40,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return nickname(req, res);
     case 'party':
       return party(req, res);
+    case 'grow':
+      return grow(req, res);
     default:
       return res.status(404).json({ ok: false, error: 'not found' });
   }
@@ -240,5 +247,41 @@ async function party(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     console.error('[me/party] failed:', err);
     return res.status(503).json({ ok: false, error: 'Couldn’t save your party.' });
+  }
+}
+
+// --- grow (local dev only) ---------------------------------------------------
+
+/**
+ * Fill the EXP bar of one owned Pokemon and apply the growth, so the whole path
+ * (rolls, ceilings, evolution, persistence, the Box) can be exercised before the
+ * world map grants EXP. 404 outside local dev, so it never exists in production.
+ */
+async function grow(req: VercelRequest, res: VercelResponse) {
+  if (!isLocalDev()) return res.status(404).json({ ok: false, error: 'not found' });
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ ok: false, error: 'method not allowed' });
+  }
+  res.setHeader('Cache-Control', 'no-store');
+  const uid = readSession(req);
+  if (!uid) return res.status(401).json({ ok: false, error: 'sign in first' });
+  const db = getDb();
+  if (!db) return res.status(200).json({ ok: false, error: 'accounts unavailable' });
+
+  const body = parseBody(req);
+  const id = typeof body.id === 'string' ? body.id : '';
+  if (!id) return res.status(400).json({ ok: false, error: 'which Pokemon?' });
+  try {
+    const [mon] = await readOwnedByIds(db, uid, [id]);
+    if (!mon) return res.status(404).json({ ok: false, error: 'not your Pokemon' });
+    if (mon.level >= MAX_LEVEL) return res.status(400).json({ ok: false, error: 'it has grown all it can' });
+    const gained = Math.max(1, expToNext(mon.level) - mon.exp);
+    const result = applyGrowthWithEvolution(mon, gained, new RNG(`grow:${mon.id}:${mon.level}`));
+    await updateOwnedGrowth(db, uid, result.mon);
+    return res.status(200).json({ ok: true, mon: result.mon, growths: result.growths, evolutions: result.evolutions });
+  } catch (err) {
+    console.error('[me/grow] failed:', err);
+    return res.status(503).json({ ok: false, error: 'could not grow' });
   }
 }
