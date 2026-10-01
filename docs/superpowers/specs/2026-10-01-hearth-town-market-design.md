@@ -72,7 +72,7 @@ Explore's category split stays 45% wild, 30% NPC, 25% item. Within an item find:
 | 1 harvest good: Honey 6, Tiny Mushroom 3, Big Mushroom 1 (weights) | 20% |
 | Coin pouch, ₽300 | 15% |
 
-This changes seeded outcomes, so `ROUTE_RULES.version` becomes 3. Stored events and receipts with
+This changes item-find outcomes, so `ROUTE_RULES.version` becomes 3. The RNG stream names stay `route:2:…`, so wild, NPC, landmark, and catch rolls replay identically across versions. Stored events and receipts with
 `rulesVersion: 2` and their frozen `config` must still parse and settle; the reader accepts 2 and 3.
 The landmark side roll is unchanged.
 
@@ -102,7 +102,7 @@ receipt helpers):
 
 - Buy: conditional money debit (`money >= total`), then `changeInventory(+quantity)`.
 - Sell: conditional `changeInventory(-quantity)`, then a money credit.
-- `inventory_revision` increases once per trade.
+- `inventory_revision` increases on every trade (the money and item writes each bump it).
 - The receipt `{ itemId, side, quantity, total }` is stored under `requestId`. A retry with the same body returns
   it unchanged; the same `requestId` with a different body is a 409, as for route commands.
 
@@ -170,7 +170,7 @@ Extend existing files; add none unless a case has no home.
 | File | Covers |
 | --- | --- |
 | `scripts/route-rules.test.ts` | Pinned seeds give exact v3 item finds, harvest weights, and pouches; the supply guard needs zero balls and under ₽200 |
-| `scripts/route-db.test.ts` | Buy and sell move exact money and stacks; not enough ₽ or items is a 409 with nothing changed; a retry trades once; a mismatched body is a 409; each trade bumps the revision once; a win pays once across retries; a loss or leave pays nothing; the quest pays ₽500 once; a v2 stored event still settles |
+| `scripts/route-db.test.ts` | Buy and sell move exact money and stacks; not enough ₽ or items is a 409 with nothing changed; a retry trades once; a mismatched body is a 409; each trade increases the revision; a win pays once across retries; a loss or leave pays nothing; the quest pays ₽500 once; a v2 stored event still settles |
 | `scripts/route-api.test.ts` | `market-trade` method, session, validation (unknown item, unbuyable valuable, quantity 0, 100, or a non-integer), and response shape |
 | `scripts/route-client.test.ts` | The trade helper returns `{ ok: false, error }` on failure and reconciles by revision |
 | `scripts/town.test.ts` | Still matches `hotspots.json` with the market link |
