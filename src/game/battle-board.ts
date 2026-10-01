@@ -32,6 +32,8 @@ export interface SideBoard {
   status: StatusKind;
   volatiles: VolatileKind[];
   faints: number;
+  /** True from this side's faint event until its next send-out (the killing hit alone does not set it). */
+  fainted: boolean;
   /** Event index of the side's latest send-out, -1 before the first; keys the spawn effects. */
   spawnAt: number;
 }
@@ -98,7 +100,7 @@ export function lineFor(e: BattleEvent, n: Narration): string | null {
 }
 
 const emptySide = (): SideBoard => ({
-  view: null, index: 0, hp: 0, maxHp: 1, status: null, volatiles: [], faints: 0, spawnAt: -1,
+  view: null, index: 0, hp: 0, maxHp: 1, status: null, volatiles: [], faints: 0, fainted: false, spawnAt: -1,
 });
 
 /** Replay the log up to `upTo` (inclusive) into what the screen shows. */
@@ -123,6 +125,7 @@ export function boardAt({ events, upTo, player, foe, narration }: {
       }
       s.status = null;
       s.volatiles = [];
+      s.fainted = false;
       s.spawnAt = i;
     } else if (s && e.status !== undefined) {
       s.status = e.status ?? null;
@@ -144,6 +147,7 @@ export function boardAt({ events, upTo, player, foe, narration }: {
     if (e.kind === 'faint' && s) {
       s.hp = 0;
       s.faints += 1;
+      s.fainted = true;
     }
     if (e.kind === 'move') {
       board.banner = '';

@@ -54,7 +54,7 @@ interface Anim {
 function animFor({ side, board, event, at, settled, live }: {
   side: Side; board: SideBoard; event: BattleEvent | undefined; at: number; settled: number; live: boolean;
 }): Anim {
-  if (board.hp <= 0 && board.faints > 0) return { kind: 'faint', loop: true, token: -2 };
+  if (board.fainted) return { kind: 'faint', loop: true, token: -2 };
   if (live && event && settled !== at) {
     if (event.kind === 'move' && event.actor === side) return { kind: event.moveAnim ?? 'attack', loop: false, token: at };
     if (event.kind === 'hit' && event.affected === side) return { kind: 'hurt', loop: false, token: at };
@@ -77,7 +77,7 @@ function BallFx({ side, ball }: { side: Side; ball: string }) {
 
 // Module scope so it keeps its identity across beats: the PMD frame animator
 // stays mounted between events and only remounts on a fresh send-out.
-function Combatant({ side, board, anim, live, hit, shake, onAnimEnd }: {
+function Combatant({ side, board, anim, live, hit, shake, shakeKey, onAnimEnd }: {
   side: Side;
   board: SideBoard;
   anim: Anim;
@@ -85,6 +85,8 @@ function Combatant({ side, board, anim, live, hit, shake, onAnimEnd }: {
   live: boolean;
   hit: { amount: number; crit: boolean; key: number } | null;
   shake: boolean;
+  /** Index of the latest hit on this side; changes only on a new hit, so the shake restarts per hit. */
+  shakeKey: number;
   onAnimEnd: (side: Side) => void;
 }) {
   const view = board.view;
@@ -104,7 +106,7 @@ function Combatant({ side, board, anim, live, hit, shake, onAnimEnd }: {
         )}
         {live && <BallFx key={`ball-${board.spawnAt}`} side={side} ball={view.ball} />}
         <div key={`${view.dexId}-${board.spawnAt}`} className={live ? 'animate-materialize' : ''}>
-          <div className={`flex items-end justify-center ${shake ? 'animate-shake' : ''}`}>
+          <div key={`shake-${shakeKey}`} className={`flex items-end justify-center ${shake ? 'animate-shake' : ''}`}>
             {hasPmdSprite(view.dexId) ? (
               <PmdSprite
                 dexId={view.dexId}
@@ -144,7 +146,7 @@ function InfoCard({ board, hp, pips, className }: {
     <div className={`animate-card-in absolute z-10 flex w-[48%] flex-col gap-1 rounded-[3px] border-2 border-window-frame bg-window/90 px-1.5 py-1 ${className}`}>
       <div className="flex items-center gap-1 font-pixel text-xs">
         <span className="truncate">{view.name}</span>
-        {view.shiny && <span className="text-caught-shiny" aria-label="Shiny">✦</span>}
+        {view.shiny && <span role="img" className="text-caught-shiny" aria-label="Shiny">✦</span>}
         {view.sign && <img src={signIconUrl(view.sign)} alt={signLabel(view.sign)} title={signLabel(view.sign)} className="h-4 w-4 shrink-0 object-contain" />}
       </div>
       <div className="flex flex-wrap items-center gap-1">
@@ -162,7 +164,7 @@ function InfoCard({ board, hp, pips, className }: {
           {Math.max(0, Math.ceil(hp))} / {board.maxHp}
         </span>
         {pips !== null && (
-          <span className="flex gap-0.5" aria-label={`${pips - board.faints} of ${pips} able to battle`}>
+          <span role="img" className="flex gap-0.5" aria-label={`${pips - board.faints} of ${pips} able to battle`}>
             {Array.from({ length: pips }, (_, i) => (
               <span key={i} className={`h-2 w-2 ${i < pips - board.faints ? 'bg-ink' : 'border border-ink-dim'}`} />
             ))}
@@ -237,6 +239,15 @@ export function BattleReplay({
     live && event?.kind === 'hit' && event.affected === side
       ? { amount: event.damage ?? 0, crit: Boolean(event.crit), key: at }
       : null;
+  // Keys the shake wrapper: it changes only when a new hit lands on `side`, so
+  // back-to-back hits restart the shake while other beats keep the sprite mounted.
+  const lastHitOn = (side: Side): number => {
+    for (let i = at; i >= 0; i--) {
+      const e = events[i];
+      if (e?.kind === 'hit' && e.affected === side) return i;
+    }
+    return -1;
+  };
   const settle = (side: Side) => setSettled((s) => ({ ...s, [side]: at }));
   const won = events[last]?.winner === 'player';
 
@@ -254,6 +265,7 @@ export function BattleReplay({
             live={live && board[side].spawnAt >= 0}
             hit={hitOn(side)}
             shake={hitOn(side) !== null}
+            shakeKey={live ? lastHitOn(side) : -1}
             onAnimEnd={settle}
           />
         ))}
