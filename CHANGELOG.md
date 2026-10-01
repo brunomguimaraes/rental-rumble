@@ -12,6 +12,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 ## [Unreleased]
 
 ### Added
+- **Village market** — buy Poké Balls and Great Balls with Pokédollars (₽) in Hearth Town, and sell balls, Honey, and mushrooms. Battle wins, coin pouches, and the Meadow survey pay ₽; retries never pay or charge twice.
 - **Pokédex seen and caught** — like the games, each entry is unseen (a silhouette), seen (name, sprite and types) or caught (every tab). The counter shows both totals, list rows mark seen and caught species, meeting a trainer's Pokémon counts as seeing it, and your starter and every form your Pokémon have evolved through count as caught. A new Area tab lists where each species lives in the wild, rare finds included, even before you've seen it; the Sunny Meadow screen no longer lists its possible encounters.
 - **Bag and catching** — persistent Poké Ball and Great Ball stacks, starting supplies, Explore finds, and inventory-backed capture. Each throw consumes one ball; retries cannot duplicate catches or item rewards.
 - **Sunny Meadow encounters** — Find wild Pokémon, Find NPC, or Explore for one action. Battle to grow your party, catch the wild individual you meet, discover landmarks, and complete the Meadow survey for Great Balls. Actions recover every ten minutes up to 48; encounters and results resume across visits.
@@ -26,6 +27,8 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 - **Accounts** — sign in with email and password, Discord or Google; email verification and password reset via Resend. Login is now required to play.
 
 ### Changed
+- **Explore finds** — now include harvest goods and coin pouches.
+- **Explore** — the guaranteed Poké Balls apply only when you have no balls and under ₽200.
 - **Bag button** — the Hub, town and route use the Night backpack icon, framed touch-sized buttons, and a ball count where inventory is shown.
 - **Sunny Meadow** — explore an interactive illustrated route: tap grass, the path, or the trail, then confirm one clear search. Encounters and results stay in the meadow; the Bag opens over the scene, catch odds and the one-throw cost stay visible, and party, survey, field guide, and battle rewards unfold when needed.
 - **Growth** — levels are hidden. A Pokémon shows an EXP bar and six stats; when the bar fills it grows: each stat rolls against its potential (read out in Judge words) and rises by one, up to the species' ceiling. Evolution carries every point over and adds a bonus. A fully trained Pokémon fights exactly as strong as before.
