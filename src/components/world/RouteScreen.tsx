@@ -22,6 +22,7 @@ import { MarketScreen } from './MarketScreen';
 import { MeadowEncounter } from './MeadowEncounter';
 import { RouteBagDialog } from './RouteBagDialog';
 import { TownAvatar, TownSummary, TownView, type TownService } from './TownView';
+import { TravelPanel } from './TravelPanel';
 import { WorldMap, type MapView } from './WorldMap';
 
 type Page = 'map' | 'list' | 'home' | 'r1' | 'encounter' | 'market';
@@ -44,8 +45,6 @@ export interface RouteScreenProps {
   partyIds: string[];
   view: MapView | null;
   onView: (view: MapView) => void;
-  onLocation: (place: 'home' | 'r1') => void;
-  location: 'home' | 'r1';
   onState: (state: RouteState, box?: OwnedMon[]) => void;
   onEditParty: () => void;
   /** A town destination opens the party editor, Pokédex or box; back returns to that destination. */
@@ -60,10 +59,15 @@ export interface RouteScreenProps {
 }
 
 /** Active play, with server-owned encounters and inventory; navigation never spends an action. */
-export function RouteScreen({ accountKey, state, error: loadError, box, partyIds, view, onView, onLocation, location, onState, onEditParty, onVisit, onBack, onRetry, onExpired, onPartyChanged, entry, trainerBar }: RouteScreenProps) {
+export function RouteScreen({ accountKey, state, error: loadError, box, partyIds, view, onView, onState, onEditParty, onVisit, onBack, onRetry, onExpired, onPartyChanged, entry, trainerBar }: RouteScreenProps) {
+  // The server decides where the trainer stands; only that place's pages open.
+  const here = state?.trainerAt ?? 'home';
+  // Before the route account opens (or while a legacy journey finishes) there is no trip to take:
+  // the meadow's Begin exploring button is how it opens, so every place stays open until then.
+  const roams = !state?.activated || state.legacy.pending;
   const [page, setPage] = useState<Page>(entry?.place === 'r1' && (entry.focus === 'encounter' || entry.focus === 'result') ? 'encounter' : entry?.place ?? 'map');
   const [from, setFrom] = useState<'map' | 'list'>('map');
-  const [selected, setSelected] = useState<'home' | 'r1'>(entry?.place ?? location);
+  const [selected, setSelected] = useState<'home' | 'r1'>(entry?.place ?? here);
   const [spot, setSpot] = useState<TownDestinationId>(entry?.place === 'home' ? entry.spot : TOWN_START);
   const [bagOpen, setBagOpen] = useState(false);
   const [selectedBall, setSelectedBall] = useState<{ eventId: string; id: CaptureBallId } | null>(null);
@@ -120,6 +124,14 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     const fresh = adopt(reply.state, reply.box);
     setResultOnly(false);
     setSelectedBall(null);
+    if (command.operation === 'travel') {
+      // A trip home from the market's travel panel goes back into the market.
+      const to = command.input.to;
+      setSelected(to);
+      setPage((current) => (current === 'market' && to === 'home' ? 'market' : to));
+      scrollToTop();
+      return;
+    }
     if (command.operation === 'search' || command.operation === 'choose') {
       setPage(fresh.activeEvent || fresh.result ? 'encounter' : 'r1');
       scrollToTop();
@@ -147,8 +159,9 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
       setError(reply.error);
       return;
     }
-    adopt(reply.state, reply.box);
-    setPage('r1');
+    // Done returns to where the trainer stands; a result can be read after travelling home.
+    const fresh = adopt(reply.state, reply.box);
+    setPage(fresh.trainerAt);
     scrollToTop();
   };
 
@@ -175,8 +188,13 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
   const locked = busy || pending !== null;
 
   // A place opens at its top: its button can sit below the fold of the map or the town.
-  const openPlace = (id: 'home' | 'r1', source: 'map' | 'list') => { scrollToTop(); onLocation(id); setSelected(id); setFrom(source); setPage(id); };
-  const walkTo = (id: 'r1') => { scrollToTop(); onLocation(id); setSelected(id); setPage(id); };
+  // Opening a place only enters where the trainer stands; elsewhere it selects the place on the map.
+  const openPlace = (id: 'home' | 'r1', source: 'map' | 'list') => {
+    scrollToTop(); setSelected(id); setFrom(source);
+    setPage(roams || id === here ? id : 'map');
+  };
+  // The town's road shows the trip and its cost on the map; it never spends on a tap.
+  const walkTo = (id: 'r1') => { scrollToTop(); setSelected(id); setPage(roams ? id : 'map'); };
   const choose = (choice: RouteChoice, ballId?: CaptureBallId) => {
     if (!event || locked) return;
     void submit({ operation: 'choose', input: { requestId: newRouteRequestId(), eventId: event.id, expectedRevision: event.revision, choice, ...(ballId ? { ballId } : {}) } });
@@ -185,6 +203,14 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     if (locked) return;
     void submit({ operation: 'search', input: { requestId: newRouteRequestId(), locationId: 'r1', kind, partyIds } });
   };
+  const travel = (to: 'home' | 'r1') => {
+    if (locked) return;
+    void submit({ operation: 'travel', input: { requestId: newRouteRequestId(), to, partyIds } });
+  };
+  // A place page the trainer is not at (a Hub deep link, a stale page) shows the trip there instead.
+  // The market is in Hearth Town.
+  const awayFrom: 'home' | 'r1' | null = roams ? null : page === 'market' ? (here === 'home' ? null : 'home')
+    : (page === 'home' || page === 'r1') && page !== here ? page : null;
 
   return <div className="mx-auto min-h-[100dvh] max-w-[430px] px-2 py-4 pb-[max(2rem,env(safe-area-inset-bottom))] font-pixel text-ink">
     <header className="mb-4 flex items-center gap-2 px-2">
@@ -200,16 +226,18 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     {pending && <Panel title="Recover your last action"><p className="text-sm">Your last request may already be saved. Retry it to recover the same result before making another choice.</p><button type="button" disabled={busy} onClick={() => void submit(pending)} className="ui-button-primary ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">{busy ? 'Checking…' : 'Retry last action'}</button></Panel>}
     {!state ? (!loadError && <Panel title="World"><p className="text-sm" role="status">Loading the map, actions, and Bag…</p></Panel>) : <>
       {page === 'map' && <>
-        <section className="ui-window m-2 p-1.5" aria-label="World map"><WorldMap places={state.places} trainerAt={location} selected={selected} view={view} onView={onView} onSelect={(id) => { if (id === 'home' || id === 'r1') setSelected(id); }} /><p className="mt-2 text-center text-xs text-ink-dim">Drag to look around · tap a place</p></section>
-        {selected === 'home' ? <TownSummary onEnter={() => openPlace('home', 'map')} />
+        <section className="ui-window m-2 p-1.5" aria-label="World map"><WorldMap places={state.places} trainerAt={here} selected={selected} view={view} onView={onView} onSelect={(id) => { if (id === 'home' || id === 'r1') setSelected(id); }} /><p className="mt-2 text-center text-xs text-ink-dim">Drag to look around · tap a place</p></section>
+        {!roams && selected !== here ? <TravelPanel to={selected} state={state} busy={locked} onTravel={travel} />
+          : selected === 'home' ? <TownSummary onEnter={() => openPlace('home', 'map')} />
           : <Panel title={placeTitle(route)}><p className="text-sm text-ink-dim">{route.blurb}</p><button type="button" onClick={() => openPlace('r1', 'map')} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[11px] uppercase">Visit {route.name}</button></Panel>}
       </>}
       {page === 'list' && <Panel title="Places"><ul className="flex flex-col gap-2">{[home, route].map((place) => <li key={place.id}><button type="button" onClick={() => openPlace(place.id as 'home' | 'r1', 'list')} className="ui-focus flex min-h-14 w-full items-center gap-3 rounded-[3px] bg-slot p-3 text-left"><span className="min-w-0 flex-1"><span className="block text-base">{placeTitle(place)}</span><span className="text-sm text-ink-dim">{place.id === 'home' ? 'Home town' : 'Wild Pokémon, friendly trainers, and landmarks'}</span></span>{place.id === 'home' && <TownAvatar className="h-10 w-10" />}</button></li>)}</ul></Panel>}
-      {page === 'home' && <TownView spot={spot} onSpot={setSpot} onOpen={(screen) => onVisit(screen, spot)} onWalk={walkTo} onMarket={() => { scrollToTop(); setPage('market'); }} />}
-      {page === 'market' && (state.activated && !state.legacy.pending
+      {awayFrom && <TravelPanel to={awayFrom} state={state} busy={locked} onTravel={travel} />}
+      {page === 'home' && !awayFrom && <TownView spot={spot} onSpot={setSpot} onOpen={(screen) => onVisit(screen, spot)} onWalk={walkTo} onMarket={() => { scrollToTop(); setPage('market'); }} />}
+      {page === 'market' && !awayFrom && (state.activated && !state.legacy.pending
         ? <MarketScreen state={state} busy={locked} onTrade={(trade) => void submit({ operation: 'market-trade', input: { requestId: newRouteRequestId(), ...trade } })} />
         : <Panel title="Village market"><p className="text-sm">Begin exploring Sunny Meadow to open your account at the market.</p><button type="button" onClick={() => walkTo('r1')} className="ui-button-primary ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">Walk to Sunny Meadow</button></Panel>)}
-      {page === 'r1' && <SunnyMeadow state={state} party={party} locked={locked} busy={busy}
+      {page === 'r1' && !awayFrom && <SunnyMeadow state={state} party={party} locked={locked} busy={busy}
         showSurvey={entry?.place === 'r1' && entry.focus === 'survey'}
         onSearch={search} onActivate={() => void submit({ operation: 'activate', input: { requestId: newRouteRequestId() } })}
         onResume={() => { setResultOnly(false); setPage('encounter'); scrollToTop(); }}
