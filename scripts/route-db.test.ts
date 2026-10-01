@@ -346,9 +346,9 @@ try {
   const backOut = await start(db, 'whiteout');
   check('a search after healing puts the trainer back in the meadow', backOut.state.trainerAt === 'r1');
   await rejects('healing waits for the open encounter', healParty(db, 'whiteout', 'heal-2', T), 409);
-  // 'activate' is the committed activation receipt from Task 3's setup; a refused search leaves none.
-  await rejects('a request ID from another command cannot heal', healParty(db, 'whiteout', 'activate', T), 409);
   await leave(db, 'whiteout', backOut.event!);
+  // 'activate' is the committed activation receipt; with no open encounter, only the reused request ID can refuse.
+  await rejects('a request ID from another command cannot heal', healParty(db, 'whiteout', 'activate', T), 409);
 
   const hpLegacy = await legacyDb('hp-legacy');
   try {
