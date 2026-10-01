@@ -6,6 +6,7 @@ import type {
 import { partyCreatures } from './activity.js';
 import { simulateBattle } from './battle.js';
 import { ownedMonToCreature } from './box.js';
+import { currentHp, isFainted, ownedMaxHp } from './health.js';
 import { mintStats } from './growth.js';
 import { rollIdentity } from './identity.js';
 import { ballCount, isCaptureBallId, itemById } from './items.js';
@@ -197,9 +198,14 @@ export function rollCapture({ seed, rare, wonBattle, ballId, rules = ROUTE_RULES
 export function simulateRouteBattle({ party, foe, seed }: {
   party: readonly OwnedMon[]; foe: FrozenRouteFoe; seed: string;
 }): RouteBattle {
-  const player = partyCreatures(party);
+  // Fainted members sit out; the rest fight at the HP they carry.
+  const fielded = party.filter((m) => !isFainted(m));
+  const player = partyCreatures(fielded);
   const opponent = ownedMonToCreature({ ...foe.mint, id: 'route-foe', exp: 0, origin: 'catch', caughtAt: 0 });
-  if (!opponent || player.length === 0 || player.length !== party.length) throw new Error('Invalid route battle participants');
-  const battle = simulateBattle(player, [opponent], `route:${seed}:battle`, { foeStatMult: foe.statMult });
-  return { won: battle.winner === 'player', turns: battle.turns, events: battle.events };
+  if (!opponent || player.length === 0 || player.length !== fielded.length) throw new Error('Invalid route battle participants');
+  const battle = simulateBattle(player, [opponent], `route:${seed}:battle`, { foeStatMult: foe.statMult, playerStartHp: fielded.map(currentHp) });
+  return {
+    won: battle.winner === 'player', turns: battle.turns, events: battle.events,
+    fielded: fielded.map((m, i) => ({ id: m.id, hp: battle.playerHp[i], maxHp: ownedMaxHp(m) })),
+  };
 }
