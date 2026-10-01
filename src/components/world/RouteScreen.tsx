@@ -136,6 +136,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     clearPendingRouteCommand(accountKey);
     setPending(null);
     const fresh = adopt(reply.state, reply.box);
+    if (reply.party) onPartyChanged?.(reply.party);
     // Commit the server state immediately; the sequence only holds back its visual reveal.
     // A retry may return an old receipt alongside newer state. Never revive that old encounter.
     if (command.operation === 'choose' && command.input.choice === 'catch') {

@@ -1,7 +1,7 @@
 /** Atomic route commands against a disposable file database, including lost replies and legacy cutover. */
 import {
   acceptRouteQuest, applySchema, changeInventory, changeMoney, countOwned, insertDiscovery, insertRouteEvent, readDiscoveries,
-  openWriteTx, readActivity, readOpenActivity, readOwnedByUser, readRouteAccount, readRouteEvent,
+  openWriteTx, readActivity, readOpenActivity, readOwnedByUser, readProfile, readRouteAccount, readRouteEvent,
   isMissingSchema, updateOwnedNickname, updateProfileParty, updateRouteEvent, writeOwnedHp, writeRouteAllowance, type Db,
 } from '../api/_db.js';
 import {
@@ -112,6 +112,16 @@ try {
   const ownedCatch = caught.event!.catch!.owned!;
   check('catch persists complete encountered identity without handicap', Object.entries(caughtMint).every(([k, v]) => eq(ownedCatch[k as keyof typeof ownedCatch], v)) && ownedCatch.exp === 0 && ownedCatch.origin === 'catch');
   check('caught dex layer is recorded once', Number((await db.execute({ sql: 'select count(*) as n from pokedex_cells where user_id = ?', args: ['u1'] })).rows[0].n) === 1);
+  check('a catch joins a party with room, behind the saved members', caught.event?.catch?.joinedParty === true && eq(caught.party, [starter.id, ownedCatch.id]) && eq((await readProfile(db, 'u1'))?.party, [starter.id, ownedCatch.id]));
+  await updateProfileParty(db, 'u1', [starter.id]);
+  const fullLead = await onboardUser(db, 'full-party', 6, 30);
+  const fullParty = [fullLead.id, ...(await Promise.all(Array.from({ length: 5 }, () => mintMon(db, 'full-party', { dexId: 10, level: 5 })))).map((m) => m.id)];
+  await updateProfileParty(db, 'full-party', fullParty);
+  await activateRoute(db, 'full-party', rid(), T);
+  const fullPartyWild = (await start(db, 'full-party', 'wild', T, fullParty)).event!;
+  await forceCatch(db, 'full-party', fullPartyWild, true, 'poke');
+  const toBox = await chooseRoute(db, 'full-party', { requestId: rid(), eventId: fullPartyWild.id, expectedRevision: 0, choice: 'catch', ballId: 'poke' }, T);
+  check('a catch with a full party goes to the Box and leaves the party alone', toBox.event?.catch?.caught === true && toBox.event.catch.joinedParty === false && toBox.party === undefined && eq((await readProfile(db, 'full-party'))?.party, fullParty) && await countOwned(db, 'full-party') === 7);
   await rejects('a second throw cannot consume another ball', chooseRoute(db, 'u1', { ...throwInput, requestId: rid() }, T), 409);
   await dismissRouteResult(db, 'u1', e.id, T);
   check('dismiss does not reward again', (await loadRouteState(db, 'u1', T)).result === null && await countOwned(db, 'u1') === 2);

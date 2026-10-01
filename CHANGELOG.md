@@ -31,6 +31,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 
 ### Changed
 - **Catching** — ball throws now arc into the meadow, draw the Pokémon inside, and build suspense with three shakes before a sparkling catch or breakout reveal. Skip the animation at any time; reduced motion shows a still result.
+- **Caught Pokémon join your party** — a catch goes straight into your party when it has fewer than six Pokémon; with a full party it goes to the Box as before.
 - **Explore finds** — now include harvest goods and coin pouches.
 - **Explore** — the guaranteed Poké Balls apply only when you have no balls and under ₽200.
 - **Trainer bar** — the Hub header is a Night window with your trainer portrait, your name and mentor, Mail (coming soon) and Settings buttons, and your Bag's ball count.
