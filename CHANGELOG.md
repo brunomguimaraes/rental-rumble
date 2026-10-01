@@ -29,6 +29,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 ### Changed
 - **Explore finds** — now include harvest goods and coin pouches.
 - **Explore** — the guaranteed Poké Balls apply only when you have no balls and under ₽200.
+- **Trainer bar** — the Hub header is a Night window with your partner's portrait, your name and mentor, Mail (coming soon) and Settings buttons, and your Bag's ball count.
 - **Bag button** — the Hub, town and route use the Night backpack icon, framed touch-sized buttons, and a ball count where inventory is shown.
 - **Sunny Meadow** — explore an interactive illustrated route: tap grass, the path, or the trail, then confirm one clear search. Encounters and results stay in the meadow; the Bag opens over the scene, catch odds and the one-throw cost stay visible, and party, survey, field guide, and battle rewards unfold when needed.
 - **Growth** — levels are hidden. A Pokémon shows an EXP bar and six stats; when the bar fills it grows: each stat rolls against its potential (read out in Judge words) and rises by one, up to the species' ceiling. Evolution carries every point over and adds a bonus. A fully trained Pokémon fights exactly as strong as before.
