@@ -856,8 +856,17 @@ export async function countOwned(db: Executor, uid: string): Promise<number> {
   const rs = await db.execute({ sql: 'select count(*) as total from owned_pokemon where user_id = ?', args: [uid] });
   return Number(rs.rows[0]?.total) || 0;
 }
+/** The Pokédex layer an individual fills: shiny wins over alt colour. */
+function dexLayerOf(shiny: boolean, altColor: boolean): DexLayer {
+  return shiny ? 's' : altColor ? 'a' : 'n';
+}
+/** Species and layer of every Pokémon the trainer owns now, for the Pokédex. */
+export async function readOwnedForms(db: Executor, uid: string): Promise<{ dexId: number; layer: DexLayer }[]> {
+  const rs = await db.execute({ sql: 'select dex_id, shiny, alt_color from owned_pokemon where user_id = ?', args: [uid] });
+  return rs.rows.map((r) => ({ dexId: Number(r.dex_id), layer: dexLayerOf(Number(r.shiny) === 1, Number(r.alt_color) === 1) }));
+}
 export async function recordCaughtDex(db: Executor, uid: string, mon: OwnedMon, now: number): Promise<void> {
-  await db.execute({ sql: 'insert or ignore into pokedex_cells (user_id, dex_id, layer, caught_at) values (?, ?, ?, ?)', args: [uid, mon.dexId, mon.shiny ? 's' : mon.altColor ? 'a' : 'n', now] });
+  await db.execute({ sql: 'insert or ignore into pokedex_cells (user_id, dex_id, layer, caught_at) values (?, ?, ?, ?)', args: [uid, mon.dexId, dexLayerOf(mon.shiny, mon.altColor), now] });
 }
 
 export async function advanceRouteRevision(db: Executor, uid: string): Promise<void> {

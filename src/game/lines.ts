@@ -10,6 +10,11 @@ for (const [parent, children] of Object.entries(EVOLUTIONS)) {
   for (const child of children) PRE_EVOLUTION[child] = Number(parent);
 }
 
+/** The species this one evolves from, or null for a base form. */
+export function preEvolution(dexId: number): number | null {
+  return PRE_EVOLUTION[dexId] ?? null;
+}
+
 /** Real, in-dex evolution targets for a species. */
 export function evolutionTargets(dexId: number): number[] {
   return (EVOLUTIONS[dexId] ?? []).filter((id) => Boolean(CREATURES_BY_ID[String(id)]));

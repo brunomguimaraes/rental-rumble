@@ -14,10 +14,18 @@ The individual PNGs are generated recreations based on the reference, not pixel-
 original concept alongside them as the visual source of truth. The image tool supplied the transparency;
 the exported PNGs retain their original resolution and alpha channel.
 
+`item-bag.png` is an October 1 addition based on `bag.png`: the same brown backpack with a Poké Ball
+clasp and empty side pockets. It represents the item inventory; `bag.png` remains the
+plain backpack alternative. The new icon has its own prompt and appears beside Bag in the gallery.
+
 These are archival masters. Before loading many of them in the mobile app, export appropriately sized,
 optimized derivatives as separate files and keep these originals.
 
 ## Use in the app
+
+The Hub and route Bag buttons use `96/item-bag.png`, the small derivative of the master.
+Regenerate in-app icons with `python3 scripts/build-night-icon-sizes.py`. The shared
+`src/components/ui/BagButton.tsx` keeps the backpack, frame, focus state, and touch target consistent.
 
 Reference an icon through Vite's base URL, for example:
 
