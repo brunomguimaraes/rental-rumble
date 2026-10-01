@@ -64,7 +64,7 @@ check('transform swaps species, types and sign in place', at(7).foe.view?.dexId 
 check('status: null clears the main status', at(8).foe.status === null);
 check('a volatile toggles off', at(9).player.volatiles.length === 0);
 check('an out-of-range send-out index keeps the current member', at(10).player.view?.dexId === 4);
-check('earlier boards are not mutated by later events', at(3).player.volatiles.includes('weight') && at(10).player.volatiles.length === 0);
+check('earlier boards are not mutated by later events', at(3).player.volatiles.includes('weight') && at(10).player.volatiles.length === 0 && at(1).foe.view?.dexId === 7);
 
 check('a wild foe announces itself', at(1).line === 'A wild Squirtle appeared!');
 check('a trainer foe is sent out by name', boardAt({ events: log, upTo: 1, player: [bulbasaur], foe: [squirtle], narration: { foeName: 'Squirtle', guardian: false, trainerName: 'Youngster Joey' } }).line === 'Youngster Joey sends out Squirtle!');

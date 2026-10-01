@@ -91,15 +91,15 @@ function Combatant({ side, board, anim, live, hit, shake, shakeKey, onAnimEnd }:
 }) {
   const view = board.view;
   if (!view) return null;
-  const pos = side === 'foe' ? 'right-[14%] bottom-[46%]' : 'left-[10%] bottom-4';
+  const pos = side === 'foe' ? 'right-[14%] bottom-[38%]' : 'left-[10%] bottom-4';
   const fallback = (
     <PixelSprite src={side === 'player' ? view.back : view.sprite} fallback={POKEBALL} size={96} alt="" />
   );
   return (
-    <div className={`absolute z-0 flex flex-col items-center ${pos}`}>
+    <div className={`absolute flex flex-col items-center ${pos}`}>
       <div className="relative flex items-end justify-center">
         {hit && (
-          <span key={hit.key} className={`dmg-number animate-damage-pop pointer-events-none absolute bottom-full left-1/2 z-30 mb-1 whitespace-nowrap leading-none ${hit.crit ? 'text-sm' : 'text-xs'}`}>
+          <span key={hit.key} className={`dmg-number animate-damage-pop pointer-events-none absolute left-1/2 top-0 z-30 whitespace-nowrap leading-none ${hit.crit ? 'text-sm' : 'text-xs'}`}>
             -{hit.amount}
             {hit.crit && <span className="ml-1 font-label text-[8px] uppercase text-accent">Crit</span>}
           </span>
@@ -152,10 +152,10 @@ function InfoCard({ board, hp, pips, className }: {
       <div className="flex flex-wrap items-center gap-1">
         <TypeBadges types={view.types} />
         {board.status && (
-          <img src={statusIconUrl(board.status)} alt={STATUS_LABEL[board.status]} title={STATUS_LABEL[board.status]} className="h-3.5 shrink-0 object-contain [image-rendering:pixelated]" />
+          <img src={statusIconUrl(board.status)} alt={STATUS_LABEL[board.status]} title={STATUS_LABEL[board.status]} className="h-4 shrink-0 object-contain [image-rendering:pixelated]" />
         )}
         {board.volatiles.map((v) => (
-          <img key={v} src={volatileIconUrl(v)} alt={VOLATILE_LABEL[v]} title={VOLATILE_LABEL[v]} className="h-3.5 shrink-0 object-contain [image-rendering:pixelated]" />
+          <img key={v} src={volatileIconUrl(v)} alt={VOLATILE_LABEL[v]} title={VOLATILE_LABEL[v]} className="h-4 shrink-0 object-contain [image-rendering:pixelated]" />
         ))}
       </div>
       <StatBar value={hp} max={board.maxHp} tone="night" label={`${view.name} HP`} segments={12} />

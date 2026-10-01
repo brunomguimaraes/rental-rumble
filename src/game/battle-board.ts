@@ -75,7 +75,7 @@ export function wildCombatant(view: WildView): CombatantView | null {
 }
 
 /** The line to show for an event, or null for a beat with nothing to say. */
-export function lineFor(e: BattleEvent, n: Narration): string | null {
+function lineFor(e: BattleEvent, n: Narration): string | null {
   const prefix = n.trainerName ? `${n.trainerName}’s ` : n.guardian ? 'The guardian ' : 'The wild ';
   switch (e.kind) {
     case 'sendout':

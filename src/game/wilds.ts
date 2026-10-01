@@ -10,7 +10,7 @@ import { mintStats, toEngineStats } from './growth.js';
 // battle creature in buildWild, which mints the individual's stats the way a
 // catch would (growth.ts) and hands the engine those × 2.5.
 
-/** What the player may see of a wild: never its seed or rolled sign. */
+/** What the player may see of a wild: never its seed or mint. */
 export interface WildView {
   dexId: number;
   level: number;
