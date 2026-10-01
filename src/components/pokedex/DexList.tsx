@@ -1,7 +1,8 @@
 import type { Creature } from '../../game/types';
 import { PixelSprite } from '../ui/PixelSprite';
+import { PixelIcon } from '../world/PixelIcon';
 import { CollectionPips } from './CollectionPips';
-import { paddedDexNo, type VariantMarks } from './dex';
+import { caughtAny, paddedDexNo, type DexReveal, type VariantMarks } from './dex';
 
 /**
  * The DS bottom screen's paper list. On phones `scroll-mt-[320px]` keeps a
@@ -14,7 +15,7 @@ export function DexList({
   selectedId,
   onSelect,
   marksOf,
-  undiscovered,
+  revealOf,
   onMore,
 }: {
   creatures: Creature[];
@@ -22,7 +23,7 @@ export function DexList({
   selectedId: number | null;
   onSelect: (dexId: number) => void;
   marksOf: (dexId: number) => VariantMarks | null;
-  undiscovered: (dexId: number) => boolean;
+  revealOf: (dexId: number) => DexReveal;
   onMore: () => void;
 }) {
   if (total === 0) {
@@ -32,7 +33,9 @@ export function DexList({
     <ul aria-label="Pokémon" className="bg-paper font-pixel text-paper-ink sm:max-h-[360px] sm:overflow-y-auto">
       {creatures.map((c) => {
         const marks = marksOf(c.dexId);
-        const hidden = undiscovered(c.dexId);
+        const hidden = revealOf(c.dexId) === 'hidden';
+        const caught = marks !== null && caughtAny(marks);
+        const seen = marks !== null && !caught && !hidden;
         const on = c.dexId === selectedId;
         return (
           <li key={c.id}>
@@ -48,6 +51,10 @@ export function DexList({
               <span className="w-10 shrink-0 pl-2 font-label text-[10px]">{paddedDexNo(c.dexId)}</span>
               <span className="h-12 w-16 shrink-0 overflow-hidden">
                 <PixelSprite sheet src={c.mini} size={64} alt="" silhouette={hidden} className="-mt-3" />
+              </span>
+              <span className="w-3 shrink-0">
+                {caught && <PixelIcon name="ball" size={12} label="Caught" />}
+                {seen && <PixelIcon name="eye" size={12} label="Seen" />}
               </span>
               <span className={`min-w-0 flex-1 truncate text-sm ${hidden ? 'text-paper-ink/75' : ''}`}>
                 {hidden ? '???' : c.name}

@@ -173,7 +173,8 @@ export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, 
     for (const landmark of find.landmarks) {
       if (await insertDiscovery(tx, { uid, locationId: 'r1', kind: 'landmark', ref: landmark, foundAt: now })) event.newLandmarks.push(landmark);
     }
-    if (find.kind === 'wild' && find.foe && await insertDiscovery(tx, { uid, locationId: 'r1', kind: 'seen', ref: String(find.foe.view.dexId), foundAt: now })) event.newSeen.push(find.foe.view.dexId);
+    // A trainer's Pokémon counts as seen too, as in the games.
+    if (find.foe && await insertDiscovery(tx, { uid, locationId: 'r1', kind: 'seen', ref: String(find.foe.view.dexId), foundAt: now })) event.newSeen.push(find.foe.view.dexId);
     for (const item of find.items) await changeInventory(tx, uid, item.itemId, item.quantity);
     await writeRouteAllowance(tx, uid, spent.available, spent.refilledAt);
     await writeTrainerAt(tx, uid, 'r1');

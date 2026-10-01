@@ -192,6 +192,15 @@
       "sha256": "cf0f1da1bb339cb4885ecc2d5cdebef93116a2969094c0591c72d4f118cc93a3"
     },
     {
+      "id": "item-bag",
+      "label": "Item Bag",
+      "category": "utilities",
+      "file": "item-bag.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "110d1a9e7bc5098831ef671d401456a28db07e4c40ccba4dc7b475f6cb17115c"
+    },
+    {
       "id": "achievements",
       "label": "Achievements",
       "category": "utilities",

@@ -11,6 +11,8 @@ import {
   readProfile,
   insertProfileWithStarter,
   readOwnedByIds,
+  readOwnedForms,
+  readSeenDexIds,
   updateOwnedNickname,
   updateOwnedGrowth,
   type Db,
@@ -20,6 +22,7 @@ import { cleanNickname } from '../../src/game/profile.js';
 import { isLocalDev } from '../_dev.js';
 import { applyGrowthWithEvolution } from '../../src/game/evolution.js';
 import { expToNext, MAX_LEVEL } from '../../src/game/levels.js';
+import { preEvolution } from '../../src/game/lines.js';
 import { RNG } from '../../src/game/rng.js';
 
 // The per-account endpoints behind one Vercel function (dynamic `[action]`
@@ -70,32 +73,50 @@ async function pokedex(req: VercelRequest, res: VercelResponse) {
   if (!db) return res.status(200).json({ ok: true, owned: null });
 
   try {
-    const rs = await db.execute({
-      sql: 'select dex_id, layer from pokedex_cells where user_id = ?',
-      args: [uid],
-    });
+    const [rs, sightings, forms] = await Promise.all([
+      db.execute({
+        sql: 'select dex_id, layer from pokedex_cells where user_id = ?',
+        args: [uid],
+      }),
+      readSeenDexIds(db, uid),
+      readOwnedForms(db, uid),
+    ]);
     const maps: Record<string, Uint8Array> = {
       n: new Uint8Array(BYTES),
       a: new Uint8Array(BYTES),
       s: new Uint8Array(BYTES),
     };
+    // Seen is a superset of caught: route sightings plus every caught species.
+    const seen = new Uint8Array(BYTES);
+    const valid = (d: number) => Number.isInteger(d) && d >= 1 && d <= DEX_MAX_ID;
+    const has = (map: Uint8Array, d: number) => (map[d >> 3] & (1 << (d & 7))) !== 0;
     const counts: Record<string, number> = { n: 0, a: 0, s: 0 };
-    for (const r of rs.rows as unknown as { dex_id: number; layer: string }[]) {
-      const map = maps[r.layer];
-      if (!map) continue;
-      const d = Number(r.dex_id);
-      if (!Number.isInteger(d) || d < 1 || d > DEX_MAX_ID) continue;
-      const byte = d >> 3;
-      const bit = 1 << (d & 7);
-      if ((map[byte] & bit) === 0) {
-        map[byte] |= bit;
-        counts[r.layer] += 1;
+    const mark = (layer: string, d: number) => {
+      const map = maps[layer];
+      if (!map || !valid(d)) return;
+      seen[d >> 3] |= 1 << (d & 7);
+      if (!has(map, d)) {
+        map[d >> 3] |= 1 << (d & 7);
+        counts[layer] += 1;
+      }
+    };
+    for (const r of rs.rows as unknown as { dex_id: number; layer: string }[]) mark(r.layer, Number(r.dex_id));
+    // Owned Pokémon count as caught too (starters, evolutions), with every earlier
+    // stage they evolved through, back to the species actually caught or the base form.
+    const recorded = Object.fromEntries(Object.entries(maps).map(([k, m]) => [k, m.slice()]));
+    for (const f of forms) {
+      for (let d: number | null = f.dexId, guard = 0; d !== null && valid(d) && guard < 8; guard++) {
+        mark(f.layer, d);
+        if (has(recorded[f.layer], d)) break;
+        d = preEvolution(d);
       }
     }
+    for (const d of sightings) if (valid(d)) seen[d >> 3] |= 1 << (d & 7);
     const b64 = (u: Uint8Array) => Buffer.from(u).toString('base64');
     return res.status(200).json({
       ok: true,
       owned: { n: b64(maps.n), a: b64(maps.a), s: b64(maps.s) },
+      seen: b64(seen),
       counts: { n: counts.n, a: counts.a, s: counts.s },
       total: DEX_MAX_ID,
       layers: DEX_LAYERS,

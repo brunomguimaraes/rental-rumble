@@ -7,7 +7,7 @@
  *   npx --yes tsx scripts/world-api.test.ts
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { applySchema, readActivity, readOwnedByUser } from '../api/_db.js';
+import { applySchema, insertDiscovery, readActivity, readOwnedByUser } from '../api/_db.js';
 import { startActivity } from '../api/_world.js';
 import { signSession } from '../api/_session.js';
 import { legacyDb, legacyOnboard, mintMon, check, finish } from './world-test-kit.js';
@@ -125,6 +125,35 @@ try {
   check('the profile shows it', JSON.stringify((after.body.profile as { party?: string[] }).party) === JSON.stringify([extra.id, starter.id]));
   const stale = await call(world, 'POST', 'start', 'u1', { mode: 'train', locationId: 'r1', partyIds: [starter.id], requestId: 'r-4' });
   check('old starts stay retired after party changes', stale.status === 409 && stale.body.retired === true);
+
+  console.log('\n[5] Pokédex seen and caught');
+  await insertDiscovery(db, { uid: 'u1', locationId: 'r1', kind: 'seen', ref: '133', foundAt: 1 });
+  await insertDiscovery(db, { uid: 'u2', locationId: 'r1', kind: 'seen', ref: '19', foundAt: 1 });
+  await db.execute({ sql: 'insert into pokedex_cells (user_id, dex_id, layer, caught_at) values (?, ?, ?, ?)', args: ['u1', 16, 's', 1] });
+  const dex = await call(me, 'GET', 'pokedex', 'u1');
+  const seenB64 = (dex.body as { seen?: unknown }).seen;
+  const seenBits = typeof seenB64 === 'string' ? Buffer.from(seenB64, 'base64') : Buffer.alloc(0);
+  const seenBit = (d: number) => ((seenBits[d >> 3] ?? 0) & (1 << (d & 7))) !== 0;
+  check('the Pokédex marks route sightings as seen', dex.status === 200 && seenBit(133));
+  check('a caught species also counts as seen', seenBit(16));
+  check('another player’s sightings stay theirs', !seenBit(19));
+  const layerBits = (body: Record<string, unknown>, layer: 'n' | 'a' | 's') => {
+    const b64 = (body.owned as Record<string, string> | null)?.[layer];
+    const bytes = typeof b64 === 'string' ? Buffer.from(b64, 'base64') : Buffer.alloc(0);
+    return (d: number) => ((bytes[d >> 3] ?? 0) & (1 << (d & 7))) !== 0;
+  };
+  const u1n = layerBits(dex.body, 'n');
+  check('a starter counts as caught', u1n(10));
+  // u2's Caterpie starter evolves to an alt-colour Butterfree; it also owns a Pidgeot it caught as Pidgeotto.
+  await db.execute({ sql: 'update owned_pokemon set dex_id = 12, alt_color = 1 where id = ?', args: ['legacy-u2'] });
+  await db.execute({ sql: 'insert into pokedex_cells (user_id, dex_id, layer, caught_at) values (?, ?, ?, ?)', args: ['u2', 17, 'n', 1] });
+  await mintMon(db, 'u2', { dexId: 18, level: 40 });
+  const dex2 = await call(me, 'GET', 'pokedex', 'u2');
+  const u2n = layerBits(dex2.body, 'n');
+  const u2a = layerBits(dex2.body, 'a');
+  check('an evolved Pokémon marks every earlier stage in its own variant', u2a(12) && u2a(11) && u2a(10) && !u2n(10));
+  check('earlier stages stop at the species that was caught', u2n(18) && u2n(17) && !u2n(16));
+  check('counts include derived catches', JSON.stringify(dex2.body.counts) === JSON.stringify({ n: 2, a: 3, s: 0 }));
 } finally {
   t.cleanup();
 }

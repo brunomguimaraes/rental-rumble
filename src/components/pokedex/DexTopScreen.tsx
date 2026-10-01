@@ -8,6 +8,7 @@ import {
   moveEffectLabel,
   moveSelfNote,
 } from '../../game/moves';
+import { wildAreas } from '../../game/route-rules';
 import { TYPE_COLORS, typeLabel } from '../../game/typechart';
 import { signIconUrl, signLabel, signSummary } from '../../game/zodiac';
 import { PixelSprite } from '../ui/PixelSprite';
@@ -15,10 +16,10 @@ import { StatBar } from '../ui/StatBar';
 import { CollectionPips } from './CollectionPips';
 import {
   COLLECTION_LAYERS,
-  DEX_TABS,
   baseStatTotal,
   caughtAny,
   paddedDexNo,
+  type DexReveal,
   type DexTab,
   type VariantMarks,
 } from './dex';
@@ -177,20 +178,38 @@ function SignsPanel({ creature }: { creature: Creature }) {
   );
 }
 
+function AreaPanel({ creature }: { creature: Creature }) {
+  const areas = wildAreas(creature.dexId);
+  if (areas.length === 0) return <p className="text-xs">Not found in the wild yet.</p>;
+  return (
+    <ul className="space-y-1">
+      {areas.map((a) => (
+        <li key={a.name} className="flex items-center gap-1.5 text-sm">
+          ▶ {a.name}
+          {a.rare && <MoveTag>Rare</MoveTag>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** The DS top screen: the selected species and its tabbed details. */
 export function DexTopScreen({
   creature,
   marks,
-  hidden,
+  reveal,
   collectionError,
+  tabs,
   tab,
   onTab,
 }: {
   creature: Creature | null;
   marks: VariantMarks | null;
-  /** Undiscovered: silhouette only, no name or details. */
-  hidden: boolean;
+  /** Unseen shows a silhouette; seen adds name and types; caught opens every tab. */
+  reveal: DexReveal;
   collectionError: boolean;
+  /** The tabs this entry can open; `tab` is always one of them. */
+  tabs: readonly { id: DexTab; label: string }[];
   tab: DexTab;
   onTab: (tab: DexTab) => void;
 }) {
@@ -208,7 +227,8 @@ export function DexTopScreen({
       </div>
     );
   }
-  const uncaught = marks !== null && !caughtAny(marks);
+  const hidden = reveal === 'hidden';
+  const status = marks && caughtAny(marks) ? 'Caught' : reveal === 'seen' ? 'Seen' : 'Not seen yet';
   return (
     <div
       className="flex h-[300px] flex-col bg-lcd font-pixel text-lcd-ink sm:h-[380px]"
@@ -227,15 +247,17 @@ export function DexTopScreen({
           <h2 className="truncate text-lg font-bold uppercase leading-tight">
             {hidden ? '???' : creature.name}
           </h2>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {creature.types.map((t) => (
-              <TypeChip key={t} type={t} />
-            ))}
-          </div>
+          {!hidden && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {creature.types.map((t) => (
+                <TypeChip key={t} type={t} />
+              ))}
+            </div>
+          )}
           {marks && (
             <div className="mt-1.5 flex items-center gap-1.5 text-xs">
               <CollectionPips marks={marks} />
-              {uncaught ? 'Not caught yet' : 'Caught'}
+              {status}
             </div>
           )}
           {collectionError && (
@@ -243,16 +265,14 @@ export function DexTopScreen({
           )}
         </div>
       </div>
-      {hidden ? (
+      {hidden && !marks ? (
         <p className="m-2 mt-0 border-t border-dashed border-lcd-dim pt-2 text-xs leading-snug text-lcd-ink/75">
-          {marks
-            ? 'Not yet discovered. Catch one to record its stats, ability, moves, and signs.'
-            : 'Loading your collection…'}
+          Loading your collection…
         </p>
       ) : (
         <>
           <div role="tablist" aria-label="Pokédex details" className="flex gap-0.5 px-2">
-            {DEX_TABS.map((t) => (
+            {tabs.map((t) => (
               <button
                 key={t.id}
                 id={`dex-tab-${t.id}`}
@@ -279,6 +299,12 @@ export function DexTopScreen({
             {tab === 'ability' && <AbilityPanel creature={creature} />}
             {tab === 'moves' && <MovesPanel creature={creature} />}
             {tab === 'signs' && <SignsPanel creature={creature} />}
+            {tab === 'area' && <AreaPanel creature={creature} />}
+            {reveal !== 'full' && (
+              <p className="mt-2 border-t border-dashed border-lcd-dim pt-2 text-xs leading-snug text-lcd-ink/75">
+                Catch one to record its stats, ability, moves, and signs.
+              </p>
+            )}
           </div>
         </>
       )}
