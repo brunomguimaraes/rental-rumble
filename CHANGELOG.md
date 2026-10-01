@@ -12,6 +12,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 ## [Unreleased]
 
 ### Added
+- **Hearth Town art pack** — a country community with a bakery, market, Pokémon Center, library, daycare, lab, and varied private homes; includes exploration artwork, service hit regions, a transparent menu avatar, a world-map section, and a local clickable preview. No tall grass in town; gameplay integration remains separate.
 - **World map** — Hearthvale, a pixel-art region: Hearth Town and six places (Sunny Meadow, Mossy Woods, Mirror Lake, Flint Quarry, Cloudcap Trail, Starfall Ruins). Drag, zoom and recenter the map, or browse the list; each place shows its local Pokémon, landmarks, guardian, rewards, and what it takes to open it.
 - **Expeditions** — short trips of about five checkpoints: sightings, landmarks, battles, and a fork where you pick the way. Beat the guardian at the end to clear the place and open the next ones. A trip resumes after a reload or on another device; heading home or losing a battle keeps the EXP already earned.
 - **Training** — send your party to train at any open place while you're away: one battle every few minutes on the server's clock, up to 8 hours, stopping at the first defeat. Bring them home to collect EXP, growth and evolutions; results wait until you've seen them.

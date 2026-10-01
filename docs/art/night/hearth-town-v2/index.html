@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hearth Town · Community asset preview</title>
+  <link rel="stylesheet" href="./preview.css">
+</head>
+<body>
+  <main>
+    <header class="masthead">
+      <div><p class="eyebrow">HEARTHVALE / FIRST TOWN / ART V2</p><h1>Hearth Town</h1><p class="intro">A country town with a life of its own.</p></div>
+      <a class="download" href="/sprites/world/hearth-town-v2/manifest.json" download>Asset manifest ↗</a>
+    </header>
+    <div class="principles"><span>Six community services</span><span>Private homes are scenery</span><span>No tall grass in town</span></div>
+    <section class="exploration" aria-label="Interactive town layout">
+      <div class="map-panel window">
+        <div class="panel-heading"><h2>Explore the town</h2><label><input id="show-hotspots" type="checkbox" checked> Show destinations</label></div>
+        <div id="town-map" class="town-map">
+          <img src="/sprites/world/hearth-town-v2/exploration-map.png" width="1536" height="1024" alt="Hearth Town: six public services and varied private homes around a shaded square, with gardens, a riverside, and a north road.">
+          <div id="hotspots" class="hotspots"></div>
+        </div>
+        <p class="caption">Select a service on the map or in the list. The residential homes stay part of the scenery.</p>
+      </div>
+      <aside class="window details" aria-label="Town destinations">
+        <div class="panel-heading"><h2>Places to visit</h2><span class="eyebrow">01–08</span></div>
+        <div id="destinations" class="destinations"></div>
+        <div id="place-details" class="place-details" aria-live="polite" aria-atomic="true"><p>Loading destinations…</p></div>
+      </aside>
+    </section>
+    <p id="status" class="status" role="status">Asset preview · Selecting a place shows its proposed role. Town gameplay comes next.</p>
+    <section class="asset-grid" aria-label="Other town assets">
+      <article class="window">
+        <div class="panel-heading"><h2>Menu avatar</h2><a href="/sprites/world/hearth-town-v2/menu-avatar.png" download>PNG ↗</a></div>
+        <div class="avatar-stages"><div class="avatar-stage dark"><img src="/sprites/world/hearth-town-v2/menu-avatar.png" width="256" height="256" alt="Transparent Hearth Town menu avatar on a dark surface."></div><div class="avatar-stage light"><img src="/sprites/world/hearth-town-v2/menu-avatar.png" width="256" height="256" alt="The same avatar on a light surface to inspect transparency."></div></div>
+        <div class="avatar-sizes"><figure><img src="/sprites/world/hearth-town-v2/menu-avatar.png" width="96" height="96" alt=""><figcaption>96 PX</figcaption></figure><figure><img src="/sprites/world/hearth-town-v2/menu-avatar.png" width="128" height="128" alt=""><figcaption>128 PX</figcaption></figure><figure><img src="/sprites/world/hearth-town-v2/menu-avatar.png" width="192" height="192" alt=""><figcaption>192 PX</figcaption></figure></div>
+        <p class="caption">1254 × 1254 · Transparent PNG master. A compact picture of the community for destination selection.</p>
+      </article>
+      <article class="window">
+        <div class="panel-heading"><h2>World-map section</h2><a href="/sprites/world/hearth-town-v2/world-tile.png" download>PNG ↗</a></div>
+        <img class="world-image" src="/sprites/world/hearth-town-v2/world-tile.png" width="1254" height="1254" alt="A wider view of Hearth Town, its gardens and river, with the road north leading toward Sunny Meadow.">
+        <p class="caption">1254 × 1254 · The same town at region scale. Adjacent terrain will be authored to meet these edges.</p>
+      </article>
+    </section>
+    <footer><a href="/sprites/world/hearth-town-v2/exploration-map.png" download>Exploration PNG</a><a href="/sprites/world/hearth-town-v2/exploration-overlay.svg" download>Overlay SVG</a><a href="/sprites/world/hearth-town-v2/hotspots.json" download>Hotspot coordinates</a><a href="./generation-prompts.json" download>Generation prompts</a></footer>
+  </main>
+  <script type="module" src="./preview.js"></script>
+</body>
+</html>

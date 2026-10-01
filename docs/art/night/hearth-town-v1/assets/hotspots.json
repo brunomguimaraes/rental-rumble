@@ -1,0 +1,255 @@
+{
+  "version": 1,
+  "region": "Hearthvale",
+  "name": "Hearth Town",
+  "locationId": "home",
+  "image": "exploration-map.png",
+  "coordinateSystem": {
+    "origin": "top-left",
+    "width": 1536,
+    "height": 1024,
+    "units": "source pixels",
+    "responsiveRule": "Scale x and width by renderedWidth / 1536; scale y and height by renderedHeight / 1024. Preserve the image's 3:2 aspect ratio; no object-fit crop."
+  },
+  "status": "Art interaction layout only. Suggested species are art direction, not authoritative encounter pools or new gameplay actions.",
+  "hotspots": [
+    {
+      "id": "player-cottage",
+      "number": "01",
+      "label": "Player cottage",
+      "kind": "building",
+      "bounds": {
+        "x": 328,
+        "y": 155,
+        "width": 212,
+        "height": 220
+      },
+      "anchor": {
+        "x": 429,
+        "y": 343
+      },
+      "description": "A little red-roofed home with a flower garden and a clear front path."
+    },
+    {
+      "id": "pokemon-center",
+      "number": "02",
+      "label": "Pokémon Center",
+      "kind": "building",
+      "bounds": {
+        "x": 945,
+        "y": 142,
+        "width": 249,
+        "height": 235
+      },
+      "anchor": {
+        "x": 1070,
+        "y": 349
+      },
+      "description": "The town's small Pokémon Center, recognizable by its warm red roof and ball emblem."
+    },
+    {
+      "id": "professors-lab",
+      "number": "03",
+      "label": "Professor’s lab",
+      "kind": "building",
+      "bounds": {
+        "x": 890,
+        "y": 579,
+        "width": 300,
+        "height": 230
+      },
+      "anchor": {
+        "x": 1034,
+        "y": 793
+      },
+      "description": "A modest teal-roofed lab, with flowers, a low fence, and room at the entrance."
+    },
+    {
+      "id": "neighbour-cottage",
+      "number": "04",
+      "label": "Neighbour’s cottage",
+      "kind": "building",
+      "bounds": {
+        "x": 304,
+        "y": 618,
+        "width": 208,
+        "height": 203
+      },
+      "anchor": {
+        "x": 403,
+        "y": 799
+      },
+      "description": "A second cottage keeps Hearth Town intimate: just two homes, a Center, and a lab."
+    },
+    {
+      "id": "town-green",
+      "number": "05",
+      "label": "Town green",
+      "kind": "landmark",
+      "bounds": {
+        "x": 659,
+        "y": 423,
+        "width": 222,
+        "height": 181
+      },
+      "anchor": {
+        "x": 766,
+        "y": 550
+      },
+      "description": "A well and bench at the meeting of the paths. The town's central orientation point."
+    },
+    {
+      "id": "western-grass",
+      "number": "06",
+      "label": "Bug nook",
+      "kind": "habitat",
+      "bounds": {
+        "x": 44,
+        "y": 391,
+        "width": 265,
+        "height": 263
+      },
+      "anchor": {
+        "x": 179,
+        "y": 524
+      },
+      "description": "Tall grass beside a fallen log. A visual habitat for small insects such as Caterpie and Kricketot.",
+      "suggestedSpecies": [
+        {
+          "dexId": 10,
+          "name": "Caterpie"
+        },
+        {
+          "dexId": 401,
+          "name": "Kricketot"
+        }
+      ]
+    },
+    {
+      "id": "eastern-grass",
+      "number": "07",
+      "label": "Grassland patch",
+      "kind": "habitat",
+      "bounds": {
+        "x": 1257,
+        "y": 451,
+        "width": 228,
+        "height": 248
+      },
+      "anchor": {
+        "x": 1370,
+        "y": 584
+      },
+      "description": "An open grassy pocket for everyday grassland Pokémon such as Pidgey, Rattata, and Sentret.",
+      "suggestedSpecies": [
+        {
+          "dexId": 16,
+          "name": "Pidgey"
+        },
+        {
+          "dexId": 19,
+          "name": "Rattata"
+        },
+        {
+          "dexId": 161,
+          "name": "Sentret"
+        }
+      ]
+    },
+    {
+      "id": "north-exit",
+      "number": "08",
+      "label": "Road to Sunny Meadow",
+      "kind": "exit",
+      "targetLocationId": "r1",
+      "bounds": {
+        "x": 721,
+        "y": 0,
+        "width": 155,
+        "height": 229
+      },
+      "anchor": {
+        "x": 778,
+        "y": 165
+      },
+      "description": "The single way out of the starter town leads north to Route 1 · Sunny Meadow."
+    }
+  ],
+  "habitatSprites": [
+    {
+      "dexId": 10,
+      "name": "Caterpie",
+      "sheet": "/sprites/icons/10.png",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 64,
+        "height": 64
+      },
+      "anchor": {
+        "x": 122,
+        "y": 450
+      }
+    },
+    {
+      "dexId": 401,
+      "name": "Kricketot",
+      "sheet": "/sprites/icons/401.png",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 64,
+        "height": 64
+      },
+      "anchor": {
+        "x": 225,
+        "y": 580
+      }
+    },
+    {
+      "dexId": 16,
+      "name": "Pidgey",
+      "sheet": "/sprites/icons/16.png",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 64,
+        "height": 64
+      },
+      "anchor": {
+        "x": 1378,
+        "y": 493
+      }
+    },
+    {
+      "dexId": 19,
+      "name": "Rattata",
+      "sheet": "/sprites/icons/19.png",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 64,
+        "height": 64
+      },
+      "anchor": {
+        "x": 1320,
+        "y": 618
+      }
+    },
+    {
+      "dexId": 161,
+      "name": "Sentret",
+      "sheet": "/sprites/icons/161.png",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 64,
+        "height": 64
+      },
+      "anchor": {
+        "x": 1431,
+        "y": 570
+      }
+    }
+  ]
+}

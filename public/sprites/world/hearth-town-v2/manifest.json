@@ -1,0 +1,90 @@
+{
+  "version": 2,
+  "region": "Hearthvale",
+  "name": "Hearth Town",
+  "locationId": "home",
+  "scope": "Asset pack and destination-selection preview. Service gameplay is not implemented.",
+  "assets": [
+    {
+      "id": "exploration-map",
+      "file": "exploration-map.png",
+      "width": 1536,
+      "height": 1024,
+      "alpha": false,
+      "purpose": "Close-up rural service town with varied residential scenery."
+    },
+    {
+      "id": "menu-avatar",
+      "file": "menu-avatar.png",
+      "width": 1254,
+      "height": 1254,
+      "alpha": true,
+      "purpose": "Transparent rural town illustration for menu selection."
+    },
+    {
+      "id": "world-tile",
+      "file": "world-tile.png",
+      "width": 1254,
+      "height": 1254,
+      "alpha": false,
+      "purpose": "Wide town section for composing the Hearthvale world map."
+    },
+    {
+      "id": "exploration-overlay",
+      "file": "exploration-overlay.svg",
+      "width": 1536,
+      "height": 1024,
+      "alpha": true,
+      "purpose": "Named SVG hit regions, aligned to the exploration artwork."
+    }
+  ],
+  "layout": "hotspots.json",
+  "worldComposition": {
+    "orientation": "north-up",
+    "townAnchor": {
+      "x": 629,
+      "y": 727
+    },
+    "northRoad": {
+      "center": {
+        "x": 826,
+        "y": 0
+      },
+      "approximateWidth": 42,
+      "targetLocationId": "r1"
+    },
+    "river": {
+      "inlet": "northwest",
+      "outlet": "southeast"
+    },
+    "southBridge": "Local garden walk ending inside this section; not a second world destination.",
+    "edgeTreatment": "Full-bleed terrain; adjoining sections require authored edge matching. Not a seamless repeating texture.",
+    "currentRegionReference": {
+      "image": "../hearthvale.png",
+      "locationId": "home",
+      "anchor": {
+        "x": 104,
+        "y": 506
+      },
+      "note": "Reference only. This artwork is not wired into the existing region map."
+    }
+  },
+  "direction": {
+    "settlement": "Lived-in country community inspired by the anime's sense of place.",
+    "privateHomes": "Varied non-interactive scenery.",
+    "publicServices": [
+      "Bakery",
+      "Market",
+      "Pokémon Center",
+      "Library",
+      "Daycare",
+      "Professor’s lab"
+    ],
+    "encounterGrass": "None in town. Future route assets own wild habitats."
+  },
+  "source": {
+    "tool": "built-in image_gen",
+    "prompts": "../../../../docs/art/night/hearth-town-v2/generation-prompts.json",
+    "postProcessing": "None; source PNG sizes and alpha preserved."
+  }
+}

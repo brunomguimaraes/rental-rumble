@@ -1,0 +1,200 @@
+{
+  "version": 2,
+  "region": "Hearthvale",
+  "name": "Hearth Town",
+  "locationId": "home",
+  "image": "exploration-map.png",
+  "coordinateSystem": {
+    "origin": "top-left",
+    "width": 1536,
+    "height": 1024,
+    "units": "source pixels",
+    "responsiveRule": "Scale x and width by renderedWidth / 1536; scale y and height by renderedHeight / 1024. Keep a 3:2 image aspect ratio with no cropping."
+  },
+  "scope": "Art interaction layout. Interaction ideas are proposals, not implemented gameplay or API actions.",
+  "rules": {
+    "tallGrass": false,
+    "wildEncounters": false,
+    "residentialHomes": "Scenery only; no hit regions and no entry interaction.",
+    "services": "The six service destinations are selectable in the asset preview.",
+    "routeHabitats": "Author tall grass on separate route maps."
+  },
+  "hotspots": [
+    {
+      "id": "bakery",
+      "number": "01",
+      "label": "Village bakery",
+      "kind": "service",
+      "bounds": {
+        "x": 299,
+        "y": 300,
+        "width": 268,
+        "height": 216
+      },
+      "anchor": {
+        "x": 417,
+        "y": 490
+      },
+      "description": "A warm brick bakery on the western lane, with an oven chimney, bread window, and striped awning.",
+      "interactionIdeas": [
+        "Meet the baker",
+        "Browse the day's bakes"
+      ],
+      "role": "Everyday food and a familiar face on the way through town."
+    },
+    {
+      "id": "market",
+      "number": "02",
+      "label": "Village market",
+      "kind": "service",
+      "bounds": {
+        "x": 634,
+        "y": 80,
+        "width": 293,
+        "height": 240
+      },
+      "anchor": {
+        "x": 777,
+        "y": 283
+      },
+      "description": "A timber shop and open produce stalls, where the town's gardens and orchards meet its daily shopping.",
+      "interactionIdeas": [
+        "Browse the stalls",
+        "Meet local traders"
+      ],
+      "role": "Everyday supplies and a reason to return to the square."
+    },
+    {
+      "id": "pokemon-center",
+      "number": "03",
+      "label": "Pokémon Center",
+      "kind": "service",
+      "bounds": {
+        "x": 938,
+        "y": 303,
+        "width": 282,
+        "height": 216
+      },
+      "anchor": {
+        "x": 1069,
+        "y": 491
+      },
+      "description": "A small country Pokémon Center with a covered entrance, bright red roof, and garden borders.",
+      "interactionIdeas": [
+        "Talk to the nurse",
+        "Check party care"
+      ],
+      "role": "The town's welcoming stop for trainers and their partners."
+    },
+    {
+      "id": "library",
+      "number": "04",
+      "label": "Town library",
+      "kind": "service",
+      "bounds": {
+        "x": 417,
+        "y": 538,
+        "width": 259,
+        "height": 286
+      },
+      "anchor": {
+        "x": 524,
+        "y": 785
+      },
+      "description": "An old stone library with a steep slate roof, book sign, and quiet garden.",
+      "interactionIdeas": [
+        "Read local guides",
+        "Discover Hearthvale stories"
+      ],
+      "role": "Knowledge, local history, and clues about the surrounding region."
+    },
+    {
+      "id": "daycare",
+      "number": "05",
+      "label": "Pokémon daycare",
+      "kind": "service",
+      "bounds": {
+        "x": 810,
+        "y": 581,
+        "width": 396,
+        "height": 305
+      },
+      "anchor": {
+        "x": 1017,
+        "y": 786
+      },
+      "description": "A yellow farmhouse with a fenced, mown play garden, shade tree, slide, and swings.",
+      "interactionIdeas": [
+        "Meet the caretakers",
+        "Visit the care garden"
+      ],
+      "role": "A gentle community space for Pokémon care and companionship."
+    },
+    {
+      "id": "professors-lab",
+      "number": "06",
+      "label": "Professor’s lab",
+      "kind": "service",
+      "bounds": {
+        "x": 216,
+        "y": 29,
+        "width": 331,
+        "height": 216
+      },
+      "anchor": {
+        "x": 394,
+        "y": 213
+      },
+      "description": "A teal-roofed research house with a glass greenhouse and carefully tended beds.",
+      "interactionIdeas": [
+        "Meet the professor",
+        "Visit the research desk"
+      ],
+      "role": "The player's link to Pokémon research and the region's discoveries."
+    },
+    {
+      "id": "town-square",
+      "number": "07",
+      "label": "Town square",
+      "kind": "public-space",
+      "bounds": {
+        "x": 621,
+        "y": 367,
+        "width": 283,
+        "height": 244
+      },
+      "anchor": {
+        "x": 749,
+        "y": 568
+      },
+      "description": "A mature shade tree, well, benches, and flower beds connect the town's paths.",
+      "interactionIdeas": [
+        "Meet townspeople",
+        "Rest by the well"
+      ],
+      "role": "The town's shared living room and central meeting point."
+    },
+    {
+      "id": "north-exit",
+      "number": "08",
+      "label": "Road to Sunny Meadow",
+      "kind": "exit",
+      "targetLocationId": "r1",
+      "bounds": {
+        "x": 978,
+        "y": 0,
+        "width": 157,
+        "height": 160
+      },
+      "anchor": {
+        "x": 1040,
+        "y": 106
+      },
+      "description": "The north road leads out to Route 1. Tall grass and wild encounters belong on those separate route maps.",
+      "interactionIdeas": [
+        "Head toward Route 1"
+      ],
+      "role": "A clear transition between the inhabited town and exploration routes."
+    }
+  ]
+}

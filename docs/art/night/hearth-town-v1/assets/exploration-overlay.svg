@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1024" width="1536" height="1024" aria-labelledby="overlay-title overlay-desc">
+  <title id="overlay-title">Hearth Town exploration hit regions</title>
+  <desc id="overlay-desc">Transparent overlay matched to exploration-map.png. Inline this SVG to attach actions to its links; use hotspots.json for HTML buttons. Links select local fragment identifiers only.</desc>
+  <style>
+    .region { fill: #ffd447; fill-opacity: .07; stroke: #ffd447; stroke-width: 4; stroke-dasharray: 12 8; }
+    a:hover .region, a:focus .region { fill-opacity: .25; stroke: #fff; stroke-dasharray: none; }
+    .badge { fill: #1e2740; stroke: #ffd447; stroke-width: 3; }
+    text { fill: #f2f0e6; font: bold 20px monospace; text-anchor: middle; dominant-baseline: central; }
+  </style>
+  <a id="player-cottage" href="#player-cottage" data-hotspot-id="player-cottage" aria-label="Player cottage">
+    <title>Player cottage</title>
+    <rect class="region" x="328" y="155" width="212" height="220"/>
+    <rect class="badge" x="406" y="320" width="46" height="46"/>
+    <text x="429" y="343">01</text>
+  </a>
+  <a id="pokemon-center" href="#pokemon-center" data-hotspot-id="pokemon-center" aria-label="Pokémon Center">
+    <title>Pokémon Center</title>
+    <rect class="region" x="945" y="142" width="249" height="235"/>
+    <rect class="badge" x="1047" y="326" width="46" height="46"/>
+    <text x="1070" y="349">02</text>
+  </a>
+  <a id="professors-lab" href="#professors-lab" data-hotspot-id="professors-lab" aria-label="Professor’s lab">
+    <title>Professor’s lab</title>
+    <rect class="region" x="890" y="579" width="300" height="230"/>
+    <rect class="badge" x="1011" y="770" width="46" height="46"/>
+    <text x="1034" y="793">03</text>
+  </a>
+  <a id="neighbour-cottage" href="#neighbour-cottage" data-hotspot-id="neighbour-cottage" aria-label="Neighbour’s cottage">
+    <title>Neighbour’s cottage</title>
+    <rect class="region" x="304" y="618" width="208" height="203"/>
+    <rect class="badge" x="380" y="776" width="46" height="46"/>
+    <text x="403" y="799">04</text>
+  </a>
+  <a id="town-green" href="#town-green" data-hotspot-id="town-green" aria-label="Town green">
+    <title>Town green</title>
+    <rect class="region" x="659" y="423" width="222" height="181"/>
+    <rect class="badge" x="743" y="527" width="46" height="46"/>
+    <text x="766" y="550">05</text>
+  </a>
+  <a id="western-grass" href="#western-grass" data-hotspot-id="western-grass" aria-label="Bug nook">
+    <title>Bug nook</title>
+    <rect class="region" x="44" y="391" width="265" height="263"/>
+    <rect class="badge" x="156" y="501" width="46" height="46"/>
+    <text x="179" y="524">06</text>
+  </a>
+  <a id="eastern-grass" href="#eastern-grass" data-hotspot-id="eastern-grass" aria-label="Grassland patch">
+    <title>Grassland patch</title>
+    <rect class="region" x="1257" y="451" width="228" height="248"/>
+    <rect class="badge" x="1347" y="561" width="46" height="46"/>
+    <text x="1370" y="584">07</text>
+  </a>
+  <a id="north-exit" href="#north-exit" data-hotspot-id="north-exit" aria-label="Road to Sunny Meadow">
+    <title>Road to Sunny Meadow</title>
+    <rect class="region" x="721" y="0" width="155" height="229"/>
+    <rect class="badge" x="755" y="142" width="46" height="46"/>
+    <text x="778" y="165">08</text>
+  </a>
+</svg>

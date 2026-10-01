@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "region": "Hearthvale",
+  "name": "Hearth Town",
+  "locationId": "home",
+  "scope": "Asset pack for review and future integration; current gameplay is unchanged.",
+  "style": "Original GBA-inspired grassland starter town, warm roofs, green tree canopy, clean top-down paths.",
+  "assets": [
+    {
+      "id": "exploration-map",
+      "file": "exploration-map.png",
+      "width": 1536,
+      "height": 1024,
+      "alpha": false,
+      "purpose": "Close-up environment under independently interactive landmarks."
+    },
+    {
+      "id": "menu-avatar",
+      "file": "menu-avatar.png",
+      "width": 1254,
+      "height": 1254,
+      "alpha": true,
+      "purpose": "Transparent town illustration for destination selection; review at 96, 128 and 192 pixels."
+    },
+    {
+      "id": "world-tile",
+      "file": "world-tile.png",
+      "width": 1254,
+      "height": 1254,
+      "alpha": false,
+      "purpose": "Wide countryside section for composing the world map."
+    },
+    {
+      "id": "exploration-overlay",
+      "file": "exploration-overlay.svg",
+      "width": 1536,
+      "height": 1024,
+      "alpha": true,
+      "purpose": "Transparent named hit regions; inline for events, use as an image for visual reference only."
+    }
+  ],
+  "layout": "hotspots.json",
+  "worldComposition": {
+    "orientation": "north-up",
+    "townAnchor": {
+      "x": 635,
+      "y": 811
+    },
+    "northRoad": {
+      "center": {
+        "x": 629,
+        "y": 0
+      },
+      "approximateWidth": 48,
+      "targetLocationId": "r1"
+    },
+    "otherRoadExits": [],
+    "edgeTreatment": "Full-bleed grass and forest; adjoining sections need authored edge matching. Not a seamless repeating tile.",
+    "currentRegionPlacement": {
+      "image": "../hearthvale.png",
+      "locationId": "home",
+      "anchor": {
+        "x": 104,
+        "y": 506
+      },
+      "note": "Existing regional coordinates are reference only. This 1254-square section is not wired into that map."
+    }
+  },
+  "source": {
+    "tool": "built-in image_gen",
+    "prompts": "../generation-prompts.json",
+    "postProcessing": "None; original PNG dimensions and alpha preserved."
+  }
+}
