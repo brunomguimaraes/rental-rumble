@@ -1,10 +1,12 @@
 import type { AccountUser } from '../game/account';
 import { ownedMonToCreature, type OwnedMon } from '../game/box';
+import { ballCount } from '../game/items';
 import type { Profile } from '../game/profile';
 import { professorById } from '../game/professions';
 import type { RouteState } from '../game/route-actions';
 import { HubParty } from './HubParty';
 import { HubActivity } from './HubActivity';
+import { HubTrainerBar } from './HubTrainerBar';
 import { Credits } from './Credits';
 import { PrivacyPolicy } from './PrivacyPolicy';
 import { InstallGuide } from './InstallGuide';
@@ -40,16 +42,13 @@ export function HubScreen({
 
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-[552px] flex-col gap-5 px-4 py-5 font-pixel text-ink">
-      <header className="ui-window flex items-center justify-between gap-2 p-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <img src={`${import.meta.env.BASE_URL}sprites/ui/pokeball.png`} alt="" className="h-9 w-9 object-contain [image-rendering:pixelated]" />
-          <div className="min-w-0">
-            <div className="break-words font-label text-[11px] uppercase leading-relaxed">Trainer {me.displayName || ''}</div>
-            <div className="mt-1 text-xs text-ink-dim">{professor?.name ?? 'Professor'}’s protégé{starterCreature ? ` · ${starterCreature.name}` : ''}</div>
-          </div>
-        </div>
-        <button type="button" onClick={onViewAccount} aria-label="Account" className="ui-button ui-focus grid min-h-11 min-w-11 shrink-0 place-items-center text-xl">⚙</button>
-      </header>
+      <HubTrainerBar
+        displayName={me.displayName || ''}
+        mentorName={professor?.name ?? 'Professor'}
+        partner={starterCreature}
+        balls={world?.activated ? ballCount(world.inventory) : undefined}
+        onOpenSettings={onViewAccount}
+      />
 
       <HubActivity
         world={world}
