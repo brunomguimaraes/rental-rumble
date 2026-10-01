@@ -6,7 +6,7 @@ import {
 } from '../api/_db.js';
 import {
   activateRoute, chooseRoute, claimRouteQuest, dismissRouteResult, finishLegacyRoute,
-  loadRouteState, RouteError, searchRoute,
+  loadRouteState, RouteError, searchRoute, tradeMarket,
 } from '../api/_route-actions.js';
 import { dismissResult, startActivity, stepExpedition } from '../api/_world.js';
 import { legalChoices, rollCapture, rollRouteFind } from '../src/game/route-rules.js';
@@ -220,6 +220,45 @@ try {
   const beforeRead = await readRouteAccount(db, 'failure');
   await loadRouteState(db, 'failure', T + 86400000);
   check('long-absence reads cannot mutate allowances, revisions or item balances', eq(beforeRead, await readRouteAccount(db, 'failure')));
+  console.log('[market]');
+  await onboardUser(db, 'shopper', 6, 30);
+  await rejects('an unactivated account cannot trade', tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'poke', side: 'sell', quantity: 1 }, T), 409);
+  await activateRoute(db, 'shopper', 'activate', T);
+  const shop = () => loadRouteState(db, 'shopper', T);
+  const have = async (id: string) => (await shop()).inventory.stacks.find((s) => s.itemId === id)?.quantity ?? 0;
+  await rejects('buying with too little money is a conflict', tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'poke', side: 'buy', quantity: 1 }, T), 409);
+  check('a refused purchase changes nothing', (await shop()).inventory.money === 0 && await have('poke') === 20);
+  const revisionBeforeSale = (await shop()).inventory.revision;
+  const sale = { requestId: 'sell-five', itemId: 'poke' as const, side: 'sell' as const, quantity: 5 };
+  const sold = await tradeMarket(db, 'shopper', sale, T);
+  check('selling 5 Poké Balls pays ₽500 and removes them', eq(sold.trade, { itemId: 'poke', side: 'sell', quantity: 5, total: 500 }) && sold.state.inventory.money === 500 && await have('poke') === 15);
+  check('a trade increases the inventory revision', sold.state.inventory.revision > revisionBeforeSale);
+  const resold = await tradeMarket(db, 'shopper', sale, T + 1);
+  check('a retried sale replays its receipt without paying twice', resold.replayed === true && eq(resold.trade, sold.trade) && resold.state.inventory.money === 500 && await have('poke') === 15);
+  await rejects('a reused request ID with a different trade conflicts', tradeMarket(db, 'shopper', { ...sale, quantity: 4 }, T), 409);
+  const bought = await tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'poke', side: 'buy', quantity: 2 }, T);
+  check('buying 2 Poké Balls costs ₽400', bought.trade?.total === 400 && bought.state.inventory.money === 100 && await have('poke') === 17);
+  try { await tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'great', side: 'buy', quantity: 1 }, T); check('short purchase names the shortfall', false); }
+  catch (err) { check('short purchase names the shortfall', err instanceof RouteError && err.status === 409 && err.message === 'You need ₽500 more.'); }
+  await rejects('selling a valuable you lack is a conflict', tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'honey', side: 'sell', quantity: 1 }, T), 409);
+  await rejects('valuables cannot be bought', tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'honey', side: 'buy', quantity: 1 }, T), 400);
+  await changeInventory(db, 'shopper', 'big-mushroom', 1);
+  const mushroom = await tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'big-mushroom', side: 'sell', quantity: 1 }, T);
+  check('a Big Mushroom sells for ₽1,000 and leaves an empty stack', mushroom.state.inventory.money === 1100 && await have('big-mushroom') === 0);
+  // Review focus 2: two tabs, funds for one purchase.
+  await db.execute({ sql: 'update route_accounts set money = 200 where user_id = ?', args: ['shopper'] });
+  const raced = await Promise.allSettled([
+    tradeMarket(db, 'shopper', { requestId: 'tab-a', itemId: 'poke', side: 'buy', quantity: 1 }, T),
+    tradeMarket(db, 'shopper', { requestId: 'tab-b', itemId: 'poke', side: 'buy', quantity: 1 }, T),
+  ]);
+  check('racing purchases with funds for one buy exactly one ball', raced.filter((r) => r.status === 'fulfilled').length === 1 && (await shop()).inventory.money === 0 && await have('poke') === 18);
+  // Review focus 3: buy mid-encounter, then throw the bought ball.
+  await db.execute({ sql: 'update route_accounts set money = 600 where user_id = ?', args: ['shopper'] });
+  const open = (await start(db, 'shopper')).event!;
+  const midTrade = await tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'great', side: 'buy', quantity: 1 }, T);
+  check('a trade leaves the open encounter untouched', midTrade.state.activeEvent?.id === open.id && midTrade.state.activeEvent.revision === open.revision);
+  const greatThrow = await chooseRoute(db, 'shopper', { requestId: rid(), eventId: open.id, expectedRevision: open.revision, choice: 'catch', ballId: 'great' }, T);
+  check('the bought Great Ball can be thrown', greatThrow.event?.catch?.ballId === 'great' && await have('great') === 0);
   console.log('[consistent state snapshot]');
   await onboardUser(db, 'snapshot', 6, 30);
   await activateRoute(db, 'snapshot', 'activate', T);

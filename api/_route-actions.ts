@@ -12,13 +12,13 @@ import { retireLegacyActivity } from './_world.js';
 import { parseResult, planGrowth } from '../src/game/activity.js';
 import { parsePartyInput, partyMembers, resolveParty, sameParty } from '../src/game/party.js';
 import { EMPTY_PROGRESS } from '../src/game/world.js';
-import { isCaptureBallId, isItemId } from '../src/game/items.js';
+import { formatMoney, isCaptureBallId, isItemId, itemById, tradeTotal } from '../src/game/items.js';
 import {
   allowanceView, battlePrize, captureChance, legalChoices, MEADOW_LANDMARKS, rollCapture, rollRouteFind,
   ROUTE_RULES, simulateRouteBattle, spendAllowance,
 } from '../src/game/route-rules.js';
 import type {
-  InventoryState, RouteChooseInput, RouteEvent, RouteQuestInput, RouteReply, RouteSearchInput,
+  InventoryState, MarketTradeInput, RouteChooseInput, RouteEvent, RouteQuestInput, RouteReply, RouteSearchInput,
   RouteState, StoredRouteEvent,
 } from '../src/game/route-actions.js';
 
@@ -95,9 +95,10 @@ async function loadRouteStateInTx(db: Executor, uid: string, now: number): Promi
   };
 }
 
+type CommandResult = Pick<RouteReply, 'event' | 'trade'>;
 async function writeCommand(
   db: Db, uid: string, requestId: string, payload: string, now: number,
-  work: (tx: Executor) => Promise<RouteEvent | undefined>,
+  work: (tx: Executor) => Promise<CommandResult | void>,
 ): Promise<RouteReply> {
   const tx = await openWriteTx(db);
   try {
@@ -111,9 +112,9 @@ async function writeCommand(
       await tx.rollback();
       return reply;
     }
-    const event = await work(tx);
+    const result = await work(tx);
     await advanceRouteRevision(tx, uid);
-    const reply: RouteReply = { state: await loadRouteStateInTx(tx, uid, now), box: await readOwnedByUser(tx, uid), ...(event ? { event } : {}) };
+    const reply: RouteReply = { state: await loadRouteStateInTx(tx, uid, now), box: await readOwnedByUser(tx, uid), ...result };
     await insertRouteReceipt(tx, uid, requestId, payload, reply, now);
     await tx.commit();
     return reply;
@@ -179,7 +180,7 @@ export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, 
     await dismissPriorRouteEvents(tx, uid, now);
     const data: StoredRouteEvent = { event, seed, config: ROUTE_RULES, foe: find.foe };
     await insertRouteEvent(tx, uid, { id: event.id, createdAt: now, revision: 0, active: phase !== 'resolved', seenAt: null, data });
-    return event;
+    return { event };
   });
 }
 
@@ -232,7 +233,7 @@ export async function chooseRoute(db: Db, uid: string, input: RouteChooseInput, 
     if (e.phase === 'resolved') { e.resolvedAt = now; e.catchChances = null; }
     const changed = await updateRouteEvent(tx, uid, { ...row, revision: e.revision, active: e.phase !== 'resolved', data }, input.expectedRevision);
     if (!changed) fail(409, 'That encounter changed. Check the current result.');
-    return e;
+    return { event: e };
   });
 }
 
@@ -248,6 +249,30 @@ export async function claimRouteQuest(db: Db, uid: string, input: RouteQuestInpu
     if (!await markRouteQuestClaimed(tx, uid, input.questId, now)) fail(409, 'You have already received this quest reward.');
     await changeInventory(tx, uid, 'great', ROUTE_RULES.questGreatBalls);
     if (!await changeMoney(tx, uid, ROUTE_RULES.questMoney)) throw new Error('Balance overflow');
+  });
+}
+
+export function parseMarketTrade(body: Record<string, unknown>): MarketTradeInput | null {
+  if (!validId(body.requestId) || !isItemId(body.itemId) || (body.side !== 'buy' && body.side !== 'sell')) return null;
+  if (tradeTotal(body.itemId, body.side, body.quantity) === null) return null;
+  return { requestId: body.requestId, itemId: body.itemId, side: body.side, quantity: body.quantity as number };
+}
+
+/** One market trade: money and stock move together or not at all; a retry replays the receipt. */
+export async function tradeMarket(db: Db, uid: string, input: MarketTradeInput, now: number): Promise<RouteReply> {
+  return writeCommand(db, uid, input.requestId, JSON.stringify(['market-trade', input.itemId, input.side, input.quantity]), now, async (tx) => {
+    const account = await requireActivated(tx, uid);
+    const total = tradeTotal(input.itemId, input.side, input.quantity);
+    const item = itemById(input.itemId);
+    if (total === null || !item) return fail(400, 'The market doesn’t trade that item that way.');
+    if (input.side === 'buy') {
+      if (!await changeMoney(tx, uid, -total)) fail(409, `You need ${formatMoney(total - account.money)} more.`);
+      await changeInventory(tx, uid, input.itemId, input.quantity);
+    } else {
+      if (!await changeInventory(tx, uid, input.itemId, -input.quantity)) fail(409, `You don’t have ${input.quantity} ${input.quantity === 1 ? item.name : item.plural} to sell.`);
+      if (!await changeMoney(tx, uid, total)) throw new Error('Balance overflow');
+    }
+    return { trade: { itemId: input.itemId, side: input.side, quantity: input.quantity, total } };
   });
 }
 
