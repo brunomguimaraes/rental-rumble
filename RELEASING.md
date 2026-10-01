@@ -79,12 +79,16 @@ Before running `npm run db:setup` against the production database:
 
    The result must be empty. Claim or close any duplicates first.
 2. Know what `db:setup` changes, all idempotent and safe to re-run: the
-   `nickname` column on `owned_pokemon`; the `party` column on `profiles`; the
+   `nickname` column on `owned_pokemon`; the `stats` column on `owned_pokemon`
+   (each Pokémon's six current stats; rows without it read as an average
+   individual); the `party` column on `profiles`; the
    activity columns on `idle_sessions` (`mode`, `rules_version`,
    `party_snapshot`, `config`, `state`, `step`, `request_id`, `result`,
    `seen_at`); the tables `world_progress` and `world_discoveries`; and the
    partial unique index `idle_one_open_idx` (one open activity per user).
-3. Run `db:setup` before (or together with) the deploy that ships the world
+3. Run `db:setup` strictly BEFORE the deploy that ships the growth system:
+   until it runs, onboarding a new player fails (the starter insert writes
+   `stats`). Run it before (or together with) the deploy that ships the world
    map. Until it runs, `/api/world/*` answers 503 "The world map isn't ready
    yet." while the hub, box and Pokédex keep working. Open idle sessions left
    from the paused idle routes show up as training on their route and settle

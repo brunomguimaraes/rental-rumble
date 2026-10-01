@@ -12,7 +12,7 @@ Vite SPA, React 19, Tailwind CSS v4. `src/App.tsx` owns the phase state machine 
 - Helpers send `credentials: 'include'`, never throw, and return `{ ok, error? }`. `ok: false` means the request
   failed; callers must not read it as an empty result (no session, empty box). Keep that distinction in new helpers.
 - Show the server's `error` string to the player; it is written for them.
-- The server is authoritative for levels, EXP, evolutions, and the box. Render what a response returns; never
+- The server is authoritative for growth (stats, the hidden level, EXP), evolutions, and the box. Render what a response returns; never
   compute growth client-side and write it back.
 - Load independent requests together (`Promise.all`), not in a chain of awaits or cascading effects.
 
