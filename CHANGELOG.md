@@ -26,6 +26,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 
 ### Changed
 - **Growth** — levels are hidden. A Pokémon shows an EXP bar and six stats; when the bar fills it grows: each stat rolls against its potential (read out in Judge words) and rises by one, up to the species' ceiling. Evolution carries every point over and adds a bonus. A fully trained Pokémon fights exactly as strong as before.
+- **Growth** — stats grow more slowly, so reaching the top of the EXP curve no longer means every stat is maxed: most Pokémon end with a few stats still short of their ceiling, and only a lucky few max all six. Wild Pokémon at Mirror Lake, Flint Quarry, Cloudcap Trail and Starfall Ruins are a little weaker to match.
 - **Pokédex** — rebuilt as a pixel-art handheld: a detail screen on top (stats, ability, moves, signs) and the species list below, with crisp sprites and arrow-key browsing. The game's backdrop moves to the new "Night" pixel style.
 - **Pokédex** — species you haven't caught stay a mystery: a silhouette and "???" with no stats, ability, moves, or signs, and search by name only finds ones you've caught.
 - **Hub** — the six-slot Night party window shows your saved party, lead first, with Edit; below it sit the World map and Your box, and what your trainer is doing right now.

@@ -1,6 +1,11 @@
 # Growth system: Fire Emblem-style stats, hidden levels — design
 
-Date: 2026-09-30 · Status: approved by the owner with every recommended default ("love it"). The living
+Date: 2026-09-30 · Status: approved by the owner with every recommended default ("love it").
+**Amended 2026-09-30:** `TARGET_LEVELS` 40 → 60 at the owner's request ("a lv 50 should not always be max
+stats"). At 40, 98.6% of Pokémon reached every ceiling by hidden level 50; at 60 an average one fills about
+87% of the way from floor to ceiling, and under 2% max all six. The potentials, expected stats and
+evolution example below are from the original tuning, before this change. The route wild handicaps were
+retuned to keep the world balance gates (lake 0.60, quarry 0.60, trail 0.63, ruins 0.68). The living
 copy with the matchup chart is the Claude Doc `9c3c5a60-7c5e-478e-be69-69e581a2fd0c`; this file is the
 repo's record of the same decisions and is what the implementation plan argues from.
 
@@ -46,7 +51,8 @@ is pinned.
    from the caller's RNG in a fixed order (HP, P.Atk, E.Atk, P.Def, E.Def, Speed), one draw per uncapped
    stat.
 6. **Every species.** Floor ≤ ceiling and potential ≥ 10 for all 1,025; a fresh three-stage starter
-   reaches all six ceilings by hidden level 50 in the expected case.
+   still has room in every stat at hidden level 50 in the expected case, and at most 2% of base forms
+   levelled 1 → 50 (with evolutions, pinned seeds) reach every ceiling (amended; was "reaches all six").
 7. **No level on screen.** Hub, Box, party strip, onboarding, and every growth message print no level.
    `level` and `exp` stay in the box payload so the client can draw the EXP bar. The dev-only readout in
    the Box (under `import.meta.env.DEV`) is the one place the hidden level appears.
@@ -109,7 +115,7 @@ and its ceiling.
 ```
 ceiling[s]   = max(2, round(base[s] / 2.5))
 floor[s]     = max(1, round(0.2 × ceiling[s]))
-potential[s] = max(10, round(100 × (ceiling[s] − floor[s]) / 40)) + stageBonus
+potential[s] = max(10, round(100 × (ceiling[s] − floor[s]) / 60)) + stageBonus   (was / 40)
 ```
 
 - **Stage bonus** (young Pokémon grow fast): +15 for the base form of a three-stage line, +8 for its
@@ -264,7 +270,7 @@ stays 0.7 / 0.9 until real sessions say otherwise.
 |---|---|
 | `ENGINE_FACTOR` | 2.5 |
 | `FLOOR_SHARE` | 0.20 |
-| `TARGET_LEVELS` | 40 |
+| `TARGET_LEVELS` | 60 (was 40) |
 | Stage bonus | +15, +8, +8, 0 |
 | `EVOLUTION_CEILING_SHARE` | 0.25 |
 | `MIN_POTENTIAL` | 10 |

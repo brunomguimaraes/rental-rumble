@@ -25,7 +25,8 @@ import { lineLength, stageOf } from '../src/game/lines.js';
 import { expPercent, MAX_LEVEL } from '../src/game/levels.js';
 import { RAW_DEX } from '../src/game/pokedex.gen.js';
 import { CREATURES_BY_ID } from '../src/game/pokemon.js';
-import { ownedMonToCreature } from '../src/game/box.js';
+import { ownedMonToCreature, type OwnedMon } from '../src/game/box.js';
+import { applyGrowthWithEvolution } from '../src/game/evolution.js';
 import { simulateBattle } from '../src/game/battle.js';
 import { RNG } from '../src/game/rng.js';
 import type { BaseStats, Creature } from '../src/game/types.js';
@@ -43,6 +44,7 @@ function check(label: string, ok: boolean) {
 const CATERPIE = 10;
 const METAPOD = 11;
 const BUTTERFREE = 12;
+const CHANSEY = 113;
 const MEWTWO = 150;
 const MEW = 151;
 const g = (id: number) => {
@@ -55,12 +57,12 @@ const eq = (a: BaseStats, b: BaseStats) => STAT_KEYS.every((k) => a[k] === b[k])
 
 console.log('[1] species tables are derived from base stats');
 check('Caterpie floor', eq(g(CATERPIE).floor, S(4, 2, 2, 3, 2, 4)));
-check('Caterpie potential (+15 young bonus)', eq(g(CATERPIE).potential, S(50, 40, 30, 43, 30, 50)));
+check('Caterpie potential (+15 young bonus)', eq(g(CATERPIE).potential, S(38, 32, 25, 33, 25, 38)));
 check('Caterpie ceiling', eq(g(CATERPIE).ceiling, S(18, 12, 8, 14, 8, 18)));
-check('Metapod potential (+8 middle bonus)', eq(g(METAPOD).potential, S(48, 23, 28, 53, 28, 33)));
-check('Butterfree potential (no bonus)', eq(g(BUTTERFREE).potential, S(48, 35, 73, 40, 65, 55)));
+check('Metapod potential (+8 middle bonus)', eq(g(METAPOD).potential, S(35, 18, 21, 38, 21, 25)));
+check('Butterfree potential (no bonus)', eq(g(BUTTERFREE).potential, S(32, 23, 48, 27, 43, 37)));
 check('Butterfree ceiling', eq(g(BUTTERFREE).ceiling, S(24, 18, 36, 20, 32, 28)));
-check('Mewtwo potential passes 100 on Energy Attack', g(MEWTWO).potential.eatk === 125);
+check('Chansey potential passes 100 on HP', g(CHANSEY).potential.hp === 141);
 check('line geometry', lineLength(CATERPIE) === 3 && lineLength(MEWTWO) === 1 && stageOf(BUTTERFREE) === 2);
 check('unknown species is null', speciesGrowth(99999) === null);
 {
@@ -118,11 +120,11 @@ console.log('\n[2] a growth never passes the ceiling and never comes up empty');
   check('it raises exactly one stat: the highest potential, HP on the tie with Speed', found !== null && found.gains.hp === 1 && Object.keys(found.gains).length === 1);
 }
 {
-  const sg = g(MEWTWO);
+  const sg = g(CHANSEY);
   let stats = { ...sg.floor };
-  const rng = new RNG('mewtwo');
+  const rng = new RNG('chansey');
   for (let i = 0; i < 10; i++) stats = growOnce(stats, sg, rng).stats;
-  check('potential over 100 gains at least one point every growth', stats.eatk >= sg.floor.eatk + 10);
+  check('potential over 100 gains at least one point every growth', stats.hp >= sg.floor.hp + 10);
 }
 {
   const sg = g(CATERPIE);
@@ -148,14 +150,14 @@ check('level 1 is the floor', eq(mintStats(BUTTERFREE, 1, new RNG('x')), g(BUTTE
   check('a level-5 mint carries four growths', STAT_KEYS.reduce((n, k) => n + a[k] - g(CATERPIE).floor[k], 0) >= 4);
 }
 check('expected at level 1 is the floor', eq(expectedStats(BUTTERFREE, 1), g(BUTTERFREE).floor));
-check('expected Butterfree at 32', eq(expectedStats(BUTTERFREE, 32), S(20, 15, 30, 16, 26, 23)));
-check('expected at level 50 reaches every ceiling', eq(expectedStats(BUTTERFREE, 50), g(BUTTERFREE).ceiling));
+check('expected Butterfree at 32', eq(expectedStats(BUTTERFREE, 32), S(15, 11, 22, 12, 19, 17)));
+check('expected at level 50 still has room in every stat', STAT_KEYS.every((k) => expectedStats(BUTTERFREE, 50)[k] < g(BUTTERFREE).ceiling[k]));
 check('unknown species mints ones', eq(mintStats(99999, 5, new RNG('x')), S(1, 1, 1, 1, 1, 1)));
 
 console.log('\n[4] evolution carries every point and catches up');
 {
   const metapod32 = S(20, 9, 10, 21, 10, 12);
-  check('Metapod → Butterfree at 32 matches the spec example', eq(evolveStats(metapod32, METAPOD, BUTTERFREE, 32), S(22, 15, 30, 21, 26, 23)));
+  check('Metapod → Butterfree at 32 matches the spec example', eq(evolveStats(metapod32, METAPOD, BUTTERFREE, 32), S(22, 14, 22, 21, 20, 20)));
   check('deltas are per stat', eq(statDeltas(metapod32, S(22, 15, 30, 21, 26, 23)), S(2, 6, 20, 0, 16, 11)));
   const capCat = evolveStats(g(CATERPIE).ceiling, CATERPIE, METAPOD, 16);
   check("a stat above the new ceiling is kept (Speed 18 over Metapod's 12)", capCat.spd === 18);
@@ -164,6 +166,26 @@ console.log('\n[4] evolution carries every point and catches up');
   const kept = growOnce(capCat, g(METAPOD), new RNG('kept'));
   check('and it is not rolled afterwards', kept.stats.spd === 18);
   check('unknown species leaves stats alone', eq(evolveStats(metapod32, METAPOD, 99999, 32), metapod32));
+}
+
+console.log('\n[4b] levelling alone rarely maxes every stat');
+{
+  // Every base form, caught at hidden level 1 and grown (with its evolutions) to the
+  // level cap, three pinned seeds each. A lucky few may reach every ceiling; most may not.
+  let runs = 0;
+  let maxed = 0;
+  for (const e of RAW_DEX) {
+    if (stageOf(e.id) !== 0) continue;
+    for (let s = 0; s < 3; s++) {
+      const rng = new RNG(`cap:${e.id}:${s}`);
+      const mon: OwnedMon = { id: 'c', dexId: e.id, level: 1, exp: 0, stats: mintStats(e.id, 1, rng), sign: 'aries', shiny: false, altColor: false, origin: 'catch', caughtAt: 0 };
+      const end = applyGrowthWithEvolution(mon, 1_000_000, rng).mon;
+      const sg = g(end.dexId);
+      runs++;
+      if (end.level === MAX_LEVEL && STAT_KEYS.every((k) => end.stats[k] >= sg.ceiling[k])) maxed++;
+    }
+  }
+  check(`at most 2% of Pokémon reach every ceiling by the level cap (got ${maxed} of ${runs})`, maxed <= runs * 0.02);
 }
 
 console.log('\n[5] engine mapping and words');

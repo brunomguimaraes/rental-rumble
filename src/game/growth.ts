@@ -32,8 +32,8 @@ export const STAT_LABELS: Record<StatKey, { short: string; long: string }> = {
 export const ENGINE_FACTOR = 2.5;
 /** A fresh individual starts at this share of its ceiling. */
 export const FLOOR_SHARE = 0.2;
-/** Hidden level at which an average individual reaches its ceilings. */
-export const TARGET_LEVELS = 40;
+/** Hidden level at which an average individual would reach its ceilings; past the level-50 cap on purpose, so levelling alone rarely maxes every stat. */
+export const TARGET_LEVELS = 60;
 /** The slowest any stat can grow, in percent per growth. */
 export const MIN_POTENTIAL = 10;
 /** Share of the ceiling gap granted on evolution, on top of the floor gap. */

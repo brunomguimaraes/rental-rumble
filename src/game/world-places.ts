@@ -198,7 +198,7 @@ export const PLACES: readonly Place[] = [
     wild: {
       min: 14,
       max: 20,
-      statMult: 0.65,
+      statMult: 0.6,
       pool: [
         { dexId: 129, weight: 3 }, // Magikarp
         { dexId: 54, weight: 3 }, // Psyduck
@@ -260,7 +260,7 @@ export const PLACES: readonly Place[] = [
     wild: {
       min: 16,
       max: 22,
-      statMult: 0.65,
+      statMult: 0.6,
       pool: [
         { dexId: 27, weight: 3 }, // Sandshrew
         { dexId: 50, weight: 3 }, // Diglett
@@ -321,7 +321,7 @@ export const PLACES: readonly Place[] = [
     wild: {
       min: 24,
       max: 32,
-      statMult: 0.65,
+      statMult: 0.63,
       pool: [
         { dexId: 67, weight: 3 }, // Machoke
         { dexId: 220, weight: 3 }, // Swinub
@@ -383,7 +383,7 @@ export const PLACES: readonly Place[] = [
     wild: {
       min: 34,
       max: 46,
-      statMult: 0.75,
+      statMult: 0.68,
       pool: [
         { dexId: 201, weight: 3 }, // Unown
         { dexId: 177, weight: 3 }, // Natu
