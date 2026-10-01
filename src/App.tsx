@@ -2,7 +2,9 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { fetchMe, type AccountUser } from './game/account';
 import { fetchBox, type OwnedMon } from './game/box';
+import { ballCount } from './game/items';
 import { fetchProfile, type Profile } from './game/profile';
+import { professorById } from './game/professions';
 import { partyMembers, resolveParty } from './game/party';
 import { fetchRouteState, reconcileRouteState, shouldApplyHydratedBox } from './game/route-actions-client';
 import type { RouteState } from './game/route-actions';
@@ -13,6 +15,8 @@ import { scrollToTop } from './ui-scroll';
 import { DevPanel } from './components/DevPanel';
 import { LoginScreen } from './components/LoginScreen';
 import { HubScreen } from './components/HubScreen';
+import { TrainerBar } from './components/TrainerBar';
+import { TrainerPortrait } from './components/TrainerPortrait';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { BoxScreen } from './components/BoxScreen';
 
@@ -219,13 +223,22 @@ export default function App() {
       );
     }
     const partyIds = profile.party.length > 0 ? profile.party : resolveParty(null, box, profile.starterId);
+    const trainerBar = (
+      <TrainerBar
+        displayName={me.displayName || ''}
+        mentorName={professorById(profile.mentor)?.name ?? 'Professor'}
+        portrait={<TrainerPortrait avatarId={profile.avatarId} colors={profile.avatarColors} />}
+        balls={world?.activated ? ballCount(world.inventory) : undefined}
+        stamina={world?.activated ? { travel: world.travel, actions: world.allowance, serverNow: world.serverNow } : undefined}
+        onOpenSettings={() => setPhase('account')}
+      />
+    );
     switch (phase) {
       case 'hub':
         return (
           <HubScreen
-            me={me}
+            trainerBar={trainerBar}
             box={box}
-            profile={profile}
             party={partyMembers(partyIds, box)}
             world={world}
             worldError={worldError}
@@ -233,7 +246,6 @@ export default function App() {
             onViewBox={() => openScreen('box')}
             onViewDex={() => openScreen('dex')}
             onViewGuide={() => setPhase('guide')}
-            onViewAccount={() => setPhase('account')}
             onEditParty={() => openScreen('party')}
             onOpenMap={() => openWorld()}
             onVisit={openWorld}
@@ -256,6 +268,7 @@ export default function App() {
         return (
           <RouteScreen
             accountKey={me.id}
+            trainerBar={trainerBar}
             state={world}
             error={worldError}
             box={box}

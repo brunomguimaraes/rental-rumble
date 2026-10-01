@@ -55,10 +55,12 @@ export interface RouteScreenProps {
   onExpired: () => void;
   onPartyChanged?: (ids: string[]) => void;
   entry?: WorldEntry;
+  /** Shown above the world's pages, except during an encounter. */
+  trainerBar?: ReactNode;
 }
 
 /** Active play, with server-owned encounters and inventory; navigation never spends an action. */
-export function RouteScreen({ accountKey, state, error: loadError, box, partyIds, view, onView, onLocation, location, onState, onEditParty, onVisit, onBack, onRetry, onExpired, onPartyChanged, entry }: RouteScreenProps) {
+export function RouteScreen({ accountKey, state, error: loadError, box, partyIds, view, onView, onLocation, location, onState, onEditParty, onVisit, onBack, onRetry, onExpired, onPartyChanged, entry, trainerBar }: RouteScreenProps) {
   const [page, setPage] = useState<Page>(entry?.place === 'r1' && (entry.focus === 'encounter' || entry.focus === 'result') ? 'encounter' : entry?.place ?? 'map');
   const [from, setFrom] = useState<'map' | 'list'>('map');
   const [selected, setSelected] = useState<'home' | 'r1'>(entry?.place ?? location);
@@ -191,6 +193,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
       {page === 'map' || page === 'list' ? <button type="button" onClick={() => setPage(page === 'map' ? 'list' : 'map')} aria-pressed={page === 'list'} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">{page === 'map' ? 'List' : 'Map'}</button>
         : <BagButton compact opensDialog disabled={!state} onClick={() => setBagOpen(true)} />}
     </header>
+    {page !== 'encounter' && trainerBar && <div className="m-2">{trainerBar}</div>}
 
     {(error || loadError) && <div role="alert" className="ui-window m-2 p-3 text-sm text-accent"><p>{error ?? loadError}</p><button type="button" disabled={busy} onClick={() => state ? void refresh() : onRetry()} className="ui-button ui-focus mt-2 min-h-11 px-3 font-label text-[10px] uppercase">Refresh route</button></div>}
     {notice && <p role="status" className="ui-window m-2 p-3 text-sm">{notice}</p>}

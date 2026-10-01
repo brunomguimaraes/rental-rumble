@@ -1,28 +1,23 @@
-import type { AccountUser } from '../game/account';
+import type { ReactNode } from 'react';
 import type { OwnedMon } from '../game/box';
-import { ballCount } from '../game/items';
-import type { Profile } from '../game/profile';
-import { professorById } from '../game/professions';
 import type { RouteState } from '../game/route-actions';
 import { HubParty } from './HubParty';
 import { HubActivity } from './HubActivity';
-import { HubTrainerBar } from './HubTrainerBar';
 import { Credits } from './Credits';
 import { PrivacyPolicy } from './PrivacyPolicy';
 import { InstallGuide } from './InstallGuide';
-import { TrainerPortrait } from './TrainerPortrait';
 import { BagButton } from './ui/BagButton';
 import type { WorldEntry } from './world/RouteScreen';
 
 const ICON = (name: string) => `${import.meta.env.BASE_URL}sprites/ui/night/96/${name}.png`;
 
 export function HubScreen({
-  me, profile, party, world, worldError, location,
-  onViewBox, onViewDex, onViewGuide, onViewAccount, onEditParty, onOpenMap, onVisit, onOpenBag, onRetryWorld,
+  trainerBar, party, world, worldError, location,
+  onViewBox, onViewDex, onViewGuide, onEditParty, onOpenMap, onVisit, onOpenBag, onRetryWorld,
 }: {
-  me: AccountUser;
+  /** The trainer bar, built once in App so the Hub and the world share it. */
+  trainerBar: ReactNode;
   box: OwnedMon[];
-  profile: Profile;
   /** The saved party's rows, lead first. */
   party: OwnedMon[];
   world: RouteState | null;
@@ -31,24 +26,15 @@ export function HubScreen({
   onViewBox: () => void;
   onViewDex: () => void;
   onViewGuide: () => void;
-  onViewAccount: () => void;
   onEditParty: () => void;
   onOpenMap: () => void;
   onVisit: (entry: WorldEntry) => void;
   onOpenBag: () => void;
   onRetryWorld: () => void;
 }) {
-  const professor = professorById(profile.mentor);
-
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-[552px] flex-col gap-5 px-4 py-5 font-pixel text-ink">
-      <HubTrainerBar
-        displayName={me.displayName || ''}
-        mentorName={professor?.name ?? 'Professor'}
-        portrait={<TrainerPortrait avatarId={profile.avatarId} colors={profile.avatarColors} />}
-        balls={world?.activated ? ballCount(world.inventory) : undefined}
-        onOpenSettings={onViewAccount}
-      />
+      {trainerBar}
 
       <HubActivity
         world={world}

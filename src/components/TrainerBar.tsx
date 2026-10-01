@@ -1,17 +1,21 @@
 import type { ReactNode } from 'react';
+import type { MeterView } from '../game/meter';
+import { StaminaMeter } from './ui/StaminaMeter';
+import { useServerClock } from './ui/useServerClock';
 
 const ICON = (name: string) => `${import.meta.env.BASE_URL}sprites/ui/night/96/${name}.png`;
 
 /**
- * The Hub's trainer bar: the trainer's portrait, the trainer and their mentor,
- * mail (not open yet) and settings, and what the Bag holds.
+ * The trainer bar on the Hub and in the world: the trainer's portrait, the trainer and their mentor,
+ * mail (not open yet) and settings, what the Bag holds, and both stamina meters once the world is activated.
  */
-export function HubTrainerBar({ portrait, displayName, mentorName, balls, onOpenSettings }: {
+export function TrainerBar({ portrait, displayName, mentorName, balls, stamina, onOpenSettings }: {
   portrait: ReactNode;
   displayName: string;
   mentorName: string;
   /** Omit while the world is unavailable; zero is a real, empty Bag. */
   balls?: number;
+  stamina?: { travel: MeterView; actions: MeterView; serverNow: number };
   onOpenSettings: () => void;
 }) {
   return (
@@ -43,6 +47,18 @@ export function HubTrainerBar({ portrait, displayName, mentorName, balls, onOpen
           <span className="sr-only">{balls === 1 ? 'ball' : 'balls'} in your Bag</span>
         </p>
       )}
+
+      {stamina && <StaminaRows stamina={stamina} />}
     </header>
+  );
+}
+
+function StaminaRows({ stamina }: { stamina: { travel: MeterView; actions: MeterView; serverNow: number } }) {
+  const now = useServerClock(stamina.serverNow);
+  return (
+    <div className="col-span-3 flex flex-col gap-1 border-t-2 border-window-frame pt-1">
+      <StaminaMeter label="Travel" meter={stamina.travel} now={now} fill="bg-info" />
+      <StaminaMeter label="Actions" meter={stamina.actions} now={now} fill="bg-exp" />
+    </div>
   );
 }
