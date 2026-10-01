@@ -16,7 +16,7 @@ function check(label: string, ok: boolean) {
 const state: RouteState = {
   serverNow: 1_000, revision: 1, activated: true,
   allowance: { available: 12, capacity: 48, refillEveryMs: 600_000, nextRefillAt: 601_000 },
-  inventory: { revision: 1, stacks: [{ itemId: 'poke', quantity: 20 }, { itemId: 'great', quantity: 0 }] },
+  inventory: { revision: 1, money: 0, stacks: [{ itemId: 'poke', quantity: 20 }, { itemId: 'great', quantity: 0 }] },
   quest: { id: 'meadow-survey', status: 'not-accepted', landmarks: [], required: ['signpost', 'sunflowers', 'hilltop-oak'] },
   places: [], trainerAt: 'home', ownedCount: 1, activeEvent: null, result: null,
   legacy: { pending: false, notice: null, result: null },
@@ -38,7 +38,7 @@ check('an unavailable Bag is an error, not zero inventory', !unavailable.ok && u
 reply = json(401, { ok: false, error: 'Sign in again to explore.' });
 const expired = await fetchRouteState();
 check('expired login preserves the server sentence and signals sign-in', !expired.ok && expired.expired === true && expired.error === 'Sign in again to explore.');
-reply = json(200, { ok: true, state: { ...state, inventory: { revision: 1, stacks: [{ itemId: 'poke', quantity: -1 }] } } });
+reply = json(200, { ok: true, state: { ...state, inventory: { revision: 1, money: 0, stacks: [{ itemId: 'poke', quantity: -1 }] } } });
 check('invalid owned quantity is rejected instead of displayed', !(await fetchRouteState()).ok);
 reply = json(200, { ok: true, state: { ...state, inventory: null } });
 check('missing inventory is not a successful empty Bag', !(await fetchRouteState()).ok);
@@ -62,7 +62,7 @@ reply = json(409, { ok: false, error: 'Your party changed.', party: ['new-party'
 const partyConflict = await searchRoute(command.input);
 check('party conflict provides saved party IDs for the next search', !partyConflict.ok && partyConflict.party?.[0] === 'new-party');
 
-const newer: RouteState = { ...state, revision: 4, serverNow: 4_000, inventory: { revision: 3, stacks: [{ itemId: 'poke', quantity: 18 }, { itemId: 'great', quantity: 3 }] } };
+const newer: RouteState = { ...state, revision: 4, serverNow: 4_000, inventory: { revision: 3, money: 0, stacks: [{ itemId: 'poke', quantity: 18 }, { itemId: 'great', quantity: 3 }] } };
 check('old receipt never overwrites newer item quantities', reconcileRouteState(newer, state) === newer);
 check('out-of-order same-revision read cannot rewind allowance clock', reconcileRouteState(newer, { ...newer, serverNow: 2_000 }) === newer);
 check('inconsistent older inventory is rejected even with a later route revision', reconcileRouteState(newer, { ...state, revision: 5, serverNow: 5_000 }) === newer);

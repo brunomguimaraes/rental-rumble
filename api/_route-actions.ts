@@ -12,7 +12,7 @@ import { retireLegacyActivity } from './_world.js';
 import { parseResult, planGrowth } from '../src/game/activity.js';
 import { parsePartyInput, partyMembers, resolveParty, sameParty } from '../src/game/party.js';
 import { EMPTY_PROGRESS } from '../src/game/world.js';
-import { isCaptureBallId } from '../src/game/items.js';
+import { isCaptureBallId, isItemId } from '../src/game/items.js';
 import {
   allowanceView, captureChance, legalChoices, MEADOW_LANDMARKS, rollCapture, rollRouteFind,
   ROUTE_RULES, simulateRouteBattle, spendAllowance,
@@ -55,12 +55,12 @@ function cutoverTime(): number {
 }
 function stored(row: RouteEventRow): StoredRouteEvent {
   const value = row.data as StoredRouteEvent | null;
-  if (!value || value.config?.version !== 2 || value.event?.id !== row.id) throw new Error('Unreadable route event');
+  if (!value || (value.config?.version !== 2 && value.config?.version !== 3) || value.event?.id !== row.id) throw new Error('Unreadable route event');
   return value;
 }
 async function inventoryState(db: Executor, uid: string): Promise<InventoryState> {
   const [account, rows] = await Promise.all([readRouteAccount(db, uid), readInventoryRows(db, uid)]);
-  return { revision: account?.inventoryRevision ?? 0, stacks: rows.filter((r): r is InventoryState['stacks'][number] => isCaptureBallId(r.itemId)) };
+  return { revision: account?.inventoryRevision ?? 0, money: 0, stacks: rows.filter((r): r is InventoryState['stacks'][number] => isItemId(r.itemId)) };
 }
 
 /** State is strictly read-only, including allowance projection and legacy notices. */
@@ -159,7 +159,7 @@ export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, 
     const find = rollRouteFind({ seed, kind: input.kind, knownLandmarks: discoveries.filter((d) => d.locationId === 'r1' && d.kind === 'landmark').map((d) => d.ref), questClaimed: quest?.claimedAt != null, inventory: await inventoryState(tx, uid), rules: ROUTE_RULES });
     const phase = find.kind === 'item' ? 'resolved' : find.kind;
     const event: RouteEvent = {
-      id: newId(), locationId: 'r1', searchKind: input.kind, kind: find.kind, rulesVersion: 2, revision: 0,
+      id: newId(), locationId: 'r1', searchKind: input.kind, kind: find.kind, rulesVersion: ROUTE_RULES.version, revision: 0,
       startedAt: now, resolvedAt: phase === 'resolved' ? now : null, phase, party: partyMembers(partyIds, owned),
       foe: find.foe?.view ?? null, npc: find.npc, choices: legalChoices(phase),
       catchChances: find.kind === 'wild' ? {

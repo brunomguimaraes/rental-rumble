@@ -7,7 +7,7 @@ import type { OwnedMon } from '../src/game/box.js';
 import type { FrozenRouteFoe } from '../src/game/route-actions.js';
 
 interface BalanceRow { dexId: number; name: string; wild: number; scout: number; youngster: number }
-const inventory = { revision: 1, stacks: [{ itemId: 'poke' as const, quantity: 20 }] };
+const inventory = { revision: 1, money: 0, stacks: [{ itemId: 'poke' as const, quantity: 20 }] };
 
 function starter(dexId: number, sample: number): OwnedMon {
   // Use the production starter offer/mint seam, including the full rolled stats.

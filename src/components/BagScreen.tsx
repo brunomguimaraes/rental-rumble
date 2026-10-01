@@ -1,5 +1,5 @@
 import { ballUrl } from '../game/balls';
-import { ITEMS, itemQuantity } from '../game/items';
+import { CAPTURE_ITEMS, itemQuantity } from '../game/items';
 import type { CaptureBallId, InventoryState } from '../game/route-actions';
 
 export function BagScreen({ inventory, error, onBack, onRetry, onExplore, catchChances, onSelect, busy = false }: {
@@ -26,7 +26,7 @@ export function BagScreen({ inventory, error, onBack, onRetry, onExplore, catchC
         {!inventory && !error && <p className="mt-3 text-sm" role="status">Loading your Bag…</p>}
         {!inventory && onExplore && <button type="button" onClick={onExplore} className="ui-button ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">Go to Sunny Meadow</button>}
         {inventory && <ul className="mt-3 flex flex-col gap-3">
-          {ITEMS.map((item) => {
+          {CAPTURE_ITEMS.map((item) => {
             const quantity = itemQuantity(inventory, item.id);
             const canSelect = onSelect && catchChances !== null && catchChances !== undefined;
             return <li key={item.id} className="rounded-[3px] bg-slot p-3">

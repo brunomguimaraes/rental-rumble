@@ -34,7 +34,7 @@ async function forceKind(db: Db, uid: string, e: RouteEvent, kind: 'wild' | 'tra
   const data = row.data as StoredRouteEvent;
   for (let i = 0; ; i++) {
     const seed = `${seedPrefix}-${i}`;
-    const find = rollRouteFind({ seed, kind: kind === 'wild' ? 'wild' : kind === 'item' ? 'explore' : 'npc', knownLandmarks: [], questClaimed: false, inventory: { revision: 0, stacks: [{ itemId: 'poke', quantity: 20 }] } });
+    const find = rollRouteFind({ seed, kind: kind === 'wild' ? 'wild' : kind === 'item' ? 'explore' : 'npc', knownLandmarks: [], questClaimed: false, inventory: { revision: 0, money: 0, stacks: [{ itemId: 'poke', quantity: 20 }] } });
     if (find.kind !== kind) continue;
     data.seed = seed; data.foe = find.foe;
     data.event.kind = kind; data.event.foe = find.foe?.view ?? null; data.event.npc = find.npc;
