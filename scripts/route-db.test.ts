@@ -6,7 +6,7 @@ import {
 } from '../api/_db.js';
 import {
   activateRoute, chooseRoute, claimRouteQuest, dismissRouteResult, finishLegacyRoute,
-  loadRouteState, RouteError, searchRoute,
+  healParty, loadRouteState, RouteError, searchRoute,
 } from '../api/_route-actions.js';
 import { dismissResult, startActivity, stepExpedition } from '../api/_world.js';
 import { legalChoices, rollCapture, rollRouteFind, simulateRouteBattle } from '../src/game/route-rules.js';
@@ -330,6 +330,25 @@ try {
   const lost = await chooseRoute(db, 'whiteout', { requestId: rid(), eventId: lostFight.id, expectedRevision: 0, choice: 'battle' }, T);
   const woAfter = (await readOwnedByUser(db, 'whiteout')).find((m) => m.id === wo.id)!;
   check('a loss whites out: party fainted, trainer home, no EXP', lost.event?.outcome === 'lost' && isFainted(woAfter) && lost.state.trainerAt === 'home' && woAfter.exp === wo.exp);
+
+  console.log('[Pokémon Center]');
+  const boxPatient = await mintMon(db, 'whiteout', { dexId: 10, level: 5 });
+  await writeOwnedHp(db, 'whiteout', [{ id: boxPatient.id, hpLost: 3 }]);
+  const strangerMon = (await readOwnedByUser(db, 'u2'))[0];
+  await writeOwnedHp(db, 'u2', [{ id: strangerMon.id, hpLost: 3 }]);
+  const awayFight = await searchRoute(db, 'whiteout', { requestId: 'whiteout-away', locationId: 'r1', kind: 'wild', partyIds: [wo.id] }, T).catch((e) => e);
+  check('a whited-out party cannot search before healing', awayFight instanceof RouteError && awayFight.status === 400);
+  const healed = await healParty(db, 'whiteout', 'heal-1', T);
+  check('the Center heals party and Box to full and the trainer stands in town', healed.box!.every((m) => !m.hpLost) && healed.state.trainerAt === 'home');
+  check('another account’s Pokémon stay hurt', (await readOwnedByUser(db, 'u2')).find((m) => m.id === strangerMon.id)!.hpLost === 3);
+  const healedAgain = await healParty(db, 'whiteout', 'heal-1', T + 1);
+  check('a retried heal returns its receipt', healedAgain.replayed === true);
+  const backOut = await start(db, 'whiteout');
+  check('a search after healing puts the trainer back in the meadow', backOut.state.trainerAt === 'r1');
+  await rejects('healing waits for the open encounter', healParty(db, 'whiteout', 'heal-2', T), 409);
+  // 'activate' is the committed activation receipt from Task 3's setup; a refused search leaves none.
+  await rejects('a request ID from another command cannot heal', healParty(db, 'whiteout', 'activate', T), 409);
+  await leave(db, 'whiteout', backOut.event!);
 
   const hpLegacy = await legacyDb('hp-legacy');
   try {

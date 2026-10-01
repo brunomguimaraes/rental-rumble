@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
-  acceptRouteQuest, advanceRouteRevision, BOX_LIMIT, changeInventory, countOwned, dismissPriorRouteEvents,
+  acceptRouteQuest, advanceRouteRevision, BOX_LIMIT, changeInventory, countOwned, dismissPriorRouteEvents, healAllOwned,
   dismissRouteEvent, hasRouteEvents, insertDiscovery, insertOwned, insertRouteAccount, insertRouteEvent,
   insertRouteReceipt, markRouteQuestClaimed, newId, openWriteTx, readActiveRouteEvent, readActivity,
   readDiscoveries, readInventoryRows, readLastRouteId, readOpenActivity, readOwnedByIds, readOwnedByUser,
@@ -252,6 +252,15 @@ export async function claimRouteQuest(db: Db, uid: string, input: RouteQuestInpu
     if (!MEADOW_LANDMARKS.every((l) => found.includes(l.id))) fail(400, 'Find every Sunny Meadow landmark to finish the survey.');
     if (!await markRouteQuestClaimed(tx, uid, input.questId, now)) fail(409, 'You have already received this quest reward.');
     await changeInventory(tx, uid, 'great', ROUTE_RULES.questGreatBalls);
+  });
+}
+
+/** The Pokémon Center: instant, free, every owned Pokémon; never during an open encounter. */
+export async function healParty(db: Db, uid: string, requestId: string, now: number): Promise<RouteReply> {
+  return writeCommand(db, uid, requestId, JSON.stringify(['heal']), now, async (tx) => {
+    if (await readActiveRouteEvent(tx, uid)) fail(409, 'Finish or leave your Sunny Meadow encounter first, then come back to heal.');
+    await healAllOwned(tx, uid);
+    await writeTrainerAt(tx, uid, 'home');
   });
 }
 
