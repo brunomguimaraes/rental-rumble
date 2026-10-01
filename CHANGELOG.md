@@ -30,6 +30,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 - **Travel stamina** — trips between Hearth Town and Sunny Meadow cost travel points that refill over time, cheaper with a ride Pokémon in your party. The trainer bar shows Travel and Actions on the Hub and across the world.
 
 ### Changed
+- **Catching** — ball throws now arc into the meadow, draw the Pokémon inside, and build suspense with three shakes before a sparkling catch or breakout reveal. Skip the animation at any time; reduced motion shows a still result.
 - **Explore finds** — now include harvest goods and coin pouches.
 - **Explore** — the guaranteed Poké Balls apply only when you have no balls and under ₽200.
 - **Trainer bar** — the Hub header is a Night window with your trainer portrait, your name and mentor, Mail (coming soon) and Settings buttons, and your Bag's ball count.
