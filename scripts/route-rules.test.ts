@@ -4,7 +4,7 @@ import { ballCount, isCaptureBallId, itemById, itemQuantity } from '../src/game/
 import { starterFromOffer } from '../src/game/professions.js';
 import {
   allowanceView, captureChance, legalChoices, projectAllowance, rollCapture,
-  rollRouteFind, ROUTE_RULES, simulateRouteBattle, spendAllowance,
+  rollRouteFind, ROUTE_RULES, simulateRouteBattle, spendAllowance, wildAreas,
 } from '../src/game/route-rules.js';
 import type { CaptureBallId, InventoryState } from '../src/game/route-actions.js';
 import { measureRouteBalance } from './route-balance.js';
@@ -112,6 +112,16 @@ let emptyPartyRejected = false;
 try { simulateRouteBattle({ party: [], foe: wild.foe, seed: 'empty-party' }); }
 catch { emptyPartyRejected = true; }
 check('an empty party cannot resolve a battle', emptyPartyRejected);
+
+// The Pokédex's Area tab must list exactly what the route can spawn, with the same rarity.
+const spawned = new Map<number, boolean>();
+for (let i = 0; i < 400; i++) {
+  const find = rollRouteFind({ seed: `area-${i}`, kind: 'wild', knownLandmarks: [], questClaimed: true, inventory: { revision: 0, stacks: [{ itemId: 'poke', quantity: 5 }] } });
+  if (find.foe) spawned.set(find.foe.view.dexId, find.foe.view.rare);
+}
+check('every wild spawn is listed in the Pokédex with its rarity', spawned.size > 0
+  && [...spawned].every(([dexId, rare]) => same(wildAreas(dexId), [{ name: 'Route 1 · Sunny Meadow', rare }])));
+check('a species that never spawns has no wild area', wildAreas(25).length === 0 && !spawned.has(25));
 
 for (const row of measureRouteBalance()) {
   check(`${row.name} fresh starter wins ≥75% weighted wild / ≥60% each trainer over 200 seeds`, row.wild >= 75 && row.scout >= 60 && row.youngster >= 60);

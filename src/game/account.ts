@@ -107,6 +107,7 @@ export interface OwnedDex {
   n: Uint8Array; // normal layer
   a: Uint8Array; // alt-colour layer
   s: Uint8Array; // shiny layer
+  seen: Uint8Array; // seen on a route or caught; a superset of the three layers
   counts: { n: number; a: number; s: number };
   total: number; // total trackable species
 }
@@ -136,6 +137,7 @@ export async function fetchPokedex(): Promise<OwnedDex | null> {
     const data = (await res.json()) as {
       ok?: boolean;
       owned?: { n: string; a: string; s: string } | null;
+      seen?: string;
       counts?: { n: number; a: number; s: number };
       total?: number;
     };
@@ -144,6 +146,7 @@ export async function fetchPokedex(): Promise<OwnedDex | null> {
       n: b64ToBytes(data.owned.n),
       a: b64ToBytes(data.owned.a),
       s: b64ToBytes(data.owned.s),
+      seen: typeof data.seen === 'string' ? b64ToBytes(data.seen) : new Uint8Array(0),
       counts: data.counts ?? { n: 0, a: 0, s: 0 },
       total: data.total ?? 1025,
     };

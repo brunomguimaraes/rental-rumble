@@ -3,7 +3,7 @@ import { ballUrl } from '../../game/balls';
 import { ownedMonToCreature, type OwnedMon } from '../../game/box';
 import { ballCount, itemById, itemQuantity } from '../../game/items';
 import { partyMembers } from '../../game/party';
-import { altColorPortraitUrl, miniUrl, portraitUrl, shinyPortraitUrl } from '../../game/pokemon';
+import { altColorPortraitUrl, portraitUrl, shinyPortraitUrl } from '../../game/pokemon';
 import type { CaptureBallId, RouteChoice, RouteEvent, RouteState, SearchKind } from '../../game/route-actions';
 import {
   clearPendingRouteCommand, dismissRouteResult, fetchRouteState, newRouteRequestId, readPendingRouteCommand,
@@ -254,7 +254,6 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
           const found = (state.places.find((place) => place.id === 'r1')?.progress ?? EMPTY_PROGRESS).landmarks.includes(landmark.id);
           return <li key={landmark.id} className="text-sm"><span className={found ? 'text-accent' : 'text-ink-dim'}>{found ? `◆ ${landmark.name}` : '◇ Undiscovered landmark'}</span><p className="text-ink-dim">{found ? landmark.blurb : 'Explore the meadow to discover this place.'}</p></li>;
         })}</ul></Panel>
-        <Panel title="Possible encounters"><ul className="grid grid-cols-3 gap-2 min-[380px]:grid-cols-4">{route.wild.pool.map((entry) => <li key={entry.dexId} className="flex min-w-0 flex-col items-center rounded-[3px] bg-slot pb-2"><PixelSprite src={miniUrl(entry.dexId)} size={64} sheet alt="" /><span className="w-full truncate px-1 text-center text-xs">{speciesName(entry.dexId)}</span>{entry.rare && <span className="font-label text-[8px] uppercase text-caught-shiny">Rare</span>}</li>)}</ul></Panel>
       </>}
       {page === 'encounter' && (replay?.battle && replay.foe ? <BattleReplay key={`${replay.id}:${replay.revision}`} events={replay.battle.events} party={replay.party} foe={replay.foe} trainerName={replay.kind === 'trainer' ? replay.npc?.name : undefined} backdrop={backdropUrl(route)} onDone={() => setReplay(null)} /> : event ? <>
         {event.phase !== 'resolved' && <Panel title={event.kind === 'wild' ? event.phase === 'catch' ? 'One catch attempt remains' : 'A wild Pokémon appeared' : event.npc?.name ?? 'An encounter'}>

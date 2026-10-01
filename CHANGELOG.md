@@ -12,13 +12,14 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 ## [Unreleased]
 
 ### Added
+- **Pokédex seen and caught** — like the games, each entry is unseen (a silhouette), seen (name, sprite and types) or caught (every tab). The counter shows both totals, list rows mark seen and caught species, and meeting a trainer's Pokémon counts as seeing it. A new Area tab lists where each species lives in the wild, rare finds included, even before you've seen it; the Sunny Meadow screen no longer lists its possible encounters.
 - **Bag and catching** — persistent Poké Ball and Great Ball stacks, starting supplies, Explore finds, and inventory-backed capture. Each throw consumes one ball; retries cannot duplicate catches or item rewards.
 - **Sunny Meadow encounters** — Find wild Pokémon, Find NPC, or Explore for one action. Battle to grow your party, catch the wild individual you meet, discover landmarks, and complete the Meadow survey for Great Balls. Actions recover every ten minutes up to 48; encounters and results resume across visits.
 - **Hearth Town** — enter the town from the world map. Its six services, the town square and the road north each have a numbered marker on the town map, a row in Places to visit, and a card. The Pokémon Center, library and daycare open your party, Pokédex and box; the north road leads on to Sunny Meadow; the bakery, market and lab open in a later update. The art pack's guide and clickable preview stay in `docs/art/night/hearth-town-v2/`.
-- **World map** — Hearthvale, a pixel-art region with Hearth Town and Sunny Meadow as its first playable locations. Drag, zoom and recenter the map, or browse the list; Sunny Meadow shows its local Pokémon and landmarks.
+- **World map** — Hearthvale, a pixel-art region with Hearth Town and Sunny Meadow as its first playable locations. Drag, zoom and recenter the map, or browse the list; Sunny Meadow shows its landmarks.
 - **Your party** — choose up to six Pokémon, reorder them and pick a lead. The party is saved to your account, and every trip starts with the party you set.
 - **Install app** — a hub button with step-by-step iPhone and Android guides for adding the game to your home screen so it opens full-screen; Android Chrome gets a one-tap Install.
-- **Night icon library** — reusable transparent menu and navigation icons, with the original mobile concept, an asset index, and a preview gallery.
+- **Night icon library** — reusable transparent menu and navigation icons, with the original mobile concept, an asset index, and a preview gallery. Includes an Item Bag backpack with a Poké Ball clasp and Great Ball pocket.
 - **Professor Andre** — new trainers meet a stone and fossil researcher with a custom sprite; existing Oak mentor records and the non-fossil starter pool are preserved.
 - **Trainer route** — pick the Trainer profession; Professor Oak offers three weak, three-stage starters from a pool of ten, fixed per account, and you keep one.
 - **Box** — nickname your Pokémon; starters evolve twice, early, caught Pokémon later.

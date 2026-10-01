@@ -4,14 +4,22 @@ import { hasForm, type OwnedDex } from '../../game/account';
 /** Which collection layers a player has caught for one species. */
 export type VariantMarks = { n: boolean; a: boolean; s: boolean };
 
-export type DexTab = 'stats' | 'ability' | 'moves' | 'signs';
+export type DexTab = 'stats' | 'ability' | 'moves' | 'signs' | 'area';
 
 export const DEX_TABS: readonly { id: DexTab; label: string }[] = [
   { id: 'stats', label: 'Stats' },
   { id: 'ability', label: 'Ability' },
   { id: 'moves', label: 'Moves' },
   { id: 'signs', label: 'Signs' },
+  { id: 'area', label: 'Area' },
 ];
+
+/** Until a species is caught, its entry only opens the Area tab, as in the games. */
+const AREA_ONLY = DEX_TABS.filter((t) => t.id === 'area');
+
+export function tabsFor(reveal: DexReveal): readonly { id: DexTab; label: string }[] {
+  return reveal === 'full' ? DEX_TABS : AREA_ONLY;
+}
 
 /** List rows revealed at a time; the full National Dex is 1,025. */
 export const PAGE = 120;
@@ -45,14 +53,18 @@ export function caughtAny(marks: VariantMarks): boolean {
 }
 
 /**
- * Whether a species' name and data stay hidden: uncaught in a loaded
- * collection, or any species while the collection loads. Signed out, or when
- * the collection fails to load, everything shows.
+ * How much of an entry the player can read, as in the games: `hidden` (unseen:
+ * silhouette, no name or types), `seen` (sprite, name, types), `full` (caught:
+ * every tab). Everything is hidden while the collection loads; signed out, or
+ * when it fails to load, everything shows.
  */
-export function isUndiscovered(owned: OwnedDex | null, loading: boolean, dexId: number): boolean {
-  if (loading) return true;
+export type DexReveal = 'hidden' | 'seen' | 'full';
+
+export function revealFor(owned: OwnedDex | null, loading: boolean, dexId: number): DexReveal {
+  if (loading) return 'hidden';
   const marks = marksFor(owned, dexId);
-  return marks !== null && !caughtAny(marks);
+  if (!owned || !marks || caughtAny(marks)) return 'full';
+  return hasForm(owned.seen, dexId) ? 'seen' : 'hidden';
 }
 
 export function baseStatTotal(c: Creature): number {

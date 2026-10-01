@@ -679,6 +679,15 @@ export async function readDiscoveries(db: Executor, uid: string): Promise<Discov
     }));
 }
 
+/** Every species this trainer has seen on any route, once each. */
+export async function readSeenDexIds(db: Executor, uid: string): Promise<number[]> {
+  const rs = await db.execute({
+    sql: "select distinct ref from world_discoveries where user_id = ? and kind = 'seen'",
+    args: [uid],
+  });
+  return (rs.rows as unknown as { ref: unknown }[]).map((r) => Number(r.ref)).filter(Number.isInteger);
+}
+
 /** Record a sighting or landmark; true when it is new for this trainer and place. */
 export async function insertDiscovery(
   db: Executor,

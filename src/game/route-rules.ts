@@ -12,6 +12,7 @@ import { ballCount, isCaptureBallId, itemById } from './items.js';
 import { CREATURES_BY_ID } from './pokemon.js';
 import { RNG } from './rng.js';
 import { pickFromPool } from './wilds.js';
+import { placeById, placeTitle } from './world.js';
 
 /** Live route rules. Legacy activity config and its seeded content stay unchanged. */
 export const ROUTE_RULES: RouteRules = {
@@ -75,6 +76,13 @@ const RESEARCHER: RouteNpc = {
   id: 'researcher', name: 'Meadow Researcher', spriteKey: 'random-scientist-f',
   text: 'I’m surveying Sunny Meadow. Explore the Old Signpost, Sunflower Patch and Hilltop Oak, and I’ll share three Great Balls. Places you already found count too.',
 };
+
+/** Where a species lives in the wild today: the live route pool only, never the retired idle routes. */
+export function wildAreas(dexId: number, rules: RouteRules = ROUTE_RULES): { name: string; rare: boolean }[] {
+  const entry = rules.wild.pool.find((e) => e.dexId === dexId);
+  const place = placeById('r1');
+  return entry && place ? [{ name: placeTitle(place), rare: Boolean(entry.rare) }] : [];
+}
 
 /** Read-only projection. At capacity there is no banked overflow or partial interval. */
 export function projectAllowance(record: AllowanceRecord, now: number, rules: RouteRules = ROUTE_RULES): AllowanceRecord {

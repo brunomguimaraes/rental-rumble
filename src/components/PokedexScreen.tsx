@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { PokemonType } from '../game/types';
 import { CREATURES } from '../game/pokemon';
-import { fetchPokedex, type AccountUser, type OwnedDex } from '../game/account';
+import { fetchPokedex, hasForm, type AccountUser, type OwnedDex } from '../game/account';
 import { DexDevice } from './pokedex/DexDevice';
 import { DexFilters } from './pokedex/DexFilters';
 import { DexList } from './pokedex/DexList';
 import { DexTopScreen } from './pokedex/DexTopScreen';
 import {
-  DEX_TABS,
   PAGE,
   caughtAny,
   filterCreatures,
-  isUndiscovered,
   marksFor,
+  revealFor,
+  tabsFor,
+  type DexReveal,
   type DexTab,
 } from './pokedex/dex';
 
@@ -58,14 +59,20 @@ export function PokedexScreen({
 
   const owned = collection.status === 'ready' ? collection.owned : null;
   const loading = collection.status === 'loading';
-  const undiscovered = (dexId: number) => isUndiscovered(owned, loading, dexId);
+  const reveal = (dexId: number) => revealFor(owned, loading, dexId);
+  const undiscovered = (dexId: number) => reveal(dexId) === 'hidden';
 
-  const caughtCount = useMemo(() => {
-    if (!owned) return 0;
-    return CREATURES.filter((c) => {
+  const counts = useMemo(() => {
+    if (!owned) return { seen: 0, caught: 0 };
+    let seen = 0;
+    let caught = 0;
+    for (const c of CREATURES) {
       const m = marksFor(owned, c.dexId);
-      return m !== null && caughtAny(m);
-    }).length;
+      const isCaught = m !== null && caughtAny(m);
+      if (isCaught) caught += 1;
+      if (isCaught || hasForm(owned.seen, c.dexId)) seen += 1;
+    }
+    return { seen, caught };
   }, [owned]);
 
   const filtered = useMemo(
@@ -73,7 +80,7 @@ export function PokedexScreen({
       filterCreatures(CREATURES, {
         query,
         type: typeFilter,
-        undiscovered: (dexId) => isUndiscovered(owned, loading, dexId),
+        undiscovered: (dexId) => revealFor(owned, loading, dexId) === 'hidden',
       }),
     [query, typeFilter, owned, loading],
   );
@@ -81,6 +88,10 @@ export function PokedexScreen({
   // Keep the picked species while it still matches; otherwise the first result.
   const selected = filtered.find((c) => c.dexId === pickedId) ?? filtered[0] ?? null;
   const selectedIndex = selected ? filtered.indexOf(selected) : -1;
+  const selectedReveal: DexReveal = selected ? reveal(selected.dexId) : 'hidden';
+  const tabs = tabsFor(selectedReveal);
+  // A tab the selected entry can't open yet (stats on a seen-only entry) falls back to Area.
+  const activeTab = tabs.some((t) => t.id === tab) ? tab : tabs[0].id;
   // Always reveal far enough to include the selection.
   const shown = filtered.slice(0, Math.max(visible, selectedIndex + 1));
 
@@ -99,7 +110,7 @@ export function PokedexScreen({
 
   const countLabel =
     collection.status === 'ready'
-      ? `${caughtCount} / ${CREATURES.length}`
+      ? `Seen ${counts.seen} · Caught ${counts.caught}`
       : collection.status === 'loading'
         ? `… / ${CREATURES.length}`
         : `${CREATURES.length} species`;
@@ -113,9 +124,9 @@ export function PokedexScreen({
       }
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         e.preventDefault();
-        const i = DEX_TABS.findIndex((t) => t.id === tab);
-        const step = e.key === 'ArrowRight' ? 1 : DEX_TABS.length - 1;
-        setTab(DEX_TABS[(i + step) % DEX_TABS.length].id);
+        const i = tabs.findIndex((t) => t.id === activeTab);
+        const step = e.key === 'ArrowRight' ? 1 : tabs.length - 1;
+        setTab(tabs[(i + step) % tabs.length].id);
         return;
       }
       if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && selectedIndex >= 0) {
@@ -133,7 +144,7 @@ export function PokedexScreen({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onBack, tab, filtered, selectedIndex]);
+  }, [onBack, tabs, activeTab, filtered, selectedIndex]);
 
   return (
     <div className="mx-auto min-h-[100dvh] max-w-[552px] px-4 py-4 font-pixel text-ink sm:py-8">
@@ -155,9 +166,10 @@ export function PokedexScreen({
           <DexTopScreen
             creature={selected}
             marks={selected ? marksFor(owned, selected.dexId) : null}
-            hidden={selected ? undiscovered(selected.dexId) : false}
+            reveal={selectedReveal}
             collectionError={collection.status === 'failed'}
-            tab={tab}
+            tabs={tabs}
+            tab={activeTab}
             onTab={setTab}
           />
         }
@@ -175,7 +187,7 @@ export function PokedexScreen({
               selectedId={selected?.dexId ?? null}
               onSelect={setPickedId}
               marksOf={(dexId) => marksFor(owned, dexId)}
-              undiscovered={undiscovered}
+              revealOf={reveal}
               onMore={() => setVisible((v) => v + PAGE)}
             />
           </>

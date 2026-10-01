@@ -11,6 +11,7 @@ import {
   readProfile,
   insertProfileWithStarter,
   readOwnedByIds,
+  readSeenDexIds,
   updateOwnedNickname,
   updateOwnedGrowth,
   type Db,
@@ -70,32 +71,41 @@ async function pokedex(req: VercelRequest, res: VercelResponse) {
   if (!db) return res.status(200).json({ ok: true, owned: null });
 
   try {
-    const rs = await db.execute({
-      sql: 'select dex_id, layer from pokedex_cells where user_id = ?',
-      args: [uid],
-    });
+    const [rs, sightings] = await Promise.all([
+      db.execute({
+        sql: 'select dex_id, layer from pokedex_cells where user_id = ?',
+        args: [uid],
+      }),
+      readSeenDexIds(db, uid),
+    ]);
     const maps: Record<string, Uint8Array> = {
       n: new Uint8Array(BYTES),
       a: new Uint8Array(BYTES),
       s: new Uint8Array(BYTES),
     };
+    // Seen is a superset of caught: route sightings plus every caught species.
+    const seen = new Uint8Array(BYTES);
+    const valid = (d: number) => Number.isInteger(d) && d >= 1 && d <= DEX_MAX_ID;
     const counts: Record<string, number> = { n: 0, a: 0, s: 0 };
     for (const r of rs.rows as unknown as { dex_id: number; layer: string }[]) {
       const map = maps[r.layer];
       if (!map) continue;
       const d = Number(r.dex_id);
-      if (!Number.isInteger(d) || d < 1 || d > DEX_MAX_ID) continue;
+      if (!valid(d)) continue;
       const byte = d >> 3;
       const bit = 1 << (d & 7);
+      seen[byte] |= bit;
       if ((map[byte] & bit) === 0) {
         map[byte] |= bit;
         counts[r.layer] += 1;
       }
     }
+    for (const d of sightings) if (valid(d)) seen[d >> 3] |= 1 << (d & 7);
     const b64 = (u: Uint8Array) => Buffer.from(u).toString('base64');
     return res.status(200).json({
       ok: true,
       owned: { n: b64(maps.n), a: b64(maps.a), s: b64(maps.s) },
+      seen: b64(seen),
       counts: { n: counts.n, a: counts.a, s: counts.s },
       total: DEX_MAX_ID,
       layers: DEX_LAYERS,

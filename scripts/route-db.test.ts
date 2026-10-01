@@ -1,6 +1,6 @@
 /** Atomic route commands against a disposable file database, including lost replies and legacy cutover. */
 import {
-  acceptRouteQuest, applySchema, changeInventory, countOwned, insertDiscovery, insertRouteEvent,
+  acceptRouteQuest, applySchema, changeInventory, countOwned, insertDiscovery, insertRouteEvent, readDiscoveries,
   openWriteTx, readActivity, readOpenActivity, readOwnedByUser, readRouteAccount, readRouteEvent,
   updateOwnedNickname, updateRouteEvent, writeRouteAllowance, type Db,
 } from '../api/_db.js';
@@ -251,6 +251,20 @@ try {
   const expUnits = (prior.state as { expUnits: number }).expUnits;
   const exMigration = await activateRoute(db, 'expedition', 'upgrade', T + 86400000);
   check('expedition retirement pays only banked EXP without advancing guardian', exMigration.state.legacy.result?.rawExp === expUnits && exMigration.state.legacy.result.cleared === false && (await readActivity(db, 'expedition', exId))?.step === prior.step);
+
+  // A trainer's Pokémon counts as seen, like a wild one. The seed is random, so search until a trainer shows.
+  await onboardUser(db, 'sightings', 6, 30);
+  await activateRoute(db, 'sightings', 'activate', T);
+  let met: RouteEvent | null = null;
+  for (let i = 0; i < 12 && !met; i++) {
+    const found = (await start(db, 'sightings', 'npc')).event!;
+    if (found.kind === 'trainer') met = found;
+    else if (found.phase !== 'resolved') await leave(db, 'sightings', found);
+  }
+  const metDex = met?.foe?.dexId ?? -1;
+  const sightings = await readDiscoveries(db, 'sightings');
+  check('a trainer’s Pokémon is recorded as seen on the route', met !== null && eq(met.newSeen, [metDex])
+    && sightings.some((d) => d.locationId === 'r1' && d.kind === 'seen' && d.ref === String(metDex)));
 
   // Schema invariant itself, independent of domain checks.
   const sample = (await readRouteEvent(db, 'u1', trainer.event.id))!;
