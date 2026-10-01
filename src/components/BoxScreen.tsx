@@ -139,7 +139,7 @@ export function BoxScreen({ box, onBack, onRenamed, onUpdated }: {
               <div className="text-xs text-white/50">{originLabel(open)}</div>
               {closeToEvolving(open) && <div className="text-xs text-emerald-300/80">Close to evolving</div>}
               <div className="mt-2"><ExpBar level={open.level} exp={open.exp} showPercent /></div>
-              <div className="mt-1"><HpBar mon={open} showNumbers /></div>
+              <div className="mt-1"><HpBar mon={open} showNumbers label="Health" /></div>
             </div>
           </div>
           <GrowthStats mon={open} />

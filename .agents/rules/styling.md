@@ -18,6 +18,7 @@ in text-shadows.
 | `accent` | Menu cursor, selection, focus ring, the one highlight per window |
 | `info` | Small section labels |
 | `exp` | EXP and progress fills |
+| `hp`, `hp-low`, `hp-critical` | Current-HP fills (`HpBar`): above half, at half or less, at a fifth or less. 9.9:1, 9.0:1 and 6.0:1 against the `edge` trough |
 | `danger` | Debt and over-limit readouts (travel stamina below zero) |
 | `slot`, `button` | Sprite slots inside windows, button fill |
 | `caught-normal/alt/shiny` | Collection layers on Night surfaces |

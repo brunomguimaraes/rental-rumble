@@ -35,3 +35,13 @@ export function partyStanding(party: readonly OwnedMon[], fielded: readonly Fiel
   const after = new Map(fielded.map((f) => [f.id, f.hp]));
   return party.some((m) => (after.get(m.id) ?? currentHp(m)) > 0);
 }
+
+/** How an HP bar reads: classic green, amber at half of max or less, red at a fifth or less, then fainted. */
+export type HpTone = 'healthy' | 'low' | 'critical' | 'fainted';
+
+export function hpTone(hp: number, max: number): HpTone {
+  if (hp <= 0 || max <= 0) return 'fainted';
+  if (hp * 5 <= max) return 'critical';
+  if (hp * 2 <= max) return 'low';
+  return 'healthy';
+}

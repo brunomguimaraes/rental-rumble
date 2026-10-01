@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { ownedMonToCreature, type OwnedMon } from '../src/game/box.js';
 import { creatureMaxHp, simulateBattle, type BattleResult } from '../src/game/battle.js';
 import { ballCount, formatMoney, isCaptureBallId, isItemId, itemById, itemQuantity, tradeTotal, VALUABLE_ITEMS } from '../src/game/items.js';
-import { currentHp, isFainted, ownedMaxHp, partyStanding } from '../src/game/health.js';
+import { currentHp, hpTone, isFainted, ownedMaxHp, partyStanding } from '../src/game/health.js';
 import { starterFromOffer } from '../src/game/professions.js';
 import {
   allowanceView, battlePrize, captureChance, guaranteesSupplies, legalChoices, projectAllowance, rollCapture,
@@ -163,6 +163,10 @@ check('ownedMaxHp matches the battle send-out', playerSendout(battle)?.maxHp ===
 const shinyMon: OwnedMon = { ...mon, id: 'shiny-starter', shiny: true };
 check('shiny ownedMaxHp matches the battle send-out', playerSendout(simulateRouteBattle({ party: [shinyMon], foe: wild.foe, seed: 'rules-battle' }))?.maxHp === ownedMaxHp(shinyMon) && ownedMaxHp(shinyMon) > ownedMaxHp(mon));
 check('rows from before persistent HP are at full health', mon.hpLost === undefined && currentHp(mon) === ownedMaxHp(mon) && !isFainted(mon));
+check('HP reads healthy above half of max', hpTone(51, 100) === 'healthy' && hpTone(100, 100) === 'healthy' && hpTone(37, 73) === 'healthy');
+check('HP reads low at half of max and down to above a fifth', hpTone(50, 100) === 'low' && hpTone(36, 73) === 'low' && hpTone(21, 100) === 'low');
+check('HP reads critical at a fifth of max and below, while standing', hpTone(20, 100) === 'critical' && hpTone(14, 73) === 'critical' && hpTone(1, 100) === 'critical');
+check('0 HP, or no known max, reads fainted', hpTone(0, 100) === 'fainted' && hpTone(0, 0) === 'fainted');
 const hurt: OwnedMon = { ...mon, hpLost: ownedMaxHp(mon) - 2 };
 const benched: OwnedMon = { ...mon, id: 'benched', hpLost: ownedMaxHp(mon) };
 const benchBattle = simulateRouteBattle({ party: [benched, hurt], foe: wild.foe, seed: 'bench' });

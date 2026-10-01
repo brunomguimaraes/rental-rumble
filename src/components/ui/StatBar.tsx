@@ -1,7 +1,7 @@
-type Tone = 'lcd' | 'night';
+type Tone = 'lcd' | 'night' | 'hp' | 'hp-low' | 'hp-critical';
 
-const FILL: Record<Tone, string> = { lcd: 'bg-lcd-ink', night: 'bg-exp' };
-const TROUGH: Record<Tone, string> = { lcd: 'bg-lcd-dim', night: 'bg-edge' };
+const FILL: Record<Tone, string> = { lcd: 'bg-lcd-ink', night: 'bg-exp', hp: 'bg-hp', 'hp-low': 'bg-hp-low', 'hp-critical': 'bg-hp-critical' };
+const TROUGH: Record<Tone, string> = { lcd: 'bg-lcd-dim', night: 'bg-edge', hp: 'bg-edge', 'hp-low': 'bg-edge', 'hp-critical': 'bg-edge' };
 
 /**
  * A segmented block bar. `value` out of `max` rounds up to whole segments, so

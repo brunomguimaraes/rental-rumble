@@ -20,6 +20,9 @@
   --color-accent: #ffd447;
   --color-info: #7fb4ff;
   --color-exp: #5fd4ff;
+  --color-hp: #58d080;
+  --color-hp-low: #f0a030;
+  --color-hp-critical: #f85838;
   --color-danger: #ff7a7a;
   --color-slot: #161e34;
   --color-button: #2a3656;
