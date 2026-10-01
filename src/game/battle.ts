@@ -128,6 +128,8 @@ export interface BattleResult {
   winner: Side;
   events: BattleEvent[];
   turns: number;
+  /** Final HP of each player creature, in the order they were passed in; 0 when fainted. */
+  playerHp: number[];
 }
 
 function hpStat(base: number): number {
@@ -142,14 +144,18 @@ function shinyMult(creature: Creature): number {
   return creature.shiny ? SHINY_STAT_MULT : 1;
 }
 
+/** A creature's battle max HP: sign spread, shiny factor and side multiplier included. */
+export function creatureMaxHp(creature: Creature, statMult = 1): number {
+  const spread = SIGN_SPREAD[creature.sign];
+  return Math.floor(hpStat(creature.stats.hp) * spread.hp * (statMult * shinyMult(creature)));
+}
+
 export function makeBattler(
   creature: Creature,
   statMult = 1,
   mods: RelicMods = identityMods(),
 ): Battler {
-  const spread = SIGN_SPREAD[creature.sign];
-  const mult = statMult * shinyMult(creature);
-  const maxHp = Math.floor(hpStat(creature.stats.hp) * spread.hp * mult);
+  const maxHp = creatureMaxHp(creature, statMult);
   const pp: Record<string, number> = {};
   for (const mv of creature.moves) {
     if (mv.pp !== undefined) pp[mv.name] = mv.pp;
@@ -1157,6 +1163,8 @@ export function simulateBattle(
     difficulty?: Difficulty;
     /** Opponent tier for Veteran ability (+5% player stats vs gym+). */
     foeTier?: OpponentTier;
+    /** Per player creature, the HP it starts at (clamped to 1..maxHp); absent = full. */
+    playerStartHp?: readonly number[];
   } = {},
 ): BattleResult {
   const rng = new RNG(seed);
@@ -1190,6 +1198,10 @@ export function simulateBattle(
       statMult: foeStatMult,
     },
   };
+  opts.playerStartHp?.forEach((hp, i) => {
+    const b = sides.player.team[i];
+    if (b && Number.isFinite(hp)) b.hp = Math.max(1, Math.min(b.maxHp, Math.floor(hp)));
+  });
 
   // Roster-wide Abilities resolved up front (see ability-effects.ts).
   for (const side of ['player', 'foe'] as Side[]) {
@@ -2946,7 +2958,7 @@ export function simulateBattle(
       winner === 'player' ? 'You won the battle!' : 'Your team was defeated…',
   });
 
-  return { winner, events, turns };
+  return { winner, events, turns, playerHp: sides.player.team.map((b) => Math.max(0, b.hp)) };
 }
 
 // --- Opponent team construction (seeded) --------------------------------
