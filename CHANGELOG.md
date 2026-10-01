@@ -32,7 +32,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 - **Explore finds** — now include harvest goods and coin pouches.
 - **Explore** — the guaranteed Poké Balls apply only when you have no balls and under ₽200.
 - **Trainer bar** — the Hub header is a Night window with your trainer portrait, your name and mentor, Mail (coming soon) and Settings buttons, and your Bag's ball count.
-- **Home and places** — an illustrated Hearth Town or Sunny Meadow scene now leads Home, with your partner, real sighting and survey highlights, and direct links to their details. Home follows the place you last visited during the session; the party sits below the scene. Town and meadow lead with their surroundings, and trail energy is tucked into a detail panel.
+- **Home and places** — an illustrated Hearth Town or Sunny Meadow scene now leads Home, with your partner, real sighting and survey highlights, and direct links to their details. Home follows where your trainer stands, saved to your account; the party sits below the scene. Town and meadow lead with their surroundings, and trail energy is tucked into a detail panel.
 - **Bag button** — the Hub, town and route use the Night backpack icon and framed touch-sized buttons that open your saved inventory.
 - **Sunny Meadow** — explore an interactive illustrated route: tap grass, the path, or the trail, then confirm one clear search. Encounters and results stay in the meadow; the Bag opens over the scene, catch odds and the one-throw cost stay visible, and party, survey, field guide, and battle rewards unfold when needed.
 - **Sunny Meadow searches** — need you to be there; travel from the map first.
