@@ -280,7 +280,14 @@ export default function App() {
           />
         );
       case 'box':
-        return <BoxScreen box={box} onBack={() => setPhase('hub')} onRenamed={(id, nickname) => setBox((b) => b.map((m) => (m.id === id ? { ...m, nickname } : m)))} />;
+        return (
+          <BoxScreen
+            box={box}
+            onBack={() => setPhase('hub')}
+            onRenamed={(id, nickname) => setBox((b) => b.map((m) => (m.id === id ? { ...m, nickname } : m)))}
+            onUpdated={(mon) => setBox((b) => b.map((m) => (m.id === mon.id ? mon : m)))}
+          />
+        );
       case 'dex':
         return <PokedexScreen onBack={() => setPhase('hub')} me={me} />;
       case 'guide':

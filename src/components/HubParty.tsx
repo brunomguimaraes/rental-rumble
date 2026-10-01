@@ -1,5 +1,5 @@
 import { ownedMonToCreature, type OwnedMon } from '../game/box';
-import { MAX_LEVEL } from '../game/levels';
+import { ExpBar } from './ui/ExpBar';
 import { PixelSprite } from './ui/PixelSprite';
 
 const PARTY_SIZE = 6;
@@ -70,8 +70,12 @@ export function HubParty({ members, onEdit }: { members: OwnedMon[]; onEdit: () 
                   </>
                 )}
               </div>
-              <div className={`mt-1.5 font-label text-[9px] uppercase ${entry && creature && entry.mon.level >= MAX_LEVEL ? 'text-accent' : 'text-ink'}`}>
-                {entry && creature ? `Lv.${entry.mon.level}` : <span aria-hidden="true">—</span>}
+              <div className="mt-1.5 min-h-[14px]">
+                {entry && creature ? (
+                  <ExpBar level={entry.mon.level} exp={entry.mon.exp} />
+                ) : (
+                  <span aria-hidden="true" className="font-label text-[9px] text-ink">—</span>
+                )}
               </div>
             </li>
           );

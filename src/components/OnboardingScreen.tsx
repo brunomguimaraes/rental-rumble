@@ -4,6 +4,7 @@ import { PROFESSIONS, PROFESSORS, professorArtUrl, starterLine, starterOffer } f
 import { onboard, setNickname, cleanNickname, type Profile } from '../game/profile';
 import { ownedMonToCreature, type OwnedMon } from '../game/box';
 import { CREATURES_BY_ID } from '../game/pokemon';
+import { signLabel } from '../game/zodiac';
 import { MiniSprite } from './MiniSprite';
 import { PixelSprite } from './ui/PixelSprite';
 
@@ -151,7 +152,7 @@ export function OnboardingScreen({
           <div className="text-xs font-bold uppercase tracking-widest text-emerald-300">{PROFESSOR.name} hands you…</div>
           <img src={starterCreature.portrait} alt={starterCreature.name} className="mt-4 h-40 w-40 rounded-3xl border border-white/10 bg-white/[0.03] object-contain [image-rendering:pixelated]" />
           <h1 className="mt-4 text-2xl font-black text-white">{CREATURES_BY_ID[String(starter.dexId)].name}</h1>
-          <div className="mt-1 text-sm text-white/60">Lv {starter.level} · born under {starter.sign}</div>
+          <div className="mt-1 text-sm text-white/60">Born under {signLabel(starter.sign)}</div>
           <input
             value={nick}
             onChange={(e) => setNick(e.target.value)}
