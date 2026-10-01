@@ -1,5 +1,6 @@
+import { isItemId } from './items.js';
 import type { OwnedMon } from './box.js';
-import type { RouteChooseInput, RouteQuestInput, RouteReply, RouteSearchInput, RouteState } from './route-actions.js';
+import type { MarketTrade, MarketTradeInput, RouteChooseInput, RouteQuestInput, RouteReply, RouteSearchInput, RouteState } from './route-actions.js';
 
 export interface RouteClientError {
   ok: false;
@@ -16,7 +17,8 @@ export type RouteCommand =
   | { operation: 'activate'; input: { requestId: string } }
   | { operation: 'search'; input: RouteSearchInput }
   | { operation: 'choose'; input: RouteChooseInput }
-  | { operation: 'quest-claim'; input: RouteQuestInput };
+  | { operation: 'quest-claim'; input: RouteQuestInput }
+  | { operation: 'market-trade'; input: MarketTradeInput };
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -24,7 +26,8 @@ const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.is
 function isRouteState(v: unknown): v is RouteState {
   if (!isObject(v) || !isNumber(v.serverNow) || !isNumber(v.revision) || typeof v.activated !== 'boolean') return false;
   if (!isObject(v.inventory) || !isNumber(v.inventory.revision) || !Array.isArray(v.inventory.stacks)) return false;
-  if (!v.inventory.stacks.every((stack) => isObject(stack) && (stack.itemId === 'poke' || stack.itemId === 'great') && Number.isSafeInteger(stack.quantity) && Number(stack.quantity) >= 0)) return false;
+  if (!Number.isSafeInteger(v.inventory.money) || Number(v.inventory.money) < 0) return false;
+  if (!v.inventory.stacks.every((stack) => isObject(stack) && isItemId(stack.itemId) && Number.isSafeInteger(stack.quantity) && Number(stack.quantity) >= 0)) return false;
   if (!isObject(v.allowance) || !isNumber(v.allowance.available) || !isNumber(v.allowance.capacity) || !isNumber(v.allowance.refillEveryMs)) return false;
   if (v.allowance.nextRefillAt !== null && !isNumber(v.allowance.nextRefillAt)) return false;
   if (!isObject(v.quest) || !Array.isArray(v.quest.landmarks) || !Array.isArray(v.quest.required) || !isObject(v.legacy)) return false;
@@ -74,6 +77,7 @@ async function request(operation: string, body?: unknown): Promise<RouteClientRe
       ok: true, state,
       ...(Array.isArray(data.box) ? { box: data.box as OwnedMon[] } : {}),
       ...(isObject(data.event) ? { event: data.event as unknown as NonNullable<RouteReply['event']> } : {}),
+      ...(isObject(data.trade) ? { trade: data.trade as unknown as MarketTrade } : {}),
       ...(data.replayed === true ? { replayed: true } : {}),
     };
   } catch {
@@ -87,6 +91,7 @@ export const searchRoute = (input: RouteSearchInput): Promise<RouteClientReply> 
 export const chooseRoute = (input: RouteChooseInput): Promise<RouteClientReply> => request('choose', input);
 export const claimRouteQuest = (input: RouteQuestInput): Promise<RouteClientReply> => request('quest-claim', input);
 export const dismissRouteResult = (eventId: string): Promise<RouteClientReply> => request('result-dismiss', { eventId });
+export const tradeMarket = (input: MarketTradeInput): Promise<RouteClientReply> => request('market-trade', input);
 export const runRouteCommand = (command: RouteCommand): Promise<RouteClientReply> => request(command.operation, command.input);
 
 export function newRouteRequestId(): string {
@@ -100,7 +105,7 @@ export function readPendingRouteCommand(accountKey: string): RouteCommand | null
   try {
     const value: unknown = JSON.parse(sessionStorage.getItem(pendingKey(accountKey)) ?? 'null');
     if (!isObject(value) || !isObject(value.input) || typeof value.input.requestId !== 'string') return null;
-    if (!['activate', 'search', 'choose', 'quest-claim'].includes(String(value.operation))) return null;
+    if (!['activate', 'search', 'choose', 'quest-claim', 'market-trade'].includes(String(value.operation))) return null;
     return value as unknown as RouteCommand;
   } catch { return null; }
 }

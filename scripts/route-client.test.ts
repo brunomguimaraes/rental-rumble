@@ -1,10 +1,10 @@
 /** Client recovery boundaries: failed loads, exact retries, and out-of-order inventory snapshots. */
 import {
   chooseRoute, clearPendingRouteCommand, fetchRouteState, readPendingRouteCommand, reconcileRouteState,
-  runRouteCommand, savePendingRouteCommand, searchRoute, shouldApplyHydratedBox, type RouteCommand,
+  runRouteCommand, savePendingRouteCommand, searchRoute, shouldApplyHydratedBox, tradeMarket, type RouteCommand,
 } from '../src/game/route-actions-client.js';
 import type { RouteState } from '../src/game/route-actions.js';
-import { inventoryChangeText } from '../src/components/world/route-copy.js';
+import { inventoryChangeText, moneyChangeText, tradeText } from '../src/components/world/route-copy.js';
 
 let passed = 0;
 let failed = 0;
@@ -93,6 +93,26 @@ check('settled command is removed before the next action', readPendingRouteComma
 
 check('a consumed ball is described as used, not a negative supply find', inventoryChangeText({ itemId: 'poke', quantity: -1 }) === 'Used 1 Poké Ball from your Bag.');
 check('a multi-ball supply find uses a positive grant and plural', inventoryChangeText({ itemId: 'great', quantity: 3 }) === '+3 Great Balls added to your Bag.');
+
+const stocked: RouteState = { ...state, inventory: { revision: 4, money: 1100, stacks: [{ itemId: 'honey', quantity: 2 }, { itemId: 'poke', quantity: 20 }] } };
+reply = json(200, { ok: true, state: stocked, trade: { itemId: 'poke', side: 'buy', quantity: 3, total: 600 } });
+const trade = { requestId: 'trade-one', itemId: 'poke' as const, side: 'buy' as const, quantity: 3 };
+const traded = await tradeMarket(trade);
+check('a trade posts to market-trade with credentials', lastUrl === '/api/world/market-trade' && lastInit?.method === 'POST' && lastInit.credentials === 'include' && lastInit.body === JSON.stringify(trade));
+check('a trade reply carries the receipt, valuables and balance', traded.ok && traded.trade?.total === 600 && traded.state.inventory.money === 1100 && traded.state.inventory.stacks[0].itemId === 'honey');
+reply = json(200, { ok: true, state: { ...stocked, inventory: { ...stocked.inventory, money: -5 } } });
+check('a negative balance is an incomplete reply, not a state', !(await fetchRouteState()).ok);
+reply = json(200, { ok: true, state: { ...stocked, inventory: { ...stocked.inventory, stacks: [{ itemId: 'master', quantity: 1 }] } } });
+check('an unknown item stack is an incomplete reply', !(await fetchRouteState()).ok);
+const afterTrade = { ...stocked, revision: 6, inventory: { ...stocked.inventory, revision: 6, money: 500 } };
+check('a late reply cannot rewind the balance after a trade', reconcileRouteState(afterTrade, stocked) === afterTrade);
+const tradeCommand: RouteCommand = { operation: 'market-trade', input: trade };
+savePendingRouteCommand('trainer-m', tradeCommand);
+check('a pending trade survives a reload with its request ID', JSON.stringify(readPendingRouteCommand('trainer-m')) === JSON.stringify(tradeCommand));
+clearPendingRouteCommand('trainer-m');
+check('valuables use their plural', inventoryChangeText({ itemId: 'tiny-mushroom', quantity: 2 }) === '+2 Tiny Mushrooms added to your Bag.' && inventoryChangeText({ itemId: 'honey', quantity: 1 }) === '+1 Honey added to your Bag.');
+check('battle and pouch money read as earnings', moneyChangeText({ kind: 'wild', money: 100 }) === '+₽100 prize money.' && moneyChangeText({ kind: 'item', money: 300 }) === 'Found a coin pouch: +₽300.' && moneyChangeText({ kind: 'wild', money: 0 }) === null && moneyChangeText({ kind: 'wild' }) === null);
+check("trade receipts read in the player's words", tradeText({ itemId: 'poke', side: 'buy', quantity: 3, total: 600 }) === 'Bought 3 Poké Balls for ₽600.' && tradeText({ itemId: 'honey', side: 'sell', quantity: 1, total: 150 }) === 'Sold 1 Honey for ₽150.');
 
 console.log(`${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
