@@ -5,6 +5,7 @@ import {
   hasAltColorPmdSprite,
   hasShinyPmdSprite,
   PMD_FRAME_MS,
+  pmdScale,
   pmdSheetUrl,
   pmdSheetUrls,
   resolvePmdAnim,
@@ -41,6 +42,7 @@ export function PmdSprite({
   altColor = false,
   onAnimEnd,
   fallback,
+  wholeScale = false,
 }: {
   dexId: number;
   side: Side;
@@ -56,6 +58,8 @@ export function PmdSprite({
   altColor?: boolean;
   onAnimEnd?: () => void;
   fallback: ReactNode;
+  /** Round to a whole multiple of the sheet's pixels (Night screens). */
+  wholeScale?: boolean;
 }) {
   const anim = resolvePmdAnim(dexId, kind);
   // Pick the recolour to render, but only when this species ships its full set
@@ -138,14 +142,7 @@ export function PmdSprite({
 
   if (!anim) return <>{fallback}</>;
 
-  // Draw each species near its *relative* native size (a frame's pixel height is
-  // a decent proxy: Onix's resting frame is ~104px, Geodude's ~24px), but
-  // compress the range with a power curve + clamp so tiny mons aren't dwarfed
-  // and huge ones don't overflow the stage. heightPx is the size at REF height.
-  const REF = 48;
-  const target = heightPx * Math.pow(anim.refHeight / REF, 0.6);
-  const displayed = Math.max(heightPx * 0.62, Math.min(heightPx * 1.45, target));
-  const scale = displayed / anim.refHeight;
+  const scale = pmdScale({ refHeight: anim.refHeight, heightPx, wholeScale });
   const w = anim.fw * scale;
   const h = anim.fh * scale;
   const row = dirRow(side, anim.rows);
@@ -164,7 +161,7 @@ export function PmdSprite({
         backgroundPosition: `${-safeFrame * w}px ${-row * h}px`,
         imageRendering: 'pixelated',
       }}
-      className="pointer-events-none drop-shadow-lg"
+      className={`pointer-events-none ${wholeScale ? '' : 'drop-shadow-lg'}`}
     />
   );
 }

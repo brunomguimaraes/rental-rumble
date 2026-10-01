@@ -12,6 +12,7 @@ import { starterFromOffer } from '../src/game/professions.js';
 import { rollRouteFind, simulateRouteBattle } from '../src/game/route-rules.js';
 import type { InventoryState } from '../src/game/route-actions.js';
 import type { Side } from '../src/game/types.js';
+import { pmdScale } from '../src/game/pmd.js';
 
 let passed = 0;
 let failed = 0;
@@ -97,5 +98,12 @@ check('seeded final board names the winner', final.line === (battle.won ? 'You w
 check('seeded final board counts the loser’s faint', (battle.won ? final.foe.faints : final.player.faints) === 1);
 check('seeded battle shows the foe’s sign from the view', final.foe.view?.sign === find.foe.mint.sign);
 
+
+// PMD frames scale by whole numbers on route battles (styling.md), never below 1x.
+check('a small 24px frame doubles', pmdScale({ refHeight: 24, heightPx: 84, wholeScale: true }) === 2);
+check('a mid 48px frame doubles', pmdScale({ refHeight: 48, heightPx: 84, wholeScale: true }) === 2);
+check('a large 104px frame stays native', pmdScale({ refHeight: 104, heightPx: 84, wholeScale: true }) === 1);
+check('a huge 200px frame never drops below 1x', pmdScale({ refHeight: 200, heightPx: 84, wholeScale: true }) === 1);
+check('the old battle screen keeps its relative scale', Math.abs(pmdScale({ refHeight: 48, heightPx: 84, wholeScale: false }) - 1.75) < 1e-9);
 console.log(`Battle board: ${passed} passed, ${failed} failed.`);
 process.exit(failed ? 1 : 0);

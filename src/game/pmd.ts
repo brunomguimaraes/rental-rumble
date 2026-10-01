@@ -121,3 +121,20 @@ export function dirRow(side: Side, rows: number): number {
 // One PMD "duration unit" in milliseconds. The sheets are authored against a
 // 60 fps tick, so a unit ≈ 1/60 s; tuned slightly to read well in the arena.
 export const PMD_FRAME_MS = 1000 / 60;
+
+/**
+ * Pixels per sheet pixel for a species. Draws it near its relative native size
+ * (a frame's height is a decent proxy: Onix ~104px, Geodude ~24px), compressed
+ * with a power curve and clamped so tiny mons aren't dwarfed and huge ones don't
+ * overflow; `heightPx` is the size at a 48px reference frame. `wholeScale`
+ * rounds to a whole multiple (min 1×) so the pixel art stays crisp.
+ */
+export function pmdScale({ refHeight, heightPx, wholeScale }: {
+  refHeight: number; heightPx: number; wholeScale: boolean;
+}): number {
+  const REF = 48;
+  const target = heightPx * Math.pow(refHeight / REF, 0.6);
+  const displayed = Math.max(heightPx * 0.62, Math.min(heightPx * 1.45, target));
+  const scale = displayed / refHeight;
+  return wholeScale ? Math.max(1, Math.round(scale)) : scale;
+}
