@@ -1,21 +1,20 @@
 import { useMemo, useState } from 'react';
 import type { AccountUser } from '../game/account';
-import { PROFESSIONS, PROFESSORS, professorArtUrl, starterLine, starterOffer } from '../game/professions';
-import { onboard, setNickname, cleanNickname, type Profile } from '../game/profile';
+import { PROFESSORS, professorArtUrl, starterLine, starterOffer } from '../game/professions';
+import { onboard, setNickname, cleanNickname, NICKNAME_MAX, type Profile } from '../game/profile';
 import { ownedMonToCreature, type OwnedMon } from '../game/box';
 import { CREATURES_BY_ID } from '../game/pokemon';
 import { signLabel } from '../game/zodiac';
-import { MiniSprite } from './MiniSprite';
 import { PixelSprite } from './ui/PixelSprite';
 import { TrainerIdentityPicker } from './TrainerIdentityPicker';
 import type { TrainerIdentity } from '../game/trainer-identity';
 import { scrollToTop } from '../ui-scroll';
 
-// First minute: trainer identity → profession → Professor Andre offers three weak, three-stage lines
+// First minute: trainer identity → Professor Andre offers three weak, three-stage lines
 // (fixed per account) → starter reveal + optional nickname → hub. The server
 // re-derives the offer, checks the pick and mints the starter with the profile.
 
-type Step = 'identity' | 'profession' | 'pick' | 'starter';
+type Step = 'identity' | 'pick' | 'starter';
 
 const PROFESSOR = PROFESSORS[0];
 
@@ -61,7 +60,8 @@ export function OnboardingScreen({
   };
 
   const confirmStarter = async () => {
-    if (!starter || !profile) return;
+    if (!starter || !profile || busy) return;
+    setError(null);
     const clean = cleanNickname(nick);
     if (nick.trim() && !clean) {
       setError('Nicknames are 1–12 characters.');
@@ -82,56 +82,37 @@ export function OnboardingScreen({
   };
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-2xl flex-col px-5 py-8 font-pixel text-ink">
+    <div className={`mx-auto flex min-h-[100dvh] max-w-2xl flex-col font-pixel text-ink ${step === 'identity' ? 'px-4 py-5 sm:px-6 sm:py-8' : 'px-5 py-8'}`}>
       {step === 'identity' && (
         <TrainerIdentityPicker initialName={me.displayName} initialIdentity={identity} onContinue={(choice) => {
           setIdentity(choice);
-          setStep('profession');
+          setStep('pick');
           scrollToTop();
         }} />
       )}
-      {(step === 'profession' || step === 'pick') && (
+      {step === 'pick' && (
         <button type="button" disabled={busy} onClick={() => { setError(null); setStep('identity'); scrollToTop(); }}
           className="ui-button ui-focus mb-6 min-h-11 self-start px-3 font-label text-[9px] uppercase">
           ← Edit trainer
         </button>
       )}
-      {step === 'profession' && (
-        <>
-          <h1 className="text-2xl font-bold text-ink">Choose your path, {identity?.displayName || 'friend'}.</h1>
-          <p className="mt-2 text-sm text-white/60">Pick a profession. Only the Trainer road is open for now.</p>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            {PROFESSIONS.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                disabled={p.locked}
-                onClick={() => setStep('pick')}
-                className={`rounded-3xl border px-5 py-4 text-left transition ${
-                  p.locked ? 'cursor-not-allowed border-white/5 bg-white/[0.01] opacity-50' : 'border-emerald-400/60 bg-emerald-400/10 hover:bg-emerald-400/20'
-                }`}
-              >
-                <div className="flex items-baseline justify-between">
-                  <span className="text-lg font-black text-white">{p.name}</span>
-                  {p.locked && <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Locked</span>}
-                </div>
-                <div className="mt-1 text-xs text-white/60">{p.blurb}</div>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
       {step === 'pick' && (
         <>
-          <div className="ui-window m-2 flex flex-col items-center gap-3 p-4 sm:flex-row">
-            <PixelSprite src={professorArtUrl(PROFESSOR)} alt="" size={192} />
+          <header>
+            <p className="font-label text-[10px] uppercase text-info">02 / 03 · Your partner</p>
+            <h1 className="mt-2 text-3xl font-bold text-ink">Choose your first partner.</h1>
+            <p className="mt-2 text-base text-ink-dim">Every great team starts with a little Pokémon.</p>
+          </header>
+          <div className="ui-window mt-8 flex flex-col items-center gap-3 p-4 sm:flex-row">
+            <PixelSprite src={professorArtUrl(PROFESSOR)} alt="" size={96} className="sm:h-48 sm:w-48" />
             <div>
-              <h1 className="font-pixel text-2xl font-bold text-ink">{PROFESSOR.name}</h1>
-              <p className="mt-2 font-pixel text-base text-ink-dim">{PROFESSOR.blurb}</p>
+              <h2 className="text-xl font-bold text-ink">{PROFESSOR.name}</h2>
+              <p className="mt-2 text-base leading-snug text-ink-dim">{PROFESSOR.blurb}</p>
             </div>
           </div>
-          <div className="mt-6 grid gap-3">
+          <p role="status" className="mt-6 min-h-5 text-sm text-info">{busy ? 'Preparing your partner…' : 'Choose one Pokémon to begin your journey.'}</p>
+          {error && <p role="alert" className="mt-3 border-2 border-accent bg-slot p-3 text-base text-ink">{error}</p>}
+          <div aria-label="Starter choices" aria-busy={busy} className="mt-4 grid gap-4">
             {offer.map(({ id, line }) => {
               const base = line[0];
               if (!base) return null;
@@ -141,50 +122,61 @@ export function OnboardingScreen({
                   type="button"
                   disabled={busy}
                   onClick={() => pick(id)}
-                  className="flex items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:bg-white/[0.08] disabled:opacity-60"
+                  className="ui-button ui-focus flex items-center gap-3 border-2 border-edge p-3 text-left hover:border-accent focus-visible:border-accent disabled:opacity-75 sm:gap-4"
                 >
-                  <img src={base.portrait} alt="" className="h-16 w-16 shrink-0 rounded-2xl border border-white/10 object-contain [image-rendering:pixelated]" />
-                  <div className="min-w-0">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-lg font-black text-white">{base.name}</span>
-                      <span className="text-xs text-white/50">{base.types.join(' / ')}</span>
-                    </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="shrink-0 border-2 border-window-frame bg-slot p-1">
+                    <PixelSprite src={base.portrait} alt="" size={80} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words text-xl font-bold text-ink">{base.name}</span>
+                    <span className="mt-1 block font-label text-[9px] uppercase text-info">{base.types.join(' / ')}</span>
+                    <span className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-1 text-sm leading-snug text-ink-dim">
                       {line.map((c, i) => (
-                        <span key={c.dexId} className="flex items-center gap-1 text-[11px] text-white/60">
-                          {i > 0 && <span className="text-white/30">→</span>}
-                          <MiniSprite creature={c} className="h-6 w-6" />
+                        <span key={c.dexId}>
+                          {i > 0 && <span aria-hidden="true">→ </span>}
                           {c.name}
                         </span>
                       ))}
-                    </div>
-                  </div>
+                    </span>
+                    <span className="mt-3 block font-label text-[9px] uppercase text-accent"><span aria-hidden="true">▶ </span>Choose partner</span>
+                  </span>
                 </button>
               );
             })}
           </div>
-          <p className="mt-4 text-xs text-white/40">All three start weak. That’s the point.</p>
-          {error && <p className="mt-4 text-sm text-rose-300">{error}</p>}
+          <p className="mt-5 text-sm text-ink-dim">All three start weak. You’ll grow stronger together.</p>
         </>
       )}
 
       {step === 'starter' && starter && starterCreature && (
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
-          <div className="text-xs font-bold uppercase tracking-widest text-emerald-300">{PROFESSOR.name} hands you…</div>
-          <img src={starterCreature.portrait} alt={starterCreature.name} className="mt-4 h-40 w-40 rounded-3xl border border-white/10 bg-white/[0.03] object-contain [image-rendering:pixelated]" />
-          <h1 className="mt-4 text-2xl font-black text-white">{CREATURES_BY_ID[String(starter.dexId)].name}</h1>
-          <div className="mt-1 text-sm text-white/60">Born under {signLabel(starter.sign)}</div>
-          <input
-            value={nick}
-            onChange={(e) => setNick(e.target.value)}
-            maxLength={12}
-            placeholder="Give it a nickname (optional)"
-            className="mt-6 w-full max-w-xs rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-center text-sm text-white outline-none focus:border-emerald-400/60"
-          />
-          {error && <p className="mt-3 text-sm text-rose-300">{error}</p>}
-          <button type="button" disabled={busy} onClick={confirmStarter} className="mt-6 rounded-full bg-white px-8 py-3 text-sm font-bold text-black transition hover:scale-[1.02] active:scale-95 disabled:opacity-60">
-            {busy ? '…' : 'To the hub'}
-          </button>
+        <div className="flex flex-1 flex-col justify-center gap-8">
+          <header>
+            <p className="font-label text-[10px] uppercase text-info">03 / 03 · Your journey begins</p>
+            <h1 className="mt-2 text-3xl font-bold text-ink">Meet {CREATURES_BY_ID[String(starter.dexId)].name}.</h1>
+            <p className="mt-2 text-base text-ink-dim">{PROFESSOR.name} hands you your first partner.</p>
+          </header>
+          <form onSubmit={(event) => { event.preventDefault(); void confirmStarter(); }} aria-busy={busy}
+            className="ui-window flex flex-col items-center p-5 text-center">
+            <div className="border-2 border-window-frame bg-slot p-2">
+              <PixelSprite src={starterCreature.portrait} alt={starterCreature.name} size={120} />
+            </div>
+            <p className="mt-4 text-xl font-bold text-ink">{CREATURES_BY_ID[String(starter.dexId)].name}</p>
+            <p className="mt-1 text-base text-ink-dim">Born under {signLabel(starter.sign)}</p>
+            <div className="mt-6 w-full border-t-2 border-window-frame pt-5 text-left">
+              <label htmlFor="starter-nickname" className="font-label text-[10px] uppercase text-info">Give them a nickname</label>
+              <input id="starter-nickname" name="nickname" value={nick} disabled={busy}
+                onChange={(e) => { setNick(e.target.value); setError(null); }} maxLength={NICKNAME_MAX}
+                placeholder={CREATURES_BY_ID[String(starter.dexId)].name}
+                aria-describedby={error ? 'nickname-help nickname-error' : 'nickname-help'}
+                className="ui-focus mt-2 block min-h-12 w-full rounded-sm border-2 border-edge bg-slot px-3 text-xl text-ink placeholder:text-ink-dim" />
+              <p id="nickname-help" className="mt-2 text-sm text-ink-dim">Optional · Up to {NICKNAME_MAX} characters. Leave blank to keep their species name.</p>
+              {error && <p id="nickname-error" role="alert" className="mt-3 border-2 border-accent bg-slot p-3 text-base text-ink">{error}</p>}
+            </div>
+            <button type="submit" disabled={busy} className="ui-button-primary ui-focus mt-6 min-h-12 w-full px-4 font-label text-[11px] uppercase disabled:opacity-75">
+              {busy ? 'Saving nickname…' : 'To the hub →'}
+            </button>
+            <p role="status" className="sr-only">{busy ? 'Saving your partner’s nickname.' : ''}</p>
+          </form>
         </div>
       )}
     </div>
