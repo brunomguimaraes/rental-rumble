@@ -44,6 +44,8 @@ const skin = recolorTrainerPixels(pixels, mask, { skinTone: 'deep', hairColor: '
 check('skin color changes only skin and keeps alpha', skin[0] === 89 && skin[1] === 55 && skin[2] === 39 && skin[3] === 255 && String(skin.slice(4)) === String(pixels.slice(4)));
 const hair = recolorTrainerPixels(pixels, mask, { skinTone: 'original', hairColor: 'blonde' });
 check('dark hair can become blonde without affecting skin or clothes', hair[4] === 224 && hair[5] === 187 && hair[6] === 119 && String(hair.slice(0, 4)) === String(pixels.slice(0, 4)) && String(hair.slice(8)) === String(pixels.slice(8)));
+const litSkin = recolorTrainerPixels(new Uint8ClampedArray([255, 225, 190, 255]), new Uint8ClampedArray([224, 0, 0, 255]), { skinTone: 'ebony', hairColor: 'original' });
+check('dark skin highlights stay warm instead of bleaching toward white', litSkin[0] <= 110 && litSkin[0] - litSkin[1] >= 20 && litSkin[1] - litSkin[2] >= 10);
 
 console.log('[4] onboarding client contract');
 const realFetch = globalThis.fetch;

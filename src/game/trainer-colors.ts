@@ -56,12 +56,16 @@ export function recolorTrainerPixels(source: Uint8ClampedArray, mask: Uint8Clamp
     const target = mask[i] ? skinRgb : mask[i + 1] ? hairRgb : null;
     if (!target) continue;
     const shade = mask[i] || mask[i + 1];
-    // Retain contrast for both black→blonde and light→dark choices.
+    // Keep skin highlights warm, with enough separation for painted details on
+    // dark tones. Hair gets a gentler highlight ramp so curls don't turn icy.
     const relative = (shade - 128) / 127;
+    const isSkin = Boolean(mask[i]);
     for (let c = 0; c < 3; c++) {
       output[i + c] = Math.round(relative < 0
-        ? target[c] * (1 + relative * 0.8)
-        : target[c] + (255 - target[c]) * relative * 0.65);
+        ? target[c] * (1 + relative * (isSkin ? 0.85 : 0.95))
+        : target[c] + (isSkin
+          ? Math.min(255 - target[c], target[c] * 0.65 + [20, 12, 8][c])
+          : (255 - target[c]) * 0.28) * relative);
     }
   }
   return output;

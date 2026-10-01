@@ -47,6 +47,9 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 - **Login required** — anonymous play is gone; the hub and box are per-account.
 - **Battles come alive** — Sunny Meadow battles play like the original Rental Rumble: animated Pokémon that attack, flinch and faint, a Poké Ball toss on send-out, damage numbers, effectiveness banners, and status and sign badges on each Pokémon's card. Pokémon are drawn at their true relative size and stand on their shadows, and each HP bar fills visibly on send-out. Next and Skip work as before.
 
+### Fixed
+- **Trainer colors** — rebuilt all 40 portrait masks to correct missed skin patches and color bleeding into hats and clothes. Dark skin preserves freckles, nose highlights and ear shadows; cleaner hairlines, intact ink outlines and softer hair highlights keep the original portrait detail.
+
 ### Removed
 - Idle training, checkpoint expeditions, guardian gates, and playable routes beyond Sunny Meadow. Existing sessions retire once with eligible pre-cutover rewards preserved.
 - Level numbers on the Hub, in the Box and on the starter reveal.
