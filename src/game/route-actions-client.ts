@@ -86,6 +86,7 @@ async function request(operation: string, body?: unknown): Promise<RouteClientRe
       ...(isObject(data.event) ? { event: data.event as unknown as NonNullable<RouteReply['event']> } : {}),
       ...(isObject(data.trade) ? { trade: data.trade as unknown as MarketTrade } : {}),
       ...(data.replayed === true ? { replayed: true } : {}),
+      ...(Array.isArray(data.party) ? { party: data.party.filter((id): id is string => typeof id === 'string') } : {}),
     };
   } catch {
     return { ok: false, uncertain: body !== undefined, error: 'Network error — please retry. Your action will not be spent twice.' };

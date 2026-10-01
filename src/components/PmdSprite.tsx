@@ -5,7 +5,8 @@ import {
   hasAltColorPmdSprite,
   hasShinyPmdSprite,
   PMD_FRAME_MS,
-  pmdScale,
+  pmdBody,
+  pmdFrameBox,
   pmdSheetUrl,
   pmdSheetUrls,
   resolvePmdAnim,
@@ -23,9 +24,10 @@ const prefersReducedMotion = () =>
  * so non-uniform anims (a long idle "breath", a snappy attack) play correctly —
  * something CSS `steps()` can't express.
  *
- * Frames are scaled by the species' *resting* height so the character stays a
- * constant on-screen size even when an attack frame is a much larger canvas; the
- * extra lunge area simply overflows the box (which is what makes attacks read).
+ * Every frame is drawn at PMD_SCALE and centred on the sheet's shared origin,
+ * lifted by the species' resting feet offset for this side (pmdFrameBox): the parent is a
+ * zero-size feet anchor, the resting feet land on it, and a larger attack or
+ * hurt canvas grows around the same centre instead of making the body jump.
  *
  * Falls back to `fallback` (the flat Essentials front/back PNG) when a species
  * has no bundled PMD sprite, so the battle always renders something.
@@ -34,7 +36,6 @@ export function PmdSprite({
   dexId,
   side,
   kind,
-  heightPx,
   loop,
   speed = 1,
   playToken = 0,
@@ -42,12 +43,10 @@ export function PmdSprite({
   altColor = false,
   onAnimEnd,
   fallback,
-  wholeScale = false,
 }: {
   dexId: number;
   side: Side;
   kind: PmdAnimKind;
-  heightPx: number;
   loop: boolean;
   speed?: number;
   /** Bump to restart a one-shot anim even when `kind` is unchanged. */
@@ -58,8 +57,6 @@ export function PmdSprite({
   altColor?: boolean;
   onAnimEnd?: () => void;
   fallback: ReactNode;
-  /** Round to a whole multiple of the sheet's pixels (Night screens). */
-  wholeScale?: boolean;
 }) {
   const anim = resolvePmdAnim(dexId, kind);
   // Pick the recolour to render, but only when this species ships its full set
@@ -142,9 +139,7 @@ export function PmdSprite({
 
   if (!anim) return <>{fallback}</>;
 
-  const scale = pmdScale({ refHeight: anim.refHeight, heightPx, wholeScale });
-  const w = anim.fw * scale;
-  const h = anim.fh * scale;
+  const box = pmdFrameBox({ fw: anim.fw, fh: anim.fh, foot: pmdBody(dexId)?.foot[side] ?? 0 });
   const row = dirRow(side, anim.rows);
   // Guard against a stale index landing past the current sheet (blank cell).
   const safeFrame = Math.min(Math.max(frame, 0), frames - 1);
@@ -153,15 +148,18 @@ export function PmdSprite({
     <div
       aria-hidden
       style={{
-        width: w,
-        height: h,
+        position: 'absolute',
+        left: box.left,
+        top: box.top,
+        width: box.width,
+        height: box.height,
         backgroundImage: `url(${pmdSheetUrl(dexId, anim.sheet, variant)})`,
         backgroundRepeat: 'no-repeat',
-        backgroundSize: `${anim.frames * w}px ${anim.rows * h}px`,
-        backgroundPosition: `${-safeFrame * w}px ${-row * h}px`,
+        backgroundSize: `${anim.frames * box.width}px ${anim.rows * box.height}px`,
+        backgroundPosition: `${-safeFrame * box.width}px ${-row * box.height}px`,
         imageRendering: 'pixelated',
       }}
-      className={`pointer-events-none ${wholeScale ? '' : 'drop-shadow-lg'}`}
+      className="pointer-events-none"
     />
   );
 }

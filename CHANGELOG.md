@@ -31,6 +31,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 
 ### Changed
 - **Catching** — ball throws now arc into the meadow, draw the Pokémon inside, and build suspense with three shakes before a sparkling catch or breakout reveal. Skip the animation at any time; reduced motion shows a still result.
+- **Caught Pokémon join your party** — a catch goes straight into your party when it has fewer than six Pokémon; with a full party it goes to the Box as before.
 - **Explore finds** — now include harvest goods and coin pouches.
 - **Explore** — the guaranteed Poké Balls apply only when you have no balls and under ₽200.
 - **Trainer bar** — the Hub header is a Night window with your trainer portrait, your name and mentor, Mail (coming soon) and Settings buttons, and your Bag's ball count.
@@ -44,7 +45,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 - **Pokédex** — species you haven't caught stay a mystery: a silhouette and "???" with no stats, ability, moves, or signs, and search by name only finds ones you've caught.
 - **Hub** — the six-slot Night party window shows your saved party, lead first, with Edit; below it sit the World map and Your box, and what your trainer is doing right now.
 - **Login required** — anonymous play is gone; the hub and box are per-account.
-- **Battles come alive** — Sunny Meadow battles play like the original Rental Rumble: animated Pokémon that attack, flinch and faint, a Poké Ball toss on send-out, damage numbers, effectiveness banners, and status and sign badges on each Pokémon's card. Next and Skip work as before.
+- **Battles come alive** — Sunny Meadow battles play like the original Rental Rumble: animated Pokémon that attack, flinch and faint, a Poké Ball toss on send-out, damage numbers, effectiveness banners, and status and sign badges on each Pokémon's card. Pokémon are drawn at their true relative size and stand on their shadows, and each HP bar fills visibly on send-out. Next and Skip work as before.
 
 ### Removed
 - Idle training, checkpoint expeditions, guardian gates, and playable routes beyond Sunny Meadow. Existing sessions retire once with eligible pre-cutover rewards preserved.

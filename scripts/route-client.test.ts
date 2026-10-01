@@ -63,6 +63,9 @@ check('a receipt without usable state stays recoverable', !incomplete.ok && inco
 reply = json(409, { ok: false, error: 'That encounter already changed.', state });
 const conflict = await chooseRoute({ requestId: 'choice-one', eventId: 'event-one', expectedRevision: 1, choice: 'catch', ballId: 'great' });
 check('conflicting catch exposes authoritative inventory and does not imply consumption', !conflict.ok && conflict.status === 409 && conflict.state?.inventory.stacks[0].quantity === 20 && !conflict.uncertain);
+reply = json(200, { ok: true, state, party: ['starter', 'caught', 7] });
+const joined = await chooseRoute({ requestId: 'choice-two', eventId: 'event-one', expectedRevision: 1, choice: 'catch', ballId: 'poke' });
+check('a catch that joined the party returns the saved party IDs', joined.ok && JSON.stringify(joined.party) === JSON.stringify(['starter', 'caught']));
 reply = json(409, { ok: false, error: 'Your party changed.', party: ['new-party'] });
 const partyConflict = await searchRoute(command.input);
 check('party conflict provides saved party IDs for the next search', !partyConflict.ok && partyConflict.party?.[0] === 'new-party');

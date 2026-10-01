@@ -13,7 +13,8 @@ import { starterFromOffer } from '../src/game/professions.js';
 import { rollRouteFind, simulateRouteBattle } from '../src/game/route-rules.js';
 import type { InventoryState } from '../src/game/route-actions.js';
 import type { Side } from '../src/game/types.js';
-import { pmdScale } from '../src/game/pmd.js';
+import { PMD_SCALE, pmdBody, pmdFrameBox, resolvePmdAnim } from '../src/game/pmd.js';
+import { PMD_SPRITES } from '../src/game/pmdSprites.gen.js';
 
 let passed = 0;
 let failed = 0;
@@ -110,11 +111,23 @@ const hurtBoard = boardAt({ events: hurtBattle.events, upTo: hurtOut, player: [s
 check('a hurt member enters the replay board at its stored HP out of its full max', hurtOut >= 0 && hurtBoard.player.hp === 3 && hurtBoard.player.maxHp === ownedMaxHp(mon));
 
 
-// PMD frames scale by whole numbers on route battles (styling.md), never below 1x.
-check('a small 24px frame doubles', pmdScale({ refHeight: 24, heightPx: 84, wholeScale: true }) === 2);
-check('a mid 48px frame doubles', pmdScale({ refHeight: 48, heightPx: 84, wholeScale: true }) === 2);
-check('a large 104px frame stays native', pmdScale({ refHeight: 104, heightPx: 84, wholeScale: true }) === 1);
-check('a huge 200px frame never drops below 1x', pmdScale({ refHeight: 200, heightPx: 84, wholeScale: true }) === 1);
-check('the old battle screen keeps its relative scale', Math.abs(pmdScale({ refHeight: 48, heightPx: 84, wholeScale: false }) - 1.75) < 1e-9);
+// PMD frames stand on a feet anchor (Charizard, real resting and hurt geometry):
+// every frame is centred on the same point, the side's feet line above the
+// anchor, so the resting feet land on it and a larger hurt canvas never jumps.
+const charizard = pmdBody(6);
+const idle = resolvePmdAnim(6, 'idle');
+const hurtAnim = resolvePmdAnim(6, 'hurt');
+if (!charizard || !idle || !hurtAnim) throw new Error('Charizard PMD fixture is unavailable');
+const centre = (box: { left: number; top: number; width: number; height: number }) => [box.left + box.width / 2, box.top + box.height / 2];
+check('idle and hurt frames share one centre, lifted by each side\'s own feet line', (['player', 'foe'] as const).every((side) => {
+  const foot = charizard.foot[side];
+  const centres = [idle, hurtAnim].map((anim) => centre(pmdFrameBox({ fw: anim.fw, fh: anim.fh, foot })));
+  return centres.every(([x, y]) => x === 0 && y === -foot * PMD_SCALE);
+}));
+const unmeasured = Object.keys(PMD_SPRITES).map(Number).filter((id) => {
+  const body = pmdBody(id);
+  return !(body && body.h > 0 && Number.isFinite(body.foot?.player) && Number.isFinite(body.foot?.foe));
+});
+check(`every bundled PMD sprite has a measured body with both feet lines (rerun scripts/build-pmd-bodies.py): ${unmeasured.slice(0, 5).join(', ')}`, unmeasured.length === 0);
 console.log(`Battle board: ${passed} passed, ${failed} failed.`);
 process.exit(failed ? 1 : 0);

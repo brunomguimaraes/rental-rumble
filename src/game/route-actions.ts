@@ -117,6 +117,8 @@ export interface RouteCatch {
   chance: number;
   caught: boolean;
   owned: OwnedMon | null;
+  /** The catch joined the saved party; false when it went to the Box. Absent on catches saved before. */
+  joinedParty?: boolean;
 }
 export interface RouteEvent {
   id: string;
@@ -197,4 +199,6 @@ export interface RouteReply {
   event?: RouteEvent;
   replayed?: boolean;
   trade?: MarketTrade;
+  /** The saved party, when the command changed it (a catch that joined the party). */
+  party?: string[];
 }

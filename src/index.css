@@ -320,6 +320,17 @@ body {
   animation: ball-burst 0.45s ease-out 0.46s both;
 }
 
+/* The ball-open flash: a stepped 4-point star on a 12-cell grid (an arm two
+   cells wide through a four-cell core), so it reads as pixel art, not a box. */
+.burst-star {
+  clip-path: polygon(
+    41.667% 0, 58.333% 0, 58.333% 33.333%, 66.667% 33.333%, 66.667% 41.667%,
+    100% 41.667%, 100% 58.333%, 66.667% 58.333%, 66.667% 66.667%, 58.333% 66.667%,
+    58.333% 100%, 41.667% 100%, 41.667% 66.667%, 33.333% 66.667%, 33.333% 58.333%,
+    0 58.333%, 0 41.667%, 33.333% 41.667%, 33.333% 33.333%, 41.667% 33.333%
+  );
+}
+
 .animate-materialize {
   animation: materialize 0.5s ease-out 0.48s backwards;
 }

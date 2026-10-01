@@ -79,7 +79,7 @@ export function RouteResultView({ event, box, busy, onDone, onReplay }: {
         </div>
       </MeadowScene>
       <div className="border-t-2 border-window-frame p-3" aria-live="polite">
-        {caught && <p className="text-lg">{monName(caught)} joined your Box. Edit your party to bring them along.</p>}
+        {caught && <p className="text-lg">{event.catch?.joinedParty ? `${monName(caught)} joined your party!` : `${monName(caught)} joined your Box. Edit your party to bring them along.`}</p>}
         {event.catch && <p className="mt-1 text-sm text-ink-dim">Used 1 {itemById(event.catch.ballId)?.name ?? 'ball'}. {event.catch.caught ? 'Your new companion is saved.' : 'The throw is finished. There are more Pokémon to meet.'}</p>}
         {exp > 0 && <p className="mt-2 text-lg text-exp">+{exp} EXP earned by your party</p>}
         {event.members.filter((member) => member.before.dexId !== member.after.dexId).map((member) => <p key={member.id} className="mt-2 text-base text-accent">{speciesName(member.before.dexId)} evolved into {speciesName(member.after.dexId)}!</p>)}

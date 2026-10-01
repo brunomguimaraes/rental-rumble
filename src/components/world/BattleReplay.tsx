@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { partyCreatures } from '../../game/activity';
 import type { BattleEvent } from '../../game/battle';
 import { boardAt, combatantFromCreature, wildCombatant, type SideBoard } from '../../game/battle-board';
 import { STATUS_LABEL, VOLATILE_LABEL, statusIconUrl, volatileIconUrl } from '../../game/battle-labels';
 import type { OwnedMon } from '../../game/box';
 import { ballUrl } from '../../game/balls';
-import { hasPmdSprite, type PmdAnimKind } from '../../game/pmd';
+import { hasPmdSprite, PMD_SCALE, pmdBody, type PmdAnimKind } from '../../game/pmd';
 import { TYPE_COLORS } from '../../game/typechart';
 import type { Side } from '../../game/types';
 import type { WildView } from '../../game/wilds';
@@ -39,10 +39,37 @@ const DELAY: Record<BattleEvent['kind'], number> = {
   faint: 1150,
   end: 650,
 };
-// Resting height (px) of a reference PMD frame; whole-scaled per species.
-const PMD_HEIGHT = 84;
-// When the send-out flash opens, matching the ball-burst beat in index.css.
-const FILL_MS = 620;
+// The arena is `h-64`. Each combatant stands on a zero-size feet anchor; the
+// horizontal spots sit about where the old screen centred a body, held far
+// enough from the edge that the widest resting body (about 100px either side
+// of its feet at 2x: Eternatus, Guzzlord) stays inside even at phone width.
+// The foe stands a little above the old 38% so a dual-type player card (taller
+// at 320px) leaves its feet visible, while the tallest resting foe body (144px
+// at 2x, Rayquaza) still clears the arena's top.
+const ARENA_PX = 256;
+const ANCHOR: Record<Side, { x: CSSProperties; bottom: number }> = {
+  foe: { x: { right: 'max(calc(14% + 48px), 104px)' }, bottom: 112 },
+  player: { x: { left: 'max(calc(10% + 48px), 104px)' }, bottom: 16 },
+};
+// The flat fallback sprite (no PMD sheet) and the height its pop clears.
+const FALLBACK_PX = 96;
+// Damage pop: gap above the body's top, its upward drift (damage-pop in
+// index.css), its tallest text line and the margin it keeps inside the arena.
+const POP_GAP_PX = 6;
+const POP_RISE_PX = 26;
+const POP_TEXT_PX = 16;
+const POP_EDGE_PX = 4;
+// HP fill on send-out: it starts once the card has faded in (card-in in
+// index.css: 0.42s delay + 0.4s) and lights one StatBar segment per tick.
+const FILL_DELAY_MS = 820;
+const FILL_TICKS = 12;
+const FILL_TICK_MS = 40;
+
+/** Height above the feet anchor for a damage pop, clamped inside the arena. */
+function popLift(side: Side, bodyPx: number): number {
+  const highest = ARENA_PX - ANCHOR[side].bottom - POP_RISE_PX - POP_TEXT_PX - POP_EDGE_PX;
+  return Math.min(bodyPx + POP_GAP_PX, highest);
+}
 
 interface Anim {
   kind: PmdAnimKind;
@@ -62,10 +89,12 @@ function animFor({ side, board, event, at, settled, live }: {
   return { kind: 'idle', loop: true, token: -1 };
 }
 
+// Children of the zero-size feet anchor get explicit widths: preflight's
+// `img { max-width: 100% }` would otherwise shrink their images to nothing.
 function BallFx({ side, ball }: { side: Side; ball: string }) {
   return (
-    <div className="pointer-events-none absolute bottom-6 left-1/2 z-20 -translate-x-1/2">
-      <span className="animate-ball-burst absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 bg-ink/80" />
+    <div className="pointer-events-none absolute -left-3 bottom-6 z-20 w-6">
+      <span className="animate-ball-burst burst-star absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 bg-ink" />
       <img
         src={ballUrl(ball)}
         alt=""
@@ -91,59 +120,93 @@ function Combatant({ side, board, anim, live, hit, shake, shakeKey, onAnimEnd }:
 }) {
   const view = board.view;
   if (!view) return null;
-  const pos = side === 'foe' ? 'right-[14%] bottom-[38%]' : 'left-[10%] bottom-4';
+  const pmd = hasPmdSprite(view.dexId);
+  const body = pmd ? pmdBody(view.dexId) : null;
+  const bodyPx = body ? body.h * PMD_SCALE : FALLBACK_PX;
   const fallback = (
-    <PixelSprite src={side === 'player' ? view.back : view.sprite} fallback={POKEBALL} size={96} alt="" />
+    <div className="absolute bottom-0 left-0 -translate-x-1/2" style={{ width: FALLBACK_PX }}>
+      <PixelSprite src={side === 'player' ? view.back : view.sprite} fallback={POKEBALL} size={FALLBACK_PX} alt="" />
+    </div>
   );
+  // The root is a zero-size feet anchor: the shadow centres on it, the sprite
+  // stands on it, and the wrappers' transforms (materialize, shake) move the
+  // absolutely placed shadow and sprite around it.
   return (
-    <div className={`absolute flex flex-col items-center ${pos}`}>
-      <div className="relative flex items-end justify-center">
-        {hit && (
-          <span key={hit.key} className={`dmg-number animate-damage-pop pointer-events-none absolute left-1/2 top-0 z-30 whitespace-nowrap leading-none ${hit.crit ? 'text-sm' : 'text-xs'}`}>
-            -{hit.amount}
-            {hit.crit && <span className="ml-1 font-label text-[8px] uppercase text-accent">Crit</span>}
-          </span>
-        )}
-        {live && <BallFx key={`ball-${board.spawnAt}`} side={side} ball={view.ball} />}
-        <div key={`${view.dexId}-${board.spawnAt}`} className={live ? 'animate-materialize' : ''}>
-          <div key={`shake-${shakeKey}`} className={`flex items-end justify-center ${shake ? 'animate-shake' : ''}`}>
-            {hasPmdSprite(view.dexId) ? (
-              <PmdSprite
-                dexId={view.dexId}
-                side={side}
-                kind={anim.kind}
-                loop={anim.loop}
-                playToken={anim.token}
-                shiny={view.shiny}
-                altColor={view.altColor}
-                heightPx={PMD_HEIGHT}
-                wholeScale
-                onAnimEnd={() => onAnimEnd(side)}
-                fallback={fallback}
-              />
-            ) : (
-              fallback
-            )}
-          </div>
+    <div className="absolute h-0 w-0" style={{ ...ANCHOR[side].x, bottom: ANCHOR[side].bottom }}>
+      {hit && (
+        <span
+          key={hit.key}
+          className={`dmg-number animate-damage-pop pointer-events-none absolute left-0 z-30 whitespace-nowrap leading-none ${hit.crit ? 'text-sm' : 'text-xs'}`}
+          style={{ bottom: popLift(side, bodyPx) }}
+        >
+          -{hit.amount}
+          {hit.crit && <span className="ml-1 font-label text-[8px] uppercase text-accent">Crit</span>}
+        </span>
+      )}
+      {live && <BallFx key={`ball-${board.spawnAt}`} side={side} ball={view.ball} />}
+      <div key={`${view.dexId}-${board.spawnAt}`} className={live ? 'animate-materialize' : ''}>
+        {/* The shadow forms with the Pokémon; the shake below leaves it still. */}
+        <div className="absolute left-0 top-0 h-2 w-16 -translate-x-1/2 -translate-y-1/2 bg-edge/60" />
+        <div key={`shake-${shakeKey}`} className={shake ? 'animate-shake' : ''}>
+          {pmd ? (
+            <PmdSprite
+              dexId={view.dexId}
+              side={side}
+              kind={anim.kind}
+              loop={anim.loop}
+              playToken={anim.token}
+              shiny={view.shiny}
+              altColor={view.altColor}
+              onAnimEnd={() => onAnimEnd(side)}
+              fallback={fallback}
+            />
+          ) : (
+            fallback
+          )}
         </div>
       </div>
-      <div className="mt-0.5 h-2 w-16 bg-edge/60" />
     </div>
   );
 }
 
-function InfoCard({ board, hp, pips, className }: {
+/**
+ * The HP a side's card draws: after a send-out it counts up from 0 one StatBar
+ * segment per tick, starting once the card is opaque, and never passes the
+ * board's HP. The card is keyed by the side's `spawnAt`, so each send-out mounts
+ * a fresh fill that runs on across later beats. Skip and reduced motion (`live`
+ * false) show the board's HP at once.
+ */
+function useHpFill({ spawnAt, hp, maxHp, live }: { spawnAt: number; hp: number; maxHp: number; live: boolean }): number {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    if (!live || spawnAt < 0) return;
+    let ticks = 0;
+    let timer = 0;
+    const tick = () => {
+      ticks += 1;
+      setStep(ticks);
+      if (ticks < FILL_TICKS) timer = window.setTimeout(tick, FILL_TICK_MS);
+    };
+    timer = window.setTimeout(tick, FILL_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [spawnAt, live]);
+  if (!live) return hp;
+  return Math.min(hp, Math.floor((maxHp * step) / FILL_TICKS));
+}
+
+function InfoCard({ board, live, pips, className }: {
   board: SideBoard;
-  /** The HP to draw (0 while a fresh send-out's bar is filling). */
-  hp: number;
+  /** Animate the card in and fill its HP (false after Skip and under reduced motion). */
+  live: boolean;
   /** Party size for faint pips, or null for no pips. */
   pips: number | null;
   className: string;
 }) {
+  const hp = useHpFill({ spawnAt: board.spawnAt, hp: board.hp, maxHp: board.maxHp, live });
   const view = board.view;
   if (!view) return null;
   return (
-    <div className={`animate-card-in absolute z-10 flex w-[48%] flex-col gap-1 rounded-[3px] border-2 border-window-frame bg-window/90 px-1.5 py-1 ${className}`}>
+    <div className={`${live ? 'animate-card-in' : ''} absolute z-10 flex w-[48%] flex-col gap-1 rounded-[3px] border-2 border-window-frame bg-window/90 px-1.5 py-1 ${className}`}>
       <div className="flex items-center gap-1 font-pixel text-xs">
         <span className="truncate">{view.name}</span>
         {view.shiny && <span role="img" className="text-caught-shiny" aria-label="Shiny">✦</span>}
@@ -196,8 +259,6 @@ export function BattleReplay({
   const [jumped, setJumped] = useState(false);
   // The event index each side's one-shot animation finished on.
   const [settled, setSettled] = useState<Record<Side, number>>({ player: -1, foe: -1 });
-  // The send-out index whose HP bar has finished filling.
-  const [filled, setFilled] = useState(-1);
   const last = events.length - 1;
   const done = at >= last;
   const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -227,14 +288,6 @@ export function BattleReplay({
     return () => window.clearTimeout(t);
   }, [at, done, events, last, reduced]);
 
-  useEffect(() => {
-    if (!live || event?.kind !== 'sendout') return;
-    const t = window.setTimeout(() => setFilled(at), FILL_MS);
-    return () => window.clearTimeout(t);
-  }, [at, event, live]);
-
-  const hpFor = (side: Side): number =>
-    live && event?.kind === 'sendout' && event.affected === side && filled !== at ? 0 : board[side].hp;
   const hitOn = (side: Side) =>
     live && event?.kind === 'hit' && event.affected === side
       ? { amount: event.damage ?? 0, crit: Boolean(event.crit), key: at }
@@ -255,7 +308,7 @@ export function BattleReplay({
     <section aria-label="Battle" className="ui-window m-2 p-2">
       <div className="relative h-64 overflow-hidden rounded-[3px] bg-slot">
         <Backdrop src={backdrop} anchor={0.6} />
-        <InfoCard board={board.foe} hp={hpFor('foe')} pips={null} className="left-2 top-2" />
+        <InfoCard key={`foe-${board.foe.spawnAt}`} board={board.foe} live={live && board.foe.spawnAt >= 0} pips={null} className="left-2 top-2" />
         {(['foe', 'player'] as const).map((side) => (
           <Combatant
             key={side}
@@ -269,7 +322,7 @@ export function BattleReplay({
             onAnimEnd={settle}
           />
         ))}
-        <InfoCard board={board.player} hp={hpFor('player')} pips={rosters.player.length} className="bottom-2 right-2" />
+        <InfoCard key={`player-${board.player.spawnAt}`} board={board.player} live={live && board.player.spawnAt >= 0} pips={rosters.player.length} className="bottom-2 right-2" />
         {board.banner && (
           <span
             className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-[3px] border-2 bg-window px-2 py-0.5 font-label text-[10px] uppercase"

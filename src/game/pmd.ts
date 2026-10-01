@@ -1,5 +1,6 @@
 import type { AttackAnim, Side } from './types.js';
 import { PMD_SPRITES, type PmdAnim, type PmdEntry } from './pmdSprites.gen.js';
+import { PMD_BODIES, type PmdBody } from './pmdBodies.gen.js';
 import { SHINY_SPRITE_IDS } from './shiny.gen.js';
 import { ALT_COLOR_SPRITE_IDS } from './altcolor.gen.js';
 
@@ -17,6 +18,10 @@ const ASSET = import.meta.env?.BASE_URL ?? '/';
 // fitting motion; `attack` is the generic lunge used when a move has no style.
 export type PmdAnimKind = 'idle' | 'walk' | 'attack' | 'hurt' | 'faint' | AttackAnim;
 
+// scripts/build-pmd-bodies.py mirrors FALLBACKS.idle, RESTING_OVERRIDE and
+// DIR_ROW to measure each species' resting feet (pmdBodies.gen.ts): change them
+// together and rerun it.
+//
 // Fallback chains, in preference order. Every name here must be one the importer
 // downloads (see WANTED in fetch-battle-sprites.mjs) so the lookup can't dangle.
 // The resting loop uses Walk (legs cycling in place) rather than the much more
@@ -36,6 +41,7 @@ const FALLBACKS: Record<PmdAnimKind, string[]> = {
   faint: ['Sleep', 'Hurt', 'Idle'],
 };
 
+// Mirrored by scripts/build-pmd-bodies.py (rerun it after a change).
 // Per-species resting overrides. A few Pokémon "walk" by burrowing/diving, so
 // their Walk sheet is mostly empty (the mon vanishes underground) and the
 // default resting loop would render a blank frame. Rest those on Idle instead.
@@ -48,10 +54,16 @@ const RESTING_OVERRIDE: Record<number, string[]> = {
 // clockwise from Down). The combatants face across the arena: the player (lower
 // left) looks up-right, the foe (upper right) looks down-left. Sheets with fewer
 // rows (e.g. single-direction Sleep) clamp to row 0 (Down).
+// Mirrored by scripts/build-pmd-bodies.py (rerun it after a change).
 const DIR_ROW: Record<Side, number> = { player: 3 /* UpRight */, foe: 7 /* DownLeft */ };
 
 export function hasPmdSprite(dexId: number): boolean {
   return PMD_SPRITES[dexId] !== undefined;
+}
+
+/** A species' resting body (feet offset, visible height), or null when unmeasured. */
+export function pmdBody(dexId: number): PmdBody | null {
+  return PMD_BODIES[dexId] ?? null;
 }
 
 /** Whether a shiny recolour of the animated battle sprite is bundled. */
@@ -87,16 +99,8 @@ export function pmdSheetUrls(dexId: number, variant: PmdVariant = undefined): st
   return [...sheets].map((sheet) => pmdSheetUrl(dexId, sheet, variant));
 }
 
-export interface ResolvedPmdAnim extends PmdAnim {
-  /** Resting-frame height for this species, so scale stays constant across anims. */
-  refHeight: number;
-}
-
 /** Resolve a logical anim to a concrete sheet for a species, or null if unbundled. */
-export function resolvePmdAnim(
-  dexId: number,
-  kind: PmdAnimKind,
-): ResolvedPmdAnim | null {
+export function resolvePmdAnim(dexId: number, kind: PmdAnimKind): PmdAnim | null {
   const entry: PmdEntry | undefined = PMD_SPRITES[dexId];
   if (!entry) return null;
   const override =
@@ -104,10 +108,7 @@ export function resolvePmdAnim(
   const chain = override || FALLBACKS[kind];
   for (const name of chain) {
     const anim = entry[name];
-    if (anim) {
-      const refHeight = entry.Idle?.fh ?? entry.Walk?.fh ?? anim.fh;
-      return { ...anim, refHeight };
-    }
+    if (anim) return anim;
   }
   return null;
 }
@@ -123,18 +124,23 @@ export function dirRow(side: Side, rows: number): number {
 export const PMD_FRAME_MS = 1000 / 60;
 
 /**
- * Pixels per sheet pixel for a species. Draws it near its relative native size
- * (a frame's height is a decent proxy: Onix ~104px, Geodude ~24px), compressed
- * with a power curve and clamped so tiny mons aren't dwarfed and huge ones don't
- * overflow; `heightPx` is the size at a 48px reference frame. `wholeScale`
- * rounds to a whole multiple (min 1×) so the pixel art stays crisp.
+ * Screen pixels per sheet pixel, for every PMD sprite. SpriteCollab draws its
+ * art at relative size, so one whole multiple keeps both the pixel grid and the
+ * size order (Charmander < Charmeleon < Charizard) intact.
  */
-export function pmdScale({ refHeight, heightPx, wholeScale }: {
-  refHeight: number; heightPx: number; wholeScale: boolean;
-}): number {
-  const REF = 48;
-  const target = heightPx * Math.pow(refHeight / REF, 0.6);
-  const displayed = Math.max(heightPx * 0.62, Math.min(heightPx * 1.45, target));
-  const scale = displayed / refHeight;
-  return wholeScale ? Math.max(1, Math.round(scale)) : scale;
+export const PMD_SCALE = 2;
+
+/**
+ * Where to draw one frame of a species' sheet, in screen px relative to its
+ * feet anchor. Every anim of a species shares the canvas centre as its origin,
+ * so centring each frame on the same point keeps idle, hurt and attack frames
+ * from jumping; `foot` (the side's PMD_BODIES feet line, source px below that
+ * centre) lifts the centre so the resting feet land on the anchor.
+ */
+export function pmdFrameBox({ fw, fh, foot }: { fw: number; fh: number; foot: number }): {
+  left: number; top: number; width: number; height: number;
+} {
+  const width = fw * PMD_SCALE;
+  const height = fh * PMD_SCALE;
+  return { left: -width / 2, top: -height / 2 - foot * PMD_SCALE, width, height };
 }

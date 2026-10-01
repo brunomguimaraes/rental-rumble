@@ -5,7 +5,7 @@ import {
   insertRouteReceipt, markRouteQuestClaimed, newId, openWriteTx, readActiveRouteEvent, readActivity,
   readDiscoveries, readInventoryRows, readLastRouteId, readOpenActivity, readOwnedByIds, readOwnedByUser,
   readProfile, readProgress, readRouteAccount, readRouteEvent, readRouteQuest, readRouteReceipt,
-  readUnseenResult, readUnseenRouteEvent, recordCaughtDex, updateOwnedGrowth, updateRouteEvent, writeOwnedHp, writeRouteAllowance, writeTravel,
+  readUnseenResult, readUnseenRouteEvent, recordCaughtDex, updateOwnedGrowth, updateProfileParty, updateRouteEvent, writeOwnedHp, writeRouteAllowance, writeTravel,
   type Db, type Executor, type RouteAccountRow, type RouteEventRow,
 } from './_db.js';
 import { isTravelPlace, quoteTravel, spendTravel, TRAVEL_RULES, travelQuotes, travelView, type TravelPlace } from '../src/game/travel.js';
@@ -13,7 +13,7 @@ import type { MeterRecord } from '../src/game/meter.js';
 import { retireLegacyActivity } from './_world.js';
 import { parseResult, planGrowth } from '../src/game/activity.js';
 import { isFainted, partyStanding } from '../src/game/health.js';
-import { parsePartyInput, partyMembers, resolveParty, sameParty } from '../src/game/party.js';
+import { PARTY_MAX, parsePartyInput, partyMembers, resolveParty, sameParty } from '../src/game/party.js';
 import { EMPTY_PROGRESS } from '../src/game/world.js';
 import { formatMoney, isCaptureBallId, isItemId, itemById, tradeTotal } from '../src/game/items.js';
 import {
@@ -121,7 +121,7 @@ async function loadRouteStateInTx(db: Executor, uid: string, now: number): Promi
   };
 }
 
-type CommandResult = Pick<RouteReply, 'event' | 'trade'>;
+type CommandResult = Pick<RouteReply, 'event' | 'trade' | 'party'>;
 async function writeCommand(
   db: Db, uid: string, requestId: string, payload: string, now: number,
   work: (tx: Executor) => Promise<CommandResult | void>,
@@ -240,6 +240,7 @@ export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, 
 export async function chooseRoute(db: Db, uid: string, input: RouteChooseInput, now: number): Promise<RouteReply> {
   return writeCommand(db, uid, input.requestId, JSON.stringify(['choose', input.eventId, input.expectedRevision, input.choice, input.ballId ?? null]), now, async (tx) => {
     const account = await requireActivated(tx, uid);
+    let joined: string[] | null = null;
     const row = await readRouteEvent(tx, uid, input.eventId);
     if (!row) return fail(404, 'No such encounter.');
     const data = stored(row);
@@ -284,7 +285,9 @@ export async function chooseRoute(db: Db, uid: string, input: RouteChooseInput, 
       const caught = rollCapture({ seed: data.seed, rare: data.foe.view.rare, wonBattle: e.phase === 'catch', ballId: input.ballId, rules: data.config });
       const owned = caught ? await insertOwned(tx, uid, data.foe.mint, 'catch', now) : null;
       if (owned) await recordCaughtDex(tx, uid, owned, now);
-      e.catch = { ballId: input.ballId, chance, caught, owned };
+      // A catch joins the party behind its saved members while there is room; otherwise it waits in the Box.
+      if (owned) joined = await joinParty(tx, uid, owned.id);
+      e.catch = { ballId: input.ballId, chance, caught, owned, ...(owned ? { joinedParty: joined !== null } : {}) };
       e.items.push({ itemId: input.ballId, quantity: -1 });
       e.phase = 'resolved'; e.outcome = caught ? 'caught' : 'escaped';
     } else {
@@ -297,8 +300,19 @@ export async function chooseRoute(db: Db, uid: string, input: RouteChooseInput, 
     if (e.phase === 'resolved') { e.resolvedAt = now; e.catchChances = null; }
     const changed = await updateRouteEvent(tx, uid, { ...row, revision: e.revision, active: e.phase !== 'resolved', data }, input.expectedRevision);
     if (!changed) fail(409, 'That encounter changed. Check the current result.');
-    return { event: e };
+    return { event: e, ...(joined ? { party: joined } : {}) };
   });
+}
+
+/** Append a new Pokémon to the saved party when it has room; returns the saved party, or null when it is full. */
+async function joinParty(tx: Executor, uid: string, ownedId: string): Promise<string[] | null> {
+  const profile = await readProfile(tx, uid);
+  if (!profile) return null;
+  const current = resolveParty(profile.party, await readOwnedByUser(tx, uid), profile.starterId).filter((id) => id !== ownedId);
+  if (current.length >= PARTY_MAX) return null;
+  const party = [...current, ownedId];
+  await updateProfileParty(tx, uid, party);
+  return party;
 }
 
 export async function claimRouteQuest(db: Db, uid: string, input: RouteQuestInput, now: number): Promise<RouteReply> {
