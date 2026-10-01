@@ -380,27 +380,34 @@ try {
   await forceKind(db, 'hp', tradeFight, 'wild', 'hp');
   await toughenFoe(db, 'hp', tradeFight, 1.3);
   await forceBattle(db, 'hp', tradeFight, (b) => b.won && b.fielded!.some((f) => f.hp === 0) && b.fielded!.some((f) => f.hp > 0));
+  const beforeTrade = await moneyOf(db, 'hp');
   const tradeWin = await chooseRoute(db, 'hp', { requestId: rid(), eventId: tradeFight.id, expectedRevision: 0, choice: 'battle' }, T);
   const standing = tradeWin.event!.battle!.fielded!.filter((f) => f.hp > 0).map((f) => f.id);
   check('only members standing at the end earn EXP', JSON.stringify(tradeWin.event!.members.map((m) => m.id)) === JSON.stringify(standing));
+  const tradeHp = await readOwnedByUser(db, 'hp');
+  check('a win with a fainted member still pays the full ₽100 alongside the saved damage', tradeWin.event!.money === 100 && await moneyOf(db, 'hp') === beforeTrade + 100
+    && tradeWin.event!.battle!.fielded!.every((f) => (tradeHp.find((m) => m.id === f.id)!.hpLost ?? 0) === f.maxHp - f.hp));
   await leave(db, 'hp', tradeWin.event!);
 
   const beforeDown = (await loadRouteState(db, 'hp', T)).allowance.available;
+  const moneyBeforeDown = await moneyOf(db, 'hp');
   const allMine = await readOwnedByUser(db, 'hp');
   await writeOwnedHp(db, 'hp', allMine.map((m) => ({ id: m.id, hpLost: ownedMaxHp(m) })));
   await rejects('an all-fainted party cannot search', start(db, 'hp', 'wild', T, duo), 400);
   const down = await loadRouteState(db, 'hp', T);
-  check('a refused search spends nothing and opens nothing', down.allowance.available === beforeDown && down.activeEvent === null);
+  check('a refused search spends nothing and opens nothing', down.allowance.available === beforeDown && down.inventory.money === moneyBeforeDown && down.activeEvent === null);
 
   const wo = await onboardUser(db, 'whiteout');
   await activateRoute(db, 'whiteout', 'activate', T);
   await writeOwnedHp(db, 'whiteout', [{ id: wo.id, hpLost: ownedMaxHp(wo) - 1 }]);
   const lostFight = (await start(db, 'whiteout')).event!;
+  const moneyBeforeLoss = await moneyOf(db, 'whiteout');
   await forceKind(db, 'whiteout', lostFight, 'wild', 'hp');
   await forceBattle(db, 'whiteout', lostFight, (b) => !b.won);
   const lost = await chooseRoute(db, 'whiteout', { requestId: rid(), eventId: lostFight.id, expectedRevision: 0, choice: 'battle' }, T);
   const woAfter = (await readOwnedByUser(db, 'whiteout')).find((m) => m.id === wo.id)!;
-  check('a loss whites out: party fainted, trainer home, no EXP', lost.event?.outcome === 'lost' && isFainted(woAfter) && lost.state.trainerAt === 'home' && woAfter.exp === wo.exp);
+  check('a loss whites out: party fainted, trainer home, no EXP, no ₽', lost.event?.outcome === 'lost' && isFainted(woAfter) && lost.state.trainerAt === 'home' && woAfter.exp === wo.exp
+    && !lost.event.money && lost.state.inventory.money === moneyBeforeLoss);
 
   console.log('[Pokémon Center]');
   const boxPatient = await mintMon(db, 'whiteout', { dexId: 10, level: 5 });
@@ -410,7 +417,8 @@ try {
   const awayFight = await searchRoute(db, 'whiteout', { requestId: 'whiteout-away', locationId: 'r1', kind: 'wild', partyIds: [wo.id] }, T).catch((e) => e);
   check('a whited-out party cannot search before healing', awayFight instanceof RouteError && awayFight.status === 400);
   const healed = await healParty(db, 'whiteout', 'heal-1', T);
-  check('the Center heals party and Box to full and the trainer stands in town', healed.box!.every((m) => !m.hpLost) && healed.state.trainerAt === 'home');
+  check('the Center heals party and Box to full for free and the trainer stands in town', healed.box!.every((m) => !m.hpLost) && healed.state.trainerAt === 'home'
+    && healed.state.inventory.money === moneyBeforeLoss && healed.state.allowance.available === lost.state.allowance.available);
   check('another account’s Pokémon stay hurt', (await readOwnedByUser(db, 'u2')).find((m) => m.id === strangerMon.id)!.hpLost === 3);
   const healedAgain = await healParty(db, 'whiteout', 'heal-1', T + 1);
   check('a retried heal returns its receipt', healedAgain.replayed === true);
