@@ -81,7 +81,8 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     return next;
   };
 
-  const openCenter = () => { scrollToTop(); setSelected('home'); setSpot('pokemon-center'); setPage('center'); };
+  // The Center is in Hearth Town: after a whiteout or a walk from the meadow, the trainer stands in town.
+  const openCenter = () => { scrollToTop(); onLocation('home'); setSelected('home'); setSpot('pokemon-center'); setPage('center'); };
 
   const refresh = async () => {
     if (inFlight.current) return;
@@ -124,6 +125,8 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
       scrollToTop();
       const event = fresh.activeEvent ?? fresh.result;
       if (command.operation === 'choose' && command.input.choice === 'battle' && event?.id === command.input.eventId && event.battle) setReplay(event);
+      // A whiteout sends the trainer back to Hearth Town; the map and Home follow the server.
+      if (command.operation === 'choose' && command.input.choice === 'battle' && fresh.trainerAt === 'home') onLocation('home');
     } else if (command.operation === 'heal') {
       setPage('center');
       setNotice('Your Pokémon are fully healed. We hope to see you again!');
