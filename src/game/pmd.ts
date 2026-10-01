@@ -18,6 +18,10 @@ const ASSET = import.meta.env?.BASE_URL ?? '/';
 // fitting motion; `attack` is the generic lunge used when a move has no style.
 export type PmdAnimKind = 'idle' | 'walk' | 'attack' | 'hurt' | 'faint' | AttackAnim;
 
+// scripts/build-pmd-bodies.py mirrors FALLBACKS.idle, RESTING_OVERRIDE and
+// DIR_ROW to measure each species' resting feet (pmdBodies.gen.ts): change them
+// together and rerun it.
+//
 // Fallback chains, in preference order. Every name here must be one the importer
 // downloads (see WANTED in fetch-battle-sprites.mjs) so the lookup can't dangle.
 // The resting loop uses Walk (legs cycling in place) rather than the much more
@@ -37,6 +41,7 @@ const FALLBACKS: Record<PmdAnimKind, string[]> = {
   faint: ['Sleep', 'Hurt', 'Idle'],
 };
 
+// Mirrored by scripts/build-pmd-bodies.py (rerun it after a change).
 // Per-species resting overrides. A few Pokémon "walk" by burrowing/diving, so
 // their Walk sheet is mostly empty (the mon vanishes underground) and the
 // default resting loop would render a blank frame. Rest those on Idle instead.
@@ -49,6 +54,7 @@ const RESTING_OVERRIDE: Record<number, string[]> = {
 // clockwise from Down). The combatants face across the arena: the player (lower
 // left) looks up-right, the foe (upper right) looks down-left. Sheets with fewer
 // rows (e.g. single-direction Sleep) clamp to row 0 (Down).
+// Mirrored by scripts/build-pmd-bodies.py (rerun it after a change).
 const DIR_ROW: Record<Side, number> = { player: 3 /* UpRight */, foe: 7 /* DownLeft */ };
 
 export function hasPmdSprite(dexId: number): boolean {
@@ -128,8 +134,8 @@ export const PMD_SCALE = 2;
  * Where to draw one frame of a species' sheet, in screen px relative to its
  * feet anchor. Every anim of a species shares the canvas centre as its origin,
  * so centring each frame on the same point keeps idle, hurt and attack frames
- * from jumping; `foot` (PMD_BODIES, source px below that centre) lifts the
- * centre so the resting feet land on the anchor.
+ * from jumping; `foot` (the side's PMD_BODIES feet line, source px below that
+ * centre) lifts the centre so the resting feet land on the anchor.
  */
 export function pmdFrameBox({ fw, fh, foot }: { fw: number; fh: number; foot: number }): {
   left: number; top: number; width: number; height: number;

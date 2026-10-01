@@ -25,7 +25,7 @@ const prefersReducedMotion = () =>
  * something CSS `steps()` can't express.
  *
  * Every frame is drawn at PMD_SCALE and centred on the sheet's shared origin,
- * lifted by the species' resting feet offset (pmdFrameBox): the parent is a
+ * lifted by the species' resting feet offset for this side (pmdFrameBox): the parent is a
  * zero-size feet anchor, the resting feet land on it, and a larger attack or
  * hurt canvas grows around the same centre instead of making the body jump.
  *
@@ -139,7 +139,7 @@ export function PmdSprite({
 
   if (!anim) return <>{fallback}</>;
 
-  const box = pmdFrameBox({ fw: anim.fw, fh: anim.fh, foot: pmdBody(dexId)?.foot ?? 0 });
+  const box = pmdFrameBox({ fw: anim.fw, fh: anim.fh, foot: pmdBody(dexId)?.foot[side] ?? 0 });
   const row = dirRow(side, anim.rows);
   // Guard against a stale index landing past the current sheet (blank cell).
   const safeFrame = Math.min(Math.max(frame, 0), frames - 1);

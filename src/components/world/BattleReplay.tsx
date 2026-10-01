@@ -59,9 +59,9 @@ const POP_GAP_PX = 6;
 const POP_RISE_PX = 26;
 const POP_TEXT_PX = 16;
 const POP_EDGE_PX = 4;
-// HP fill on send-out: it starts as the card finishes its card-in delay
-// (index.css) and lights one StatBar segment per tick.
-const FILL_DELAY_MS = 420;
+// HP fill on send-out: it starts once the card has faded in (card-in in
+// index.css: 0.42s delay + 0.4s) and lights one StatBar segment per tick.
+const FILL_DELAY_MS = 820;
 const FILL_TICKS = 12;
 const FILL_TICK_MS = 40;
 
@@ -136,7 +136,7 @@ function Combatant({ side, board, anim, live, hit, shake, shakeKey, onAnimEnd }:
       {hit && (
         <span
           key={hit.key}
-          className={`dmg-number animate-damage-pop pointer-events-none absolute left-0 z-30 -translate-x-1/2 whitespace-nowrap leading-none ${hit.crit ? 'text-sm' : 'text-xs'}`}
+          className={`dmg-number animate-damage-pop pointer-events-none absolute left-0 z-30 whitespace-nowrap leading-none ${hit.crit ? 'text-sm' : 'text-xs'}`}
           style={{ bottom: popLift(side, bodyPx) }}
         >
           -{hit.amount}
@@ -171,26 +171,26 @@ function Combatant({ side, board, anim, live, hit, shake, shakeKey, onAnimEnd }:
 
 /**
  * The HP a side's card draws: after a send-out it counts up from 0 one StatBar
- * segment per tick, starting as the card appears, and never passes the board's
- * HP. Keyed to the side's spawn, so the fill runs on across later beats. Skip
- * and reduced motion (`live` false) show the board's HP at once.
+ * segment per tick, starting once the card is opaque, and never passes the
+ * board's HP. The card is keyed by the side's `spawnAt`, so each send-out mounts
+ * a fresh fill that runs on across later beats. Skip and reduced motion (`live`
+ * false) show the board's HP at once.
  */
 function useHpFill({ spawnAt, hp, maxHp, live }: { spawnAt: number; hp: number; maxHp: number; live: boolean }): number {
-  const [fill, setFill] = useState({ spawnAt: -1, step: 0 });
+  const [step, setStep] = useState(0);
   useEffect(() => {
     if (!live || spawnAt < 0) return;
-    let step = 0;
+    let ticks = 0;
     let timer = 0;
     const tick = () => {
-      step += 1;
-      setFill({ spawnAt, step });
-      if (step < FILL_TICKS) timer = window.setTimeout(tick, FILL_TICK_MS);
+      ticks += 1;
+      setStep(ticks);
+      if (ticks < FILL_TICKS) timer = window.setTimeout(tick, FILL_TICK_MS);
     };
     timer = window.setTimeout(tick, FILL_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [spawnAt, live]);
   if (!live) return hp;
-  const step = fill.spawnAt === spawnAt ? fill.step : 0;
   return Math.min(hp, Math.floor((maxHp * step) / FILL_TICKS));
 }
 

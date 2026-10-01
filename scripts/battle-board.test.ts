@@ -12,7 +12,7 @@ import { starterFromOffer } from '../src/game/professions.js';
 import { rollRouteFind, simulateRouteBattle } from '../src/game/route-rules.js';
 import type { InventoryState } from '../src/game/route-actions.js';
 import type { Side } from '../src/game/types.js';
-import { pmdBody, pmdFrameBox, resolvePmdAnim } from '../src/game/pmd.js';
+import { PMD_SCALE, pmdBody, pmdFrameBox, resolvePmdAnim } from '../src/game/pmd.js';
 import { PMD_SPRITES } from '../src/game/pmdSprites.gen.js';
 
 let passed = 0;
@@ -103,17 +103,23 @@ check('seeded final board counts the loser’s faint', (battle.won ? final.foe.f
 check('seeded battle shows the foe’s sign from the view', final.foe.view?.sign === find.foe.mint.sign);
 
 
-// PMD frames stand on a feet anchor: the resting feet land on it and every anim
-// of a species shares the canvas centre, so hurt frames never jump (Charizard).
+// PMD frames stand on a feet anchor (Charizard, real resting and hurt geometry):
+// every frame is centred on the same point, the side's feet line above the
+// anchor, so the resting feet land on it and a larger hurt canvas never jumps.
 const charizard = pmdBody(6);
 const idle = resolvePmdAnim(6, 'idle');
 const hurt = resolvePmdAnim(6, 'hurt');
 if (!charizard || !idle || !hurt) throw new Error('Charizard PMD fixture is unavailable');
-const idleBox = pmdFrameBox({ fw: idle.fw, fh: idle.fh, foot: charizard.foot });
-const hurtBox = pmdFrameBox({ fw: hurt.fw, fh: hurt.fh, foot: charizard.foot });
-check('the resting frame puts the feet on the anchor', idleBox.top + idleBox.height / 2 + charizard.foot * 2 === 0);
-check('resting and hurt frames share one centre', idleBox.left + idleBox.width / 2 === hurtBox.left + hurtBox.width / 2 && idleBox.top + idleBox.height / 2 === hurtBox.top + hurtBox.height / 2);
-const unmeasured = Object.keys(PMD_SPRITES).map(Number).filter((id) => !((pmdBody(id)?.h ?? 0) > 0));
-check(`every bundled PMD sprite has a measured body (rerun scripts/build-pmd-bodies.py): ${unmeasured.slice(0, 5).join(', ')}`, unmeasured.length === 0);
+const centre = (box: { left: number; top: number; width: number; height: number }) => [box.left + box.width / 2, box.top + box.height / 2];
+check('idle and hurt frames share one centre, lifted by each side\'s own feet line', (['player', 'foe'] as const).every((side) => {
+  const foot = charizard.foot[side];
+  const centres = [idle, hurt].map((anim) => centre(pmdFrameBox({ fw: anim.fw, fh: anim.fh, foot })));
+  return centres.every(([x, y]) => x === 0 && y === -foot * PMD_SCALE);
+}));
+const unmeasured = Object.keys(PMD_SPRITES).map(Number).filter((id) => {
+  const body = pmdBody(id);
+  return !(body && body.h > 0 && Number.isFinite(body.foot?.player) && Number.isFinite(body.foot?.foe));
+});
+check(`every bundled PMD sprite has a measured body with both feet lines (rerun scripts/build-pmd-bodies.py): ${unmeasured.slice(0, 5).join(', ')}`, unmeasured.length === 0);
 console.log(`Battle board: ${passed} passed, ${failed} failed.`);
 process.exit(failed ? 1 : 0);
