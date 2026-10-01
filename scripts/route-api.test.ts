@@ -28,7 +28,7 @@ async function call(action: string, body?: unknown, uid: string | null = 'route-
 try {
   const s = await onboardUser(t.db, 'route-user', 1);
   await onboardUser(t.db, 'other', 4);
-  for (const action of ['state', 'activate', 'search', 'choose', 'quest-claim', 'result-dismiss', 'market-trade']) {
+  for (const action of ['state', 'activate', 'search', 'choose', 'quest-claim', 'result-dismiss', 'market-trade', 'travel']) {
     check(`${action} requires login`, (await call(action, {}, null)).status === 401);
     if (action !== 'state') {
       const r = await call(action, {}, 'route-user', 'GET');
@@ -42,6 +42,12 @@ try {
   const activated = activation.body as unknown as RouteReply;
   check('activation contract contains authoritative Bag and allowance', activation.status === 200 && activated.state.activated && activated.state.allowance.available === 12 && activated.state.inventory.stacks[0]?.quantity === 20 && activation.headers['cache-control'] === 'no-store');
   await call('activate', { requestId: 'activate' }, 'other');
+  check('a search from town is refused before spending', (await call('search', { requestId: 'from-town', locationId: 'r1', kind: 'wild', partyIds: [s.id] })).status === 400);
+  check('a travel body without a known place is rejected', (await call('travel', { requestId: 'nowhere', to: 'r2', partyIds: [s.id] })).status === 400);
+  const trip = await call('travel', { requestId: 'trip', to: 'r1', partyIds: [s.id], cost: 0, mode: 'flyer' });
+  const tripState = (trip.body as unknown as RouteReply).state;
+  check('a trip ignores a client-named cost and charges the walk', trip.status === 200 && tripState.trainerAt === 'r1' && tripState.travel.available === 8 && tripState.allowance.available === 12);
+  check('travelling to where you stand is a 400 with recovery state', (await call('travel', { requestId: 'again', to: 'r1', partyIds: [s.id] })).status === 400);
   check('unsupported locations are rejected before spending', (await call('search', { requestId: 'bad-route', locationId: 'r2', kind: 'wild', partyIds: [s.id] })).status === 400);
   check('array search kind is rejected instead of string-coerced', (await call('search', { requestId: 'array-kind', locationId: 'r1', kind: ['wild'], partyIds: [s.id] })).status === 400);
   check('duplicate party members are rejected', (await call('search', { requestId: 'dup', locationId: 'r1', kind: 'wild', partyIds: [s.id, s.id] })).status === 400);

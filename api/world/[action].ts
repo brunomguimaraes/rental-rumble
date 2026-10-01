@@ -7,7 +7,7 @@ import { dismissResult } from '../_world.js';
 
 import {
   activateRoute, chooseRoute, claimRouteQuest, dismissRouteResult, finishLegacyRoute, loadRouteState,
-  parseMarketTrade, parseRouteChoose, parseRouteQuest, parseRouteSearch, RouteError, searchRoute, tradeMarket, validRouteRequestId,
+  parseMarketTrade, parseRouteChoose, parseRouteQuest, parseRouteSearch, parseRouteTravel, RouteError, searchRoute, tradeMarket, travelRoute, validRouteRequestId,
 } from '../_route-actions.js';
 
 /** Live routes, Bag and legacy compatibility behind the existing dispatcher. */
@@ -17,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'start' || action === 'step') return retired(req, res);
   if (action === 'finish') return finish(req, res);
   if (action === 'dismiss') return dismiss(req, res);
-  if (['activate', 'search', 'choose', 'quest-claim', 'result-dismiss', 'market-trade'].includes(action)) return mutate(req, res, action);
+  if (['activate', 'search', 'choose', 'quest-claim', 'result-dismiss', 'market-trade', 'travel'].includes(action)) return mutate(req, res, action);
   return res.status(404).json({ ok: false, error: 'not found' });
 }
 
@@ -132,6 +132,10 @@ async function mutate(req: VercelRequest, res: VercelResponse, action: string) {
       const input = parseMarketTrade(body);
       if (!input) return res.status(400).json({ ok: false, error: 'Choose an item the market trades and a quantity from 1 to 99.' });
       out = await tradeMarket(g.db, g.uid, input, now);
+    } else if (action === 'travel') {
+      const input = parseRouteTravel(body);
+      if (!input) return res.status(400).json({ ok: false, error: 'Choose a place to travel to and your saved party.' });
+      out = await travelRoute(g.db, g.uid, input, now);
     } else {
       if (!validRouteRequestId(body.eventId)) return res.status(400).json({ ok: false, error: 'Choose a settled encounter result.' });
       out = await dismissRouteResult(g.db, g.uid, body.eventId, now);
