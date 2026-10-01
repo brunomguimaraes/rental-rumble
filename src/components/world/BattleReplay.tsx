@@ -12,6 +12,7 @@ import type { WildView } from '../../game/wilds';
 import { signIconUrl, signLabel } from '../../game/zodiac';
 import { PmdSprite } from '../PmdSprite';
 import { TypeBadges } from '../TypeBadge';
+import { hpFill } from '../ui/hp-fill';
 import { PixelSprite } from '../ui/PixelSprite';
 import { StatBar } from '../ui/StatBar';
 import { Backdrop } from './Backdrop';
@@ -240,7 +241,7 @@ function InfoCard({ board, live, pips, className }: {
           <img key={v} src={volatileIconUrl(v)} alt={VOLATILE_LABEL[v]} title={VOLATILE_LABEL[v]} className="h-4 shrink-0 object-contain [image-rendering:pixelated]" />
         ))}
       </div>
-      <StatBar value={hp} max={board.maxHp} tone="night" label={`${view.name} HP`} segments={12} />
+      <StatBar value={hp} max={board.maxHp} tone={hpFill(hp, board.maxHp)} label={`${view.name} HP`} segments={12} />
       <div className="flex items-center justify-between gap-1">
         <span className="font-label text-[10px] tabular-nums text-ink-dim">
           {Math.max(0, Math.ceil(hp))} / {board.maxHp}
