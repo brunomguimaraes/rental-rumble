@@ -10,8 +10,10 @@ import {
   reconcileRouteState, runRouteCommand, savePendingRouteCommand, type RouteCommand,
 } from '../../game/route-actions-client';
 import { MEADOW_LANDMARKS, ROUTE_RULES } from '../../game/route-rules';
+import { TOWN_DESTINATIONS, type TownDestinationId } from '../../game/town';
 import { EMPTY_PROGRESS, placeById, placeTitle, routeById } from '../../game/world';
 import { dismissResult as dismissLegacyResult } from '../../game/world-client';
+import { scrollToTop } from '../../ui-scroll';
 import { BagScreen } from '../BagScreen';
 import { ExpBar } from '../ui/ExpBar';
 import { PixelSprite } from '../ui/PixelSprite';
@@ -19,9 +21,16 @@ import { Backdrop } from './Backdrop';
 import { BattleReplay } from './BattleReplay';
 import { RouteResultView } from './RouteResultView';
 import { backdropUrl, formatDuration, growthLines, monName, POKEBALL, speciesName } from './scene';
+import { TownAvatar, TownSummary, TownView, type TownService } from './TownView';
 import { WorldMap, type MapView } from './WorldMap';
 
 type Page = 'map' | 'list' | 'home' | 'r1' | 'encounter';
+
+/** Where the world screen opens instead of its map: Sunny Meadow, or inside Hearth Town at a destination. */
+export type WorldEntry = { place: 'r1' } | { place: 'home'; spot: TownDestinationId };
+
+// The town opens on its road to Sunny Meadow, the way on to the playable route.
+const TOWN_START: TownDestinationId = TOWN_DESTINATIONS.find((d) => d.link === 'r1')?.id ?? TOWN_DESTINATIONS[0].id;
 
 function Panel({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
   return <section className="ui-window m-2 p-3"><div className="mb-2 flex items-center justify-between gap-2"><h2 className="font-label text-[11px] uppercase text-info">{title}</h2>{aside}</div>{children}</section>;
@@ -55,18 +64,21 @@ export interface RouteScreenProps {
   onView: (view: MapView) => void;
   onState: (state: RouteState, box?: OwnedMon[]) => void;
   onEditParty: () => void;
+  /** A town destination opens the party editor, Pokédex or box; back returns to that destination. */
+  onVisit: (screen: TownService, spot: TownDestinationId) => void;
   onBack: () => void;
   onRetry: () => void;
   onExpired: () => void;
   onPartyChanged?: (ids: string[]) => void;
-  initialPlace?: 'home' | 'r1';
+  entry?: WorldEntry;
 }
 
 /** Active play, with server-owned encounters and inventory; navigation never spends an action. */
-export function RouteScreen({ accountKey, state, error: loadError, box, partyIds, view, onView, onState, onEditParty, onBack, onRetry, onExpired, onPartyChanged, initialPlace }: RouteScreenProps) {
-  const [page, setPage] = useState<Page>(initialPlace ?? 'map');
+export function RouteScreen({ accountKey, state, error: loadError, box, partyIds, view, onView, onState, onEditParty, onVisit, onBack, onRetry, onExpired, onPartyChanged, entry }: RouteScreenProps) {
+  const [page, setPage] = useState<Page>(entry?.place ?? 'map');
   const [from, setFrom] = useState<'map' | 'list'>('map');
-  const [selected, setSelected] = useState<'home' | 'r1'>(initialPlace ?? state?.trainerAt ?? 'home');
+  const [selected, setSelected] = useState<'home' | 'r1'>(entry?.place ?? state?.trainerAt ?? 'home');
+  const [spot, setSpot] = useState<TownDestinationId>(entry?.place === 'home' ? entry.spot : TOWN_START);
   const [bagOpen, setBagOpen] = useState(false);
   const [selectedBall, setSelectedBall] = useState<{ eventId: string; id: CaptureBallId } | null>(null);
   const [pending, setPending] = useState<RouteCommand | null>(() => readPendingRouteCommand(accountKey));
@@ -180,7 +192,9 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     onSelect={catchContext && state && state.ownedCount < 600 ? (id) => { setSelectedBall({ eventId: catchContext.id, id }); setBagOpen(false); } : undefined}
   />;
 
-  const openPlace = (id: 'home' | 'r1', source: 'map' | 'list') => { setSelected(id); setFrom(source); setPage(id); };
+  // A place opens at its top: its button can sit below the fold of the map or the town.
+  const openPlace = (id: 'home' | 'r1', source: 'map' | 'list') => { scrollToTop(); setSelected(id); setFrom(source); setPage(id); };
+  const walkTo = (id: 'r1') => { scrollToTop(); setSelected(id); setPage(id); };
   const choose = (choice: RouteChoice, ballId?: CaptureBallId) => {
     if (!event || locked) return;
     void submit({ operation: 'choose', input: { requestId: newRouteRequestId(), eventId: event.id, expectedRevision: event.revision, choice, ...(ballId ? { ballId } : {}) } });
@@ -205,10 +219,11 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
       {page !== 'encounter' && state.activeEvent && <Panel title="Your encounter is saved"><p className="text-sm">Finish or leave this encounter before starting another search. Party edits apply to your next search.</p><button type="button" onClick={() => { setResultOnly(false); setPage('encounter'); }} className="ui-button-primary ui-focus mt-2 min-h-11 w-full px-3 font-label text-[10px] uppercase">Resume encounter</button></Panel>}
       {page === 'map' && <>
         <section className="ui-window m-2 p-1.5" aria-label="World map"><WorldMap places={state.places} trainerAt={state.trainerAt} selected={selected} view={view} onView={onView} onSelect={(id) => { if (id === 'home' || id === 'r1') setSelected(id); }} /><p className="mt-2 text-center text-xs text-ink-dim">Drag to look around · tap a place</p></section>
-        <Panel title={placeTitle(selected === 'home' ? home : route)}><p className="text-sm text-ink-dim">{selected === 'home' ? home.blurb : route.blurb}</p><button type="button" onClick={() => openPlace(selected, 'map')} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[11px] uppercase">Visit {selected === 'home' ? home.name : route.name}</button></Panel>
+        {selected === 'home' ? <TownSummary onEnter={() => openPlace('home', 'map')} />
+          : <Panel title={placeTitle(route)}><p className="text-sm text-ink-dim">{route.blurb}</p><button type="button" onClick={() => openPlace('r1', 'map')} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[11px] uppercase">Visit {route.name}</button></Panel>}
       </>}
-      {page === 'list' && <Panel title="Places"><ul className="flex flex-col gap-2">{[home, route].map((place) => <li key={place.id}><button type="button" onClick={() => openPlace(place.id as 'home' | 'r1', 'list')} className="ui-focus min-h-14 w-full rounded-[3px] bg-slot p-3 text-left"><span className="block text-base">{placeTitle(place)}</span><span className="text-sm text-ink-dim">{place.id === 'home' ? 'Home town' : 'Wild Pokémon, friendly trainers, and landmarks'}</span></button></li>)}</ul></Panel>}
-      {page === 'home' && <Panel title="Welcome home"><p className="text-sm leading-relaxed">{home.blurb}</p><p className="mt-3 text-sm text-ink-dim">The path leads to Sunny Meadow.</p><button type="button" onClick={() => { setSelected('r1'); setPage('r1'); }} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[11px] uppercase">Visit Sunny Meadow</button></Panel>}
+      {page === 'list' && <Panel title="Places"><ul className="flex flex-col gap-2">{[home, route].map((place) => <li key={place.id}><button type="button" onClick={() => openPlace(place.id as 'home' | 'r1', 'list')} className="ui-focus flex min-h-14 w-full items-center gap-3 rounded-[3px] bg-slot p-3 text-left"><span className="min-w-0 flex-1"><span className="block text-base">{placeTitle(place)}</span><span className="text-sm text-ink-dim">{place.id === 'home' ? 'Home town' : 'Wild Pokémon, friendly trainers, and landmarks'}</span></span>{place.id === 'home' && <TownAvatar className="h-10 w-10" />}</button></li>)}</ul></Panel>}
+      {page === 'home' && <TownView spot={spot} onSpot={setSpot} onOpen={(screen) => onVisit(screen, spot)} onWalk={walkTo} />}
       {page === 'r1' && <>
         <div className="ui-window relative m-2 h-36 overflow-hidden" aria-hidden="true"><Backdrop src={backdropUrl(route)} /></div>
         <Panel title="Route 1 · Meadow"><p className="text-sm leading-relaxed">{route.blurb}</p><p className="mt-2 text-sm text-ink-dim">Find a wild Pokémon, meet someone, or explore. Each search finds something. Win battles to grow your party.</p></Panel>

@@ -57,7 +57,8 @@ game actions. Inline the SVG to attach handlers, or use real HTML buttons from t
 Loading the SVG through an `<img>` makes it visual only. Keep painted labels and controls out of the PNG.
 
 Reference the assets in the app using `${import.meta.env.BASE_URL}sprites/world/hearth-town-v2/...`.
-Use `image-rendering: pixelated`. These are generated illustration masters, not a native 16-pixel tileset;
+The preview draws the masters with `image-rendering: pixelated`; the game draws its web derivatives smooth
+(see [In the game](#in-the-game)). These are generated illustration masters, not a native 16-pixel tileset;
 inspect the avatar at its intended size before exporting optimized derivatives. The preview includes
 96-, 128-, and 192-pixel samples. Keep the original masters when making variants.
 
@@ -66,6 +67,19 @@ southeast, and a south footbridge leading to a local garden walk. Future neighbo
 its terrain and road edges; this is not a seamless repeating texture. `manifest.json` gives approximate
 connector coordinates. No changes have been made to the existing 384 × 576 Hearthvale map, its generator,
 the `home` location ID, or the existing world-map coordinate contract.
+
+## In the game
+
+The app loads `derived/town.webp` (the exploration map at its full 1536 × 1024) and `derived/avatar-256.webp`
+(the menu avatar at 256 × 256, alpha kept) from `public/sprites/world/hearth-town-v2/`.
+`python3 scripts/build-hearth-town.py` builds both from the masters, which it never modifies.
+
+Both are drawn smooth (`image-rendering: auto`), not pixelated. A phone shows the town map at about 0.2–0.75× of
+its pixels, and pixelated sampling breaks up roofs and fences at that scale.
+
+`scripts/town.test.ts` keeps the coordinates in `src/game/town.ts` aligned with `hotspots.json`, so regenerated
+art cannot silently move the hit regions. The card copy, each destination's description and role, lives in
+`src/game/town.ts` and is written for players; the text in `hotspots.json` is art direction.
 
 ## Review criteria
 

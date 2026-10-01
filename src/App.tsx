@@ -7,7 +7,9 @@ import { partyMembers, resolveParty } from './game/party';
 import { fetchRouteState, reconcileRouteState, shouldApplyHydratedBox } from './game/route-actions-client';
 import type { RouteState } from './game/route-actions';
 import type { MapView } from './components/world/WorldMap';
+import type { WorldEntry } from './components/world/RouteScreen';
 import { hashIsGuide } from './guide/hash';
+import { scrollToTop } from './ui-scroll';
 import { DevPanel } from './components/DevPanel';
 import { LoginScreen } from './components/LoginScreen';
 import { HubScreen } from './components/HubScreen';
@@ -47,8 +49,9 @@ export default function App() {
   // Server time minus local time, so clocks on screen follow the server.
   const [serverOffsetMs, setServerOffsetMs] = useState(0);
   const [mapView, setMapView] = useState<MapView | null>(null);
-  const [worldEntry, setWorldEntry] = useState<'r1' | undefined>();
-  const [partyReturn, setPartyReturn] = useState<'hub' | 'world'>('hub');
+  // Where the world screen opens: null is its map. While it is set, the party
+  // editor, box and Pokédex go back to the world there instead of to the hub.
+  const [worldEntry, setWorldEntry] = useState<WorldEntry | null>(null);
   const [accountResetToken, setAccountResetToken] = useState<string | null>(null);
   const [hydrateFailed, setHydrateFailed] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -157,6 +160,24 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me]);
 
+  const openWorld = (entry: WorldEntry | null = null) => {
+    scrollToTop();
+    setWorldEntry(entry);
+    setPhase('world');
+  };
+
+  /** The party editor, box or Pokédex; `back` reopens the world there, otherwise they go back to the hub. */
+  const openScreen = (next: 'party' | 'box' | 'dex', back: WorldEntry | null = null) => {
+    scrollToTop();
+    setWorldEntry(back);
+    setPhase(next);
+  };
+
+  const closeScreen = () => {
+    scrollToTop();
+    setPhase(worldEntry ? 'world' : 'hub');
+  };
+
   const handleAuthed = (user: AccountUser) => {
     setMe(user);
     if (user.displayName) localStorage.setItem('lb-name', user.displayName);
@@ -206,13 +227,13 @@ export default function App() {
             world={world}
             worldError={worldError}
             serverOffsetMs={serverOffsetMs}
-            onViewBox={() => setPhase('box')}
-            onViewDex={() => setPhase('dex')}
+            onViewBox={() => openScreen('box')}
+            onViewDex={() => openScreen('dex')}
             onViewGuide={() => setPhase('guide')}
             onViewAccount={() => setPhase('account')}
-            onEditParty={() => { setPartyReturn('hub'); setPhase('party'); }}
-            onOpenMap={() => { setWorldEntry(undefined); setPhase('world'); }}
-            onOpenActivity={() => { setWorldEntry('r1'); setPhase('world'); }}
+            onEditParty={() => openScreen('party')}
+            onOpenMap={() => openWorld()}
+            onOpenActivity={() => openWorld({ place: 'r1' })}
             onOpenBag={() => setPhase('bag')}
             onRetryWorld={() => void refreshWorld()}
           />
@@ -224,7 +245,7 @@ export default function App() {
             party={partyIds}
             activityRunning={Boolean(world?.activeEvent)}
             onSaved={(party) => setProfile((p) => (p ? { ...p, party } : p))}
-            onBack={() => setPhase(partyReturn)}
+            onBack={closeScreen}
             onExpired={expire}
           />
         );
@@ -238,10 +259,11 @@ export default function App() {
             partyIds={partyIds}
             view={mapView}
             onView={setMapView}
-            initialPlace={worldEntry}
+            entry={worldEntry ?? undefined}
             onState={applyWorld}
             onPartyChanged={(party) => setProfile((p) => (p ? { ...p, party } : p))}
-            onEditParty={() => { setWorldEntry('r1'); setPartyReturn('world'); setPhase('party'); }}
+            onEditParty={() => openScreen('party', { place: 'r1' })}
+            onVisit={(screen, spot) => openScreen(screen, { place: 'home', spot })}
             onBack={() => setPhase('hub')}
             onRetry={() => void refreshWorld()}
             onExpired={expire}
@@ -254,20 +276,20 @@ export default function App() {
             error={worldError ?? (!world?.activated ? 'Visit Sunny Meadow to collect your starting supplies.' : null)}
             onBack={() => setPhase('hub')}
             onRetry={() => void refreshWorld()}
-            onExplore={() => { setWorldEntry('r1'); setPhase('world'); }}
+            onExplore={() => openWorld({ place: 'r1' })}
           />
         );
       case 'box':
         return (
           <BoxScreen
             box={box}
-            onBack={() => setPhase('hub')}
+            onBack={closeScreen}
             onRenamed={(id, nickname) => setBox((b) => b.map((m) => (m.id === id ? { ...m, nickname } : m)))}
             onUpdated={(mon) => setBox((b) => b.map((m) => (m.id === mon.id ? mon : m)))}
           />
         );
       case 'dex':
-        return <PokedexScreen onBack={() => setPhase('hub')} me={me} />;
+        return <PokedexScreen onBack={closeScreen} me={me} />;
       case 'guide':
         return <GuideScreen onBack={() => setPhase('hub')} />;
       case 'account':

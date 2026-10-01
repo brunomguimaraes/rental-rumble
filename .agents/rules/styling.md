@@ -51,6 +51,7 @@ Use `PixelSprite` (`src/components/ui/PixelSprite.tsx`).
 | PMD portrait | 40 | 40, 80, 120 |
 | Box icon sheet (2 frames) | 128 × 64 | 64 per frame (`sheet`) |
 | Type and sign icons | 128, smooth art | any, `object-contain` |
+| Hearth Town art (generated illustrations, WebP) | map 1536 × 1024, avatar 256 | fitted to the window, any size; smooth (`[image-rendering:auto]`), never `pixelated` |
 
 ## Motion
 

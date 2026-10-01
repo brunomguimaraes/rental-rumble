@@ -18,3 +18,13 @@ export const scrollToSection = (
   if (rect.top >= 0 && rect.bottom <= window.innerHeight) return;
   el.scrollIntoView({ behavior: REDUCED_MOTION ? 'auto' : 'smooth', block });
 };
+
+/**
+ * Start a new view at its top. The body is the page's scroller (index.css sets
+ * overflow on both html and body), so a view opened from a button below the
+ * fold would otherwise open part-way down; reset the body and the window.
+ */
+export const scrollToTop = () => {
+  window.scrollTo(0, 0);
+  document.body.scrollTo(0, 0);
+};
