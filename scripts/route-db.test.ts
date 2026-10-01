@@ -11,7 +11,7 @@ import {
 import { dismissResult, startActivity, stepExpedition } from '../api/_world.js';
 import { legalChoices, rollCapture, rollRouteFind, simulateRouteBattle } from '../src/game/route-rules.js';
 import type { CaptureBallId, RouteBattle, RouteEvent, SearchKind, StoredRouteEvent } from '../src/game/route-actions.js';
-import { isFainted, ownedMaxHp } from '../src/game/health.js';
+import { currentHp, isFainted, ownedMaxHp } from '../src/game/health.js';
 import { check, finish, legacyDb, legacyOnboard, mintMon, onboardUser, tempDb } from './world-test-kit.js';
 
 const T = 1_800_000_000_000;
@@ -281,7 +281,7 @@ try {
   await writeOwnedHp(db, 'hp', [{ id: hpStarter.id, hpLost: Math.floor(ownedMaxHp(hpStarter) / 3) }]);
   const hurtFight = (await start(db, 'hp')).event!;
   await forceKind(db, 'hp', hurtFight, 'wild', 'hp');
-  await forceBattle(db, 'hp', hurtFight, (b) => b.won && b.fielded![0].hp > 0 && b.fielded![0].hp < b.fielded![0].maxHp);
+  await forceBattle(db, 'hp', hurtFight, (b) => b.won && b.fielded![0].hp > 0 && b.fielded![0].hp < currentHp(hurtFight.party[0]));
   const hurtWin = await chooseRoute(db, 'hp', { requestId: rid(), eventId: hurtFight.id, expectedRevision: 0, choice: 'battle' }, T);
   const ended = hurtWin.event!.battle!.fielded![0];
   const afterWin = (await readOwnedByUser(db, 'hp')).find((m) => m.id === hpStarter.id)!;
@@ -331,7 +331,7 @@ try {
   const woAfter = (await readOwnedByUser(db, 'whiteout')).find((m) => m.id === wo.id)!;
   check('a loss whites out: party fainted, trainer home, no EXP', lost.event?.outcome === 'lost' && isFainted(woAfter) && lost.state.trainerAt === 'home' && woAfter.exp === wo.exp);
 
-  const hpLegacy = await legacyDb('hp-hpLegacy');
+  const hpLegacy = await legacyDb('hp-legacy');
   try {
     await legacyOnboard(hpLegacy.db, 'old');
     const [oldMon] = await readOwnedByUser(hpLegacy.db, 'old');
