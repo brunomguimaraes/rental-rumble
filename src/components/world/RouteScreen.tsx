@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { OwnedMon } from '../../game/box';
 import { partyMembers } from '../../game/party';
-import type { CaptureBallId, RouteChoice, RouteEvent, RouteState, SearchKind } from '../../game/route-actions';
+import type { CaptureBallId, RouteCatch, RouteChoice, RouteEvent, RouteState, SearchKind } from '../../game/route-actions';
 import {
   clearPendingRouteCommand, dismissRouteResult, fetchRouteState, newRouteRequestId, readPendingRouteCommand,
   reconcileRouteState, runRouteCommand, savePendingRouteCommand, type RouteCommand,
@@ -14,6 +14,7 @@ import { dismissResult as dismissLegacyResult } from '../../game/world-client';
 import { scrollToTop } from '../../ui-scroll';
 import { BagButton } from '../ui/BagButton';
 import { BattleReplay } from './BattleReplay';
+import { CatchSequence } from './CatchSequence';
 import { RouteResultView } from './RouteResultView';
 import { tradeText } from './route-copy';
 import { backdropUrl } from './scene';
@@ -77,6 +78,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [replay, setReplay] = useState<RouteEvent | null>(null);
+  const [capture, setCapture] = useState<{ requestId: string; event: RouteEvent; ballId: CaptureBallId; result: RouteCatch | null } | null>(null);
   const [resultOnly, setResultOnly] = useState(entry?.place === 'r1' && entry.focus === 'result');
   const currentState = useRef(state);
   useEffect(() => { currentState.current = state; }, [state]);
@@ -108,10 +110,21 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     setNotice(null);
     setPending(command);
     savePendingRouteCommand(accountKey, command);
+    if (command.operation === 'choose' && command.input.choice === 'catch' && command.input.ballId) {
+      const encounter = currentState.current?.activeEvent ?? currentState.current?.result;
+      if (encounter?.id === command.input.eventId && encounter.foe) {
+        setCapture({ requestId: command.input.requestId, event: encounter, ballId: command.input.ballId, result: null });
+        setPage('encounter');
+        setReplay(null);
+        setBagOpen(false);
+        scrollToTop();
+      }
+    }
     const reply = await runRouteCommand(command);
     inFlight.current = false;
     setBusy(false);
     if (!reply.ok) {
+      setCapture(null);
       if (reply.state) adopt(reply.state);
       if (reply.party) onPartyChanged?.(reply.party);
       if (!reply.uncertain) { clearPendingRouteCommand(accountKey); setPending(null); }
@@ -122,6 +135,13 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     clearPendingRouteCommand(accountKey);
     setPending(null);
     const fresh = adopt(reply.state, reply.box);
+    // Commit the server state immediately; the sequence only holds back its visual reveal.
+    // A retry may return an old receipt alongside newer state. Never revive that old encounter.
+    if (command.operation === 'choose' && command.input.choice === 'catch') {
+      const caughtEvent = fresh.result;
+      setCapture((current) => current?.requestId === command.input.requestId && caughtEvent?.id === command.input.eventId && caughtEvent.catch
+        ? { ...current, result: caughtEvent.catch } : null);
+    }
     setResultOnly(false);
     setSelectedBall(null);
     if (command.operation === 'travel') {
@@ -186,7 +206,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
   const home = placeById('home')!;
   const event = (resultOnly ? state?.result : state?.activeEvent ?? state?.result) ?? null;
   const catchContext = page === 'encounter' && event && event.choices.includes('catch') ? event : null;
-  const locked = busy || pending !== null;
+  const locked = busy || pending !== null || capture !== null;
 
   // A place opens at its top: its button can sit below the fold of the map or the town.
   // Opening a place only enters where the trainer stands; elsewhere it selects the place on the map.
@@ -215,16 +235,16 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
 
   return <div className="mx-auto min-h-[100dvh] max-w-[430px] px-2 py-4 pb-[max(2rem,env(safe-area-inset-bottom))] font-pixel text-ink">
     <header className="mb-4 flex items-center gap-2 px-2">
-      <button type="button" onClick={() => { setReplay(null); setNotice(null); if (page === 'map' || page === 'list') onBack(); else if (page === 'encounter') setPage('r1'); else if (page === 'market') setPage('home'); else setPage(from); }} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">◀ {page === 'map' || page === 'list' ? 'Back' : page === 'encounter' ? 'Route' : page === 'market' ? 'Town' : 'Map'}</button>
+      <button type="button" disabled={capture !== null} onClick={() => { setReplay(null); setNotice(null); if (page === 'map' || page === 'list') onBack(); else if (page === 'encounter') setPage('r1'); else if (page === 'market') setPage('home'); else setPage(from); }} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">◀ {page === 'map' || page === 'list' ? 'Back' : page === 'encounter' ? 'Route' : page === 'market' ? 'Town' : 'Map'}</button>
       <h1 className="min-w-0 flex-1 font-label text-[12px] uppercase text-accent [text-shadow:2px_2px_0_#000]">{page === 'market' ? 'Village market' : page === 'home' ? home.name : page === 'r1' || page === 'encounter' ? route.name : 'Hearthvale'}</h1>
       {page === 'map' || page === 'list' ? <button type="button" onClick={() => setPage(page === 'map' ? 'list' : 'map')} aria-pressed={page === 'list'} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">{page === 'map' ? 'List' : 'Map'}</button>
-        : <BagButton compact opensDialog disabled={!state} onClick={() => setBagOpen(true)} />}
+        : <BagButton compact opensDialog disabled={!state || capture !== null} onClick={() => setBagOpen(true)} />}
     </header>
     {page !== 'encounter' && trainerBar && <div className="m-2">{trainerBar}</div>}
 
     {(error || loadError) && <div role="alert" className="ui-window m-2 p-3 text-sm text-accent"><p>{error ?? loadError}</p><button type="button" disabled={busy} onClick={() => state ? void refresh() : onRetry()} className="ui-button ui-focus mt-2 min-h-11 px-3 font-label text-[10px] uppercase">Refresh route</button></div>}
     {notice && <p role="status" className="ui-window m-2 p-3 text-sm">{notice}</p>}
-    {pending && <Panel title="Recover your last action"><p className="text-sm">Your last request may already be saved. Retry it to recover the same result before making another choice.</p><button type="button" disabled={busy} onClick={() => void submit(pending)} className="ui-button-primary ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">{busy ? 'Checking…' : 'Retry last action'}</button></Panel>}
+    {pending && !capture && <Panel title="Recover your last action"><p className="text-sm">Your last request may already be saved. Retry it to recover the same result before making another choice.</p><button type="button" disabled={busy} onClick={() => void submit(pending)} className="ui-button-primary ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">{busy ? 'Checking…' : 'Retry last action'}</button></Panel>}
     {!state ? (!loadError && <Panel title="World"><p className="text-sm" role="status">Loading the map, actions, and Bag…</p></Panel>) : <>
       {page === 'map' && <>
         <section className="ui-window m-2 p-1.5" aria-label="World map"><WorldMap places={state.places} trainerAt={here} selected={selected} view={view} onView={onView} onSelect={(id) => { if (id === 'home' || id === 'r1') setSelected(id); }} /><p className="mt-2 text-center text-xs text-ink-dim">Drag to look around · tap a place</p></section>
@@ -246,7 +266,8 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
         onBag={() => setBagOpen(true)} onEditParty={onEditParty} onRefresh={() => void refresh()}
         onClaim={() => void submit({ operation: 'quest-claim', input: { requestId: newRouteRequestId(), questId: 'meadow-survey' } })}
         onDismissLegacy={(id) => void dismissLegacy(id)} />}
-      {page === 'encounter' && (replay?.battle && replay.foe ? <BattleReplay key={`${replay.id}:${replay.revision}`} events={replay.battle.events} party={replay.party} foe={replay.foe} trainerName={replay.kind === 'trainer' ? replay.npc?.name : undefined} backdrop={backdropUrl(route)} onDone={() => { setReplay(null); scrollToTop(); }} />
+      {page === 'encounter' && (capture ? <CatchSequence key={capture.requestId} event={capture.event} ballId={capture.ballId} result={capture.result} onDone={() => { setCapture(null); scrollToTop(); }} />
+        : replay?.battle && replay.foe ? <BattleReplay key={`${replay.id}:${replay.revision}`} events={replay.battle.events} party={replay.party} foe={replay.foe} trainerName={replay.kind === 'trainer' ? replay.npc?.name : undefined} backdrop={backdropUrl(route)} onDone={() => { setReplay(null); scrollToTop(); }} />
         : event ? event.phase === 'resolved'
           ? <RouteResultView event={event} box={box} busy={locked} onDone={() => void dismiss(event.id)} onReplay={() => { setReplay(event); scrollToTop(); }} />
           : <MeadowEncounter key={event.id} event={event} state={state} box={box} locked={locked} busy={busy}
