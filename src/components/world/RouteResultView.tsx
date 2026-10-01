@@ -16,6 +16,14 @@ const OUTCOME_LABEL = {
   left: 'Onward to the meadow', talked: 'A moment on the path', accepted: 'Meadow survey accepted', found: 'A little discovery!',
 };
 
+/** After a won battle, names the members that fainted mid-battle: they earned no EXP. A loss has its own whiteout line. */
+export function FaintedNote({ event, box }: { event: RouteEvent; box: OwnedMon[] }) {
+  if (event.outcome === 'lost') return null;
+  const fainted = (event.battle?.fielded ?? []).filter((f) => f.hp === 0)
+    .map((f) => { const mon = box.find((m) => m.id === f.id); return mon ? monName(mon) : 'A Pokémon'; });
+  return fainted.length > 0 ? <p className="mt-2 text-sm text-ink-dim">{fainted.join(', ')} fainted and earned no EXP.</p> : null;
+}
+
 /** Keep the server's detailed growth and evolution receipts reachable without competing with the next action. */
 export function RouteBattleRewards({ event, box, onReplay }: { event: RouteEvent; box: OwnedMon[]; onReplay: () => void }) {
   return <details className="ui-window m-2 mt-4 p-3">
@@ -31,7 +39,7 @@ export function RouteBattleRewards({ event, box, onReplay }: { event: RouteEvent
           {growthLines(member, name).map((line) => <p key={line} className="mt-1 text-sm text-accent">{line}</p>)}
         </div>
       </li>;
-    })}</ul> : <p className="mt-2 text-sm text-ink-dim">No EXP earned. Your party is ready for another encounter.</p>}
+    })}</ul> : <p className="mt-2 text-sm text-ink-dim">{event.outcome === 'lost' ? 'No EXP earned.' : 'No EXP earned. Your party is ready for another encounter.'}</p>}
     {event.battle && <button type="button" onClick={onReplay} className="ui-button ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">Replay battle</button>}
   </details>;
 }
@@ -65,8 +73,8 @@ export function RouteResultView({ event, box, busy, onDone, onReplay }: {
         {event.catch && <p className="mt-1 text-sm text-ink-dim">Used 1 {itemById(event.catch.ballId)?.name ?? 'ball'}. {event.catch.caught ? 'Your new companion is saved.' : 'The throw is finished. There are more Pokémon to meet.'}</p>}
         {exp > 0 && <p className="mt-2 text-lg text-exp">+{exp} EXP earned by your party</p>}
         {event.members.filter((member) => member.before.dexId !== member.after.dexId).map((member) => <p key={member.id} className="mt-2 text-base text-accent">{speciesName(member.before.dexId)} evolved into {speciesName(member.after.dexId)}!</p>)}
-        {event.outcome === 'lost' && <p className="text-sm text-ink-dim">Your party is out of strength. You hurried back to Hearth Town. No EXP earned; the Pokémon Center will heal everyone for free.</p>}
-        {event.outcome !== 'lost' && (event.battle?.fielded ?? []).some((f) => f.hp === 0) && <p className="mt-2 text-sm text-ink-dim">{event.battle!.fielded!.filter((f) => f.hp === 0).map((f) => { const mon = box.find((m) => m.id === f.id); return mon ? monName(mon) : 'A Pokémon'; }).join(', ')} fainted and earned no EXP.</p>}
+        {event.outcome === 'lost' && <p className="text-sm text-ink-dim">You hurried back to Hearth Town. No EXP earned; the Pokémon Center will heal everyone for free.</p>}
+        <FaintedNote event={event} box={box} />
         {event.outcome === 'left' && <p className="text-sm text-ink-dim">Your search action stays spent. Battle rewards and discoveries are saved.</p>}
         {event.outcome === 'accepted' && <p className="text-sm">Find the three landmarks for 3 Great Balls. Earlier discoveries count. Check the survey below the route.</p>}
         {event.outcome === 'talked' && <p className="text-sm">Your survey progress is saved. Check the survey below the route.</p>}

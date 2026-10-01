@@ -209,7 +209,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
         onSearch={search} onActivate={() => void submit({ operation: 'activate', input: { requestId: newRouteRequestId() } })}
         onResume={() => { setResultOnly(false); setPage('encounter'); scrollToTop(); }}
         onResult={() => { setResultOnly(true); setPage('encounter'); scrollToTop(); }}
-        onBag={() => setBagOpen(true)} onEditParty={onEditParty} onRefresh={() => void refresh()}
+        onBag={() => setBagOpen(true)} onEditParty={onEditParty} onCenter={openCenter} onRefresh={() => void refresh()}
         onClaim={() => void submit({ operation: 'quest-claim', input: { requestId: newRouteRequestId(), questId: 'meadow-survey' } })}
         onDismissLegacy={(id) => void dismissLegacy(id)} />}
       {page === 'encounter' && (replay?.battle && replay.foe ? <BattleReplay key={`${replay.id}:${replay.revision}`} events={replay.battle.events} party={replay.battle.fielded ? replay.party.filter((m) => replay.battle!.fielded!.some((f) => f.id === m.id)) : replay.party} foe={replay.foe} trainerName={replay.kind === 'trainer' ? replay.npc?.name : undefined} backdrop={backdropUrl(route)} onDone={() => { setReplay(null); scrollToTop(); }} />
