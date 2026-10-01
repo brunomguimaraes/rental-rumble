@@ -3,7 +3,6 @@ import type { BattleEvent } from '../../game/battle';
 import type { OwnedMon } from '../../game/box';
 import type { WildView } from '../../game/wilds';
 import { backUrl, spriteUrl } from '../../game/pokemon';
-import { formatLevel } from '../../game/world';
 import { PixelSprite } from '../ui/PixelSprite';
 import { Backdrop } from './Backdrop';
 import { StatBar } from '../ui/StatBar';
@@ -110,7 +109,6 @@ export function BattleReplay({
               {speciesName(foe.dexId)}
               {foe.shiny && <span className="ml-1 text-caught-shiny">✦</span>}
             </span>
-            <span className="font-label text-[8px] uppercase text-ink-dim">{formatLevel(foe)}</span>
           </div>
           <StatBar value={b.foeHp} max={b.foeMax} tone="night" label={`${speciesName(foe.dexId)} HP`} segments={12} />
         </div>
@@ -128,7 +126,6 @@ export function BattleReplay({
             <div className="absolute bottom-3 right-2 flex w-[48%] flex-col gap-1 rounded-[3px] border-2 border-window-frame bg-window/90 px-1.5 py-1">
               <div className="flex items-center justify-between gap-1 text-xs">
                 <span className="truncate">{monName(lead)}</span>
-                <span className="font-label text-[8px] uppercase text-ink-dim">{formatLevel(lead)}</span>
               </div>
               <StatBar value={b.playerHp} max={b.playerMax} tone="night" label={`${monName(lead)} HP`} segments={12} />
             </div>

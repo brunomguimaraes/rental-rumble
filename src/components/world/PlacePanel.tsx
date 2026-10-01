@@ -5,8 +5,6 @@ import type { ActivityMode, PlaceView, WorldState } from '../../game/activity';
 import {
   ROUTES,
   expSharePct,
-  formatLevel,
-  formatRecommended,
   masteryOf,
   placeTitle,
   rateParty,
@@ -14,6 +12,7 @@ import {
   unlockText,
   type RoutePlace,
 } from '../../game/world';
+import { ExpBar } from '../ui/ExpBar';
 import { PixelSprite } from '../ui/PixelSprite';
 import { Backdrop } from './Backdrop';
 import { PixelIcon } from './PixelIcon';
@@ -118,10 +117,7 @@ export function PlacePanel({
         </div>
       )}
 
-      <Section
-        title={hidden ? 'Unknown place' : BIOME_LABEL[route.biome]}
-        aside={!hidden && <span className="font-label text-[9px] uppercase text-ink">Rec. {formatRecommended(route)}</span>}
-      >
+      <Section title={hidden ? 'Unknown place' : BIOME_LABEL[route.biome]}>
         <p className="text-sm leading-relaxed">{hidden ? 'Somewhere beyond the places you know.' : route.blurb}</p>
         <p className="mt-2 flex items-center gap-2 text-sm">
           <PixelIcon name={STATE_GLYPH[view.state]} size={14} className={view.state === 'completed' ? 'text-accent' : 'text-ink'} />
@@ -191,7 +187,7 @@ export function PlacePanel({
             <Portrait dexId={route.guardian.dexId} />
             <div className="text-sm">
               <div>
-                {speciesName(route.guardian.dexId)} <span className="font-label text-[9px] uppercase text-ink-dim">{formatLevel(route.guardian)}</span>
+                {speciesName(route.guardian.dexId)}
               </div>
               <div className="text-xs text-ink-dim">
                 {view.progress.clearedAt !== null
@@ -216,7 +212,7 @@ export function PlacePanel({
             </li>
             {shares.length > 0 && (
               <li className="text-ink-dim">
-                Past {formatRecommended(route)}, EXP shrinks:{' '}
+                Strong Pokémon earn less EXP here:{' '}
                 {shares.map((s) => `${monName(s.mon)} earns ${s.pct}%`).join(', ')}.
               </li>
             )}
@@ -274,7 +270,7 @@ export function PlacePanel({
 const RATING_TEXT = {
   comfortable: 'Your party outclasses this place.',
   even: 'A fair match for your party.',
-  risky: 'Your party is below the recommended level.',
+  risky: 'Your party is not ready for this place yet.',
 } as const;
 
 /** Last look before setting out: the party, how it matches up, and what happens. */
@@ -311,7 +307,7 @@ export function StartConfirm({
         </h1>
       </div>
 
-      <Section title="Your party" aside={<span className="font-label text-[9px] uppercase text-ink-dim">Rec. {formatRecommended(route)}</span>}>
+      <Section title="Your party">
         <ol className="flex flex-wrap gap-2">
           {party.map((mon, i) => {
             const creature = ownedMonToCreature(mon);
@@ -319,10 +315,8 @@ export function StartConfirm({
               <li key={mon.id} className="flex w-14 flex-col items-center rounded-[3px] bg-slot py-1">
                 <PixelSprite src={creature?.portrait ?? POKEBALL} fallback={POKEBALL} size={40} alt="" />
                 <span className="w-full truncate px-0.5 text-center text-xs">{monName(mon)}</span>
-                <span className="font-label text-[8px] uppercase text-ink-dim">
-                  {formatLevel(mon)}
-                  {i === 0 ? ' · Lead' : ''}
-                </span>
+                {i === 0 && <span className="font-label text-[8px] uppercase text-accent">Lead</span>}
+                <ExpBar level={mon.level} exp={mon.exp} />
               </li>
             );
           })}

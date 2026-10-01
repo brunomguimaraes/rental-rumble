@@ -1,8 +1,8 @@
 import { timeOfDay } from '../../game/backgrounds';
 import { CREATURES_BY_ID } from '../../game/pokemon';
 import type { OwnedMon } from '../../game/box';
-import type { ActivityResult, MemberGrowth, Outcome, PublicActivity } from '../../game/activity';
-import { formatLevel, type Biome, type PlaceState, type RoutePlace } from '../../game/world';
+import { memberGrowthLines, type ActivityResult, type MemberGrowth, type Outcome, type PublicActivity } from '../../game/activity';
+import type { Biome, PlaceState, RoutePlace } from '../../game/world';
 import type { GlyphName } from './PixelIcon';
 
 // Shared bits for the world screens: backdrops, the trainer sprite, labels,
@@ -78,12 +78,9 @@ export function formatDuration(ms: number): string {
   return `${s}s`;
 }
 
-/** What one member's growth reads as: "Grew to Lv 9", "Evolved into Metapod". */
-export function growthLines(member: MemberGrowth): string[] {
-  const lines: string[] = [];
-  if (member.after.level > member.before.level) lines.push(`Grew to ${formatLevel(member.after)}`);
-  for (const e of member.evolutions) lines.push(`Evolved into ${speciesName(e.toDexId)}`);
-  return lines;
+/** What one member's growth reads as: "Metapod grew!", "Metapod evolved into Butterfree!". No level. */
+export function growthLines(member: MemberGrowth, name: string): string[] {
+  return memberGrowthLines(member, name, speciesName);
 }
 
 export const OUTCOME_TITLE: Record<Outcome, string> = {

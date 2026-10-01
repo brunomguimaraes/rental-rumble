@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { ownedMonToCreature } from '../../game/box';
 import { miniUrl, portraitUrl } from '../../game/pokemon';
 import type { PublicActivity } from '../../game/activity';
-import { formatLevel, routeById, trainingBattleCount } from '../../game/world';
+import { routeById, trainingBattleCount } from '../../game/world';
 import { finishActivity } from '../../game/world-client';
 import { PixelSprite } from '../ui/PixelSprite';
 import { StatBar } from '../ui/StatBar';
-import { ExpMeter } from './ExpMeter';
+import { ExpBar } from '../ui/ExpBar';
 import { Backdrop } from './Backdrop';
 import { PixelIcon } from './PixelIcon';
 import { POKEBALL, TRAINER, backdropUrl, formatDuration, monName, speciesName, type ActivityPatch } from './scene';
@@ -130,13 +130,11 @@ export function TrainingView({
                 <PixelSprite src={c?.portrait ?? portraitUrl(mon.dexId)} fallback={POKEBALL} size={40} alt="" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2 text-sm">
-                    <span className="truncate">
-                      {monName(mon)} <span className="font-label text-[9px] uppercase text-ink-dim">{formatLevel(mon)}</span>
-                    </span>
+                    <span className="truncate">{monName(mon)}</span>
                     <span className="shrink-0 font-label text-[9px] uppercase text-exp">+{pendingOf.get(mon.id) ?? 0} EXP pending</span>
                   </div>
                   <div className="mt-1 flex">
-                    <ExpMeter level={mon.level} exp={mon.exp} />
+                    <ExpBar level={mon.level} exp={mon.exp} />
                   </div>
                 </div>
               </li>
@@ -156,7 +154,7 @@ export function TrainingView({
               <li key={i} className="flex items-center gap-2">
                 <PixelSprite src={miniUrl(b.foe.dexId)} size={64} alt="" sheet className="-my-3" />
                 <span className="min-w-0 flex-1 truncate">
-                  {speciesName(b.foe.dexId)} <span className="font-label text-[9px] uppercase text-ink-dim">{formatLevel(b.foe)}</span>
+                  {speciesName(b.foe.dexId)}
                 </span>
                 <span className={`font-label text-[9px] uppercase ${b.won ? 'text-exp' : 'text-accent'}`}>{b.won ? 'Won' : 'Lost'}</span>
               </li>

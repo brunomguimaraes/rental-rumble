@@ -5,7 +5,7 @@ import type { WildView } from './wilds.js';
 import type { CheckpointView, TrailEntry, TrailOutcome } from './expedition.js';
 import { ownedMonToCreature } from './box.js';
 import { applyGrowthWithEvolution } from './evolution.js';
-import { STAT_KEYS, expectedStats, isBaseStats, type GrowthEvent } from './growth.js';
+import { STAT_KEYS, evolutionLines, expectedStats, growthLines, isBaseStats, type GrowthEvent } from './growth.js';
 import { CREATURES_BY_ID } from './pokemon.js';
 import { RNG } from './rng.js';
 import {
@@ -149,6 +149,27 @@ export function growMember(
 ): { mon: OwnedMon; evolutions: MemberGrowth['evolutions']; growths: GrowthEvent[] } {
   const grown = applyGrowthWithEvolution(mon, exp, rng);
   return { mon: grown.mon, evolutions: grown.evolutions, growths: grown.growths };
+}
+
+/**
+ * What one member's growth reads as, in the growth system's words and with no
+ * level. Results stored before the growth system lack `growths` and evolution
+ * `deltas`: a level rise there reads as a bare "grew!", an evolution without its
+ * stat deltas as the plain sentence.
+ */
+export function memberGrowthLines(member: MemberGrowth, name: string, speciesName: (dexId: number) => string): string[] {
+  const lines: string[] = [];
+  if (member.growths) {
+    for (const e of member.growths) lines.push(...growthLines(name, e));
+  } else if (member.after.level > member.before.level) {
+    lines.push(`${name} grew!`);
+  }
+  for (const e of member.evolutions) {
+    const from = speciesName(e.fromDexId);
+    const to = speciesName(e.toDexId);
+    lines.push(...(e.deltas ? evolutionLines(from, to, e.deltas) : [`${from} evolved into ${to}!`]));
+  }
+  return lines;
 }
 
 function statsChanged(a: BaseStats, b: BaseStats): boolean {

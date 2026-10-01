@@ -303,15 +303,3 @@ export function masteryOf(route: RoutePlace, progress: PlaceProgress): Mastery {
     speciesTotal: species.length,
   };
 }
-
-// --- Display seams --------------------------------------------------------------------
-// Levels reach the screen only through these two, so hiding them (the growth
-// overhaul) is a two-function change.
-
-export function formatLevel(mon: { level: number }): string {
-  return `Lv ${mon.level}`;
-}
-
-export function formatRecommended(route: RoutePlace): string {
-  return `Lv ${route.recommended.min}–${route.recommended.max}`;
-}

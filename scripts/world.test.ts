@@ -18,8 +18,6 @@ import {
   scaleExp,
   rateParty,
   trainingBattleCount,
-  formatLevel,
-  formatRecommended,
   EMPTY_PROGRESS,
   type ChoiceId,
   type ExpeditionNode,
@@ -52,6 +50,7 @@ import {
   normaliseSnapshot,
   partyCreatures,
   planGrowth,
+  memberGrowthLines,
   type ActivityConfig,
 } from '../src/game/activity.js';
 import { parsePartyInput, resolveParty, sameParty, partyMembers } from '../src/game/party.js';
@@ -179,9 +178,7 @@ check('slower pace: 96 in eight hours', trainingBattleCount(8 * HOUR, { paceMs: 
 check('the count cap wins over time', trainingBattleCount(8 * HOUR, { paceMs: 240_000, maxEncounters: 10 }) === 10);
 check('the time cap wins over the count', trainingBattleCount(20 * HOUR, { paceMs: 60_000, maxEncounters: 1000 }) === 480);
 
-console.log('\n[5] display seams');
-check('formatLevel', formatLevel({ level: 12 }) === 'Lv 12');
-check('formatRecommended', formatRecommended(route('r1')) === 'Lv 3–8');
+console.log('\n[5] display');
 check('placeTitle with a route label', placeTitle(route('r1')) === 'Route 1 · Sunny Meadow');
 check('placeTitle without one', placeTitle(route('lake')) === 'Mirror Lake');
 
@@ -323,6 +320,15 @@ const evo = g1.members[0]?.evolutions ?? [];
 check('and it evolves into Metapod', g1.members[0]?.after.dexId === 11 && evo.length === 1 && evo[0].fromDexId === 10 && evo[0].toDexId === 11);
 check('the evolution reports what it added to each stat, none negative', Object.values(evo[0]?.deltas ?? { x: -1 }).length === 6 && Object.values(evo[0]?.deltas ?? { x: -1 }).every((d) => d >= 0));
 check('the level gained is reported as one structured growth', g1.members[0]?.growths?.length === 1 && g1.members[0].growths[0].level === 8);
+const species = (id: number) => CREATURES_BY_ID[String(id)]?.name ?? '?';
+const g1Lines = g1.members[0] ? memberGrowthLines(g1.members[0], 'Bug', species) : [];
+check('results copy: the growth reads in the spec words under the nickname', /^Bug (grew|is trying hard)!$/.test(g1Lines[0] ?? ''));
+check('results copy: stat gains print short labels', g1Lines.some((l) => /^(HP|P\.Atk|E\.Atk|P\.Def|E\.Def|Speed) \+\d/.test(l)));
+check('results copy: the evolution reads by species name', g1Lines.includes('Caterpie evolved into Metapod!'));
+check('results copy: no line mentions a level', g1Lines.length > 0 && g1Lines.every((l) => !/\bLv\b|level/i.test(l)));
+const oldMember = { id: 's1', sharePct: 100, expGained: 140, before: { dexId: 10, level: 7, exp: 0 }, after: { dexId: 10, level: 8, exp: 0 }, evolutions: [] };
+check('results copy: a stored result without growths whose level rose says "grew!" only', JSON.stringify(memberGrowthLines(oldMember, 'Bug', species)) === '["Bug grew!"]');
+check('results copy: an old evolution without deltas is the plain sentence', JSON.stringify(memberGrowthLines({ ...oldMember, after: { dexId: 11, level: 7, exp: 0 }, evolutions: [{ fromDexId: 10, toDexId: 11 }] }, 'Bug', species)) === '["Caterpie evolved into Metapod!"]');
 const grewStats = g1.changed[0]?.stats;
 check('the changed row carries new stats, different from before', grewStats !== undefined && JSON.stringify(grewStats) !== JSON.stringify(starter.stats));
 check('one growth is reported per level gained', planGrowth([starter], [starter], 300, route('r1').recommended, 'act-1b').members[0]?.growths?.length === 2);

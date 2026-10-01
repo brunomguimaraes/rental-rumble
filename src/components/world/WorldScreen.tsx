@@ -5,8 +5,6 @@ import type { ActivityMode, PublicActivity, WorldState } from '../../game/activi
 import {
   EMPTY_PROGRESS,
   PLACE_LIST,
-  formatLevel,
-  formatRecommended,
   masteryOf,
   placeById,
   placeTitle,
@@ -15,6 +13,7 @@ import {
   type PlayableId,
 } from '../../game/world';
 import { newRequestId, startActivity } from '../../game/world-client';
+import { ExpBar } from '../ui/ExpBar';
 import { PixelSprite } from '../ui/PixelSprite';
 import { PixelIcon } from './PixelIcon';
 import { PlacePanel, StartConfirm } from './PlacePanel';
@@ -209,7 +208,6 @@ export function WorldScreen({
                       <span className="block truncate text-sm">{hidden ? '???' : placeTitle(place)}</span>
                       <span className="font-label text-[8px] uppercase text-ink-dim">
                         {pv ? STATE_LABEL[pv.state] : 'Home'}
-                        {place.kind === 'route' && !hidden ? ` · ${formatRecommended(place)}` : ''}
                       </span>
                     </span>
                     {m && !hidden && (
@@ -249,7 +247,7 @@ export function WorldScreen({
                   ? 'Home'
                   : focusHidden
                     ? 'Undiscovered'
-                    : `${BIOME_LABEL[focus.biome]} · Rec. ${formatRecommended(focus)}`}
+                    : BIOME_LABEL[focus.biome]}
                 {focusView && !focusHidden ? ` · ${STATE_LABEL[focusView.state]}` : ''}
               </p>
             </div>
@@ -259,13 +257,13 @@ export function WorldScreen({
             {focus.kind === 'home' ? focus.blurb : focusHidden ? 'Explore nearby to find this place.' : focus.blurb}
           </p>
           {party.length > 0 && (
-            <ol className="mt-3 flex gap-1.5" aria-label="Your party">
+            <ol className="mt-3 flex flex-wrap gap-1.5" aria-label="Your party">
               {party.map((mon) => {
                 const c = ownedMonToCreature(mon);
                 return (
-                  <li key={mon.id} className="flex flex-col items-center rounded-[3px] bg-slot px-1 pt-1">
+                  <li key={mon.id} className="flex w-14 flex-col items-center rounded-[3px] bg-slot px-1 py-1">
                     <PixelSprite src={c?.portrait ?? POKEBALL} fallback={POKEBALL} size={40} alt={c?.name ?? ''} />
-                    <span className="font-label text-[8px] uppercase text-ink-dim">{formatLevel(mon)}</span>
+                    <ExpBar level={mon.level} exp={mon.exp} />
                   </li>
                 );
               })}

@@ -3,8 +3,9 @@ import { ownedMonToCreature, type OwnedMon } from '../../game/box';
 import { miniUrl, spriteUrl } from '../../game/pokemon';
 import type { PublicActivity, StepEvent } from '../../game/activity';
 import type { TrailEntry } from '../../game/expedition';
-import { formatLevel, routeById, type ChoiceId, type RoutePlace } from '../../game/world';
+import { routeById, type ChoiceId, type RoutePlace } from '../../game/world';
 import { stepExpedition } from '../../game/world-client';
+import { ExpBar } from '../ui/ExpBar';
 import { PixelSprite } from '../ui/PixelSprite';
 import { BattleReplay } from './BattleReplay';
 import { Backdrop } from './Backdrop';
@@ -22,7 +23,7 @@ function landmarkName(route: RoutePlace, id: string | undefined): string {
 }
 
 function trailLine(entry: TrailEntry, route: RoutePlace): string {
-  const foe = entry.foe ? `${speciesName(entry.foe.dexId)} ${formatLevel(entry.foe)}` : '';
+  const foe = entry.foe ? speciesName(entry.foe.dexId) : '';
   switch (entry.outcome) {
     case 'observed':
       return `Watched a ${foe}`;
@@ -168,9 +169,7 @@ export function ExpeditionView({
           <p className="mt-1 text-sm leading-relaxed">{checkpoint.text}</p>
           {checkpoint.foe && (
             <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-              <span>
-                {speciesName(checkpoint.foe.dexId)} <span className="font-label text-[9px] uppercase text-ink-dim">{formatLevel(checkpoint.foe)}</span>
-              </span>
+              <span>{speciesName(checkpoint.foe.dexId)}</span>
               {checkpoint.foe.guardian && <span className="font-label text-[8px] uppercase text-accent">Guardian</span>}
               {checkpoint.foe.rare && <span className="font-label text-[8px] uppercase text-caught-shiny">Rare</span>}
               {checkpoint.foe.shiny && <span className="font-label text-[8px] uppercase text-caught-shiny">✦ Shiny</span>}
@@ -253,13 +252,13 @@ export function ExpeditionView({
 function PartyStrip({ party }: { party: readonly OwnedMon[] }) {
   return (
     <section className="ui-window m-2 mt-3 p-2.5" aria-label="Party on this trip">
-      <ol className="flex gap-1.5">
+      <ol className="flex flex-wrap gap-1.5">
         {party.map((mon) => {
           const c = ownedMonToCreature(mon);
           return (
-            <li key={mon.id} className="flex flex-col items-center rounded-[3px] bg-slot px-1 pt-1">
+            <li key={mon.id} className="flex w-14 flex-col items-center rounded-[3px] bg-slot px-1 py-1">
               <PixelSprite src={c?.portrait ?? POKEBALL} fallback={POKEBALL} size={40} alt={c?.name ?? ''} />
-              <span className="font-label text-[8px] uppercase text-ink-dim">{formatLevel(mon)}</span>
+              <ExpBar level={mon.level} exp={mon.exp} />
             </li>
           );
         })}

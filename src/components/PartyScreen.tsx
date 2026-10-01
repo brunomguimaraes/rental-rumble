@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { ownedMonToCreature, type OwnedMon } from '../game/box';
 import { PARTY_MAX, partyMembers, sameParty, saveParty } from '../game/party';
-import { formatLevel } from '../game/world';
 import { PixelSprite } from './ui/PixelSprite';
-import { ExpMeter } from './world/ExpMeter';
+import { ExpBar } from './ui/ExpBar';
 import { POKEBALL, monName } from './world/scene';
 
 // The saved party: up to six of the trainer's Pokémon, lead first. A menu
@@ -149,12 +148,9 @@ export function PartyScreen({
                       <span className="truncate">{monName(mon)}</span>
                       <VariantMarks mon={mon} />
                     </span>
-                    <span className="flex items-center gap-2 font-label text-[9px] uppercase text-ink-dim">
-                      {formatLevel(mon)}
-                      {i === 0 && <span className="text-accent">Lead</span>}
-                    </span>
+                    {i === 0 && <span className="block font-label text-[9px] uppercase text-accent">Lead</span>}
                     <span className="mt-0.5 flex">
-                      <ExpMeter level={mon.level} exp={mon.exp} />
+                      <ExpBar level={mon.level} exp={mon.exp} />
                     </span>
                   </span>
                 </button>
@@ -215,9 +211,11 @@ export function PartyScreen({
                       <span className="truncate">{name}</span>
                       <VariantMarks mon={mon} />
                     </span>
-                    <span className={`font-label text-[8px] uppercase ${inParty ? 'text-accent' : 'text-ink-dim'}`}>
-                      {inParty ? 'In party' : formatLevel(mon)}
-                    </span>
+                    {inParty ? (
+                      <span className="font-label text-[8px] uppercase text-accent">In party</span>
+                    ) : (
+                      <ExpBar level={mon.level} exp={mon.exp} />
+                    )}
                   </button>
                 </li>
               );

@@ -2,9 +2,9 @@ import { useState } from 'react';
 import type { OwnedMon } from '../../game/box';
 import { miniUrl, portraitUrl, spriteUrl } from '../../game/pokemon';
 import type { ActivityResult } from '../../game/activity';
-import { formatLevel, routeById } from '../../game/world';
+import { routeById } from '../../game/world';
+import { ExpBar } from '../ui/ExpBar';
 import { PixelSprite } from '../ui/PixelSprite';
-import { ExpMeter } from './ExpMeter';
 import { PixelIcon } from './PixelIcon';
 import { OUTCOME_TITLE, POKEBALL, formatDuration, growthLines, monName, speciesName } from './scene';
 
@@ -48,9 +48,6 @@ export function ResultsView({
             </span>
             <PixelSprite src={spriteUrl(evolution.after.dexId)} fallback={POKEBALL} size={96} alt={speciesName(evolution.after.dexId)} />
           </div>
-          <p className="mt-1 font-label text-[10px] uppercase">
-            {speciesName(evolution.after.dexId)} · {formatLevel(evolution.after)}
-          </p>
         </section>
       ) : result.firstClear ? (
         <section className="ui-window m-2 p-3 text-center" aria-labelledby="hero-title">
@@ -86,24 +83,29 @@ export function ResultsView({
         <ol className="mt-3 flex flex-col gap-2">
           {result.members.map((member) => {
             const now = byId.get(member.id);
-            const lines = growthLines(member);
+            const name = now ? monName(now) : speciesName(member.after.dexId);
+            const lines = growthLines(member, name);
             return (
               <li key={member.id} className="flex items-center gap-2 rounded-[3px] bg-slot p-1.5">
                 <PixelSprite src={portraitUrl(member.after.dexId)} fallback={POKEBALL} size={40} alt="" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2 text-sm">
-                    <span className="truncate">{now ? monName(now) : speciesName(member.after.dexId)}</span>
+                    <span className="truncate">{name}</span>
                     <span className="shrink-0 font-label text-[9px] uppercase text-exp">+{member.expGained} EXP</span>
                   </div>
-                  <div className="font-label text-[9px] uppercase text-ink-dim">
-                    {formatLevel(member.before)}
-                    {member.after.level !== member.before.level ? ` → ${formatLevel(member.after)}` : ''}
-                    {member.sharePct < 100 ? ` · ${member.sharePct}% share` : ''}
-                  </div>
+                  {member.sharePct < 100 && <div className="font-label text-[9px] uppercase text-ink-dim">{member.sharePct}% share</div>}
                   <div className="mt-1 flex">
-                    <ExpMeter level={member.after.level} exp={member.after.exp} />
+                    <ExpBar level={(now ?? member.after).level} exp={(now ?? member.after).exp} />
                   </div>
-                  {lines.length > 0 && <p className="mt-1 text-xs text-accent">{lines.join(' · ')}</p>}
+                  {lines.length > 0 && (
+                    <p className="mt-1 text-xs text-accent">
+                      {lines.map((line, i) => (
+                        <span key={i} className="block">
+                          {line}
+                        </span>
+                      ))}
+                    </p>
+                  )}
                 </div>
               </li>
             );
@@ -148,7 +150,7 @@ export function ResultsView({
                 <PixelSprite src={miniUrl(b.foe.dexId)} size={64} alt="" sheet className="-my-3" />
                 <span className="min-w-0 flex-1 truncate">
                   {b.foe.guardian ? 'Guardian ' : ''}
-                  {speciesName(b.foe.dexId)} <span className="font-label text-[9px] uppercase text-ink-dim">{formatLevel(b.foe)}</span>
+                  {speciesName(b.foe.dexId)}
                 </span>
                 <span className={`font-label text-[9px] uppercase ${b.won ? 'text-exp' : 'text-accent'}`}>{b.won ? 'Won' : 'Lost'}</span>
               </li>
