@@ -42,12 +42,16 @@ try {
   const activated = activation.body as unknown as RouteReply;
   check('activation contract contains authoritative Bag and allowance', activation.status === 200 && activated.state.activated && activated.state.allowance.available === 12 && activated.state.inventory.stacks[0]?.quantity === 20 && activation.headers['cache-control'] === 'no-store');
   await call('activate', { requestId: 'activate' }, 'other');
+  const walkedHome = await call('travel', { requestId: 'home', to: 'home', partyIds: [s.id] });
+  check('a trainer activated in Sunny Meadow can walk to town', walkedHome.status === 200 && (walkedHome.body as unknown as RouteReply).state.trainerAt === 'home');
   check('a search from town is refused before spending', (await call('search', { requestId: 'from-town', locationId: 'r1', kind: 'wild', partyIds: [s.id] })).status === 400);
   check('a travel body without a known place is rejected', (await call('travel', { requestId: 'nowhere', to: 'r2', partyIds: [s.id] })).status === 400);
   const trip = await call('travel', { requestId: 'trip', to: 'r1', partyIds: [s.id], cost: 0, mode: 'flyer' });
   const tripState = (trip.body as unknown as RouteReply).state;
-  check('a trip ignores a client-named cost and charges the walk', trip.status === 200 && tripState.trainerAt === 'r1' && tripState.travel.available === 8 && tripState.allowance.available === 12);
-  check('travelling to where you stand is a 400 with recovery state', (await call('travel', { requestId: 'again', to: 'r1', partyIds: [s.id] })).status === 400);
+  check('a trip ignores a client-named cost and charges the walk', trip.status === 200 && tripState.trainerAt === 'r1' && tripState.travel.available === 4 && tripState.allowance.available === 12);
+  const again = await call('travel', { requestId: 'again', to: 'r1', partyIds: [s.id] });
+  const againState = again.body.state as RouteState | undefined;
+  check('travelling to where you stand is a 400 with recovery state', again.status === 400 && again.body.error === 'You’re already here.' && againState?.trainerAt === 'r1' && againState.travel.available === 4);
   check('unsupported locations are rejected before spending', (await call('search', { requestId: 'bad-route', locationId: 'r2', kind: 'wild', partyIds: [s.id] })).status === 400);
   check('array search kind is rejected instead of string-coerced', (await call('search', { requestId: 'array-kind', locationId: 'r1', kind: ['wild'], partyIds: [s.id] })).status === 400);
   check('duplicate party members are rejected', (await call('search', { requestId: 'dup', locationId: 'r1', kind: 'wild', partyIds: [s.id, s.id] })).status === 400);

@@ -155,7 +155,8 @@ export async function activateRoute(db: Db, uid: string, requestId: string, now:
     if (await readRouteAccount(tx, uid)) return;
     const open = await readOpenActivity(tx, uid);
     const transition = open ? await retireLegacyActivity(tx, uid, open, now, cutoverTime()) : null;
-    await insertRouteAccount(tx, uid, ROUTE_RULES.initialActions, now, transition);
+    // Begin exploring is pressed in Sunny Meadow, so the trainer starts there.
+    await insertRouteAccount(tx, { uid, actions: ROUTE_RULES.initialActions, now, location: 'r1', transition });
     await changeInventory(tx, uid, 'poke', ROUTE_RULES.starterBalls);
   });
 }

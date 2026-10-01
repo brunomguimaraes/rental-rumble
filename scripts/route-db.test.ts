@@ -11,7 +11,7 @@ import {
 import { dismissResult, startActivity, stepExpedition } from '../api/_world.js';
 import { legalChoices, rollCapture, rollRouteFind } from '../src/game/route-rules.js';
 import type { CaptureBallId, RouteEvent, RouteRules, RouteRulesV2, SearchKind, StoredRouteEvent } from '../src/game/route-actions.js';
-import { check, finish, mintMon, onboardUser, placeTrainer, tempDb } from './world-test-kit.js';
+import { check, finish, mintMon, onboardUser, tempDb } from './world-test-kit.js';
 
 const T = 1_800_000_000_000;
 const eq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -65,14 +65,12 @@ try {
   const before = await loadRouteState(db, 'u1', T);
   check('state GET projects unactivated account without grants', !before.activated && before.inventory.stacks.length === 0 && await readRouteAccount(db, 'u1') === null);
   const a = await activateRoute(db, 'u1', 'activate', T);
-  await placeTrainer(db, 'u1', 'r1');
   check('activation gives 12 actions and 20 owned Poké Balls', a.state.allowance.available === 12 && a.state.inventory.stacks.find((s) => s.itemId === 'poke')?.quantity === 20);
   const repeated = await activateRoute(db, 'u1', 'activate', T + 1);
   const again = await activateRoute(db, 'u1', 'activate-new-id', T + 1);
   check('activation starts with no money', a.state.inventory.money === 0);
   check('lost and new activation requests do not repeat starter supply', repeated.replayed === true && again.state.inventory.stacks[0].quantity === 20 && again.state.allowance.available === 12);
   await activateRoute(db, 'u2', 'activate', T);
-  await placeTrainer(db, 'u2', 'r1');
   const input = { requestId: 'find-one', locationId: 'r1' as const, kind: 'wild' as const, partyIds: [starter.id] };
   const first = await searchRoute(db, 'u1', input, T);
   const e = first.event!;
@@ -115,7 +113,6 @@ try {
     const uid = `${ballId}-${success}`;
     await onboardUser(db, uid, 6, 30);
     const activations = await Promise.all([activateRoute(db, uid, 'first-activate', T), activateRoute(db, uid, 'first-activate', T)]);
-    await placeTrainer(db, uid, 'r1');
     check(`${uid} concurrent first activation grants supplies once`, activations.every((r) => r.state.inventory.stacks[0].quantity === 20) && activations.filter((r) => r.replayed).length === 1);
     if (ballId === 'great') await changeInventory(db, uid, 'great', 1);
     const encounter = (await start(db, uid)).event!;
@@ -198,7 +195,6 @@ try {
   console.log('[failure and inventory concurrency]');
   await onboardUser(db, 'failure', 6, 30);
   await activateRoute(db, 'failure', 'activate', T);
-  await placeTrainer(db, 'failure', 'r1');
   const failingEvent = (await start(db, 'failure')).event!;
   await forceCatch(db, 'failure', failingEvent, true, 'poke');
   const beforeFailure = await loadRouteState(db, 'failure', T);
@@ -228,7 +224,6 @@ try {
   await onboardUser(db, 'shopper', 6, 30);
   await rejects('an unactivated account cannot trade', tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'poke', side: 'sell', quantity: 1 }, T), 409);
   await activateRoute(db, 'shopper', 'activate', T);
-  await placeTrainer(db, 'shopper', 'r1');
   const shop = () => loadRouteState(db, 'shopper', T);
   const have = async (id: string) => (await shop()).inventory.stacks.find((s) => s.itemId === id)?.quantity ?? 0;
   await rejects('buying with too little money is a conflict', tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'poke', side: 'buy', quantity: 1 }, T), 409);
@@ -267,7 +262,6 @@ try {
   console.log('[consistent state snapshot]');
   await onboardUser(db, 'snapshot', 6, 30);
   await activateRoute(db, 'snapshot', 'activate', T);
-  await placeTrainer(db, 'snapshot', 'r1');
   const snapshotEvent = (await start(db, 'snapshot')).event!;
   let releaseAccount!: () => void;
   const accountGate = new Promise<void>((resolve) => { releaseAccount = resolve; });
@@ -332,7 +326,6 @@ try {
   // A trainer's Pokémon counts as seen, like a wild one. The seed is random, so search until a trainer shows.
   await onboardUser(db, 'sightings', 6, 30);
   await activateRoute(db, 'sightings', 'activate', T);
-  await placeTrainer(db, 'sightings', 'r1');
   let met: RouteEvent | null = null;
   for (let i = 0; i < 12 && !met; i++) {
     const found = (await start(db, 'sightings', 'npc')).event!;
@@ -353,44 +346,46 @@ try {
   check('database enforces one unresolved event per account', constrained);
   await acceptRouteQuest(db, 'u2', 'meadow-survey', T);
 
-  // Travel stamina: new accounts backfill a full meter in town; existing route players stay in the meadow.
+  // Travel stamina: activation stands the trainer in Sunny Meadow on a full meter; existing route players stay there.
   await onboardUser(db, 'walker', 10, 5);
   await activateRoute(db, 'walker', 'activate', T);
   const fresh = await loadRouteState(db, 'walker', T);
   const freshRow = await readRouteAccount(db, 'walker');
-  check('a new account reads a full travel meter in town without writing it', fresh.travel.available === 12 && fresh.travel.nextRefillAt === null && fresh.trainerAt === 'home' && freshRow?.travel === null && freshRow?.location === null);
-  check('town quotes a 4-point walk to Sunny Meadow', eq(fresh.quotes, [{ to: 'r1', walk: 4, cost: 4, mode: 'walk', via: null }]));
+  check('activation places the trainer in Sunny Meadow', fresh.trainerAt === 'r1' && freshRow?.location === 'r1' && fresh.travel.available === 12);
+  check('a new account reads a full travel meter without writing it', fresh.travel.nextRefillAt === null && freshRow?.travel === null && freshRow?.travelRefilledAt === null);
+  check('the meadow quotes a 4-point walk to Hearth Town', eq(fresh.quotes, [{ to: 'home', walk: 4, cost: 4, mode: 'walk', via: null }]));
   await db.execute({ sql: 'update route_accounts set location = null where user_id = ?', args: ['u1'] });
   check('an account with route history backfills into Sunny Meadow', (await loadRouteState(db, 'u1', T)).trainerAt === 'r1');
   const walkerParty = async () => [(await readOwnedByUser(db, 'walker')).find((m) => m.origin === 'starter')!.id];
   const go = async (to: 'home' | 'r1', now = T, requestId = rid()) => travelRoute(db, 'walker', { requestId, to, partyIds: await walkerParty() }, now);
+  const home = await go('home', T, 'walk-home');
+  check('walking home costs 4 and town quotes a 4-point walk back', home.state.travel.available === 8 && home.state.trainerAt === 'home' && eq(home.state.quotes, [{ to: 'r1', walk: 4, cost: 4, mode: 'walk', via: null }]));
   await rejects('a search away from Sunny Meadow is refused', searchRoute(db, 'walker', { requestId: rid(), locationId: 'r1', kind: 'wild', partyIds: await walkerParty() }, T), 400);
   check('the refused search spent no action', (await loadRouteState(db, 'walker', T)).allowance.available === 12);
   const arrived = await go('r1', T, 'walk-out');
-  check('walking out costs 4 and moves the trainer', arrived.state.travel.available === 8 && arrived.state.trainerAt === 'r1' && eq(arrived.state.quotes.map((q) => q.to), ['home']));
+  check('walking out costs 4 and moves the trainer', arrived.state.travel.available === 4 && arrived.state.trainerAt === 'r1' && eq(arrived.state.quotes.map((q) => q.to), ['home']));
   const arrivedAgain = await go('r1', T + 1, 'walk-out');
-  check('a retried trip replays without a second debit', arrivedAgain.replayed === true && arrivedAgain.state.travel.available === 8);
+  check('a retried trip replays without a second debit', arrivedAgain.replayed === true && arrivedAgain.state.travel.available === 4);
   await rejects('a second tap after arriving is refused', go('r1', T + 1), 400);
-  check('the refused second tap spent nothing', (await loadRouteState(db, 'walker', T + 1)).travel.available === 8);
+  check('the refused second tap spent nothing', (await loadRouteState(db, 'walker', T + 1)).travel.available === 4);
   const wild = await searchRoute(db, 'walker', { requestId: rid(), locationId: 'r1', kind: 'wild', partyIds: await walkerParty() }, T);
   await rejects('an open encounter keeps the trainer on the route', go('home'), 409);
   await leave(db, 'walker', wild.event!);
   await go('home');
-  await go('r1');
-  try { await go('home'); check('an empty meter refuses the trip', false); }
+  try { await go('r1'); check('an empty meter refuses the trip', false); }
   catch (e) { check('an empty meter refuses the trip with the wait', e instanceof RouteError && e.status === 400 && e.message === 'Not enough travel stamina — next point in 15 min.'); }
-  check('the stranded trainer stays put with nothing spent', (await loadRouteState(db, 'walker', T)).trainerAt === 'r1' && (await loadRouteState(db, 'walker', T)).travel.available === 0);
-  check('four refills later the walk home is affordable', (await go('home', T + 4 * 900_000)).state.travel.available === 0);
+  check('the stranded trainer stays put with nothing spent', (await loadRouteState(db, 'walker', T)).trainerAt === 'home' && (await loadRouteState(db, 'walker', T)).travel.available === 0);
+  check('four refills later the walk back is affordable', (await go('r1', T + 4 * 900_000)).state.travel.available === 0);
 
   // Mounts come from the saved party, re-read on the server.
   const starterId = (await walkerParty())[0];
   const rapidash = await mintMon(db, 'walker', { dexId: 78, level: 30 });
   await updateProfileParty(db, 'walker', [starterId, rapidash.id]);
   const mounted = await loadRouteState(db, 'walker', T + 40 * 900_000);
-  check('Rapidash in the party halves the quote', eq(mounted.quotes, [{ to: 'r1', walk: 4, cost: 2, mode: 'land', via: 'Rapidash' }]));
-  await rejects('a stale party is refused before any debit', travelRoute(db, 'walker', { requestId: rid(), to: 'r1', partyIds: [starterId] }, T + 40 * 900_000), 409);
-  const rode = await travelRoute(db, 'walker', { requestId: rid(), to: 'r1', partyIds: [starterId, rapidash.id] }, T + 40 * 900_000);
-  check('riding debits the server quote', rode.state.travel.available === 10 && rode.state.trainerAt === 'r1');
+  check('Rapidash in the party halves the quote', eq(mounted.quotes, [{ to: 'home', walk: 4, cost: 2, mode: 'land', via: 'Rapidash' }]));
+  await rejects('a stale party is refused before any debit', travelRoute(db, 'walker', { requestId: rid(), to: 'home', partyIds: [starterId] }, T + 40 * 900_000), 409);
+  const rode = await travelRoute(db, 'walker', { requestId: rid(), to: 'home', partyIds: [starterId, rapidash.id] }, T + 40 * 900_000);
+  check('riding debits the server quote', rode.state.travel.available === 10 && rode.state.trainerAt === 'home');
 
   // Before db:setup adds the columns: state still loads; a trip fails as missing schema.
   const preTravel = await tempDb('routes-pre-travel');

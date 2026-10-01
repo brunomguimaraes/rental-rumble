@@ -109,7 +109,8 @@ New `route_accounts` columns, added through `COLUMN_ADDS` in `api/_db.ts`:
 
 Null means "not backfilled": read it as a full meter at `now` and the location `RouteState` derives today
 (`r1` if the account has route events or its last route was `r1`, else `home`). The first write that touches the
-row persists the backfilled values. The change is additive: deployed code ignores the new columns. New code
+row persists the backfilled values. Activation writes `location = 'r1'`, since Begin exploring is pressed in
+Sunny Meadow; its meter columns stay null and read as full. The change is additive: deployed code ignores the new columns. New code
 reads them as null when absent and treats that as the backfill; a write that needs them before `db:setup` has
 run fails into the action's 503, never a crash. `RELEASING.md`'s checklist runs `db:setup` before deploy. A
 range check on `travel` lives in the write path: the shared spend function never produces a value outside

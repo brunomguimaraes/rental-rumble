@@ -132,8 +132,3 @@ export function finish(): never {
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 }
-
-/** Stand the trainer at a place directly, for tests about something other than travel. */
-export async function placeTrainer(db: Db, uid: string, place: 'home' | 'r1'): Promise<void> {
-  await db.execute({ sql: 'update route_accounts set location = ? where user_id = ?', args: [place, uid] });
-}

@@ -767,10 +767,13 @@ export async function readRouteAccount(db: Executor, uid: string): Promise<Route
   } : null;
 }
 
-export async function insertRouteAccount(db: Executor, uid: string, actions: number, now: number, transition: unknown): Promise<void> {
+/** The travel meter stays null (full on read); the trainer starts where they pressed Begin exploring. */
+export async function insertRouteAccount(
+  db: Executor, a: { uid: string; actions: number; now: number; location: TravelPlace; transition: unknown },
+): Promise<void> {
   await db.execute({
-    sql: 'insert into route_accounts (user_id, activated_at, actions, refilled_at, transition) values (?, ?, ?, ?, ?)',
-    args: [uid, now, actions, now, transition === null ? null : JSON.stringify(transition)],
+    sql: 'insert into route_accounts (user_id, activated_at, actions, refilled_at, location, transition) values (?, ?, ?, ?, ?, ?)',
+    args: [a.uid, a.now, a.actions, a.now, a.location, a.transition === null ? null : JSON.stringify(a.transition)],
   });
 }
 
