@@ -255,7 +255,11 @@ export default function App() {
             box={box}
             party={partyIds}
             activityRunning={Boolean(world?.activeEvent)}
-            onSaved={(party) => setProfile((p) => (p ? { ...p, party } : p))}
+            onSaved={(party) => {
+              setProfile((p) => (p ? { ...p, party } : p));
+              // Trip quotes come from the saved party; reload them so the travel button shows the new price.
+              void refreshWorld();
+            }}
             onBack={closeScreen}
             onExpired={expire}
           />
