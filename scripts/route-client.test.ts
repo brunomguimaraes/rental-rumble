@@ -3,8 +3,9 @@ import {
   chooseRoute, clearPendingRouteCommand, fetchRouteState, readPendingRouteCommand, reconcileRouteState,
   runRouteCommand, savePendingRouteCommand, searchRoute, shouldApplyHydratedBox, tradeMarket, type RouteCommand,
 } from '../src/game/route-actions-client.js';
-import type { RouteState } from '../src/game/route-actions.js';
+import type { RouteEvent, RouteState } from '../src/game/route-actions.js';
 import { inventoryChangeText, moneyChangeText, resultFind, tradeText } from '../src/components/world/route-copy.js';
+import { placeHighlights } from '../src/components/world/place-highlights.js';
 
 let passed = 0;
 let failed = 0;
@@ -120,6 +121,27 @@ const pouch = resultFind({ items: [], money: 300 });
 check('a coin pouch with no items is shown as money', pouch?.kind === 'money' && pouch.amount === 300);
 check('a find with no grant and no money has nothing to show', resultFind({ items: [] }) === null);
 check("trade receipts read in the player's words", tradeText({ itemId: 'poke', side: 'buy', quantity: 3, total: 600 }) === 'Bought 3 Poké Balls for ₽600.' && tradeText({ itemId: 'honey', side: 'sell', quantity: 1, total: 150 }) === 'Sold 1 Honey for ₽150.');
+// Home must not advertise made-up quests or label previously seen Pokémon as new.
+const wild: RouteEvent = {
+  id: 'wild', locationId: 'r1', searchKind: 'wild', kind: 'wild', rulesVersion: 2, revision: 0,
+  startedAt: 1_000, resolvedAt: null, phase: 'wild', party: [],
+  foe: { dexId: 16, level: 5, shiny: false, altColor: false, rare: false, guardian: false },
+  npc: null, choices: ['battle', 'catch', 'leave'], catchChances: { poke: 0.5, great: 0.7 },
+  battle: null, members: [], catch: null, items: [], newSeen: [16], newLandmarks: [], outcome: null,
+};
+check('without a researcher Home offers a survey hint, not a new quest', placeHighlights(state).every((h) => h.label !== 'New quest' && h.focus === 'survey'));
+const newSighting = placeHighlights({ ...state, activeEvent: wild });
+check('first sighting opens the saved encounter and identifies its Pokémon', newSighting[0]?.label === 'New sighting' && newSighting[0]?.focus === 'encounter' && newSighting[0]?.dexId === 16);
+check('repeat wild visits do not claim a new sighting', placeHighlights({ ...state, activeEvent: { ...wild, newSeen: [] } })[0]?.label === 'In the tall grass');
+const researcher: RouteEvent = { ...wild, kind: 'researcher', phase: 'researcher', foe: null, newSeen: [], npc: { id: 'researcher', name: 'Meadow Researcher', spriteKey: 'random-scientist-f', text: 'Help with my survey.' } };
+check('a waiting researcher offers the actual quest interaction', placeHighlights({ ...state, activeEvent: researcher })[0]?.label === 'New quest' && placeHighlights({ ...state, activeEvent: researcher })[0]?.focus === 'encounter');
+for (const status of ['active', 'ready', 'claimed'] as const) {
+  check(`a saved researcher conversation remains reachable when its survey is ${status}`, placeHighlights({ ...state, activeEvent: researcher, quest: { ...state.quest, status } }).some((h) => h.focus === 'encounter'));
+}
+check('earned survey rewards link to the survey, not another encounter', placeHighlights({ ...state, quest: { ...state.quest, status: 'ready' } })[0]?.focus === 'survey' && placeHighlights({ ...state, quest: { ...state.quest, status: 'ready' } })[0]?.label === 'Reward ready');
+check('claimed surveys do not keep advertising a quest or reward', placeHighlights({ ...state, quest: { ...state.quest, status: 'claimed' } }).length === 0);
+check('resolved sightings open results instead of reviving an encounter', placeHighlights({ ...state, result: { ...wild, phase: 'resolved', choices: [], outcome: 'left' } })[0]?.focus === 'result');
+check('survey progress counts only its required unique landmarks', placeHighlights({ ...state, quest: { ...state.quest, status: 'active', landmarks: ['signpost', 'signpost', 'unrelated'] } })[0]?.detail.startsWith('1 of 3'));
 
 console.log(`${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

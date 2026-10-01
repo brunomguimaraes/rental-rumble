@@ -45,6 +45,7 @@ export interface RouteScreenProps {
   view: MapView | null;
   onView: (view: MapView) => void;
   onLocation: (place: 'home' | 'r1') => void;
+  location: 'home' | 'r1';
   onState: (state: RouteState, box?: OwnedMon[]) => void;
   onEditParty: () => void;
   /** A town destination opens the party editor, Pokédex or box; back returns to that destination. */
@@ -57,10 +58,10 @@ export interface RouteScreenProps {
 }
 
 /** Active play, with server-owned encounters and inventory; navigation never spends an action. */
-export function RouteScreen({ accountKey, state, error: loadError, box, partyIds, view, onView, onLocation, onState, onEditParty, onVisit, onBack, onRetry, onExpired, onPartyChanged, entry }: RouteScreenProps) {
+export function RouteScreen({ accountKey, state, error: loadError, box, partyIds, view, onView, onLocation, location, onState, onEditParty, onVisit, onBack, onRetry, onExpired, onPartyChanged, entry }: RouteScreenProps) {
   const [page, setPage] = useState<Page>(entry?.place === 'r1' && (entry.focus === 'encounter' || entry.focus === 'result') ? 'encounter' : entry?.place ?? 'map');
   const [from, setFrom] = useState<'map' | 'list'>('map');
-  const [selected, setSelected] = useState<'home' | 'r1'>(entry?.place ?? state?.trainerAt ?? 'home');
+  const [selected, setSelected] = useState<'home' | 'r1'>(entry?.place ?? location);
   const [spot, setSpot] = useState<TownDestinationId>(entry?.place === 'home' ? entry.spot : TOWN_START);
   const [bagOpen, setBagOpen] = useState(false);
   const [selectedBall, setSelectedBall] = useState<{ eventId: string; id: CaptureBallId } | null>(null);
@@ -196,7 +197,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     {pending && <Panel title="Recover your last action"><p className="text-sm">Your last request may already be saved. Retry it to recover the same result before making another choice.</p><button type="button" disabled={busy} onClick={() => void submit(pending)} className="ui-button-primary ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">{busy ? 'Checking…' : 'Retry last action'}</button></Panel>}
     {!state ? (!loadError && <Panel title="World"><p className="text-sm" role="status">Loading the map, actions, and Bag…</p></Panel>) : <>
       {page === 'map' && <>
-        <section className="ui-window m-2 p-1.5" aria-label="World map"><WorldMap places={state.places} trainerAt={state.trainerAt} selected={selected} view={view} onView={onView} onSelect={(id) => { if (id === 'home' || id === 'r1') setSelected(id); }} /><p className="mt-2 text-center text-xs text-ink-dim">Drag to look around · tap a place</p></section>
+        <section className="ui-window m-2 p-1.5" aria-label="World map"><WorldMap places={state.places} trainerAt={location} selected={selected} view={view} onView={onView} onSelect={(id) => { if (id === 'home' || id === 'r1') setSelected(id); }} /><p className="mt-2 text-center text-xs text-ink-dim">Drag to look around · tap a place</p></section>
         {selected === 'home' ? <TownSummary onEnter={() => openPlace('home', 'map')} />
           : <Panel title={placeTitle(route)}><p className="text-sm text-ink-dim">{route.blurb}</p><button type="button" onClick={() => openPlace('r1', 'map')} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[11px] uppercase">Visit {route.name}</button></Panel>}
       </>}

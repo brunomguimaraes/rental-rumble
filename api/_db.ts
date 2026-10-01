@@ -6,6 +6,8 @@ import { dirname, join } from 'node:path';
 import type { AbilityId, BaseStats, Build, Sign } from '../src/game/types.js';
 import type { CatchOrigin, MintSpec, OwnedMon } from '../src/game/box.js';
 import { expectedStats, isBaseStats } from '../src/game/growth.js';
+import type { TrainerIdentity } from '../src/game/trainer-identity.js';
+import { parseTrainerColors, type TrainerColors } from '../src/game/trainer-colors.js';
 
 // Turso (libSQL / SQLite) holds the optional account layer (users, Pokédex,
 // run history, single-use auth tokens). It's fast, has no autosuspend
@@ -52,6 +54,9 @@ const COLUMN_ADDS = [
   'alter table owned_pokemon add column stats text',
   // The saved party (JSON array of owned ids, lead first).
   'alter table profiles add column party text',
+  // Null keeps existing trainers out of first-entry setup.
+  'alter table profiles add column avatar_id text',
+  'alter table profiles add column avatar_colors text',
   // idle_sessions now holds every activity: training and exploration.
   'alter table idle_sessions add column mode text',
   'alter table idle_sessions add column rules_version integer',
@@ -95,7 +100,7 @@ export function isUniqueViolation(err: unknown): boolean {
 /** A query against columns or tables that `db:setup` has not added yet. */
 export function isMissingSchema(err: unknown): boolean {
   const t = errorText(err);
-  return t.includes('no such column') || t.includes('no such table');
+  return t.includes('no such column') || t.includes('no such table') || t.includes('has no column named');
 }
 
 /**
@@ -376,6 +381,8 @@ export interface ProfileRow {
   createdAt: number;
   /** The saved party as stored (owned ids, lead first), or null when never saved or unreadable. */
   party: string[] | null;
+  avatarId?: string | null;
+  avatarColors?: TrainerColors | null;
 }
 
 function rowToProfile(r: Record<string, unknown>): ProfileRow {
@@ -388,6 +395,8 @@ function rowToProfile(r: Record<string, unknown>): ProfileRow {
     currentRoute: String(r.current_route ?? 'r1'),
     createdAt: Number(r.created_at) || 0,
     party: Array.isArray(party) && party.every((id) => typeof id === 'string') ? (party as string[]) : null,
+    avatarId: typeof r.avatar_id === 'string' ? r.avatar_id : null,
+    avatarColors: parseTrainerColors(parseJson(r.avatar_colors)),
   };
 }
 
@@ -409,7 +418,7 @@ export async function updateProfileParty(db: Executor, uid: string, ids: string[
  */
 export async function insertProfileWithStarter(
   db: Db,
-  p: Omit<ProfileRow, 'starterId' | 'party'>,
+  p: Omit<ProfileRow, 'starterId' | 'party' | 'avatarId' | 'avatarColors'> & { identity?: TrainerIdentity },
   spec: MintSpec,
   now: number,
 ): Promise<OwnedMon> {
@@ -417,9 +426,15 @@ export async function insertProfileWithStarter(
   await db.batch(
     [
       {
-        sql: 'insert into profiles (user_id, profession, mentor, starter_id, current_route, created_at) values (?, ?, ?, ?, ?, ?)',
-        args: [p.userId, p.profession, p.mentor, id, p.currentRoute, p.createdAt],
+        sql: p.identity
+          ? 'insert into profiles (user_id, profession, mentor, starter_id, current_route, created_at, avatar_id, avatar_colors) values (?, ?, ?, ?, ?, ?, ?, ?)'
+          : 'insert into profiles (user_id, profession, mentor, starter_id, current_route, created_at) values (?, ?, ?, ?, ?, ?)',
+        args: [p.userId, p.profession, p.mentor, id, p.currentRoute, p.createdAt, ...(p.identity ? [p.identity.avatarId, JSON.stringify(p.identity.colors)] : [])],
       },
+      ...(p.identity ? [{
+        sql: 'update users set display_name = ? where id = ?',
+        args: [p.identity.displayName, p.userId],
+      }] : []),
       {
         sql: `insert into owned_pokemon
               (id, user_id, dex_id, level, exp, stats, sign, ability, build, shiny, alt_color, emotion, origin, caught_at)
