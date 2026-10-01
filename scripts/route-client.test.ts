@@ -4,7 +4,7 @@ import {
   runRouteCommand, savePendingRouteCommand, searchRoute, shouldApplyHydratedBox, tradeMarket, type RouteCommand,
 } from '../src/game/route-actions-client.js';
 import type { RouteState } from '../src/game/route-actions.js';
-import { inventoryChangeText, moneyChangeText, tradeText } from '../src/components/world/route-copy.js';
+import { inventoryChangeText, moneyChangeText, resultFind, tradeText } from '../src/components/world/route-copy.js';
 
 let passed = 0;
 let failed = 0;
@@ -112,6 +112,13 @@ check('a pending trade survives a reload with its request ID', JSON.stringify(re
 clearPendingRouteCommand('trainer-m');
 check('valuables use their plural', inventoryChangeText({ itemId: 'tiny-mushroom', quantity: 2 }) === '+2 Tiny Mushrooms added to your Bag.' && inventoryChangeText({ itemId: 'honey', quantity: 1 }) === '+1 Honey added to your Bag.');
 check('battle and pouch money read as earnings', moneyChangeText({ kind: 'wild', money: 100 }) === '+₽100 prize money.' && moneyChangeText({ kind: 'item', money: 300 }) === 'Found a coin pouch: +₽300.' && moneyChangeText({ kind: 'wild', money: 0 }) === null && moneyChangeText({ kind: 'wild' }) === null);
+const honeyFind = resultFind({ items: [{ itemId: 'honey', quantity: 2 }], money: 0 });
+check('an Explore find of Honey is shown as Honey, not capture supplies', honeyFind?.kind === 'item' && honeyFind.item.id === 'honey');
+const ballFind = resultFind({ items: [{ itemId: 'poke', quantity: -1 }, { itemId: 'great', quantity: 3 }] });
+check('a ball find is shown by the ball it granted, skipping used balls', ballFind?.kind === 'item' && ballFind.item.id === 'great');
+const pouch = resultFind({ items: [], money: 300 });
+check('a coin pouch with no items is shown as money', pouch?.kind === 'money' && pouch.amount === 300);
+check('a find with no grant and no money has nothing to show', resultFind({ items: [] }) === null);
 check("trade receipts read in the player's words", tradeText({ itemId: 'poke', side: 'buy', quantity: 3, total: 600 }) === 'Bought 3 Poké Balls for ₽600.' && tradeText({ itemId: 'honey', side: 'sell', quantity: 1, total: 150 }) === 'Sold 1 Honey for ₽150.');
 
 console.log(`${passed} passed, ${failed} failed`);

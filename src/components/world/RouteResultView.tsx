@@ -1,20 +1,30 @@
 import type { OwnedMon } from '../../game/box';
 import { ownedMonToCreature } from '../../game/box';
 import { ballUrl } from '../../game/balls';
-import { itemById } from '../../game/items';
+import { formatMoney, itemById } from '../../game/items';
 import { asAltColor, asShiny, CREATURES_BY_ID, portraitUrl, spriteUrl } from '../../game/pokemon';
 import type { RouteEvent } from '../../game/route-actions';
-import { MEADOW_LANDMARKS } from '../../game/route-rules';
+import { MEADOW_LANDMARKS, ROUTE_RULES } from '../../game/route-rules';
 import { ExpBar } from '../ui/ExpBar';
 import { PixelSprite } from '../ui/PixelSprite';
 import { MeadowScene } from './MeadowScene';
 import { growthLines, monName, POKEBALL, speciesName } from './scene';
-import { inventoryChangeText } from './route-copy';
+import { inventoryChangeText, moneyChangeText, resultFind, type ResultFind } from './route-copy';
 
 const OUTCOME_LABEL = {
   caught: 'A new companion!', escaped: 'The Pokémon escaped', won: 'Battle won!', lost: 'A tough encounter',
   left: 'Onward to the meadow', talked: 'A moment on the path', accepted: 'Meadow survey accepted', found: 'A little discovery!',
 };
+
+/** A find with no Pokémon or person: the ball, valuable, or coin pouch it turned up. */
+function FindArt({ find }: { find: ResultFind | null }) {
+  if (find?.kind === 'money') return <p className="mt-10 rounded-[3px] border border-window-rim bg-window px-4 py-3 text-center shadow-[3px_3px_0_var(--color-edge)]"><span className="block font-label text-[10px] uppercase text-info">Coin pouch</span><span className="mt-1 block text-2xl text-accent">{formatMoney(find.amount)}</span></p>;
+  if (find?.kind === 'item' && find.item.category === 'valuable') return <div className="mt-8 flex flex-col items-center gap-2">
+    <span className="rounded-[3px] border border-window-rim bg-slot p-4 shadow-[3px_3px_0_var(--color-edge)]"><img src={`${import.meta.env.BASE_URL}${find.item.icon}`} width={30} height={30} alt="" className="block [image-rendering:pixelated]" /></span>
+    <span className="rounded-[3px] border border-window-rim bg-window px-3 py-1 font-label text-[10px] uppercase text-ink shadow-[2px_2px_0_var(--color-edge)]">{find.item.name}</span>
+  </div>;
+  return <img src={ballUrl(find?.item.id ?? 'poke')} width={96} height={96} alt="Capture supplies" className="mt-6 h-24 w-24 object-contain [image-rendering:pixelated]" />;
+}
 
 /** Keep the server's detailed growth and evolution receipts reachable without competing with the next action. */
 export function RouteBattleRewards({ event, box, onReplay }: { event: RouteEvent; box: OwnedMon[]; onReplay: () => void }) {
@@ -57,7 +67,7 @@ export function RouteResultView({ event, box, busy, onDone, onReplay }: {
         <div className="absolute left-1/2 top-[28%] -translate-x-1/2">
           {sprite ? <PixelSprite src={sprite} fallback={POKEBALL} size={192} alt={caught ? monName(caught) : event.foe ? speciesName(event.foe.dexId) : ''} />
             : event.npc ? <img src={`${import.meta.env.BASE_URL}sprites/trainers/${event.npc.spriteKey}.png`} width={192} height={192} alt={event.npc.name} className="h-48 w-48 object-contain [image-rendering:pixelated]" />
-              : <img src={ballUrl(event.items.find((item) => item.quantity > 0)?.itemId ?? 'poke')} width={96} height={96} alt="Capture supplies" className="mt-6 h-24 w-24 object-contain [image-rendering:pixelated]" />}
+              : <FindArt find={resultFind(event)} />}
         </div>
       </MeadowScene>
       <div className="border-t-2 border-window-frame p-3" aria-live="polite">
@@ -67,9 +77,10 @@ export function RouteResultView({ event, box, busy, onDone, onReplay }: {
         {event.members.filter((member) => member.before.dexId !== member.after.dexId).map((member) => <p key={member.id} className="mt-2 text-base text-accent">{speciesName(member.before.dexId)} evolved into {speciesName(member.after.dexId)}!</p>)}
         {event.outcome === 'lost' && <p className="text-sm text-ink-dim">No EXP earned this time. Your party is ready for another encounter.</p>}
         {event.outcome === 'left' && <p className="text-sm text-ink-dim">Your search action stays spent. Battle rewards and discoveries are saved.</p>}
-        {event.outcome === 'accepted' && <p className="text-sm">Find the three landmarks for 3 Great Balls. Earlier discoveries count. Check the survey below the route.</p>}
+        {event.outcome === 'accepted' && <p className="text-sm">Find the three landmarks for {ROUTE_RULES.questGreatBalls} Great Balls and {formatMoney(ROUTE_RULES.questMoney)}. Earlier discoveries count. Check the survey below the route.</p>}
         {event.outcome === 'talked' && <p className="text-sm">Your survey progress is saved. Check the survey below the route.</p>}
         {event.items.some((item) => item.quantity > 0) && <ul className="space-y-1 text-base text-accent">{event.items.filter((item) => item.quantity > 0).map((item) => <li key={item.itemId}>{inventoryChangeText(item)}</li>)}</ul>}
+        {moneyChangeText(event) && <p className="mt-2 text-sm text-accent">{moneyChangeText(event)}</p>}
         {event.newLandmarks.length > 0 && <p className="mt-2 text-sm text-accent">◆ Discovered: {event.newLandmarks.map((id) => MEADOW_LANDMARKS.find((landmark) => landmark.id === id)?.name ?? id).join(', ')}</p>}
         {event.newSeen.length > 0 && <p className="mt-2 text-sm text-ink-dim">First seen: {event.newSeen.map(speciesName).join(', ')}.</p>}
         <button type="button" disabled={busy} onClick={onDone} className="ui-button-primary ui-focus mt-4 min-h-12 w-full px-3 font-label text-[10px] uppercase">{busy ? 'Continuing…' : 'Continue exploring'}</button>

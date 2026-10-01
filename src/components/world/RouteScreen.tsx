@@ -6,6 +6,7 @@ import {
   clearPendingRouteCommand, dismissRouteResult, fetchRouteState, newRouteRequestId, readPendingRouteCommand,
   reconcileRouteState, runRouteCommand, savePendingRouteCommand, type RouteCommand,
 } from '../../game/route-actions-client';
+import { formatMoney } from '../../game/items';
 import { ROUTE_RULES } from '../../game/route-rules';
 import { TOWN_DESTINATIONS, type TownDestinationId } from '../../game/town';
 import { placeById, placeTitle, routeById } from '../../game/world';
@@ -125,7 +126,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
       if (reply.trade) setNotice(tradeText(reply.trade));
     } else {
       setPage('r1');
-      if (command.operation === 'quest-claim') setNotice(`Meadow survey complete. ${ROUTE_RULES.questGreatBalls} Great Balls are saved in your Bag.`);
+      if (command.operation === 'quest-claim') setNotice(`Meadow survey complete. ${ROUTE_RULES.questGreatBalls} Great Balls and ${formatMoney(ROUTE_RULES.questMoney)} are saved in your Bag.`);
     }
   };
 
@@ -184,7 +185,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
 
   return <div className="mx-auto min-h-[100dvh] max-w-[430px] px-2 py-4 pb-[max(2rem,env(safe-area-inset-bottom))] font-pixel text-ink">
     <header className="mb-4 flex items-center gap-2 px-2">
-      <button type="button" onClick={() => { setReplay(null); if (page === 'map' || page === 'list') onBack(); else if (page === 'encounter') setPage('r1'); else if (page === 'market') setPage('home'); else setPage(from); }} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">◀ {page === 'map' || page === 'list' ? 'Back' : page === 'encounter' ? 'Route' : page === 'market' ? 'Town' : 'Map'}</button>
+      <button type="button" onClick={() => { setReplay(null); setNotice(null); if (page === 'map' || page === 'list') onBack(); else if (page === 'encounter') setPage('r1'); else if (page === 'market') setPage('home'); else setPage(from); }} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">◀ {page === 'map' || page === 'list' ? 'Back' : page === 'encounter' ? 'Route' : page === 'market' ? 'Town' : 'Map'}</button>
       <h1 className="min-w-0 flex-1 font-label text-[12px] uppercase text-accent [text-shadow:2px_2px_0_#000]">{page === 'market' ? 'Village market' : page === 'home' ? home.name : page === 'r1' || page === 'encounter' ? route.name : 'Hearthvale'}</h1>
       {page === 'map' || page === 'list' ? <button type="button" onClick={() => setPage(page === 'map' ? 'list' : 'map')} aria-pressed={page === 'list'} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">{page === 'map' ? 'List' : 'Map'}</button>
         : <BagButton compact opensDialog disabled={!state} onClick={() => setBagOpen(true)} />}

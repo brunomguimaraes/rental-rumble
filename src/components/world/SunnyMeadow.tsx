@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { ownedMonToCreature, type OwnedMon } from '../../game/box';
-import { ballCount, itemQuantity } from '../../game/items';
+import { ballCount, formatMoney, itemQuantity } from '../../game/items';
 import { miniUrl } from '../../game/pokemon';
 import type { RouteState, SearchKind } from '../../game/route-actions';
-import { MEADOW_LANDMARKS, ROUTE_RULES } from '../../game/route-rules';
+import { guaranteesSupplies, MEADOW_LANDMARKS, ROUTE_RULES } from '../../game/route-rules';
 import { routeById } from '../../game/world';
 import { BagButton } from '../ui/BagButton';
 import { ExpBar } from '../ui/ExpBar';
@@ -14,7 +14,7 @@ import { formatDuration, growthLines, monName, POKEBALL, speciesName } from './s
 const SPOTS: readonly { kind: SearchKind; name: string; label: string; description: string; action: string; position: string }[] = [
   { kind: 'wild', name: 'Tall grass', label: 'Wild Pokémon', description: 'Something is rustling in the grass. Find a wild Pokémon to battle or catch.', action: 'Search the grass', position: 'left-[5%] top-[57%] h-[28%] w-[40%]' },
   { kind: 'npc', name: 'Meadow path', label: 'Meet someone', description: 'Meet a friendly trainer for a battle, or the Meadow Researcher with a survey.', action: 'Find someone', position: 'left-[62%] top-[33%] h-[30%] w-[34%]' },
-  { kind: 'explore', name: 'Meadow trail', label: 'Explore', description: 'Find Pokémon, people, or supplies. You may discover a landmark along the way.', action: 'Explore the meadow', position: 'left-[9%] top-[14%] h-[24%] w-[40%]' },
+  { kind: 'explore', name: 'Meadow trail', label: 'Explore', description: 'Find a wild Pokémon, an NPC, items, Honey and mushrooms, or a coin pouch. You may also discover a landmark.', action: 'Explore the meadow', position: 'left-[9%] top-[14%] h-[24%] w-[40%]' },
 ];
 
 /** Isolated clock avoids re-rendering the scene every second. Never credits actions locally. */
@@ -57,6 +57,7 @@ export function SunnyMeadow({ state, party, locked, busy, showSurvey, onSearch, 
   const [surveyOpen, setSurveyOpen] = useState(() => showSurvey || state.quest.status === 'ready');
   const spot = SPOTS.find((entry) => entry.kind === selected);
   const balls = ballCount(state.inventory);
+  const guaranteed = guaranteesSupplies(state.inventory);
   const starting = !state.activated || state.legacy.pending;
   const active = state.activeEvent;
   const noActions = state.allowance.available === 0;
@@ -100,11 +101,11 @@ export function SunnyMeadow({ state, party, locked, busy, showSurvey, onSearch, 
           <button type="button" disabled={locked} onClick={onRefresh} className="ui-button ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">Check for an action</button>
         </> : spot ? <>
           <div className="flex items-center justify-between gap-2"><h2 className="text-xl">{spot.name}</h2><span className="shrink-0 font-label text-[9px] uppercase text-accent">1 action</span></div>
-          <p className="mt-1 text-sm text-ink-dim">{spot.kind === 'explore' && balls === 0 ? `Your Bag is empty. Exploring guarantees ${ROUTE_RULES.pokeBundleQuantity} Poké Balls, and may reveal a landmark.` : spot.description}</p>
+          <p className="mt-1 text-sm text-ink-dim">{spot.kind === 'explore' && guaranteed ? `Your Bag is empty. Exploring guarantees ${ROUTE_RULES.pokeBundleQuantity} Poké Balls, and may reveal a landmark.` : spot.description}</p>
           <button type="button" disabled={!canSearch} onClick={() => onSearch(spot.kind)} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[10px] uppercase">{busy ? 'Searching…' : `${spot.action} · 1 action`}</button>
         </> : <>
           <p className="font-label text-[10px] uppercase text-info">Your next adventure</p><h2 className="mt-1 text-xl">Where will you go?</h2><p className="mt-2 text-sm text-ink-dim">Tap the tall grass, the path, or the trail above. Looking around is free; each search costs 1 action.</p>
-          {balls === 0 && <p className="mt-2 text-sm text-accent">No balls left? Choose Explore for guaranteed supplies.</p>}
+          {balls === 0 && <p className="mt-2 text-sm text-accent">{guaranteed ? 'No balls left? Choose Explore for guaranteed supplies.' : 'No balls left. Buy Poké Balls at the Village market in Hearth Town.'}</p>}
         </>}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-window-frame bg-slot p-2">
@@ -126,15 +127,16 @@ export function SunnyMeadow({ state, party, locked, busy, showSurvey, onSearch, 
 
     {surveyOpen && <section id="meadow-survey" className="ui-window m-2 mt-4 p-3" aria-label="Meadow survey">
       <h2 className="font-label text-[11px] uppercase text-info">Meadow survey</h2>
-      <p className="mt-2 text-sm text-ink-dim">{state.quest.status === 'not-accepted' ? 'Meet the Meadow Researcher on the path to start a survey. Earlier discoveries count.' : state.quest.status === 'claimed' ? 'Survey complete. Your Great Balls are in your Bag.' : `Discover all three landmarks to earn ${ROUTE_RULES.questGreatBalls} Great Balls.`}</p>
+      <p className="mt-2 text-sm text-ink-dim">{state.quest.status === 'not-accepted' ? 'Meet the Meadow Researcher on the path to start a survey. Earlier discoveries count.' : state.quest.status === 'claimed' ? 'Survey complete. Your reward is in your Bag.' : `Discover all three to receive ${ROUTE_RULES.questGreatBalls} Great Balls and ${formatMoney(ROUTE_RULES.questMoney)}.`}</p>
       <ul className="mt-3 space-y-2">{MEADOW_LANDMARKS.map((landmark) => <li key={landmark.id} className="rounded-[3px] bg-slot px-3 py-2 text-sm"><span className={discovered.includes(landmark.id) ? 'text-accent' : 'text-ink-dim'}>{discovered.includes(landmark.id) ? `◆ ${landmark.name}` : '◇ Undiscovered landmark'}</span>{discovered.includes(landmark.id) && <p className="mt-1 text-ink-dim">{landmark.blurb}</p>}</li>)}</ul>
-      {state.quest.status === 'ready' && <button type="button" disabled={locked} onClick={onClaim} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[10px] uppercase">Claim {ROUTE_RULES.questGreatBalls} Great Balls · free</button>}
+      {state.quest.status === 'ready' && <button type="button" disabled={locked} onClick={onClaim} className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[10px] uppercase">Claim reward · free</button>}
     </section>}
 
     {state.result && !active && <div className="mx-2 mt-4"><button type="button" onClick={onResult} className="ui-button ui-focus min-h-11 w-full px-3 text-sm">View your last encounter ›</button></div>}
     <details className="ui-window m-2 mt-4 p-3"><summary className="ui-focus min-h-8 rounded-[3px] font-label text-[10px] uppercase text-info">Field guide</summary>
       <p className="mt-2 text-sm text-ink-dim">Each search finds something. Battle to grow your party. Winning a wild battle improves your catch chance. You get one throw per encounter.</p>
       <p className="mt-2 text-sm text-ink-dim">Poké Balls: {itemQuantity(state.inventory, 'poke')} · Great Balls: {itemQuantity(state.inventory, 'great')}</p>
+      <p className="mt-1 text-sm text-ink-dim">Money: {formatMoney(state.inventory.money)}</p>
 
     </details>
     {(state.legacy.notice || state.legacy.result) && <details className="ui-window m-2 mt-4 p-3"><summary className="ui-focus min-h-8 rounded-[3px] font-label text-[10px] uppercase text-info">Your previous journey</summary>
