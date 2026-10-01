@@ -89,10 +89,12 @@ function animFor({ side, board, event, at, settled, live }: {
   return { kind: 'idle', loop: true, token: -1 };
 }
 
+// Children of the zero-size feet anchor get explicit widths: preflight's
+// `img { max-width: 100% }` would otherwise shrink their images to nothing.
 function BallFx({ side, ball }: { side: Side; ball: string }) {
   return (
-    <div className="pointer-events-none absolute bottom-6 left-0 z-20">
-      <span className="animate-ball-burst absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 bg-ink/80" />
+    <div className="pointer-events-none absolute -left-3 bottom-6 z-20 w-6">
+      <span className="animate-ball-burst burst-star absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 bg-ink" />
       <img
         src={ballUrl(ball)}
         alt=""
@@ -122,16 +124,15 @@ function Combatant({ side, board, anim, live, hit, shake, shakeKey, onAnimEnd }:
   const body = pmd ? pmdBody(view.dexId) : null;
   const bodyPx = body ? body.h * PMD_SCALE : FALLBACK_PX;
   const fallback = (
-    <div className="absolute bottom-0 left-0 -translate-x-1/2">
+    <div className="absolute bottom-0 left-0 -translate-x-1/2" style={{ width: FALLBACK_PX }}>
       <PixelSprite src={side === 'player' ? view.back : view.sprite} fallback={POKEBALL} size={FALLBACK_PX} alt="" />
     </div>
   );
   // The root is a zero-size feet anchor: the shadow centres on it, the sprite
   // stands on it, and the wrappers' transforms (materialize, shake) move the
-  // absolutely placed sprite around it.
+  // absolutely placed shadow and sprite around it.
   return (
     <div className="absolute h-0 w-0" style={{ ...ANCHOR[side].x, bottom: ANCHOR[side].bottom }}>
-      <div className="absolute left-0 top-0 h-2 w-16 -translate-x-1/2 -translate-y-1/2 bg-edge/60" />
       {hit && (
         <span
           key={hit.key}
@@ -144,6 +145,8 @@ function Combatant({ side, board, anim, live, hit, shake, shakeKey, onAnimEnd }:
       )}
       {live && <BallFx key={`ball-${board.spawnAt}`} side={side} ball={view.ball} />}
       <div key={`${view.dexId}-${board.spawnAt}`} className={live ? 'animate-materialize' : ''}>
+        {/* The shadow forms with the Pokémon; the shake below leaves it still. */}
+        <div className="absolute left-0 top-0 h-2 w-16 -translate-x-1/2 -translate-y-1/2 bg-edge/60" />
         <div key={`shake-${shakeKey}`} className={shake ? 'animate-shake' : ''}>
           {pmd ? (
             <PmdSprite
