@@ -94,6 +94,9 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
   const [resultOnly, setResultOnly] = useState(entry?.place === 'r1' && entry.focus === 'result');
   const currentState = useRef(state);
   useEffect(() => { currentState.current = state; }, [state]);
+  // Where the player is when a slow reply lands; a reply that does not need a page change must not take them back.
+  const currentPage = useRef(page);
+  useEffect(() => { currentPage.current = page; }, [page]);
 
   const adopt = (incoming: RouteState, nextBox?: OwnedMon[]) => {
     const next = reconcileRouteState(currentState.current, incoming);
@@ -174,8 +177,9 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
       const event = fresh.activeEvent ?? fresh.result;
       if (command.operation === 'choose' && command.input.choice === 'battle' && event?.id === command.input.eventId && event.battle) setReplay(event);
     } else if (command.operation === 'heal') {
-      setPage('center');
-      setNotice({ text: 'Your Pokémon are fully healed. We hope to see you again!', page: 'center' });
+      // Healing never moves the player: if they pressed Back while the nurse worked, confirm it where they are now.
+      const here = currentPage.current;
+      setNotice({ text: here === 'center' ? 'Your Pokémon are fully healed. We hope to see you again!' : 'Your Pokémon are fully healed.', page: here });
     } else if (command.operation === 'market-trade') {
       if (reply.trade) setNotice({ text: tradeText(reply.trade), page: 'market' });
     } else {
