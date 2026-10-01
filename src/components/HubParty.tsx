@@ -10,7 +10,7 @@ export function HubParty({ members, onEdit }: { members: OwnedMon[]; onEdit: () 
   const shown = recent.filter(({ creature }) => creature !== null).length;
 
   return (
-    <section aria-labelledby="hub-party-heading" className="ui-window mt-8 w-full max-w-[520px] self-center p-2 font-pixel">
+    <section aria-labelledby="hub-party-heading" className="ui-window w-full max-w-[520px] self-center p-2 font-pixel">
       <div className="mb-2 flex min-h-11 items-center justify-between gap-2 px-1">
         <h2 id="hub-party-heading" className="font-label text-[11px] uppercase tracking-wide text-info">
           Your party

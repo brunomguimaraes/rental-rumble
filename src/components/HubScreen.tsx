@@ -1,17 +1,22 @@
 import type { AccountUser } from '../game/account';
 import { ownedMonToCreature, type OwnedMon } from '../game/box';
+import { ballCount } from '../game/items';
 import type { Profile } from '../game/profile';
 import { professorById } from '../game/professions';
 import type { RouteState } from '../game/route-actions';
 import { HubParty } from './HubParty';
 import { HubActivity } from './HubActivity';
+import { HubTrainerBar } from './HubTrainerBar';
 import { Credits } from './Credits';
 import { PrivacyPolicy } from './PrivacyPolicy';
 import { InstallGuide } from './InstallGuide';
+import type { WorldEntry } from './world/RouteScreen';
+
+const ICON = (name: string) => `${import.meta.env.BASE_URL}sprites/ui/night/96/${name}.png`;
 
 export function HubScreen({
-  me, box, profile, party, world, worldError, serverOffsetMs,
-  onViewBox, onViewDex, onViewGuide, onViewAccount, onEditParty, onOpenMap, onOpenActivity, onOpenBag, onRetryWorld,
+  me, box, profile, party, world, worldError, location,
+  onViewBox, onViewDex, onViewGuide, onViewAccount, onEditParty, onOpenMap, onVisit, onOpenBag, onRetryWorld,
 }: {
   me: AccountUser;
   box: OwnedMon[];
@@ -20,14 +25,14 @@ export function HubScreen({
   party: OwnedMon[];
   world: RouteState | null;
   worldError: string | null;
-  serverOffsetMs: number;
+  location: 'home' | 'r1';
   onViewBox: () => void;
   onViewDex: () => void;
   onViewGuide: () => void;
   onViewAccount: () => void;
   onEditParty: () => void;
   onOpenMap: () => void;
-  onOpenActivity: () => void;
+  onVisit: (entry: WorldEntry) => void;
   onOpenBag: () => void;
   onRetryWorld: () => void;
 }) {
@@ -36,34 +41,39 @@ export function HubScreen({
   const starterCreature = starter ? ownedMonToCreature(starter) : null;
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-3xl flex-col px-5 py-8 sm:px-6">
-      <header className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <img src={`${import.meta.env.BASE_URL}sprites/ui/pokeball.png`} alt="" className="h-9 w-9 object-contain [image-rendering:pixelated]" />
-          <div>
-            <div className="bg-gradient-to-br from-white to-white/50 bg-clip-text text-xl font-black tracking-tight text-transparent">TRAINER {me.displayName?.toUpperCase() || ''}</div>
-            <div className="text-xs text-white/50">{professor?.name ?? 'Professor'}’s protégé{starterCreature ? ` · partner: ${starterCreature.name}` : ''}</div>
-          </div>
-        </div>
-        <button type="button" onClick={onViewAccount} className="rounded-full border border-white/15 bg-white/[0.03] px-4 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.08]">Account</button>
-      </header>
+    <div className="mx-auto flex min-h-[100dvh] max-w-[552px] flex-col gap-5 px-4 py-5 font-pixel text-ink">
+      <HubTrainerBar
+        displayName={me.displayName || ''}
+        mentorName={professor?.name ?? 'Professor'}
+        partner={starterCreature}
+        balls={world?.activated ? ballCount(world.inventory) : undefined}
+        onOpenSettings={onViewAccount}
+      />
 
-      <HubParty members={party} onEdit={onEditParty} />
       <HubActivity
         world={world}
         worldError={worldError}
-        serverOffsetMs={serverOffsetMs}
-        onOpenMap={onOpenMap}
-        onOpenActivity={onOpenActivity}
-        onOpenBag={onOpenBag}
-        onOpenBox={onViewBox}
+        location={location}
+        lead={party[0]}
+        onVisit={onVisit}
         onRetry={onRetryWorld}
       />
+      <HubParty members={party} onEdit={onEditParty} />
 
-      <nav className="mt-auto flex flex-wrap items-center justify-center gap-2 pt-10 text-xs">
-        {[{ label: 'Pokédex', on: onViewDex }, { label: 'Guide', on: onViewGuide }].map((l) => (
-          <button key={l.label} type="button" onClick={l.on} className="rounded-full border border-white/10 bg-white/[0.02] px-4 py-1.5 font-semibold text-white/60 hover:bg-white/[0.06] hover:text-white">{l.label}</button>
-        ))}
+      <nav aria-label="Trainer shortcuts" className="grid grid-cols-2 gap-3">
+        {[
+          { label: 'World map', icon: 'world-map', onClick: onOpenMap },
+          { label: 'Your box', icon: 'your-box', onClick: onViewBox },
+          { label: 'Bag', icon: 'item-bag', onClick: onOpenBag },
+          { label: 'Pokédex', icon: 'party', onClick: onViewDex },
+        ].map((link) => <button key={link.label} type="button" onClick={link.onClick} className="ui-button ui-focus flex min-h-16 items-center gap-2 px-2 text-left">
+          <img src={ICON(link.icon)} alt="" width={40} height={40} className="h-10 w-10 shrink-0 object-contain [image-rendering:pixelated]" />
+          <span className="font-label text-[10px] uppercase">{link.label}</span>
+        </button>)}
+      </nav>
+
+      <nav aria-label="Help and information" className="mt-auto flex flex-wrap items-center justify-center gap-2 py-4 text-xs">
+        <button type="button" onClick={onViewGuide} className="ui-button ui-focus min-h-11 px-3 font-label text-[9px] uppercase">Field guide</button>
         <span className="flex items-center gap-4 px-2">
           <InstallGuide />
           <Credits />

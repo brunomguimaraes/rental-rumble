@@ -46,8 +46,8 @@ export default function App() {
   const [world, setWorld] = useState<RouteState | null>(null);
   const worldRef = useRef<RouteState | null>(null);
   const [worldError, setWorldError] = useState<string | null>(null);
-  // Server time minus local time, so clocks on screen follow the server.
-  const [serverOffsetMs, setServerOffsetMs] = useState(0);
+  // Browsing a place is free. Keep the last visited scene while navigating this session.
+  const [visitedPlace, setVisitedPlace] = useState<'home' | 'r1' | null>(null);
   const [mapView, setMapView] = useState<MapView | null>(null);
   // Where the world screen opens: null is its map. While it is set, the party
   // editor, box and Pokédex go back to the world there instead of to the hub.
@@ -64,6 +64,7 @@ export default function App() {
     setWorld(null);
     worldRef.current = null;
     setWorldError(null);
+    setVisitedPlace(null);
     setHydrateFailed(false);
     setProfileChecked(false);
   };
@@ -82,7 +83,6 @@ export default function App() {
     setWorld(s);
     if (updatedBox) setBox(updatedBox);
     setWorldError(null);
-    setServerOffsetMs(s.serverNow - Date.now());
   };
 
   const refreshWorld = async () => {
@@ -162,6 +162,7 @@ export default function App() {
 
   const openWorld = (entry: WorldEntry | null = null) => {
     scrollToTop();
+    if (entry) setVisitedPlace(entry.place);
     setWorldEntry(entry);
     setPhase('world');
   };
@@ -226,14 +227,14 @@ export default function App() {
             party={partyMembers(partyIds, box)}
             world={world}
             worldError={worldError}
-            serverOffsetMs={serverOffsetMs}
+            location={visitedPlace ?? world?.trainerAt ?? 'home'}
             onViewBox={() => openScreen('box')}
             onViewDex={() => openScreen('dex')}
             onViewGuide={() => setPhase('guide')}
             onViewAccount={() => setPhase('account')}
             onEditParty={() => openScreen('party')}
             onOpenMap={() => openWorld()}
-            onOpenActivity={() => openWorld({ place: 'r1' })}
+            onVisit={openWorld}
             onOpenBag={() => setPhase('bag')}
             onRetryWorld={() => void refreshWorld()}
           />
@@ -259,6 +260,7 @@ export default function App() {
             partyIds={partyIds}
             view={mapView}
             onView={setMapView}
+            onLocation={setVisitedPlace}
             entry={worldEntry ?? undefined}
             onState={applyWorld}
             onPartyChanged={(party) => setProfile((p) => (p ? { ...p, party } : p))}
