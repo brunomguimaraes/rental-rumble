@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { ownedMonToCreature, type OwnedMon } from '../../game/box';
 import { isFainted } from '../../game/health';
 import { miniUrl } from '../../game/pokemon';
@@ -84,10 +85,12 @@ export function RouteBoard({ state, party, locked, busy, card, onCard, picked, o
           </button>;
         })}
       </div>
-      <div aria-live="polite" className="border-t-2 border-window-frame p-3">
-        {starting ? <p className="text-sm text-ink-dim">Begin with {ROUTE_RULES.initialActions} actions and {ROUTE_RULES.starterBalls} Poké Balls.{state.legacy.pending ? ' Your previous journey’s rewards will be saved first.' : ''}</p>
-          : card === 'quest' && !active ? <QuestPicker quests={state.quests} picked={quest?.id ?? null} disabled={locked} onPick={onPick} />
-            : <p className="text-sm text-ink-dim">{cardDescription(card, state.inventory)}</p>}
+      <div className="border-t-2 border-window-frame p-3">
+        <div aria-live="polite">
+          {starting ? <p className="text-sm text-ink-dim">Begin with {ROUTE_RULES.initialActions} actions and {ROUTE_RULES.starterBalls} Poké Balls.{state.legacy.pending ? ' Your previous journey’s rewards will be saved first.' : ''}</p>
+            : card === 'quest' && !active ? <QuestPicker quests={state.quests} picked={quest?.id ?? null} disabled={locked} onPick={onPick} />
+              : <p className="text-sm text-ink-dim">{cardDescription(card, state.inventory)}</p>}
+        </div>
         <BoardButton state={state} card={card} quest={quest} party={party} busy={busy} locked={locked} onRun={run} />
       </div>
     </section>
@@ -111,15 +114,19 @@ function StaminaChips({ state }: { state: RouteState }) {
   </div>;
 }
 
-/** The button and its reason, on a clock of their own so the scene doesn't re-render every second. */
+/**
+ * The button and its reason, on a clock of their own so the scene doesn't re-render every second. The reason
+ * describes the button and stays out of the live region, so its countdown isn't announced every minute.
+ */
 function BoardButton({ state, card, quest, party, busy, locked, onRun }: {
   state: RouteState; card: SearchKind; quest: RouteQuestView | null; party: OwnedMon[]; busy: boolean; locked: boolean; onRun: (action: BoardAction) => void;
 }) {
   const now = useServerClock(state.serverNow);
+  const reasonId = useId();
   const cta = boardCta({ state, card, quest, partySize: party.length, partyDown: party.length > 0 && party.every(isFainted), busy, now });
   return <>
-    {cta.reason && <p className="mt-2 text-sm text-accent">{cta.reason}</p>}
-    <button type="button" disabled={!cta.enabled || (locked && cta.action.type !== 'resume')} onClick={() => onRun(cta.action)}
+    {cta.reason && <p id={reasonId} className="mt-2 text-sm text-accent">{cta.reason}</p>}
+    <button type="button" aria-describedby={cta.reason ? reasonId : undefined} disabled={!cta.enabled || (locked && cta.action.type !== 'resume')} onClick={() => onRun(cta.action)}
       className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[11px] uppercase">{cta.label}</button>
   </>;
 }

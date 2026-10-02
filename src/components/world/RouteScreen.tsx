@@ -270,7 +270,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     else setPage(from);
   };
 
-  const boardShown = page === 'r1' && !awayFrom;
+  const boardShown = Boolean(state) && page === 'r1' && !awayFrom;
   return <div className="mx-auto min-h-[100dvh] max-w-[430px] px-2 py-4 pb-[max(2rem,env(safe-area-inset-bottom))] font-pixel text-ink">
     <header className="mb-4 flex items-center gap-2 px-2">
       <button type="button" disabled={capture !== null} onClick={goBack} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">◀ {back}</button>
