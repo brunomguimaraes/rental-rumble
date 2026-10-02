@@ -72,6 +72,35 @@ export function applyMoves(board: PuzzleBoard, moves: readonly number[]): number
   return current;
 }
 
+/**
+ * The same slides without their detours: replays `moves` from `board` and, whenever a board repeats, cuts the path back
+ * to where that board was first reached. The result ends on the same board and never visits a board twice, so a long,
+ * wandering solve still fits MAX_PUZZLE_MOVES. A list with an illegal move comes back as sent, for the server to refuse.
+ */
+export function simplifyMoves(board: PuzzleBoard, moves: readonly number[]): number[] {
+  const path: number[] = [];
+  // trail[i] is the board after the path's first i moves; reachedAt maps each of those boards back to i.
+  const trail = [board.join()];
+  const reachedAt = new Map([[trail[0], 0]]);
+  let current: PuzzleBoard = board;
+  for (const move of moves) {
+    const next = applyMove(current, move);
+    if (!next) return [...moves];
+    current = next;
+    const key = next.join();
+    const at = reachedAt.get(key);
+    if (at === undefined) {
+      path.push(move);
+      trail.push(key);
+      reachedAt.set(key, path.length);
+    } else {
+      while (trail.length > at + 1) reachedAt.delete(trail.pop()!);
+      path.length = at;
+    }
+  }
+  return path;
+}
+
 /** A solvable scramble: legal slides from the solved board, never undoing the slide before. */
 export function generatePuzzle(seed: string, rules: PuzzleRules): number[] {
   const rng = new RNG(seed);

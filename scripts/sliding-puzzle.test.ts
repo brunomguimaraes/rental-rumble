@@ -1,7 +1,8 @@
 /** Sliding-panel puzzles: seeded scrambles that are always solvable, legal moves only, and a solved check. */
 import {
-  applyMove, applyMoves, generatePuzzle, isSolved, manhattan, neighbours, solvedBoard,
+  applyMove, applyMoves, generatePuzzle, isSolved, manhattan, neighbours, simplifyMoves, solvedBoard,
 } from '../src/game/sliding-puzzle.js';
+import { RNG } from '../src/game/rng.js';
 
 let passed = 0;
 let failed = 0;
@@ -42,6 +43,40 @@ check('every scramble holds each panel and the gap once', boards.every((b) => sa
 check('every scramble is solvable', boards.every((b) => inversions(b) % 2 === 0));
 check('every scramble is at least distance 10 from solved', boards.every((b) => manhattan(b) >= 10 && !isSolved(b)));
 check('scrambles vary from seed to seed', new Set(boards.map((b) => b.join())).size > 450);
+
+// A solve sends its slides without detours, so wandering never pushes it past MAX_PUZZLE_MOVES.
+const start = boards[3];
+const firstSlide = neighbours(start.indexOf(0), 3)[0];
+check('a slide and the slide straight back cancel out', same(simplifyMoves(start, [firstSlide, start.indexOf(0)]), []));
+check('no slides stay no slides', same(simplifyMoves(start, []), []));
+// The gap walks a snake through every square once, so no board repeats; walking it back is a loop-free solution.
+const snaked = applyMoves(solvedBoard(3), [7, 6, 3, 4, 5, 2, 1, 0])!;
+const loopFree = [1, 2, 5, 4, 3, 6, 7, 8];
+const rotation = [1, 0, 3, 4, 1, 0, 3, 4, 1, 0, 3, 4];
+const midway = applyMoves(snaked, loopFree.slice(0, 4))!;
+const wandering = [...loopFree.slice(0, 4), 1, 4, ...rotation, ...loopFree.slice(4)];
+const shortened = simplifyMoves(snaked, wandering);
+check('a solution with a wandering loop still solves, and is no longer than without it', isSolved(applyMoves(snaked, loopFree) ?? []) && same(applyMoves(midway, rotation), midway)
+  && isSolved(applyMoves(snaked, shortened) ?? []) && shortened.length <= loopFree.length && wandering.length > loopFree.length);
+const walks = Array.from({ length: 300 }, (_, i) => {
+  const rng = new RNG(`walk-${i}`);
+  const moves: number[] = [];
+  let board: readonly number[] = start;
+  for (let n = rng.int(0, 400); n > 0; n--) {
+    const move = rng.pick(neighbours(board.indexOf(0), 3));
+    moves.push(move);
+    board = applyMove(board, move)!;
+  }
+  return { moves, end: board, short: simplifyMoves(start, moves) };
+});
+check('a shortened walk ends on the same board as the walk', walks.every((w) => same(applyMoves(start, w.short), w.end)));
+check('a shortened walk never comes back to a board it has left', walks.every((w) => {
+  const seen = [start.join()];
+  let board: readonly number[] = start;
+  for (const move of w.short) { board = applyMove(board, move) ?? []; seen.push(board.join()); }
+  return new Set(seen).size === seen.length;
+}) && walks.some((w) => w.short.length < w.moves.length));
+check('an illegal list comes back as sent, for the server to refuse', same(simplifyMoves(nearlySolved, [8, 0, 7]), [8, 0, 7]));
 
 console.log(`Sliding puzzle: ${passed} passed, ${failed} failed.`);
 process.exit(failed ? 1 : 0);
