@@ -53,7 +53,7 @@ export function BagScreen({ inventory, error, onBack, onRetry, onExplore, catchC
         <h2 className="font-label text-[11px] uppercase text-info">Valuables</h2>
         <p className="mt-2 text-sm text-ink-dim">Sell these at the Village market in Hearth Town.</p>
         {VALUABLE_ITEMS.every((item) => itemQuantity(inventory, item.id) === 0)
-          ? <p className="mt-3 text-sm">None yet. Explore Sunny Meadow to find Honey and mushrooms.</p>
+          ? <p className="mt-3 text-sm">None yet. Forage in Sunny Meadow to find Honey and mushrooms.</p>
           : <ul className="mt-3 flex flex-col gap-3">{VALUABLE_ITEMS.filter((item) => itemQuantity(inventory, item.id) > 0).map((item) => <li key={item.id} className="flex items-center gap-3 rounded-[3px] bg-slot p-3"><img src={`${import.meta.env.BASE_URL}${item.icon}`} alt="" width={30} height={30} className="shrink-0 [image-rendering:pixelated]" /><span className="min-w-0 flex-1 text-base">{item.name}</span><span className="font-label text-[11px] uppercase" aria-label={`${itemQuantity(inventory, item.id)} owned`}>×{itemQuantity(inventory, item.id)}</span></li>)}</ul>}
       </section>}
     </div>

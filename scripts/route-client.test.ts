@@ -4,7 +4,7 @@ import {
   runRouteCommand, savePendingRouteCommand, searchRoute, shouldApplyHydratedBox, tradeMarket, travelRoute, type RouteCommand,
 } from '../src/game/route-actions-client.js';
 import type { RouteEvent, RouteQuestView, RouteState } from '../src/game/route-actions.js';
-import { foragedText, inventoryChangeText, moneyChangeText, nothingLine, resultFind, tradeText, travelBlock } from '../src/components/world/route-copy.js';
+import { battleRewardText, foragedText, inventoryChangeText, moneyChangeText, nothingLine, refillText, resultFind, tradeText, travelBlock } from '../src/components/world/route-copy.js';
 import { placeHighlights } from '../src/components/world/place-highlights.js';
 import { boardCta, cardDescription, costText, pickQuest, questLine } from '../src/components/world/route-board.js';
 
@@ -159,6 +159,13 @@ check('a forage title names its find, singular or plural', foragedText([{ itemId
   && foragedText([{ itemId: 'tiny-mushroom', quantity: 1 }]) === 'You foraged 1 Tiny Mushroom' && foragedText([{ itemId: 'tiny-mushroom', quantity: 2 }]) === 'You foraged 2 Tiny Mushrooms');
 check('a forage title skips used items, and is null with no find', foragedText([{ itemId: 'poke', quantity: -1 }, { itemId: 'big-mushroom', quantity: 1 }]) === 'You foraged 1 Big Mushroom'
   && foragedText([{ itemId: 'honey', quantity: -1 }]) === null);
+check('the board chip names the next action in short form, and "now" once it is due', refillText(0) === 'now' && refillText(-5_000) === 'now'
+  && refillText(6 * 60_000) === '6m' && refillText(65 * 60_000) === '1h 5m' && refillText(60 * 60_000) === '1h');
+check('a part minute on the chip rounds up, never to "0m"', refillText(1) === '1m' && refillText(5 * 60_000 + 1) === '6m');
+check('the Battle button promises ₽ only where a win pays it', battleRewardText({ kind: 'trainer', rulesVersion: 4 }) === 'Earn EXP and ₽ on a win'
+  && battleRewardText({ kind: 'wild', rulesVersion: 3 }) === 'Earn EXP and ₽ on a win' && battleRewardText({ kind: 'trainer', rulesVersion: 3 }) === 'Earn EXP and ₽ on a win'
+  && battleRewardText({ kind: 'wild', rulesVersion: 4 }) === 'Earn EXP on a win' && battleRewardText({ kind: 'wild', rulesVersion: 2 }) === 'Earn EXP on a win'
+  && battleRewardText({ kind: 'trainer', rulesVersion: 2 }) === 'Earn EXP on a win');
 const panelsEvent: RouteEvent = { ...wild, id: 'panels', kind: 'puzzle', phase: 'puzzle', foe: null, newSeen: [], choices: ['solve', 'leave'], catchChances: null,
   puzzle: { size: 3, board: [1, 2, 3, 4, 5, 6, 7, 0, 8], scene: 'signpost', reward: [{ itemId: 'great', quantity: 1 }] } };
 check('an open puzzle is a highlight that resumes it', placeHighlights({ ...state, activeEvent: panelsEvent })[0]?.kind === 'puzzle' && placeHighlights({ ...state, activeEvent: panelsEvent })[0]?.focus === 'encounter');

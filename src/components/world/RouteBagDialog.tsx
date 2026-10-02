@@ -50,7 +50,7 @@ export function RouteBagDialog({ state, event, busy, onClose, onSelect }: {
       <h3 className="font-label text-[11px] uppercase text-info">Valuables</h3>
       <p className="mt-2 text-sm text-ink-dim">Sell these at the Village market in Hearth Town.</p>
       {valuables.length === 0
-        ? <p className="mt-3 text-sm">None yet. Explore Sunny Meadow to find Honey and mushrooms.</p>
+        ? <p className="mt-3 text-sm">None yet. Forage in Sunny Meadow to find Honey and mushrooms.</p>
         : <ul className="mt-3 flex flex-col gap-3">{valuables.map((item) => <li key={item.id} className="flex items-center gap-3 rounded-[3px] bg-slot p-3"><img src={`${import.meta.env.BASE_URL}${item.icon}`} alt="" width={30} height={30} className="shrink-0 [image-rendering:pixelated]" /><span className="min-w-0 flex-1 text-base">{item.name}</span><span className="font-label text-[11px] uppercase" aria-label={`${itemQuantity(state.inventory, item.id)} owned`}>×{itemQuantity(state.inventory, item.id)}</span></li>)}</ul>}
     </section>}
   </dialog>;

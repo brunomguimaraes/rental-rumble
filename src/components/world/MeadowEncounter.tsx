@@ -10,6 +10,7 @@ import { HpBar } from '../ui/HpBar';
 import { PixelSprite } from '../ui/PixelSprite';
 import { MeadowScene } from './MeadowScene';
 import { FaintedNote, RouteBattleRewards } from './RouteResultView';
+import { battleRewardText } from './route-copy';
 import { monName, POKEBALL, speciesName } from './scene';
 
 export function MeadowEncounter({ event, state, box, locked, busy, selectedBall, onSelectBall, onChoose, onBag, onReplay }: {
@@ -77,7 +78,7 @@ export function MeadowEncounter({ event, state, box, locked, busy, selectedBall,
         </div> : <>
           {event.kind === 'wild' && <p className="mt-2 text-sm text-ink-dim">{event.phase === 'catch' ? 'Winning improved your catch chance. Choose a ball for your one throw.' : 'Battle to earn EXP and improve your catch chance, or try a catch right away.'}</p>}
           <div className="mt-3 grid grid-cols-2 gap-3">
-            {event.choices.includes('battle') && <button type="button" disabled={locked} onClick={() => onChoose('battle')} className="ui-button-primary ui-focus min-h-14 px-2 font-label text-[10px] uppercase">{busy ? 'Battling…' : 'Battle'}<span className="mt-1 block font-pixel text-xs normal-case">Earn EXP and ₽ on a win</span></button>}
+            {event.choices.includes('battle') && <button type="button" disabled={locked} onClick={() => onChoose('battle')} className="ui-button-primary ui-focus min-h-14 px-2 font-label text-[10px] uppercase">{busy ? 'Battling…' : 'Battle'}<span className="mt-1 block font-pixel text-xs normal-case">{battleRewardText(event)}</span></button>}
             {canCatch && <button type="button" disabled={!canChooseBall} onClick={onBag} className={`${event.phase === 'catch' ? 'ui-button-primary col-span-2' : 'ui-button'} ui-focus min-h-14 px-2 font-label text-[10px] uppercase`}>Catch<span className="mt-1 block font-pixel text-xs normal-case">Choose a ball · one throw</span></button>}
             {event.choices.includes('accept') && <button type="button" disabled={locked} onClick={() => onChoose('accept')} className="ui-button-primary ui-focus col-span-2 min-h-12 px-3 font-label text-[10px] uppercase">Accept Meadow survey</button>}
             {event.choices.includes('talk') && <button type="button" disabled={locked} onClick={() => onChoose('talk')} className="ui-button-primary ui-focus col-span-2 min-h-12 px-3 font-label text-[10px] uppercase">Finish conversation</button>}

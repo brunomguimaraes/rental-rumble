@@ -11,6 +11,12 @@ function direction(index: number, gap: number, size: number): 'up' | 'down' | 'l
   return index === gap - 1 ? 'right' : 'left';
 }
 
+/** A panel's name: its number and cell, and which way it slides when it can ("Panel 6, row 2, column 3, slide left"). */
+function panelName({ value, index, gap, size, movable }: { value: number; index: number; gap: number; size: number; movable: boolean }): string {
+  const cell = `Panel ${value}, row ${Math.floor(index / size) + 1}, column ${(index % size) + 1}`;
+  return movable ? `${cell}, slide ${direction(index, gap, size)}` : cell;
+}
+
 const rewardText = (puzzle: PublicPuzzle) => puzzle.reward.map((item) => {
   const def = itemById(item.itemId);
   return `${item.quantity} ${item.quantity === 1 ? def?.name ?? item.itemId : def?.plural ?? item.itemId}`;
@@ -50,8 +56,11 @@ export function PuzzleView({ puzzle, busy, locked, onSolve, onLeave }: {
   return <section className="ui-window m-2" aria-labelledby={heading} aria-busy={busy}>
     <div className="flex items-center justify-between gap-2 border-b-2 border-window-frame px-3 py-2">
       <h2 id={heading} className="font-label text-[10px] uppercase text-info">Stone panels</h2>
-      <span role="status" className="font-label text-[10px] uppercase text-ink">{solved ? 'Solved!' : `Moves ${play.moves.length}`}</span>
+      {/* Not a live region: a count read out after every slide is noise. Only the solve is announced, below. */}
+      <span className="font-label text-[10px] uppercase text-ink">{solved ? 'Solved!' : `Moves ${play.moves.length}`}</span>
     </div>
+    {/* Present and empty from the start, so the one announcement is heard when the picture is whole. */}
+    <p role="status" className="sr-only">{solved ? 'Solved! Checking your solution.' : ''}</p>
     <div className="p-3">
       <div className="flex items-start gap-3">
         <span aria-hidden="true" className="h-16 w-16 shrink-0 border-2 border-edge bg-no-repeat" style={scenePreviewStyle(puzzle.scene)} />
@@ -62,7 +71,7 @@ export function PuzzleView({ puzzle, busy, locked, onSolve, onLeave }: {
           const index = play.board.indexOf(value);
           return <button key={value} type="button"
             disabled={locked || solved || !movable.includes(index)} onClick={() => slide(index)}
-            aria-label={!solved && movable.includes(index) ? `Panel ${value}, slide ${direction(index, gap, size)}` : `Panel ${value}`}
+            aria-label={panelName({ value, index, gap, size, movable: !solved && movable.includes(index) })}
             className="ui-focus absolute border border-edge bg-no-repeat focus-visible:z-10 motion-safe:transition-[left,top] motion-safe:duration-150 motion-safe:ease-[steps(3)]"
             style={{ ...panelStyle(puzzle.scene, value, size), left: `${(index % size) * cell}%`, top: `${Math.floor(index / size) * cell}%`, width: `${cell}%`, height: `${cell}%` }}>
             <span aria-hidden="true" className="absolute left-0 top-0 bg-edge px-1 font-label text-[9px] text-ink">{value}</span>

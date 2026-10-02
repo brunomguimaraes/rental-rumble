@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { OwnedMon } from '../../game/box';
 import { ownedMonToCreature } from '../../game/box';
 import { ballUrl } from '../../game/balls';
@@ -81,10 +82,14 @@ export function RouteResultView({ event, box, busy, surveyProgress = null, onDon
   const foraged = event.searchKind === 'forage' ? foragedText(event.items) : null;
   const title = foraged ?? (event.kind === 'secret' ? 'A secret in the meadow!' : event.kind === 'landmark' ? 'Landmark surveyed' : event.outcome ? OUTCOME_LABEL[event.outcome] : 'Battle rewards');
   const exp = event.members.reduce((sum, member) => sum + member.expGained, 0);
+  const heading = useRef<HTMLHeadingElement>(null);
+  // The result replaces the screen the player acted on, where focus was (a solved puzzle's panels are disabled by then).
+  // Move it to the title once, so the outcome is read out and the next Tab starts here.
+  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
   return <>
     <section className="ui-window m-2" aria-label="Encounter result">
       <MeadowScene className="min-h-[340px]">
-        <div className="absolute left-3 right-3 top-3 rounded-[3px] border border-window-rim bg-window px-3 py-2 text-center shadow-[3px_3px_0_var(--color-edge)]"><p className="font-label text-[9px] uppercase text-info">Encounter complete</p><h2 className="mt-1 text-xl text-accent">{title}</h2></div>
+        <div className="absolute left-3 right-3 top-3 rounded-[3px] border border-window-rim bg-window px-3 py-2 text-center shadow-[3px_3px_0_var(--color-edge)]"><p className="font-label text-[9px] uppercase text-info">Encounter complete</p><h2 ref={heading} tabIndex={-1} className="ui-focus mt-1 rounded-[3px] text-xl text-accent">{title}</h2></div>
         <div className="absolute left-1/2 top-[28%] -translate-x-1/2">
           {sprite ? <PixelSprite src={sprite} fallback={POKEBALL} size={192} alt={caught ? monName(caught) : event.foe ? speciesName(event.foe.dexId) : ''} />
             : event.npc ? <img src={`${import.meta.env.BASE_URL}sprites/trainers/${event.npc.spriteKey}.png`} width={192} height={192} alt={event.npc.name} className="h-48 w-48 object-contain [image-rendering:pixelated]" />

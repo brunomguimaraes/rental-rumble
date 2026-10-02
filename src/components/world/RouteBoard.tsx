@@ -12,7 +12,7 @@ import { useServerClock } from '../ui/useServerClock';
 import { MeadowScene } from './MeadowScene';
 import { panelStyle } from './puzzle-art';
 import { BOARD_CARDS, boardCta, cardDescription, pickQuest, QUEST_NAMES, questLine, type BoardAction } from './route-board';
-import { waitText } from './route-copy';
+import { refillText } from './route-copy';
 import { formatDuration, growthLines, monName, POKEBALL, speciesName } from './scene';
 
 const ASSET = import.meta.env.BASE_URL;
@@ -74,11 +74,12 @@ export function RouteBoard({ state, party, locked, busy, card, onCard, picked, o
           <span className="text-sm text-accent">Resume encounter ›</span>
         </button>}
       </MeadowScene>
+      {/* Cards and quest picks keep a bottom scroll margin, so keyboard focus scrolls them clear of the sticky button bar. */}
       <div role="group" aria-label="Actions" className="grid grid-cols-3 gap-2 border-t-2 border-window-frame p-2">
         {BOARD_CARDS.map((entry) => {
           const selected = card === entry.kind;
           return <button key={entry.kind} type="button" aria-pressed={selected} disabled={starting || Boolean(active)} onClick={() => onCard(entry.kind)}
-            className={`ui-focus relative flex min-h-24 flex-col items-center justify-between gap-1 rounded-[3px] border-2 bg-slot px-1 py-2 disabled:opacity-75 ${selected ? 'border-accent' : 'border-window-frame enabled:hover:border-window-rim'}`}>
+            className={`ui-focus relative flex min-h-24 scroll-mb-36 flex-col items-center justify-between gap-1 rounded-[3px] border-2 bg-slot px-1 py-2 disabled:opacity-75 ${selected ? 'border-accent' : 'border-window-frame enabled:hover:border-window-rim'}`}>
             <span className="grid h-16 place-items-center"><CardArt kind={entry.kind} /></span>
             <span className={`text-center font-label text-[9px] uppercase leading-tight ${selected ? 'text-accent' : 'text-ink'}`}>{entry.label}</span>
             {entry.kind === 'quest' && claimable && <span className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-[3px] border border-edge bg-accent font-label text-[10px] text-edge"><span aria-hidden="true">!</span><span className="sr-only">Reward ready</span></span>}
@@ -91,8 +92,8 @@ export function RouteBoard({ state, party, locked, busy, card, onCard, picked, o
             : card === 'quest' && !active ? <QuestPicker quests={state.quests} picked={quest?.id ?? null} disabled={locked} onPick={onPick} />
               : <p className="text-sm text-ink-dim">{cardDescription(card, state.inventory)}</p>}
         </div>
-        <BoardButton state={state} card={card} quest={quest} party={party} busy={busy} locked={locked} onRun={run} />
       </div>
+      <BoardButton state={state} card={card} quest={quest} party={party} busy={busy} locked={locked} onRun={run} />
     </section>
     <PartyStrip party={party} active={Boolean(active)} onEditParty={onEditParty} />
     {state.result && !active && <div className="mx-2 mt-4"><button type="button" onClick={onResult} className="ui-button ui-focus min-h-11 w-full px-3 text-sm">View your last encounter ›</button></div>}
@@ -100,23 +101,25 @@ export function RouteBoard({ state, party, locked, busy, card, onCard, picked, o
   </>;
 }
 
-/** The concept's Travel and Actions chips, with the wait for the next action below its cap. */
+/**
+ * The concept's Travel and Actions chips, with the wait for the next action below its cap. One short line, so the
+ * board's button stays in view on small phones.
+ */
 function StaminaChips({ state }: { state: RouteState }) {
   const now = useServerClock(state.serverNow);
   const next = state.allowance.nextRefillAt;
-  return <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-window-frame px-3 py-2">
-    <span className="font-label text-[9px] uppercase text-info">Route 01</span>
-    <span className="flex flex-wrap items-center justify-end gap-1 font-label text-[10px] uppercase">
-      <span className={`border border-window-rim bg-slot px-2 py-1 ${state.travel.available < 0 ? 'text-danger' : 'text-ink'}`}>Travel {state.travel.available}/{state.travel.capacity}</span>
-      <span className="border border-window-rim bg-slot px-2 py-1 text-ink">Actions {state.allowance.available}/{state.allowance.capacity}</span>
-      {next !== null && <span className="text-ink-dim">+1 in {waitText(Math.max(0, next - now))}</span>}
-    </span>
+  return <div className="flex flex-wrap items-center gap-1 border-b-2 border-window-frame px-3 py-2 font-label text-[10px] uppercase">
+    <span className={`border border-window-rim bg-slot px-2 py-1 ${state.travel.available < 0 ? 'text-danger' : 'text-ink'}`}>Travel {state.travel.available}/{state.travel.capacity}</span>
+    <span className="border border-window-rim bg-slot px-2 py-1 text-ink">Actions {state.allowance.available}/{state.allowance.capacity}</span>
+    {next !== null && <span className="px-1 text-ink-dim">{next <= now ? '+1 now' : `+1 in ${refillText(next - now)}`}</span>}
   </div>;
 }
 
 /**
  * The button and its reason, on a clock of their own so the scene doesn't re-render every second. The reason
  * describes the button and stays out of the live region, so its countdown isn't announced every minute.
+ * The bar sticks to the bottom of the screen while the board runs past it, so the button is always in view; it
+ * stays inside the board's window, so it never covers the party below.
  */
 function BoardButton({ state, card, quest, party, busy, locked, onRun }: {
   state: RouteState; card: SearchKind; quest: RouteQuestView | null; party: OwnedMon[]; busy: boolean; locked: boolean; onRun: (action: BoardAction) => void;
@@ -124,11 +127,11 @@ function BoardButton({ state, card, quest, party, busy, locked, onRun }: {
   const now = useServerClock(state.serverNow);
   const reasonId = useId();
   const cta = boardCta({ state, card, quest, partySize: party.length, partyDown: party.length > 0 && party.every(isFainted), busy, now });
-  return <>
-    {cta.reason && <p id={reasonId} className="mt-2 text-sm text-accent">{cta.reason}</p>}
+  return <div className="sticky bottom-0 z-10 flex flex-col gap-2 rounded-b-[6px] border-t-2 border-window-frame bg-window px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+    {cta.reason && <p id={reasonId} className="text-sm text-accent">{cta.reason}</p>}
     <button type="button" aria-describedby={cta.reason ? reasonId : undefined} disabled={!cta.enabled || (locked && cta.action.type !== 'resume')} onClick={() => onRun(cta.action)}
-      className="ui-button-primary ui-focus mt-3 min-h-12 w-full px-3 font-label text-[11px] uppercase">{cta.label}</button>
-  </>;
+      className="ui-button-primary ui-focus min-h-12 w-full px-3 font-label text-[11px] uppercase">{cta.label}</button>
+  </div>;
 }
 
 /** Each card's picture, from existing sprites and Night icons. */
@@ -156,7 +159,7 @@ function QuestPicker({ quests, picked, disabled, onPick }: { quests: RouteQuestV
     <legend className="font-label text-[9px] uppercase text-info">Your quests</legend>
     <ul className="mt-2 space-y-2">{quests.map((q) => <li key={q.id}>
       <label className={`flex min-h-11 items-center gap-2 rounded-[3px] border-2 bg-slot px-2 py-1 text-sm ${picked === q.id ? 'border-accent' : 'border-window-frame'} ${q.next ? '' : 'text-ink-dim'}`}>
-        <input type="radio" name="board-quest" value={q.id} checked={picked === q.id} disabled={!q.next} onChange={() => onPick(q.id)} className="ui-focus h-4 w-4 shrink-0 accent-accent" />
+        <input type="radio" name="board-quest" value={q.id} checked={picked === q.id} disabled={!q.next} onChange={() => onPick(q.id)} className="ui-focus h-4 w-4 shrink-0 scroll-mb-36 accent-accent" />
         <span className="min-w-0 flex-1"><span className="block">{QUEST_NAMES[q.id]}</span><span className="block text-xs text-ink-dim">{questLine(q)}</span></span>
       </label>
     </li>)}</ul>

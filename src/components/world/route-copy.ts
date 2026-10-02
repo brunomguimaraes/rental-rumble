@@ -43,6 +43,25 @@ export function waitText(ms: number): string {
   return rest ? `${hours} h ${rest} min` : `${hours} h`;
 }
 
+/** The board chip's short wait for the next action: "6m", "1h 5m", "1h", or "now" once it is due. */
+export function refillText(ms: number): string {
+  if (ms <= 0) return 'now';
+  const minutes = Math.ceil(ms / 60_000);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours}h ${rest}m` : `${hours}h`;
+}
+
+/**
+ * What winning the encounter's battle pays, as the Battle button says it. Mirrors `battlePrize`: rules v2 pay no ₽,
+ * trainers pay ₽ under v3 and v4, and wild Pokémon paid ₽ only under v3.
+ */
+export function battleRewardText(event: Pick<RouteEvent, 'kind' | 'rulesVersion'>): string {
+  const paysMoney = event.rulesVersion !== 2 && (event.kind === 'trainer' || (event.kind === 'wild' && event.rulesVersion === 3));
+  return paysMoney ? 'Earn EXP and ₽ on a win' : 'Earn EXP on a win';
+}
+
 /** Why a trip cannot start right now, or null. Mirrors the server's checks for a disabled button. */
 export function travelBlock({ quote, travel, encounterOpen, now }: { quote: TravelQuote | null; travel: MeterView; encounterOpen: boolean; now: number }): string | null {
   if (encounterOpen) return 'Finish or leave your encounter before you travel.';

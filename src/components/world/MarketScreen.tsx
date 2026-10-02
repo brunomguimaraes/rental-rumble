@@ -61,7 +61,7 @@ export function MarketScreen({ state, busy, onTrade }: {
     <div role="tabpanel" id={`${ids}-panel`} aria-labelledby={`${ids}-${side}`}>
       <p className="mt-3 text-sm text-ink-dim">{side === 'buy' ? 'Capture balls for your next trip to Sunny Meadow.' : 'The market buys balls at half price, and Honey and mushrooms you find while exploring.'}</p>
       {rows.length === 0
-        ? <p className="mt-3 text-sm">Nothing to sell yet. Explore Sunny Meadow to find Honey and mushrooms.</p>
+        ? <p className="mt-3 text-sm">Nothing to sell yet. Forage in Sunny Meadow to find Honey and mushrooms.</p>
         : <ul className="mt-3 flex flex-col gap-3">{rows.map((item) => <TradeRow key={`${side}:${item.id}`} item={item} side={side} state={state} busy={busy} onTrade={onTrade} />)}</ul>}
     </div>
   </section>;
