@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "public" / "sprites" / "ui" / "night"
 OUT = SRC / "96"
 SIZE = 96
-NAMES = ["world-map", "your-box", "explore", "party", "item-bag", "mail", "settings"]
+NAMES = ["world-map", "your-box", "explore", "party", "item-bag", "mail", "settings", "field-journal"]
 
 
 def derive(name: str) -> None:

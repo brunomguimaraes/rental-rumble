@@ -141,7 +141,7 @@ const wild: RouteEvent = {
   npc: null, choices: ['battle', 'catch', 'leave'], catchChances: { poke: 0.5, great: 0.7 },
   battle: null, members: [], catch: null, items: [], newSeen: [16], newLandmarks: [], outcome: null,
 };
-check('without a researcher Home offers a survey hint, not a new quest', placeHighlights(state).every((h) => h.label !== 'New quest' && h.focus === 'survey'));
+check('without a researcher Home offers a survey hint, not a new quest', placeHighlights(state).every((h) => h.label !== 'New quest' && h.focus === 'quest'));
 const newSighting = placeHighlights({ ...state, activeEvent: wild });
 check('first sighting opens the saved encounter and identifies its Pokémon', newSighting[0]?.label === 'New sighting' && newSighting[0]?.focus === 'encounter' && newSighting[0]?.dexId === 16);
 check('repeat wild visits do not claim a new sighting', placeHighlights({ ...state, activeEvent: { ...wild, newSeen: [] } })[0]?.label === 'In the tall grass');
@@ -150,7 +150,7 @@ check('a waiting researcher offers the actual quest interaction', placeHighlight
 for (const status of ['active', 'ready', 'claimed'] as const) {
   check(`a saved researcher conversation remains reachable when its survey is ${status}`, placeHighlights({ ...state, activeEvent: researcher, quest: { ...state.quest, status } }).some((h) => h.focus === 'encounter'));
 }
-check('earned survey rewards link to the survey, not another encounter', placeHighlights({ ...state, quest: { ...state.quest, status: 'ready' } })[0]?.focus === 'survey' && placeHighlights({ ...state, quest: { ...state.quest, status: 'ready' } })[0]?.label === 'Reward ready');
+check('earned survey rewards link to the survey, not another encounter', placeHighlights({ ...state, quest: { ...state.quest, status: 'ready' } })[0]?.focus === 'quest' && placeHighlights({ ...state, quest: { ...state.quest, status: 'ready' } })[0]?.label === 'Reward ready');
 check('claimed surveys do not keep advertising a quest or reward', placeHighlights({ ...state, quest: { ...state.quest, status: 'claimed' } }).length === 0);
 check('resolved sightings open results instead of reviving an encounter', placeHighlights({ ...state, result: { ...wild, phase: 'resolved', choices: [], outcome: 'left' } })[0]?.focus === 'result');
 check('survey progress counts only its required unique landmarks', placeHighlights({ ...state, quest: { ...state.quest, status: 'active', landmarks: ['signpost', 'signpost', 'unrelated'] } })[0]?.detail.startsWith('1 of 3'));

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { OwnedMon } from '../../game/box';
 import { partyMembers } from '../../game/party';
-import type { CaptureBallId, RouteCatch, RouteChoice, RouteEvent, RouteState, SearchKind } from '../../game/route-actions';
+import type { CaptureBallId, QuestId, RouteCatch, RouteChoice, RouteEvent, RouteState, SearchKind } from '../../game/route-actions';
 import {
   clearPendingRouteCommand, dismissRouteResult, fetchRouteState, newRouteRequestId, readPendingRouteCommand,
   reconcileRouteState, runRouteCommand, savePendingRouteCommand, type RouteCommand,
@@ -20,7 +20,7 @@ import { CatchSequence } from './CatchSequence';
 import { RouteResultView } from './RouteResultView';
 import { tradeText } from './route-copy';
 import { backdropUrl } from './scene';
-import { SunnyMeadow } from './SunnyMeadow';
+import { RouteBoard } from './RouteBoard';
 import { MarketScreen } from './MarketScreen';
 import { MeadowEncounter } from './MeadowEncounter';
 import { RouteBagDialog } from './RouteBagDialog';
@@ -34,7 +34,7 @@ type Page = 'map' | 'list' | 'home' | 'center' | 'r1' | 'encounter' | 'market';
  * Where the world screen opens instead of its map: Sunny Meadow, or inside Hearth Town at a destination.
  * `center` reopens the Pokémon Center itself, for screens opened from inside it.
  */
-export type WorldEntry = { place: 'r1'; focus?: 'encounter' | 'result' | 'survey' } | TownEntry;
+export type WorldEntry = { place: 'r1'; focus?: 'encounter' | 'result' | 'quest' } | TownEntry;
 export type TownEntry = { place: 'home'; spot: TownDestinationId; center?: true };
 
 function entryPage(entry: WorldEntry | undefined): Page {
@@ -243,9 +243,9 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     if (!event || locked) return;
     void submit({ operation: 'choose', input: { requestId: newRouteRequestId(), eventId: event.id, expectedRevision: event.revision, choice, ...(ballId ? { ballId } : {}) } });
   };
-  const search = (kind: SearchKind) => {
+  const search = (kind: SearchKind, questId?: QuestId) => {
     if (locked) return;
-    void submit({ operation: 'search', input: { requestId: newRouteRequestId(), locationId: 'r1', kind, partyIds } });
+    void submit({ operation: 'search', input: { requestId: newRouteRequestId(), locationId: 'r1', kind, partyIds, ...(questId ? { questId } : {}) } });
   };
   const travel = (to: 'home' | 'r1') => {
     if (locked) return;
@@ -267,6 +267,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
     else setPage(from);
   };
 
+  const boardShown = page === 'r1' && !awayFrom;
   return <div className="mx-auto min-h-[100dvh] max-w-[430px] px-2 py-4 pb-[max(2rem,env(safe-area-inset-bottom))] font-pixel text-ink">
     <header className="mb-4 flex items-center gap-2 px-2">
       <button type="button" disabled={capture !== null} onClick={goBack} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">◀ {back}</button>
@@ -274,7 +275,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
       {page === 'map' || page === 'list' ? <button type="button" onClick={() => setPage(page === 'map' ? 'list' : 'map')} aria-pressed={page === 'list'} className="ui-button ui-focus min-h-11 shrink-0 px-3 font-label text-[10px] uppercase">{page === 'map' ? 'List' : 'Map'}</button>
         : <BagButton compact opensDialog disabled={!state || capture !== null} onClick={() => setBagOpen(true)} />}
     </header>
-    {page !== 'encounter' && trainerBar && <div className="m-2">{trainerBar}</div>}
+    {page !== 'encounter' && !boardShown && trainerBar && <div className="m-2">{trainerBar}</div>}
 
     {(error || loadError) && <div role="alert" className="ui-window m-2 p-3 text-sm text-accent"><p>{error ?? loadError}</p><button type="button" disabled={busy} onClick={() => state ? void refresh() : onRetry()} className="ui-button ui-focus mt-2 min-h-11 px-3 font-label text-[10px] uppercase">Refresh route</button></div>}
     {notice?.page === page && <p role="status" className="ui-window m-2 p-3 text-sm">{notice.text}</p>}
@@ -295,12 +296,12 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
       {page === 'market' && !awayFrom && (state.activated && !state.legacy.pending
         ? <MarketScreen state={state} busy={locked} onTrade={(trade) => void submit({ operation: 'market-trade', input: { requestId: newRouteRequestId(), ...trade } })} />
         : <Panel title="Village market"><p className="text-sm">Begin exploring Sunny Meadow to open your account at the market.</p><button type="button" onClick={() => walkTo('r1')} className="ui-button-primary ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">Walk to Sunny Meadow</button></Panel>)}
-      {page === 'r1' && !awayFrom && <SunnyMeadow state={state} party={party} locked={locked} busy={busy}
-        showSurvey={entry?.place === 'r1' && entry.focus === 'survey'}
+      {boardShown && <RouteBoard state={state} party={party} locked={locked} busy={busy}
+        focusQuest={entry?.place === 'r1' && entry.focus === 'quest'}
         onSearch={search} onActivate={() => void submit({ operation: 'activate', input: { requestId: newRouteRequestId() } })}
         onResume={() => { setResultOnly(false); setPage('encounter'); scrollToTop(); }}
         onResult={() => { setResultOnly(true); setPage('encounter'); scrollToTop(); }}
-        onBag={() => setBagOpen(true)} onEditParty={onEditParty} onCenter={openCenter} onRefresh={() => void refresh()}
+        onEditParty={onEditParty} onCenter={openCenter} onRefresh={() => void refresh()}
         onClaim={() => void submit({ operation: 'quest-claim', input: { requestId: newRouteRequestId(), questId: 'meadow-survey' } })}
         onDismissLegacy={(id) => void dismissLegacy(id)} />}
       {page === 'encounter' && (capture ? <CatchSequence key={capture.requestId} event={capture.event} ballId={capture.ballId} result={capture.result} onDone={() => { setCapture(null); scrollToTop(); }} />

@@ -4,7 +4,7 @@ export interface PlaceHighlight {
   kind: 'sighting' | 'person' | 'discovery' | 'quest';
   label: string;
   detail: string;
-  focus: 'encounter' | 'result' | 'survey';
+  focus: 'encounter' | 'result' | 'quest';
   dexId?: number;
   spriteKey?: string;
 }
@@ -28,14 +28,14 @@ export function placeHighlights(state: RouteState): PlaceHighlight[] {
 
   const quest = state.quest;
   if (quest.status === 'ready') {
-    highlights.push({ kind: 'quest', label: 'Reward ready', detail: 'Your Meadow survey is complete. Collect your Great Balls.', focus: 'survey' });
+    highlights.push({ kind: 'quest', label: 'Reward ready', detail: 'Your Meadow survey is complete. Collect your Great Balls.', focus: 'quest' });
   } else if (quest.status === 'active') {
     const found = quest.required.filter((id) => quest.landmarks.includes(id)).length;
-    highlights.push({ kind: 'quest', label: 'Meadow survey', detail: `${found} of ${quest.required.length} landmarks recorded. Follow the trail to find more.`, focus: 'survey' });
+    highlights.push({ kind: 'quest', label: 'Meadow survey', detail: `${found} of ${quest.required.length} landmarks recorded. Follow the trail to find more.`, focus: 'quest' });
   } else if (quest.status === 'not-accepted' && active?.kind === 'researcher') {
     highlights.push({ kind: 'quest', label: 'New quest', detail: 'The Meadow Researcher has a survey for you.', focus: 'encounter', spriteKey: active.npc?.spriteKey });
   } else if (quest.status === 'not-accepted' && highlights.length === 0) {
-    highlights.push({ kind: 'quest', label: 'Meadow survey', detail: 'Look for the Meadow Researcher on the path to start a survey.', focus: 'survey' });
+    highlights.push({ kind: 'quest', label: 'Meadow survey', detail: 'Look for the Meadow Researcher on the path to start a survey.', focus: 'quest' });
   }
   return highlights;
 }
