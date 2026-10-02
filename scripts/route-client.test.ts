@@ -3,9 +3,10 @@ import {
   chooseRoute, clearPendingRouteCommand, fetchRouteState, healAtCenter, readPendingRouteCommand, reconcileRouteState,
   runRouteCommand, savePendingRouteCommand, searchRoute, shouldApplyHydratedBox, tradeMarket, travelRoute, type RouteCommand,
 } from '../src/game/route-actions-client.js';
-import type { RouteEvent, RouteState } from '../src/game/route-actions.js';
+import type { RouteEvent, RouteQuestView, RouteState } from '../src/game/route-actions.js';
 import { inventoryChangeText, moneyChangeText, resultFind, tradeText, travelBlock } from '../src/components/world/route-copy.js';
 import { placeHighlights } from '../src/components/world/place-highlights.js';
+import { boardCta, cardDescription, pickQuest } from '../src/components/world/route-board.js';
 
 let passed = 0;
 let failed = 0;
@@ -19,6 +20,7 @@ const state: RouteState = {
   allowance: { available: 12, capacity: 48, refillEveryMs: 600_000, nextRefillAt: 601_000 },
   inventory: { revision: 1, money: 0, stacks: [{ itemId: 'poke', quantity: 20 }, { itemId: 'great', quantity: 0 }] },
   quest: { id: 'meadow-survey', status: 'not-accepted', landmarks: [], required: ['signpost', 'sunflowers', 'hilltop-oak'] },
+  quests: [{ id: 'meadow-survey', status: 'not-accepted', next: { step: 'meet', actions: 1, items: [] }, progress: { done: 0, total: 3 } }],
   places: [], trainerAt: 'home',
   travel: { available: 12, capacity: 12, refillEveryMs: 900_000, nextRefillAt: null },
   quotes: [{ to: 'r1', walk: 4, cost: 4, mode: 'walk', via: null }], ownedCount: 1, activeEvent: null, result: null,
@@ -152,6 +154,38 @@ check('earned survey rewards link to the survey, not another encounter', placeHi
 check('claimed surveys do not keep advertising a quest or reward', placeHighlights({ ...state, quest: { ...state.quest, status: 'claimed' } }).length === 0);
 check('resolved sightings open results instead of reviving an encounter', placeHighlights({ ...state, result: { ...wild, phase: 'resolved', choices: [], outcome: 'left' } })[0]?.focus === 'result');
 check('survey progress counts only its required unique landmarks', placeHighlights({ ...state, quest: { ...state.quest, status: 'active', landmarks: ['signpost', 'signpost', 'unrelated'] } })[0]?.detail.startsWith('1 of 3'));
+
+reply = json(200, { ok: true, state: { ...state, quests: undefined } });
+check('a state without quests is not trusted', !(await fetchRouteState()).ok);
+reply = json(400, { ok: false, error: 'Sunny Meadow has new actions. Refresh to see them.' });
+const staleSearch = await runRouteCommand({ operation: 'search', input: { requestId: 'old-npc', locationId: 'r1', kind: 'wild', partyIds: ['starter'] } });
+check('a refused stale search is final, so its pending command is dropped', !staleSearch.ok && !staleSearch.uncertain && staleSearch.error === 'Sunny Meadow has new actions. Refresh to see them.');
+
+const board = { ...state, trainerAt: 'r1' as const };
+const cta = (over: Partial<Parameters<typeof boardCta>[0]>) => boardCta({ state: board, card: 'wild', quest: null, partySize: 1, partyDown: false, busy: false, now: 1_000, ...over });
+check('each card names its search and its cost', cta({}).label === 'Search the grass (1 action)' && cta({ card: 'trainer' }).label === 'Find a trainer (1 action)'
+  && cta({ card: 'puzzle' }).label === 'Solve a puzzle (1 action)' && cta({ card: 'explore' }).label === 'Explore (1 action)' && cta({ card: 'forage' }).label === 'Forage (1 action)');
+check('a ready card runs its search', cta({ card: 'forage' }).enabled && JSON.stringify(cta({ card: 'forage' }).action) === JSON.stringify({ type: 'search', kind: 'forage' }));
+check('an unopened route begins exploring first', cta({ state: { ...board, activated: false } }).action.type === 'activate');
+check('an open encounter turns the button into Resume', cta({ state: { ...board, activeEvent: wild } }).label === 'Resume encounter' && cta({ state: { ...board, activeEvent: wild } }).action.type === 'resume');
+check('no party asks for one', cta({ partySize: 0 }).action.type === 'party');
+check('a fainted party is sent to the Pokémon Center', cta({ partyDown: true }).action.type === 'center');
+const drained = { ...board, allowance: { ...board.allowance, available: 0, nextRefillAt: 361_000 } };
+check('no actions disables the search and names the wait', !cta({ state: drained }).enabled && cta({ state: drained }).reason === 'No actions left. Next action in 6 min.');
+check('a refill that is due offers a check instead', cta({ state: { ...drained, allowance: { ...drained.allowance, nextRefillAt: 1_000 } } }).action.type === 'refresh');
+const surveyStep: RouteQuestView = { id: 'meadow-survey', status: 'active', next: { step: 'survey', actions: 1, items: [] }, progress: { done: 1, total: 3 } };
+const treeStep: RouteQuestView = { id: 'honey-tree', status: 'active', next: { step: 'spread-honey', actions: 1, items: [{ itemId: 'honey', quantity: 1 }] }, progress: null };
+check('the Quest card performs the chosen quest’s step', cta({ card: 'quest', quest: surveyStep }).label === 'Survey a landmark (1 action)'
+  && JSON.stringify(cta({ card: 'quest', quest: surveyStep }).action) === JSON.stringify({ type: 'search', kind: 'quest', questId: 'meadow-survey' }));
+check('a ready survey is claimed for free', cta({ card: 'quest', quest: { ...surveyStep, status: 'ready', next: { step: 'claim', actions: 0, items: [] } } }).label === 'Claim reward (free)'
+  && cta({ card: 'quest', quest: { ...surveyStep, status: 'ready', next: { step: 'claim', actions: 0, items: [] } } }).action.type === 'claim');
+check('Spread Honey shows its Honey cost and waits for Honey', cta({ card: 'quest', quest: treeStep }).label === 'Spread Honey (1 action · 1 Honey)' && !cta({ card: 'quest', quest: treeStep }).enabled
+  && cta({ card: 'quest', quest: treeStep }).reason === 'Forage for Honey first.');
+check('with Honey, Spread Honey runs', cta({ card: 'quest', quest: treeStep, state: { ...board, inventory: { ...board.inventory, stacks: [{ itemId: 'honey', quantity: 2 }] } } }).enabled);
+check('with no quest step, the Quest card points to Explore', !cta({ card: 'quest', quest: null }).enabled && cta({ card: 'quest', quest: null }).reason === 'No quests right now. Explore to find secrets.');
+check('the Quest card keeps a pick that still has a step, else takes the first quest with one', pickQuest([surveyStep, treeStep], 'honey-tree')?.id === 'honey-tree'
+  && pickQuest([{ ...surveyStep, status: 'claimed', next: null }, treeStep], 'meadow-survey')?.id === 'honey-tree' && pickQuest([{ ...surveyStep, status: 'claimed', next: null }], null) === null);
+check('Explore says when it guarantees supplies', cardDescription('explore', { revision: 1, money: 0, stacks: [] }) === 'You have no balls: exploring now guarantees 3 Poké Balls.');
 
 reply = json(200, { ok: true, state: { ...state, travel: undefined } });
 check('a state without a travel meter is not trusted', !(await fetchRouteState()).ok);

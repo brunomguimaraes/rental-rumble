@@ -30,6 +30,8 @@ const isMeter = (v: unknown): boolean => isObject(v) && isNumber(v.available) &&
 const isQuote = (v: unknown): boolean => isObject(v) && (v.to === 'home' || v.to === 'r1') && Number.isSafeInteger(v.walk)
   && Number.isSafeInteger(v.cost) && Number(v.cost) > 0 && (v.mode === 'walk' || v.mode === 'land' || v.mode === 'flyer')
   && (v.via === null || typeof v.via === 'string');
+const isQuestView = (v: unknown): boolean => isObject(v) && (v.id === 'meadow-survey' || v.id === 'honey-tree') && typeof v.status === 'string'
+  && (v.next === null || (isObject(v.next) && typeof v.next.step === 'string' && Number.isSafeInteger(v.next.actions) && Array.isArray(v.next.items)));
 
 function isRouteState(v: unknown): v is RouteState {
   if (!isObject(v) || !isNumber(v.serverNow) || !isNumber(v.revision) || typeof v.activated !== 'boolean') return false;
@@ -38,6 +40,7 @@ function isRouteState(v: unknown): v is RouteState {
   if (!v.inventory.stacks.every((stack) => isObject(stack) && isItemId(stack.itemId) && Number.isSafeInteger(stack.quantity) && Number(stack.quantity) >= 0)) return false;
   if (!isMeter(v.allowance) || !isMeter(v.travel) || !Array.isArray(v.quotes) || !v.quotes.every(isQuote)) return false;
   if (!isObject(v.quest) || !Array.isArray(v.quest.landmarks) || !Array.isArray(v.quest.required) || !isObject(v.legacy)) return false;
+  if (!Array.isArray(v.quests) || !v.quests.every(isQuestView)) return false;
   return Array.isArray(v.places) && (v.trainerAt === 'home' || v.trainerAt === 'r1') && isNumber(v.ownedCount)
     && (v.activeEvent === null || isObject(v.activeEvent)) && (v.result === null || isObject(v.result));
 }
