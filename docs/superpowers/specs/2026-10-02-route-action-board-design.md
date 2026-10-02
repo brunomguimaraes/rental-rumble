@@ -189,8 +189,9 @@ The trail-energy panel, field guide and survey panel are removed; the chips and 
   Explore-rare and honey-tree Pokémon, and the researcher dialogue.
 - **New Puzzle screen** (the `encounter` page):
   - It shows the board, the move counter, the reward chip and Give up.
-  - Panels are buttons, and only panels next to the gap are enabled. Each has an accessible name such as
-    "Panel 6, slide left".
+  - Panels are buttons, and only panels next to the gap are enabled. Each has an accessible name with its cell, such
+    as "Panel 6, row 2, column 3, slide left". The move counter is not a live region; a hidden status line announces
+    "Solved! Checking your solution." once, and a result takes focus on its title.
   - Slides animate briefly; under `prefers-reduced-motion` they jump.
 - **New result copy:**
   - forage: "You foraged 1 Honey";
@@ -206,6 +207,9 @@ The trail-energy panel, field guide and survey panel are removed; the chips and 
 
 - The board works from 320 px to 430 px wide with no horizontal scroll. On a 375×667 screen the CTA is visible without
   scrolling; the illustration may crop shorter on short screens to keep it there.
+- As built (2026-10-02 browser check): the reason and the CTA form a bar that sticks to the bottom of the screen while
+  the board is in view. The chips drop the "Route 01" label so they stay on one line from 375 px. With both, the CTA
+  was fully visible in every measured state at 320×568, 375×667, 375×812 and 430×932.
 - Touch targets are at least 44 px, with visible `ui-focus` rings.
 - Night tokens only. Pixel sprites use `[image-rendering:pixelated]`; the meadow art stays smooth (the existing
   exception).
