@@ -23,7 +23,7 @@ export function solvedBoard(size: number): number[] {
 }
 
 export function isSolved(board: PuzzleBoard): boolean {
-  return board.every((value, i) => value === (i === board.length - 1 ? 0 : i + 1));
+  return board.length > 0 && board.every((value, i) => value === (i === board.length - 1 ? 0 : i + 1));
 }
 
 const widthOf = (board: PuzzleBoard): number => Math.round(Math.sqrt(board.length));

@@ -21,7 +21,7 @@ function inversions(board: readonly number[]): number {
 }
 
 check('the solved 3×3 board reads 1–8 with the gap last', same(solvedBoard(3), [1, 2, 3, 4, 5, 6, 7, 8, 0]) && isSolved(solvedBoard(3)));
-check('a corner has two neighbours and the centre four', same(neighbours(0, 3).sort(), [1, 3]) && same(neighbours(4, 3).sort(), [1, 3, 5, 7]));
+check('a corner has two neighbours, an edge three and the centre four; rows never wrap', same(neighbours(0, 3).sort(), [1, 3]) && same(neighbours(4, 3).sort(), [1, 3, 5, 7]) && same(neighbours(2, 3).sort(), [1, 5]) && same(neighbours(3, 3).sort(), [0, 4, 6]));
 const nearlySolved = [1, 2, 3, 4, 5, 6, 7, 0, 8];
 check('a panel next to the gap slides into it', same(applyMove(nearlySolved, 8), solvedBoard(3)));
 check('a panel away from the gap cannot move', applyMove(nearlySolved, 0) === null);
@@ -29,7 +29,8 @@ check('the gap itself is not a move', applyMove(nearlySolved, 7) === null);
 check('out-of-range and fractional indexes are not moves', [-1, 9, 1.5, Number.NaN].every((m) => applyMove(nearlySolved, m) === null));
 check('a move leaves its input board unchanged', same(nearlySolved, [1, 2, 3, 4, 5, 6, 7, 0, 8]));
 const twoAway = [1, 2, 3, 4, 0, 6, 7, 5, 8];
-check('a legal move list replays to solved', isSolved(applyMoves(twoAway, [7, 8]) ?? []));
+const replay = applyMoves(twoAway, [7, 8]);
+check('a legal move list replays to solved', replay !== null && isSolved(replay));
 check('one illegal move voids the whole list', applyMoves(twoAway, [7, 0, 8]) === null);
 check('a list that stops short is not solved', !isSolved(applyMoves(twoAway, [7]) ?? solvedBoard(3)));
 check('Manhattan distance sums each panel\'s rows and columns from home',
