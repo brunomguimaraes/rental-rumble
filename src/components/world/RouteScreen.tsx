@@ -23,6 +23,7 @@ import { backdropUrl } from './scene';
 import { RouteBoard } from './RouteBoard';
 import { MarketScreen } from './MarketScreen';
 import { MeadowEncounter } from './MeadowEncounter';
+import { PuzzleView } from './PuzzleView';
 import { RouteBagDialog } from './RouteBagDialog';
 import { TownAvatar, TownSummary, TownView, type TownService } from './TownView';
 import { TravelPanel } from './TravelPanel';
@@ -242,9 +243,9 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
   };
   // The town's road shows the trip and its cost on the map; it never spends on a tap.
   const walkTo = (id: 'r1') => { scrollToTop(); setSelected(id); setPage(roams ? id : 'map'); };
-  const choose = (choice: RouteChoice, ballId?: CaptureBallId) => {
+  const choose = (choice: RouteChoice, ballId?: CaptureBallId, moves?: number[]) => {
     if (!event || locked) return;
-    void submit({ operation: 'choose', input: { requestId: newRouteRequestId(), eventId: event.id, expectedRevision: event.revision, choice, ...(ballId ? { ballId } : {}) } });
+    void submit({ operation: 'choose', input: { requestId: newRouteRequestId(), eventId: event.id, expectedRevision: event.revision, choice, ...(ballId ? { ballId } : {}), ...(moves ? { moves } : {}) } });
   };
   const search = (kind: SearchKind, questId?: QuestId) => {
     if (locked) return;
@@ -310,8 +311,12 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
       {page === 'encounter' && (capture ? <CatchSequence key={capture.requestId} event={capture.event} ballId={capture.ballId} result={capture.result} onDone={() => { setCapture(null); scrollToTop(); }} />
         : replay?.battle && replay.foe ? <BattleReplay key={`${replay.id}:${replay.revision}`} events={replay.battle.events} party={replay.battle.fielded ? replay.party.filter((m) => replay.battle!.fielded!.some((f) => f.id === m.id)) : replay.party} foe={replay.foe} trainerName={replay.kind === 'trainer' ? replay.npc?.name : undefined} backdrop={backdropUrl(route)} onDone={() => { setReplay(null); scrollToTop(); }} />
         : event ? event.phase === 'resolved'
-          ? <RouteResultView event={event} box={box} busy={locked} onDone={() => void dismiss(event.id, event.outcome === 'lost' ? 'center' : 'r1')} onReplay={() => { setReplay(event); scrollToTop(); }} />
-          : <MeadowEncounter key={event.id} event={event} state={state} box={box} locked={locked} busy={busy}
+          ? <RouteResultView event={event} box={box} busy={locked} surveyProgress={state.quests.find((q) => q.id === 'meadow-survey')?.progress ?? null}
+              onDone={() => void dismiss(event.id, event.outcome === 'lost' ? 'center' : 'r1')} onReplay={() => { setReplay(event); scrollToTop(); }} />
+          : event.phase === 'puzzle' && event.puzzle
+            // Keyed by encounter: reopening a puzzle starts again from the board the server stored.
+            ? <PuzzleView key={event.id} puzzle={event.puzzle} busy={busy} locked={locked} onSolve={(moves) => choose('solve', undefined, moves)} onLeave={() => choose('leave')} />
+            : <MeadowEncounter key={event.id} event={event} state={state} box={box} locked={locked} busy={busy}
               selectedBall={selectedBall?.eventId === event.id ? selectedBall.id : null}
               onSelectBall={(id) => setSelectedBall(id ? { eventId: event.id, id } : null)} onChoose={choose}
               onBag={() => setBagOpen(true)} onReplay={() => { setReplay(event); scrollToTop(); }} />

@@ -9,7 +9,7 @@ import { ExpBar } from '../ui/ExpBar';
 import { PixelSprite } from '../ui/PixelSprite';
 import { MeadowScene } from './MeadowScene';
 import { growthLines, monName, POKEBALL, speciesName } from './scene';
-import { inventoryChangeText, moneyChangeText, resultFind, type ResultFind } from './route-copy';
+import { inventoryChangeText, moneyChangeText, nothingLine, resultFind } from './route-copy';
 
 const OUTCOME_LABEL = {
   caught: 'A new companion!', escaped: 'The Pokémon escaped', won: 'Battle won!', lost: 'Your party is out of strength',
@@ -26,7 +26,12 @@ export function FaintedNote({ event, box }: { event: RouteEvent; box: OwnedMon[]
 }
 
 /** A find with no Pokémon or person: the ball, valuable, or coin pouch it turned up. */
-function FindArt({ find }: { find: ResultFind | null }) {
+function FindArt({ event }: { event: RouteEvent }) {
+  const icon = (path: string, size: number) => <PixelSprite src={`${import.meta.env.BASE_URL}${path}`} size={size} alt="" className="mt-8" />;
+  if (event.kind === 'nothing') return icon('sprites/ui/night/96/explore.png', 96);
+  if (event.kind === 'landmark') return icon('sprites/ui/night/96/field-journal.png', 96);
+  if (event.kind === 'secret') return icon('sprites/items/honey.png', 90);
+  const find = resultFind(event);
   if (find?.kind === 'money') return <p className="mt-10 rounded-[3px] border border-window-rim bg-window px-4 py-3 text-center shadow-[3px_3px_0_var(--color-edge)]"><span className="block font-label text-[10px] uppercase text-info">Coin pouch</span><span className="mt-1 block text-2xl text-accent">{formatMoney(find.amount)}</span></p>;
   if (find?.kind === 'item' && find.item.category === 'valuable') return <div className="mt-8 flex flex-col items-center gap-2">
     <span className="rounded-[3px] border border-window-rim bg-slot p-4 shadow-[3px_3px_0_var(--color-edge)]"><img src={`${import.meta.env.BASE_URL}${find.item.icon}`} width={30} height={30} alt="" className="block [image-rendering:pixelated]" /></span>
@@ -55,10 +60,11 @@ export function RouteBattleRewards({ event, box, onReplay }: { event: RouteEvent
   </details>;
 }
 
-export function RouteResultView({ event, box, busy, onDone, onReplay }: {
+export function RouteResultView({ event, box, busy, surveyProgress = null, onDone, onReplay }: {
   event: RouteEvent;
   box: OwnedMon[];
   busy: boolean;
+  surveyProgress?: { done: number; total: number } | null;
   onDone: () => void;
   onReplay: () => void;
 }) {
@@ -67,7 +73,7 @@ export function RouteResultView({ event, box, busy, onDone, onReplay }: {
   const base = event.foe ? CREATURES_BY_ID[String(event.foe.dexId)] : null;
   const foeCreature = base ? event.foe?.shiny ? asShiny(base) : event.foe?.altColor ? asAltColor(base) : base : null;
   const sprite = caughtCreature?.sprite ?? foeCreature?.sprite ?? (event.foe ? spriteUrl(event.foe.dexId) : null);
-  const title = event.outcome ? OUTCOME_LABEL[event.outcome] : 'Battle rewards';
+  const title = event.kind === 'secret' ? 'A secret in the meadow!' : event.kind === 'landmark' ? 'Landmark surveyed' : event.outcome ? OUTCOME_LABEL[event.outcome] : 'Battle rewards';
   const exp = event.members.reduce((sum, member) => sum + member.expGained, 0);
   return <>
     <section className="ui-window m-2" aria-label="Encounter result">
@@ -76,7 +82,7 @@ export function RouteResultView({ event, box, busy, onDone, onReplay }: {
         <div className="absolute left-1/2 top-[28%] -translate-x-1/2">
           {sprite ? <PixelSprite src={sprite} fallback={POKEBALL} size={192} alt={caught ? monName(caught) : event.foe ? speciesName(event.foe.dexId) : ''} />
             : event.npc ? <img src={`${import.meta.env.BASE_URL}sprites/trainers/${event.npc.spriteKey}.png`} width={192} height={192} alt={event.npc.name} className="h-48 w-48 object-contain [image-rendering:pixelated]" />
-              : <FindArt find={resultFind(event)} />}
+              : <FindArt event={event} />}
         </div>
       </MeadowScene>
       <div className="border-t-2 border-window-frame p-3" aria-live="polite">
@@ -87,8 +93,13 @@ export function RouteResultView({ event, box, busy, onDone, onReplay }: {
         {event.outcome === 'lost' && <p className="text-sm text-ink-dim">You hurried back to Hearth Town. No EXP earned; the Pokémon Center will heal everyone for free.</p>}
         <FaintedNote event={event} box={box} />
         {event.outcome === 'left' && <p className="text-sm text-ink-dim">Your search action stays spent. Battle rewards and discoveries are saved.</p>}
-        {event.outcome === 'accepted' && <p className="text-sm">Find the three landmarks for {ROUTE_RULES.questGreatBalls} Great Balls and {formatMoney(ROUTE_RULES.questMoney)}. Earlier discoveries count. Check the survey below the route.</p>}
-        {event.outcome === 'talked' && <p className="text-sm">Your survey progress is saved. Check the survey below the route.</p>}
+        {event.outcome === 'accepted' && <p className="text-sm">Survey the three landmarks from the Quest card for {ROUTE_RULES.questGreatBalls} Great Balls and {formatMoney(ROUTE_RULES.questMoney)}. Earlier discoveries count.</p>}
+        {event.outcome === 'talked' && <p className="text-sm">Your survey progress is saved on the Quest card.</p>}
+        {event.outcome === 'nothing' && <><p className="text-base">{nothingLine(event.id)}</p><p className="mt-1 text-sm text-ink-dim">Your action is spent. Explore again, or try another card.</p></>}
+        {event.kind === 'secret' && <p className="text-base">Bees hum around an old tree by the path. The Honey Tree is in your quests now: spread Honey on it to see who comes.</p>}
+        {event.kind === 'landmark' && event.newLandmarks.map((id) => { const landmark = MEADOW_LANDMARKS.find((l) => l.id === id); return landmark ? <p key={id} className="text-base">{landmark.name}: {landmark.blurb}</p> : null; })}
+        {event.kind === 'landmark' && surveyProgress && <p className="mt-2 text-sm text-ink-dim">{surveyProgress.done} of {surveyProgress.total} landmarks recorded.</p>}
+        {event.questId === 'honey-tree' && event.kind === 'wild' && <p className="mt-2 text-sm text-ink-dim">You spread 1 Honey on the Honey Tree.</p>}
         {event.items.some((item) => item.quantity > 0) && <ul className="space-y-1 text-base text-accent">{event.items.filter((item) => item.quantity > 0).map((item) => <li key={item.itemId}>{inventoryChangeText(item)}</li>)}</ul>}
         {moneyChangeText(event) && <p className="mt-2 text-sm text-accent">{moneyChangeText(event)}</p>}
         {event.newLandmarks.length > 0 && <p className="mt-2 text-sm text-accent">◆ Discovered: {event.newLandmarks.map((id) => MEADOW_LANDMARKS.find((landmark) => landmark.id === id)?.name ?? id).join(', ')}</p>}

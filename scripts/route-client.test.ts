@@ -4,7 +4,7 @@ import {
   runRouteCommand, savePendingRouteCommand, searchRoute, shouldApplyHydratedBox, tradeMarket, travelRoute, type RouteCommand,
 } from '../src/game/route-actions-client.js';
 import type { RouteEvent, RouteQuestView, RouteState } from '../src/game/route-actions.js';
-import { inventoryChangeText, moneyChangeText, resultFind, tradeText, travelBlock } from '../src/components/world/route-copy.js';
+import { inventoryChangeText, moneyChangeText, nothingLine, resultFind, tradeText, travelBlock } from '../src/components/world/route-copy.js';
 import { placeHighlights } from '../src/components/world/place-highlights.js';
 import { boardCta, cardDescription, costText, pickQuest, questLine } from '../src/components/world/route-board.js';
 
@@ -154,6 +154,15 @@ check('earned survey rewards link to the survey, not another encounter', placeHi
 check('claimed surveys do not keep advertising a quest or reward', placeHighlights({ ...state, quest: { ...state.quest, status: 'claimed' } }).length === 0);
 check('resolved sightings open results instead of reviving an encounter', placeHighlights({ ...state, result: { ...wild, phase: 'resolved', choices: [], outcome: 'left' } })[0]?.focus === 'result');
 check('survey progress counts only its required unique landmarks', placeHighlights({ ...state, quest: { ...state.quest, status: 'active', landmarks: ['signpost', 'signpost', 'unrelated'] } })[0]?.detail.startsWith('1 of 3'));
+check('the empty-Explore line is stable for an encounter and varies between encounters', nothingLine('evt-1') === nothingLine('evt-1') && new Set(['a', 'b', 'c', 'd'].map(nothingLine)).size === 4);
+const panelsEvent: RouteEvent = { ...wild, id: 'panels', kind: 'puzzle', phase: 'puzzle', foe: null, newSeen: [], choices: ['solve', 'leave'], catchChances: null,
+  puzzle: { size: 3, board: [1, 2, 3, 4, 5, 6, 7, 0, 8], scene: 'signpost', reward: [{ itemId: 'great', quantity: 1 }] } };
+check('an open puzzle is a highlight that resumes it', placeHighlights({ ...state, activeEvent: panelsEvent })[0]?.kind === 'puzzle' && placeHighlights({ ...state, activeEvent: panelsEvent })[0]?.focus === 'encounter');
+const treeFound: RouteState = { ...state, quest: { ...state.quest, status: 'active', landmarks: ['signpost'] },
+  quests: [...state.quests, { id: 'honey-tree', status: 'active', next: { step: 'spread-honey', actions: 1, items: [{ itemId: 'honey', quantity: 1 }] }, progress: null }] };
+check('a found Honey Tree invites a first Spread Honey', placeHighlights(treeFound).some((h) => h.label === 'The Honey Tree' && h.focus === 'quest'));
+check('a Honey Tree that has drawn a Pokémon stops advertising', !placeHighlights({ ...treeFound, quests: treeFound.quests.map((q) => (q.id === 'honey-tree' ? { ...q, status: 'claimed' as const } : q)) }).some((h) => h.label === 'The Honey Tree'));
+check('two quest highlights stay distinct for the Hub list', new Set(placeHighlights(treeFound).map((h) => `${h.kind}:${h.label}`)).size === placeHighlights(treeFound).length && placeHighlights(treeFound).filter((h) => h.kind === 'quest').length === 2);
 
 reply = json(200, { ok: true, state: { ...state, quests: undefined } });
 check('a state without quests is not trusted', !(await fetchRouteState()).ok);

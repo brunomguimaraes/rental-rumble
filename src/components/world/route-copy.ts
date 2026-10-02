@@ -53,3 +53,16 @@ export function travelBlock({ quote, travel, encounterOpen, now }: { quote: Trav
   const readyAt = firstAt + (missing - 1) * travel.refillEveryMs;
   return `Not enough travel stamina. Enough to travel in ${waitText(readyAt - now)}.`;
 }
+
+const NOTHING_LINES = [
+  'Only the wind in the tall grass.',
+  'A Pidgey feather drifts by. Nothing else turns up.',
+  'You followed a rustle, but it was just the breeze.',
+  'The meadow is quiet for now.',
+] as const;
+
+/** Explore's empty result: one line per encounter, the same every time it is shown. */
+export function nothingLine(eventId: string): string {
+  const sum = [...eventId].reduce((total, ch) => total + ch.charCodeAt(0), 0);
+  return NOTHING_LINES[sum % NOTHING_LINES.length];
+}
