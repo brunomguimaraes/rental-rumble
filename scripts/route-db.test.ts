@@ -539,7 +539,7 @@ try {
   const moves = solvePuzzle(panels.puzzle!.board);
   const bagBefore = (await loadRouteState(db, 'puzzler', T)).inventory;
   await rejects('a move list that stops short pays nothing', chooseRoute(db, 'puzzler', { requestId: rid(), eventId: panels.id, expectedRevision: 0, choice: 'solve', moves: moves.slice(0, -1) }, T), 400);
-  await rejects('an illegal slide pays nothing', chooseRoute(db, 'puzzler', { requestId: rid(), eventId: panels.id, expectedRevision: 0, choice: 'solve', moves: [panels.puzzle!.board.indexOf(0)] }, T), 400);
+  await rejects('an illegal slide pays nothing', chooseRoute(db, 'puzzler', { requestId: rid(), eventId: panels.id, expectedRevision: 0, choice: 'solve', moves: [...moves, 8] }, T), 400);
   check('refused solves leave the puzzle open and the Bag untouched', eq((await loadRouteState(db, 'puzzler', T)).inventory, bagBefore) && (await loadRouteState(db, 'puzzler', T)).activeEvent?.id === panels.id);
   const solveInput = { requestId: 'solve-one', eventId: panels.id, expectedRevision: 0, choice: 'solve' as const, moves };
   const solvedReply = await chooseRoute(db, 'puzzler', solveInput, T);
@@ -548,6 +548,7 @@ try {
   const held = (inventory: typeof bagBefore) => inventory.stacks.find((s) => s.itemId === prize.itemId)?.quantity ?? 0;
   check('a solved puzzle pays its reward once, even on a retry', solvedReply.event?.outcome === 'solved' && solvedReply.state.activeEvent === null && solvedAgain.replayed === true
     && held((await loadRouteState(db, 'puzzler', T)).inventory) === held(bagBefore) + prize.quantity);
+  await rejects('a request ID reused with other moves is a conflict', chooseRoute(db, 'puzzler', { ...solveInput, moves: [...moves, 8] }, T), 409);
   await rejects('a second solve with a new request pays nothing more', chooseRoute(db, 'puzzler', { ...solveInput, requestId: rid() }, T), 409);
   const givenUp = (await start(db, 'puzzler', 'puzzle')).event!;
   const beforeGiveUp = (await loadRouteState(db, 'puzzler', T)).inventory;

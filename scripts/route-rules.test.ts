@@ -132,6 +132,7 @@ check('puzzle rewards are a Great Ball 40%, 3 Poké Balls 30%, a Tiny Mushroom 2
   Math.abs(rewardShare('great', 1) - 0.4) < 0.03 && Math.abs(rewardShare('poke', 3) - 0.3) < 0.03
   && Math.abs(rewardShare('tiny-mushroom', 1) - 0.2) < 0.03 && Math.abs(rewardShare('big-mushroom', 1) - 0.1) < 0.03);
 check('every meadow scene is dealt', new Set(deals.map((p) => p.scene)).size === 4);
+check('different seeds deal different boards', new Set(deals.map((p) => p.board.join())).size > 3000);
 check('a puzzle offers a solve or leaving', same(legalChoices('puzzle'), ['solve', 'leave']));
 
 check('cosmetic balls are rejected as usable items', itemById('master') === null && itemById('ultra') === null && !isCaptureBallId('master'));
