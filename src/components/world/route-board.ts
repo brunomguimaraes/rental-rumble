@@ -19,6 +19,7 @@ export const BOARD_CARDS: readonly BoardCard[] = [
 ];
 
 export const QUEST_NAMES: Record<QuestId, string> = { 'meadow-survey': 'Meadow survey', 'honey-tree': 'The Honey Tree' };
+// A step this build does not know (a newer server) reads 'Continue the quest' wherever a verb is looked up, never "undefined".
 const STEP_VERBS: Record<QuestStep['step'], string> = {
   meet: 'Meet the researcher', survey: 'Survey a landmark', claim: 'Claim reward', 'spread-honey': 'Spread Honey',
 };
@@ -41,7 +42,7 @@ export function pickQuest(quests: readonly RouteQuestView[], picked: QuestId | n
 /** One line per quest in the Quest card's pick list. */
 export function questLine(quest: RouteQuestView): string {
   if (!quest.next) return 'Complete';
-  const verb = STEP_VERBS[quest.next.step];
+  const verb = STEP_VERBS[quest.next.step] ?? 'Continue the quest';
   return quest.progress ? `${verb} · ${quest.progress.done}/${quest.progress.total} landmarks` : verb;
 }
 
@@ -71,17 +72,19 @@ export function boardCta({ state, card, quest, partySize, partyDown, busy, now }
   if (partyDown) return { label: 'Travel to Hearth Town', enabled: true, reason: 'Every Pokémon in your party has fainted. The Pokémon Center heals them for free.', action: { type: 'center' } };
   const def = BOARD_CARDS.find((entry) => entry.kind === card)!;
   let verb = def.verb;
+  let actions = ROUTE_RULES.costs[card];
   let items: ItemGrant[] = [];
   let questId: QuestId | undefined;
   if (card === 'quest') {
     if (!quest?.next) return idle('Quest', 'No quests right now. Explore to find secrets.');
     if (quest.next.step === 'claim') return { label: 'Claim reward (free)', enabled: true, reason: null, action: { type: 'claim' } };
-    verb = STEP_VERBS[quest.next.step];
+    verb = STEP_VERBS[quest.next.step] ?? 'Continue the quest';
+    // The server prices each quest step; the Quest card charges that count, not the card's.
+    actions = quest.next.actions;
     items = quest.next.items;
     questId = quest.id;
-    if (!canAfford(quest.next, state.inventory)) return idle(`${verb} (${costText(quest.next.actions, items)})`, 'Forage for Honey first.');
+    if (!canAfford(quest.next, state.inventory)) return idle(`${verb} (${costText(actions, items)})`, 'Forage for Honey first.');
   }
-  const actions = ROUTE_RULES.costs[card];
   const label = `${verb} (${costText(actions, items)})`;
   if (state.allowance.available < actions) {
     const next = state.allowance.nextRefillAt;
