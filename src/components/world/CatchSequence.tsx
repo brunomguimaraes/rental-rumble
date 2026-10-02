@@ -5,7 +5,7 @@ import { asAltColor, asShiny, CREATURES_BY_ID, spriteUrl } from '../../game/poke
 import type { CaptureBallId, RouteCatch, RouteEvent } from '../../game/route-actions';
 import { PixelSprite } from '../ui/PixelSprite';
 import { MeadowScene } from './MeadowScene';
-import { POKEBALL, speciesName } from './scene';
+import { BATTLE_SHADOW, POKEBALL, speciesName } from './scene';
 import './CatchSequence.css';
 
 type Beat = 'throw' | 'absorb' | 'drop' | 'shake-one' | 'shake-two' | 'shake-three' | 'settle';
@@ -76,7 +76,7 @@ export function CatchSequence({ event, ballId, result, onDone }: {
           <PixelSprite src={creature?.sprite ?? (foe ? spriteUrl(foe.dexId) : POKEBALL)} fallback={POKEBALL} size={192} alt="" />
         </div></div>
         <div className="catch-ring" />
-        <div className="catch-ground" />
+        <img src={BATTLE_SHADOW} alt="" className="catch-ground" />
         <div className="catch-ball-anchor"><div className="catch-ball-flight">
           <div key={stage} className="catch-ball-wobble"><PixelSprite src={ballUrl(ballId)} size={48} alt="" /><span className="catch-lock" /></div>
         </div></div>

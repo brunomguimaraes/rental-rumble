@@ -4,9 +4,10 @@
 .catch-pokemon { transform-origin: 50% 55%; }
 .catch-ball-anchor { position: absolute; left: calc(50% - 24px); top: 74%; }
 .catch-ball-wobble { position: relative; transform-origin: 50% 85%; }
+/* The battle replay's medium PMD shadow at 2x, centred under the ball's lowest pixel (42 of 48). */
 .catch-ground {
-  position: absolute; left: calc(50% - 26px); top: calc(74% + 39px);
-  width: 52px; height: 8px; background: var(--color-edge); opacity: 0.6;
+  position: absolute; left: calc(50% - 14px); top: calc(74% + 36px);
+  width: 28px; height: 12px; max-width: none; opacity: 0.6; image-rendering: pixelated;
 }
 .catch-ring, .catch-aura {
   position: absolute; left: calc(50% - 80px); top: calc(26% + 16px);
@@ -32,6 +33,8 @@
 .catch-sequence[data-stage='absorb'] .catch-pokemon { animation: catch-absorb 400ms ease-in both; }
 .catch-sequence[data-stage='absorb'] .catch-ring { animation: catch-ring 400ms steps(8) both; }
 .catch-sequence[data-stage='drop'] .catch-ball-flight { animation: catch-drop 520ms ease-in both; }
+.catch-sequence:is([data-stage='throw'], [data-stage='absorb']) .catch-ground { opacity: 0; }
+.catch-sequence[data-stage='drop'] .catch-ground { animation: catch-ground-drop 520ms ease-in both; }
 .catch-sequence:is([data-stage='drop'], [data-stage^='shake'], [data-stage='settle']) .catch-pokemon { opacity: 0; }
 .catch-sequence[data-stage^='shake'] .catch-ball-wobble { animation: catch-wobble 600ms steps(12) both; }
 .catch-sequence[data-stage^='shake'] .catch-lock { animation: catch-lock 600ms steps(4) both; }
@@ -69,6 +72,13 @@
   90% { transform: translateY(0); }
   96% { transform: translateY(-4px); }
   100% { transform: translateY(0); }
+}
+/* Mirrors catch-drop: the shadow is smallest and faintest while the ball is highest. */
+@keyframes catch-ground-drop {
+  0% { transform: scale(0.3); opacity: 0; }
+  55% { transform: scale(1); opacity: 0.6; }
+  75% { transform: scale(0.8); opacity: 0.45; }
+  90%, 100% { transform: scale(1); opacity: 0.6; }
 }
 @keyframes catch-wobble {
   0%, 100% { transform: translateX(0) rotate(0); }
