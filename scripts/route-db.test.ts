@@ -12,6 +12,7 @@ import { dismissResult, startActivity, stepExpedition } from '../api/_world.js';
 import { legalChoices, rollCapture, rollRouteFind, simulateRouteBattle } from '../src/game/route-rules.js';
 import type { CaptureBallId, RouteBattle, RouteEvent, RouteRules, RouteRulesV2, RouteRulesV3, SearchKind, StoredRouteEvent } from '../src/game/route-actions.js';
 import { currentHp, isFainted, ownedMaxHp } from '../src/game/health.js';
+import { applyMove, neighbours } from '../src/game/sliding-puzzle.js';
 import { check, finish, legacyDb, legacyOnboard, mintMon, onboardUser, tempDb } from './world-test-kit.js';
 
 const T = 1_800_000_000_000;
@@ -39,7 +40,23 @@ async function exploreUntil(db: Db, uid: string, want: (e: RouteEvent) => boolea
   }
   throw new Error('Explore never produced the wanted find');
 }
-const moneyOf = async (db: Db, uid: string) => (await loadRouteState(db, uid, T)).inventory.money;
+/** Shortest slides from `board` to solved, by breadth-first search over the 181,440 reachable 3×3 boards. */
+function solvePuzzle(board: readonly number[]): number[] {
+  const goal = '1,2,3,4,5,6,7,8,0';
+  const parent = new Map<string, { from: string; move: number } | null>([[board.join(), null]]);
+  const queue = [board.join()];
+  for (let head = 0; head < queue.length && !parent.has(goal); head++) {
+    const current = queue[head].split(',').map(Number);
+    for (const move of neighbours(current.indexOf(0), 3)) {
+      const next = applyMove(current, move)!.join();
+      if (!parent.has(next)) { parent.set(next, { from: queue[head], move }); queue.push(next); }
+    }
+  }
+  const moves: number[] = [];
+  for (let key = goal; parent.get(key); key = parent.get(key)!.from) moves.unshift(parent.get(key)!.move);
+  return moves;
+}
+const moneyOf =async (db: Db, uid: string) => (await loadRouteState(db, uid, T)).inventory.money;
 /** Controlled persisted fixture uses the real find rules; production gets its seed from crypto. */
 async function forceKind(db: Db, uid: string, e: RouteEvent, kind: 'wild' | 'trainer' | 'item', seedPrefix = 'fixture') {
   const row = (await readRouteEvent(db, uid, e.id))!;
@@ -510,6 +527,32 @@ try {
   const meeting = (await start(db, 'board', 'trainer')).event!;
   check('a trainer search meets a trainer with one Pokémon', meeting.kind === 'trainer' && meeting.phase === 'trainer' && meeting.npc !== null && meeting.foe !== null && meeting.searchKind === 'trainer');
   await leave(db, 'board', meeting);
+
+  console.log('[sliding puzzles]');
+  await onboardUser(db, 'puzzler', 6, 30);
+  await activateRoute(db, 'puzzler', 'activate', T);
+  const dealtReply = await start(db, 'puzzler', 'puzzle');
+  const panels = dealtReply.event!;
+  const storedPanels = (await readRouteEvent(db, 'puzzler', panels.id))!.data as StoredRouteEvent;
+  check('a puzzle search opens a puzzle with its board and reward, never its seed', panels.phase === 'puzzle' && eq(panels.choices, ['solve', 'leave'])
+    && panels.puzzle?.board.length === 9 && eq(panels.puzzle.board, storedPanels.event.puzzle?.board) && !JSON.stringify(dealtReply).includes(storedPanels.seed) && dealtReply.state.allowance.available === 11);
+  const moves = solvePuzzle(panels.puzzle!.board);
+  const bagBefore = (await loadRouteState(db, 'puzzler', T)).inventory;
+  await rejects('a move list that stops short pays nothing', chooseRoute(db, 'puzzler', { requestId: rid(), eventId: panels.id, expectedRevision: 0, choice: 'solve', moves: moves.slice(0, -1) }, T), 400);
+  await rejects('an illegal slide pays nothing', chooseRoute(db, 'puzzler', { requestId: rid(), eventId: panels.id, expectedRevision: 0, choice: 'solve', moves: [panels.puzzle!.board.indexOf(0)] }, T), 400);
+  check('refused solves leave the puzzle open and the Bag untouched', eq((await loadRouteState(db, 'puzzler', T)).inventory, bagBefore) && (await loadRouteState(db, 'puzzler', T)).activeEvent?.id === panels.id);
+  const solveInput = { requestId: 'solve-one', eventId: panels.id, expectedRevision: 0, choice: 'solve' as const, moves };
+  const solvedReply = await chooseRoute(db, 'puzzler', solveInput, T);
+  const solvedAgain = await chooseRoute(db, 'puzzler', solveInput, T + 1);
+  const prize = panels.puzzle!.reward[0];
+  const held = (inventory: typeof bagBefore) => inventory.stacks.find((s) => s.itemId === prize.itemId)?.quantity ?? 0;
+  check('a solved puzzle pays its reward once, even on a retry', solvedReply.event?.outcome === 'solved' && solvedReply.state.activeEvent === null && solvedAgain.replayed === true
+    && held((await loadRouteState(db, 'puzzler', T)).inventory) === held(bagBefore) + prize.quantity);
+  await rejects('a second solve with a new request pays nothing more', chooseRoute(db, 'puzzler', { ...solveInput, requestId: rid() }, T), 409);
+  const givenUp = (await start(db, 'puzzler', 'puzzle')).event!;
+  const beforeGiveUp = (await loadRouteState(db, 'puzzler', T)).inventory;
+  const left = await chooseRoute(db, 'puzzler', { requestId: rid(), eventId: givenUp.id, expectedRevision: 0, choice: 'leave' }, T);
+  check('giving up a puzzle pays nothing and keeps the action spent', left.event?.outcome === 'left' && eq(left.state.inventory, beforeGiveUp) && left.state.allowance.available === 10);
 
   // Schema invariant itself, independent of domain checks.
   const sample = (await readRouteEvent(db, 'u1', trainer.event.id))!;

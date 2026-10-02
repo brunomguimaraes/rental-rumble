@@ -70,6 +70,10 @@ try {
   check('array encounter choice is rejected instead of string-coerced', (await call('choose', { requestId: 'array-choice', eventId: e.id, expectedRevision: 0, choice: ['battle'] })).status === 400);
   check('ball cannot be attached to unrelated action', (await call('choose', { requestId: 'wrong', eventId: e.id, expectedRevision: 0, choice: 'leave', ballId: 'poke' })).status === 400);
   check('missing catch ball is rejected', (await call('choose', { requestId: 'missing', eventId: e.id, expectedRevision: 0, choice: 'catch' })).status === 400);
+  for (const [label, moves] of [['an empty list', []], ['501 moves', Array(501).fill(1)], ['a fractional index', [1.5]], ['an index off the board', [9]], ['a string', '1,2']] as const) {
+    check(`solve rejects ${label}`, (await call('choose', { requestId: `solve-${label}`, eventId: e.id, expectedRevision: 0, choice: 'solve', moves })).status === 400);
+  }
+  check('moves cannot ride on another choice', (await call('choose', { requestId: 'moves-leave', eventId: e.id, expectedRevision: 0, choice: 'leave', moves: [1] })).status === 400);
   check('other user cannot choose encounter', (await call('choose', { requestId: 'foreign', eventId: e.id, expectedRevision: 0, choice: 'leave' }, 'other')).status === 404);
   const choice = { requestId: 'leave', eventId: e.id, expectedRevision: 0, choice: 'leave' };
   const done = await call('choose', choice);

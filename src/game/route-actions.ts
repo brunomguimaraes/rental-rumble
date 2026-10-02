@@ -14,9 +14,9 @@ export type SearchKind = 'wild' | 'trainer' | 'puzzle' | 'quest' | 'explore' | '
 export type LegacySearchKind = 'npc';
 export type QuestId = 'meadow-survey' | 'honey-tree';
 export type PuzzleScene = 'tall-grass' | 'sunflowers' | 'signpost' | 'hilltop-oak';
-export type RoutePhase = 'wild' | 'catch' | 'trainer' | 'researcher' | 'resolved';
-export type RouteChoice = 'battle' | 'catch' | 'leave' | 'accept' | 'decline' | 'talk';
-export type RouteOutcome = 'caught' | 'escaped' | 'won' | 'lost' | 'left' | 'talked' | 'accepted' | 'found' | 'nothing';
+export type RoutePhase = 'wild' | 'catch' | 'trainer' | 'researcher' | 'puzzle' | 'resolved';
+export type RouteChoice = 'battle' | 'catch' | 'leave' | 'accept' | 'decline' | 'talk' | 'solve';
+export type RouteOutcome = 'caught' | 'escaped' | 'won' | 'lost' | 'left' | 'talked' | 'accepted' | 'found' | 'nothing' | 'solved';
 
 export type ValuableId = 'honey' | 'tiny-mushroom' | 'big-mushroom';
 export type ItemId = CaptureBallId | ValuableId;
@@ -104,6 +104,8 @@ export interface FoeEntry { dexId: number; weight: number; rare?: boolean; statM
 export interface FoePool { min: number; max: number; statMult: number; pool: readonly FoeEntry[] }
 /** One Explore item find, with its weight among them. */
 export interface ExploreFind { items: ItemGrant[]; money: number; weight: number }
+/** What the player sees of a puzzle: its board, its scene and its reward. The seed stays on the server. */
+export interface PublicPuzzle { size: number; board: number[]; scene: PuzzleScene; reward: ItemGrant[] }
 /** The live rules: the action board. */
 export interface RouteRules {
   version: 4;
@@ -150,7 +152,7 @@ export type StoredRouteRules = RouteRules | RouteRulesV3 | RouteRulesV2;
 /** Private: retain the exact individual which may later become owned. */
 export interface FrozenRouteFoe { mint: MintSpec; view: WildView; statMult: number }
 export interface RouteFind {
-  kind: 'wild' | 'trainer' | 'researcher' | 'item' | 'nothing' | 'secret';
+  kind: 'wild' | 'trainer' | 'researcher' | 'item' | 'nothing' | 'secret' | 'puzzle';
   foe: FrozenRouteFoe | null;
   npc: RouteNpc | null;
   items: ItemGrant[];
@@ -158,6 +160,8 @@ export interface RouteFind {
   landmarks: string[];
   /** The quest a find belongs to: the survey's steps, or the Honey Tree. */
   questId?: QuestId;
+  /** A puzzle find's board, scene and reward. */
+  puzzle?: PublicPuzzle;
 }
 /** A party member that fought, with the HP it ended on. */
 export interface FieldedMember { id: string; hp: number; maxHp: number }
@@ -201,6 +205,8 @@ export interface RouteEvent {
   newLandmarks: string[];
   /** The quest this encounter belongs to; absent on encounters saved before quests had steps. */
   questId?: QuestId;
+  /** An open or finished puzzle. */
+  puzzle?: PublicPuzzle;
   outcome: RouteOutcome | null;
 }
 /** Only persisted server-side; never spread this object into a response. */
@@ -246,6 +252,8 @@ export interface RouteChooseInput {
   expectedRevision: number;
   choice: RouteChoice;
   ballId?: CaptureBallId;
+  /** A solve's slides: board indexes moved into the gap, in order. */
+  moves?: number[];
 }
 export interface RouteQuestInput { requestId: string; questId: 'meadow-survey' }
 export interface MarketTradeInput { requestId: string; itemId: ItemId; side: TradeSide; quantity: number }

@@ -9,6 +9,7 @@ import {
   rollRouteFind, ROUTE_RULES, simulateRouteBattle, spendAllowance, wildAreas,
 } from '../src/game/route-rules.js';
 import type { CaptureBallId, InventoryState, RouteRules, RouteRulesV2, RouteRulesV3 } from '../src/game/route-actions.js';
+import { isSolved } from '../src/game/sliding-puzzle.js';
 import { balanceFailures, measureRouteBalance, routeOpponents } from './route-balance.js';
 
 let passed = 0;
@@ -120,6 +121,18 @@ const alt = rollRouteFind({ ...findBase, seed: 'test-13', kind: 'wild' });
 check('alternate identity is frozen in the view and mint', alt.foe?.view.altColor === true && alt.foe.mint.altColor && !alt.foe.mint.shiny);
 const shiny = rollRouteFind({ ...findBase, seed: 'test-1248', kind: 'wild' });
 check('shiny identity is frozen in the view and mint', shiny.foe?.view.shiny === true && shiny.foe.mint.shiny && !shiny.foe.mint.altColor);
+
+const dealt = rollRouteFind({ ...findBase, seed: 'panel-0', kind: 'puzzle' });
+check('a puzzle search deals a scrambled 3×3 board, a meadow scene and a reward', dealt.kind === 'puzzle' && dealt.puzzle?.size === 3
+  && dealt.puzzle.board.length === 9 && !isSolved(dealt.puzzle.board) && ROUTE_RULES.puzzle.scenes.includes(dealt.puzzle.scene) && dealt.puzzle.reward.length === 1 && dealt.foe === null);
+check('the same puzzle seed deals the same board, scene and reward', same(dealt, rollRouteFind({ ...findBase, seed: 'panel-0', kind: 'puzzle' })));
+const deals = Array.from({ length: 4000 }, (_, i) => rollRouteFind({ ...findBase, seed: `panel-${i}`, kind: 'puzzle' }).puzzle!);
+const rewardShare = (itemId: string, quantity: number) => deals.filter((p) => same(p.reward, [{ itemId, quantity }])).length / deals.length;
+check('puzzle rewards are a Great Ball 40%, 3 Poké Balls 30%, a Tiny Mushroom 20%, a Big Mushroom 10% within 3 points',
+  Math.abs(rewardShare('great', 1) - 0.4) < 0.03 && Math.abs(rewardShare('poke', 3) - 0.3) < 0.03
+  && Math.abs(rewardShare('tiny-mushroom', 1) - 0.2) < 0.03 && Math.abs(rewardShare('big-mushroom', 1) - 0.1) < 0.03);
+check('every meadow scene is dealt', new Set(deals.map((p) => p.scene)).size === 4);
+check('a puzzle offers a solve or leaving', same(legalChoices('puzzle'), ['solve', 'leave']));
 
 check('cosmetic balls are rejected as usable items', itemById('master') === null && itemById('ultra') === null && !isCaptureBallId('master'));
 check('all five market items are known; cosmetic balls are not', ['poke', 'great', 'honey', 'tiny-mushroom', 'big-mushroom'].every(isItemId) && !isItemId('master') && !isItemId('money'));

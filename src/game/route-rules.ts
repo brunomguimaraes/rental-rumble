@@ -13,6 +13,7 @@ import { ballCount, isCaptureBallId, itemById } from './items.js';
 import { meterView, projectMeter, spendMeter, type MeterRules } from './meter.js';
 import { CREATURES_BY_ID } from './pokemon.js';
 import { RNG } from './rng.js';
+import { generatePuzzle } from './sliding-puzzle.js';
 import { placeById, placeTitle } from './world.js';
 
 /** Live route rules: the action board. Encounters keep the rules they were created under. */
@@ -227,6 +228,13 @@ export function rollRouteFind({ seed, kind, honeyTreeFound = false, inventory, r
     return quiet('item', { items: [{ itemId, quantity: 1 }] });
   }
   if (kind === 'explore') return rollExplore(new RNG(`${STREAM_V4}:${seed}:explore`), { honeyTreeFound, inventory, rules });
+  if (kind === 'puzzle') {
+    const rng = new RNG(`${STREAM_V4}:${seed}:puzzle`);
+    const scene = rng.pick(rules.puzzle.scenes);
+    const { items } = pickWeighted(rules.puzzle.rewards, rng);
+    const board = generatePuzzle(`${STREAM_V4}:${seed}:board`, rules.puzzle);
+    return quiet('puzzle', { puzzle: { size: rules.puzzle.size, board, scene, reward: items.map((item) => ({ ...item })) } });
+  }
   throw new Error(`Unsupported search kind ${kind}`);
 }
 
@@ -236,6 +244,7 @@ export function legalChoices(phase: RoutePhase): RouteChoice[] {
     case 'catch': return ['catch', 'leave'];
     case 'trainer': return ['battle', 'leave'];
     case 'researcher': return ['accept', 'decline', 'talk'];
+    case 'puzzle': return ['solve', 'leave'];
     case 'resolved': return [];
   }
 }

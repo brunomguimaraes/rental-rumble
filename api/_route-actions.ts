@@ -21,8 +21,9 @@ import {
   allowanceView, battlePrize, captureChance, legalChoices, MEADOW_LANDMARKS, rollCapture,
   ROUTE_RULES, simulateRouteBattle, spendAllowance,
 } from '../src/game/route-rules.js';
+import { applyMoves, isSolved, MAX_PUZZLE_MOVES } from '../src/game/sliding-puzzle.js';
 import type {
-  InventoryState, MarketTradeInput, RouteChooseInput, RouteQuestInput, RouteReply, RouteSearchInput,
+  InventoryState, MarketTradeInput, RouteChoice, RouteChooseInput, RouteQuestInput, RouteReply, RouteSearchInput,
   RouteState, RouteTravelInput, SearchKind, StoredRouteEvent,
 } from '../src/game/route-actions.js';
 
@@ -32,17 +33,26 @@ const validId = (v: unknown): v is string => typeof v === 'string' && v.length >
 export const validRouteRequestId = validId;
 
 /** The cards whose searches the server runs. */
-const SEARCH_KINDS: readonly SearchKind[] = ['wild', 'trainer', 'explore', 'forage'];
+const SEARCH_KINDS: readonly SearchKind[] = ['wild', 'trainer', 'puzzle', 'explore', 'forage'];
 export function parseRouteSearch(body: Record<string, unknown>): RouteSearchInput | null {
   const partyIds = parsePartyInput(body.partyIds);
   if (!validId(body.requestId) || body.locationId !== 'r1' || !SEARCH_KINDS.includes(body.kind as SearchKind) || !partyIds) return null;
   return { requestId: body.requestId, locationId: 'r1', kind: body.kind as SearchKind, partyIds };
 }
+const CHOICES: readonly RouteChoice[] = ['battle', 'catch', 'leave', 'accept', 'decline', 'talk', 'solve'];
+/** A solve's move list: 1 to MAX_PUZZLE_MOVES board indexes. */
+const validMoves = (v: unknown): v is number[] => Array.isArray(v) && v.length >= 1 && v.length <= MAX_PUZZLE_MOVES
+  && v.every((m) => Number.isInteger(m) && m >= 0 && m < ROUTE_RULES.puzzle.size ** 2);
 export function parseRouteChoose(body: Record<string, unknown>): RouteChooseInput | null {
   if (!validId(body.requestId) || !validId(body.eventId) || !Number.isSafeInteger(body.expectedRevision) || Number(body.expectedRevision) < 0) return null;
-  if (typeof body.choice !== 'string' || !['battle', 'catch', 'leave', 'accept', 'decline', 'talk'].includes(body.choice)) return null;
+  if (!CHOICES.includes(body.choice as RouteChoice)) return null;
   if (body.choice === 'catch' ? !isCaptureBallId(body.ballId) : body.ballId !== undefined) return null;
-  return { requestId: body.requestId, eventId: body.eventId, expectedRevision: Number(body.expectedRevision), choice: body.choice as RouteChooseInput['choice'], ...(isCaptureBallId(body.ballId) ? { ballId: body.ballId } : {}) };
+  if (body.choice === 'solve' ? !validMoves(body.moves) : body.moves !== undefined) return null;
+  return {
+    requestId: body.requestId, eventId: body.eventId, expectedRevision: Number(body.expectedRevision), choice: body.choice as RouteChoice,
+    ...(isCaptureBallId(body.ballId) ? { ballId: body.ballId } : {}),
+    ...(body.choice === 'solve' ? { moves: body.moves as number[] } : {}),
+  };
 }
 export function parseRouteQuest(body: Record<string, unknown>): RouteQuestInput | null {
   return validId(body.requestId) && body.questId === 'meadow-survey' ? { requestId: body.requestId, questId: 'meadow-survey' } : null;
@@ -213,7 +223,7 @@ export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, 
 }
 
 export async function chooseRoute(db: Db, uid: string, input: RouteChooseInput, now: number): Promise<RouteReply> {
-  return writeCommand(db, uid, input.requestId, JSON.stringify(['choose', input.eventId, input.expectedRevision, input.choice, input.ballId ?? null]), now, async (tx) => {
+  return writeCommand(db, uid, input.requestId, JSON.stringify(['choose', input.eventId, input.expectedRevision, input.choice, input.ballId ?? null, ...(input.moves ? [input.moves] : [])]), now, async (tx) => {
     const account = await requireActivated(tx, uid);
     let joined: string[] | null = null;
     const row = await readRouteEvent(tx, uid, input.eventId);
@@ -265,6 +275,13 @@ export async function chooseRoute(db: Db, uid: string, input: RouteChooseInput, 
       e.catch = { ballId: input.ballId, chance, caught, owned, ...(owned ? { joinedParty: joined !== null } : {}) };
       e.items.push({ itemId: input.ballId, quantity: -1 });
       e.phase = 'resolved'; e.outcome = caught ? 'caught' : 'escaped';
+    } else if (input.choice === 'solve') {
+      // Replay the player's slides from the board the server stored; only a legal, solved finish pays.
+      const finish = e.puzzle && input.moves ? applyMoves(e.puzzle.board, input.moves) : null;
+      if (!e.puzzle || !finish || !isSolved(finish)) return fail(400, 'That doesn’t solve the puzzle yet.');
+      for (const item of e.puzzle.reward) await changeInventory(tx, uid, item.itemId, item.quantity);
+      e.items = [...e.items, ...e.puzzle.reward];
+      e.phase = 'resolved'; e.outcome = 'solved';
     } else {
       if (input.choice === 'accept') await acceptRouteQuest(tx, uid, 'meadow-survey', now);
       e.phase = 'resolved';

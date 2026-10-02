@@ -10,7 +10,7 @@ import type { InventoryState, RouteEvent, RouteFind, RoutePhase, SearchKind, Sto
 
 /** The phase a find opens in. Finds without a Pokémon or a person settle at once. */
 function openingPhase(find: RouteFind): RoutePhase {
-  return find.kind === 'wild' || find.kind === 'trainer' || find.kind === 'researcher' ? find.kind : 'resolved';
+  return find.kind === 'wild' || find.kind === 'trainer' || find.kind === 'researcher' || find.kind === 'puzzle' ? find.kind : 'resolved';
 }
 
 /**
@@ -39,6 +39,7 @@ export async function commitFind(tx: Executor, { uid, kind, party, inventory, no
     battle: null, members: [], catch: null, items: find.items, newSeen: [], newLandmarks: [],
     outcome: phase !== 'resolved' ? null : find.kind === 'nothing' ? 'nothing' : 'found', money: find.money,
     ...(find.questId ? { questId: find.questId } : {}),
+    ...(find.puzzle ? { puzzle: find.puzzle } : {}),
   };
   for (const landmark of find.landmarks) {
     if (await insertDiscovery(tx, { uid, locationId: 'r1', kind: 'landmark', ref: landmark, foundAt: now })) event.newLandmarks.push(landmark);

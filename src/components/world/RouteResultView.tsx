@@ -14,6 +14,7 @@ import { inventoryChangeText, moneyChangeText, resultFind, type ResultFind } fro
 const OUTCOME_LABEL = {
   caught: 'A new companion!', escaped: 'The Pokémon escaped', won: 'Battle won!', lost: 'Your party is out of strength',
   left: 'Onward to the meadow', talked: 'A moment on the path', accepted: 'Meadow survey accepted', found: 'A little discovery!', nothing: 'Nothing this time',
+  solved: 'Puzzle solved!',
 };
 
 /** After a won battle, names the members that fainted mid-battle: they earned no EXP. A loss has its own whiteout line. */
