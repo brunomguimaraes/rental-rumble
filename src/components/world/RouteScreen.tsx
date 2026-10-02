@@ -81,6 +81,9 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
   const [from, setFrom] = useState<'map' | 'list'>('map');
   const [selected, setSelected] = useState<'home' | 'r1'>(entry?.place ?? here);
   const [spot, setSpot] = useState<TownDestinationId>(entry?.place === 'home' ? entry.spot : TOWN_START);
+  // The board's card and quest live here, not in the board, so they survive encounters for the whole world visit.
+  const [boardCard, setBoardCard] = useState<SearchKind>(() => (entry?.place === 'r1' && entry.focus === 'quest' ? 'quest' : 'wild'));
+  const [boardQuest, setBoardQuest] = useState<QuestId | null>(null);
   const [bagOpen, setBagOpen] = useState(false);
   const [selectedBall, setSelectedBall] = useState<{ eventId: string; id: CaptureBallId } | null>(null);
   const [pending, setPending] = useState<RouteCommand | null>(() => readPendingRouteCommand(accountKey));
@@ -297,7 +300,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
         ? <MarketScreen state={state} busy={locked} onTrade={(trade) => void submit({ operation: 'market-trade', input: { requestId: newRouteRequestId(), ...trade } })} />
         : <Panel title="Village market"><p className="text-sm">Begin exploring Sunny Meadow to open your account at the market.</p><button type="button" onClick={() => walkTo('r1')} className="ui-button-primary ui-focus mt-3 min-h-11 w-full px-3 font-label text-[10px] uppercase">Walk to Sunny Meadow</button></Panel>)}
       {boardShown && <RouteBoard state={state} party={party} locked={locked} busy={busy}
-        focusQuest={entry?.place === 'r1' && entry.focus === 'quest'}
+        card={boardCard} onCard={setBoardCard} picked={boardQuest} onPick={setBoardQuest}
         onSearch={search} onActivate={() => void submit({ operation: 'activate', input: { requestId: newRouteRequestId() } })}
         onResume={() => { setResultOnly(false); setPage('encounter'); scrollToTop(); }}
         onResult={() => { setResultOnly(true); setPage('encounter'); scrollToTop(); }}

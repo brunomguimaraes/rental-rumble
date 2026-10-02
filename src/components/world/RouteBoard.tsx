@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { ownedMonToCreature, type OwnedMon } from '../../game/box';
 import { isFainted } from '../../game/health';
 import { miniUrl } from '../../game/pokemon';
@@ -22,8 +21,14 @@ export interface RouteBoardProps {
   party: OwnedMon[];
   locked: boolean;
   busy: boolean;
-  /** Opened from a Hub quest highlight: start on the Quest card. */
-  focusQuest?: boolean;
+  /** The selected card. RouteScreen keeps it, so it survives encounters for the whole world visit. */
+  card: SearchKind;
+  /** Selects a card. Choosing is free; only the button spends. */
+  onCard: (card: SearchKind) => void;
+  /** The quest picked in the Quest card's list; null follows the first quest with a step. */
+  picked: QuestId | null;
+  /** Picks a quest in the Quest card's list. */
+  onPick: (id: QuestId) => void;
   onSearch: (kind: SearchKind, questId?: QuestId) => void;
   onClaim: () => void;
   onActivate: () => void;
@@ -37,9 +42,7 @@ export interface RouteBoardProps {
 }
 
 /** Sunny Meadow as a board: the scene, six cards, and one button that states its cost. Choosing a card is free. */
-export function RouteBoard({ state, party, locked, busy, focusQuest = false, onSearch, onClaim, onActivate, onResume, onResult, onEditParty, onCenter, onRefresh, onDismissLegacy }: RouteBoardProps) {
-  const [card, setCard] = useState<SearchKind>(focusQuest ? 'quest' : 'wild');
-  const [picked, setPicked] = useState<QuestId | null>(null);
+export function RouteBoard({ state, party, locked, busy, card, onCard, picked, onPick, onSearch, onClaim, onActivate, onResume, onResult, onEditParty, onCenter, onRefresh, onDismissLegacy }: RouteBoardProps) {
   const quest = pickQuest(state.quests, picked);
   const starting = !state.activated || state.legacy.pending;
   const active = state.activeEvent;
@@ -73,7 +76,7 @@ export function RouteBoard({ state, party, locked, busy, focusQuest = false, onS
       <div role="group" aria-label="Actions" className="grid grid-cols-3 gap-2 border-t-2 border-window-frame p-2">
         {BOARD_CARDS.map((entry) => {
           const selected = card === entry.kind;
-          return <button key={entry.kind} type="button" aria-pressed={selected} disabled={starting || Boolean(active)} onClick={() => setCard(entry.kind)}
+          return <button key={entry.kind} type="button" aria-pressed={selected} disabled={starting || Boolean(active)} onClick={() => onCard(entry.kind)}
             className={`ui-focus relative flex min-h-24 flex-col items-center justify-between gap-1 rounded-[3px] border-2 bg-slot px-1 py-2 disabled:opacity-75 ${selected ? 'border-accent' : 'border-window-frame enabled:hover:border-window-rim'}`}>
             <span className="grid h-16 place-items-center"><CardArt kind={entry.kind} /></span>
             <span className={`text-center font-label text-[9px] uppercase leading-tight ${selected ? 'text-accent' : 'text-ink'}`}>{entry.label}</span>
@@ -83,7 +86,7 @@ export function RouteBoard({ state, party, locked, busy, focusQuest = false, onS
       </div>
       <div aria-live="polite" className="border-t-2 border-window-frame p-3">
         {starting ? <p className="text-sm text-ink-dim">Begin with {ROUTE_RULES.initialActions} actions and {ROUTE_RULES.starterBalls} Poké Balls.{state.legacy.pending ? ' Your previous journey’s rewards will be saved first.' : ''}</p>
-          : card === 'quest' && !active ? <QuestPicker quests={state.quests} picked={quest?.id ?? null} disabled={locked} onPick={setPicked} />
+          : card === 'quest' && !active ? <QuestPicker quests={state.quests} picked={quest?.id ?? null} disabled={locked} onPick={onPick} />
             : <p className="text-sm text-ink-dim">{cardDescription(card, state.inventory)}</p>}
         <BoardButton state={state} card={card} quest={quest} party={party} busy={busy} locked={locked} onRun={run} />
       </div>
