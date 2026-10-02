@@ -2730,17 +2730,15 @@ database (`TURSO_DATABASE_URL=file:<scratchpad>/board.db`) and an explicit `AUTH
 
 If no browser tool is available, report the browser check as **not done**. Don't call it passed.
 
-- [ ] **Step 5: Decisions log and CHANGELOG commit**
+- [ ] **Step 5: Changelog commit**
 
 ```bash
 git add CHANGELOG.md src/guide/pages/overview.mdx
 git commit -m "Describe the Sunny Meadow action board in the changelog and the guide"
 ```
 
-Add a row at the top of the v2 design doc's decisions log
-(https://claude.ai/code/artifact/47af7c97-2c60-401a-be74-42f3ff3cfb3a), using the docs tools:
-
-`2026-10-02 · Sunny Meadow becomes a six-card action board (Wild Pokémon, Trainer, Puzzle, Quest, Explore, Forage) under route rules v4: wild wins pay no ₽, sliding-panel puzzles verified on the server, quests advance one step per action, and Explore can uncover the Honey Tree. Spec: docs/superpowers/specs/2026-10-02-route-action-board-design.md · You`
+The decisions-log row in the v2 design doc was added during planning (doc revision 30). If the shipped balance
+values differ from the spec, amend that row.
 
 - [ ] **Step 6: Report**
 
