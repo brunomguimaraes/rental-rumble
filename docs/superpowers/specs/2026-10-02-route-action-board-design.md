@@ -31,7 +31,7 @@ rules v4. No other route becomes playable.
 | Card | Cost | Result |
 | --- | --- | --- |
 | Wild Pokémon | 1 action | One common wild Pokémon: Sentret, Zigzagoon, Pidgey and Rattata (weight 3 each); Hoppip, Sunkern, Kricketot and Bidoof (2 each). Hidden level 2–5, stat multiplier 0.6. A win pays 30 EXP and ₽0. Catching works before or after a win, with today's odds. |
-| Trainer | 1 action | One of four trainers, chosen evenly, each with one Pokémon at hidden level 5, multiplier 0.6: Meadow Scout (Pidgey), Youngster (Zigzagoon), Lass (Hoppip) and Bug Catcher (Kricketot). A win pays 50 EXP and ₽200. Trainer Pokémon can't be caught. |
+| Trainer | 1 action | One of four trainers, chosen evenly, each with one Pokémon at hidden level 5, multiplier 0.6: Meadow Scout (Pidgey), Youngster (Zigzagoon), Lass (Sunkern) and Bug Catcher (Kricketot). A win pays 50 EXP and ₽200. Trainer Pokémon can't be caught. |
 | Puzzle | 1 action | A sliding-panel puzzle (see Puzzle). Solving it pays its reward; giving up pays nothing. |
 | Quest | 1 action per step | The chosen quest's next step (see Quests). Claiming is free. |
 | Explore | 1 action | Weights: nothing 35, rare item 35, rare Pokémon 20, secret quest 10. |
@@ -123,6 +123,14 @@ seeds per fresh starter in `STARTER_POOL`:
 
 A species that fails is tuned through its level range or stat multiplier (a per-entry override is allowed), never by
 changing growth.
+
+Pre-plan measurement (2026-10-02, 200 seeds, the real battle engine):
+
+- At ×0.6, Heracross fails: a lone Lotad wins 29% of fights and Caterpie 58%. Heracross therefore fights at ×0.45,
+  where the weakest starter wins 72%.
+- Lass first had Hoppip, against which Geodude won only 61%. She now has Sunkern, against which every starter wins
+  at least 93%.
+- Every other new opponent passes at ×0.6.
 
 ## Screen
 
