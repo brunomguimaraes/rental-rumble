@@ -43,7 +43,7 @@ export function HubActivity({ world, worldError, location, lead, onVisit, onRetr
       <button type="button" onClick={onRetry} className="ui-button ui-focus min-h-11 px-3 font-label text-[9px] uppercase">Retry</button>
     </div> : !world ? <p role="status" className="ui-window p-3 text-sm text-ink-dim">Looking around Hearthvale…</p> : highlights.length > 0 ? <div aria-label={town ? 'Nearby in Sunny Meadow' : 'Around Sunny Meadow'} className="space-y-3">
       <p className="px-1 font-label text-[9px] uppercase tracking-wide text-info">{town ? 'Nearby · Sunny Meadow' : 'Around you'}</p>
-      {highlights.map((highlight) => <button key={`${highlight.kind}:${highlight.label}`} type="button" onClick={() => onVisit({ place: 'r1', focus: highlight.focus })}
+      {highlights.map((highlight) => <button key={`${highlight.kind}:${highlight.label}`} type="button" onClick={() => onVisit({ place: 'r1', focus: highlight.focus, ...(highlight.questId ? { questId: highlight.questId } : {}) })}
         className="ui-window ui-focus flex min-h-20 w-full items-center gap-3 p-3 text-left">
         {highlight.dexId ? <PixelSprite src={portraitUrl(highlight.dexId)} size={40} alt="" />
           : highlight.spriteKey ? <img src={`${import.meta.env.BASE_URL}sprites/trainers/${highlight.spriteKey}.png`} alt="" width={40} height={40} className="h-10 w-10 shrink-0 object-contain [image-rendering:pixelated]" />

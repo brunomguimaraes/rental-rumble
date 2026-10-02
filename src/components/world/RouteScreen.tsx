@@ -33,9 +33,10 @@ type Page = 'map' | 'list' | 'home' | 'center' | 'r1' | 'encounter' | 'market';
 
 /**
  * Where the world screen opens instead of its map: Sunny Meadow, or inside Hearth Town at a destination.
- * `center` reopens the Pokémon Center itself, for screens opened from inside it.
+ * `center` reopens the Pokémon Center itself, for screens opened from inside it; `questId` preselects that quest
+ * on the Quest card.
  */
-export type WorldEntry = { place: 'r1'; focus?: 'encounter' | 'result' | 'quest' } | TownEntry;
+export type WorldEntry = { place: 'r1'; focus?: 'encounter' | 'result' | 'quest'; questId?: QuestId } | TownEntry;
 export type TownEntry = { place: 'home'; spot: TownDestinationId; center?: true };
 
 function entryPage(entry: WorldEntry | undefined): Page {
@@ -84,7 +85,7 @@ export function RouteScreen({ accountKey, state, error: loadError, box, partyIds
   const [spot, setSpot] = useState<TownDestinationId>(entry?.place === 'home' ? entry.spot : TOWN_START);
   // The board's card and quest live here, not in the board, so they survive encounters for the whole world visit.
   const [boardCard, setBoardCard] = useState<SearchKind>(() => (entry?.place === 'r1' && entry.focus === 'quest' ? 'quest' : 'wild'));
-  const [boardQuest, setBoardQuest] = useState<QuestId | null>(null);
+  const [boardQuest, setBoardQuest] = useState<QuestId | null>(() => (entry?.place === 'r1' ? entry.questId ?? null : null));
   const [bagOpen, setBagOpen] = useState(false);
   const [selectedBall, setSelectedBall] = useState<{ eventId: string; id: CaptureBallId } | null>(null);
   const [pending, setPending] = useState<RouteCommand | null>(() => readPendingRouteCommand(accountKey));

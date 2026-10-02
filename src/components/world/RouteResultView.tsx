@@ -8,8 +8,9 @@ import { MEADOW_LANDMARKS, ROUTE_RULES } from '../../game/route-rules';
 import { ExpBar } from '../ui/ExpBar';
 import { PixelSprite } from '../ui/PixelSprite';
 import { MeadowScene } from './MeadowScene';
+import { scenePreviewStyle } from './puzzle-art';
 import { growthLines, monName, POKEBALL, speciesName } from './scene';
-import { inventoryChangeText, moneyChangeText, nothingLine, resultFind } from './route-copy';
+import { foragedText, inventoryChangeText, moneyChangeText, nothingLine, resultFind } from './route-copy';
 
 const OUTCOME_LABEL = {
   caught: 'A new companion!', escaped: 'The Pokémon escaped', won: 'Battle won!', lost: 'Your party is out of strength',
@@ -31,6 +32,10 @@ function FindArt({ event }: { event: RouteEvent }) {
   if (event.kind === 'nothing') return icon('sprites/ui/night/96/explore.png', 96);
   if (event.kind === 'landmark') return icon('sprites/ui/night/96/field-journal.png', 96);
   if (event.kind === 'secret') return icon('sprites/items/honey.png', 90);
+  // A puzzle that paid nothing (given up) shows the picture it hid.
+  if (event.kind === 'puzzle' && event.puzzle && !event.items.some((item) => item.quantity > 0)) {
+    return <span aria-hidden="true" className="mt-8 block h-24 w-24 border-2 border-edge bg-no-repeat" style={scenePreviewStyle(event.puzzle.scene)} />;
+  }
   const find = resultFind(event);
   if (find?.kind === 'money') return <p className="mt-10 rounded-[3px] border border-window-rim bg-window px-4 py-3 text-center shadow-[3px_3px_0_var(--color-edge)]"><span className="block font-label text-[10px] uppercase text-info">Coin pouch</span><span className="mt-1 block text-2xl text-accent">{formatMoney(find.amount)}</span></p>;
   if (find?.kind === 'item' && find.item.category === 'valuable') return <div className="mt-8 flex flex-col items-center gap-2">
@@ -73,7 +78,8 @@ export function RouteResultView({ event, box, busy, surveyProgress = null, onDon
   const base = event.foe ? CREATURES_BY_ID[String(event.foe.dexId)] : null;
   const foeCreature = base ? event.foe?.shiny ? asShiny(base) : event.foe?.altColor ? asAltColor(base) : base : null;
   const sprite = caughtCreature?.sprite ?? foeCreature?.sprite ?? (event.foe ? spriteUrl(event.foe.dexId) : null);
-  const title = event.kind === 'secret' ? 'A secret in the meadow!' : event.kind === 'landmark' ? 'Landmark surveyed' : event.outcome ? OUTCOME_LABEL[event.outcome] : 'Battle rewards';
+  const foraged = event.searchKind === 'forage' ? foragedText(event.items) : null;
+  const title = foraged ?? (event.kind === 'secret' ? 'A secret in the meadow!' : event.kind === 'landmark' ? 'Landmark surveyed' : event.outcome ? OUTCOME_LABEL[event.outcome] : 'Battle rewards');
   const exp = event.members.reduce((sum, member) => sum + member.expGained, 0);
   return <>
     <section className="ui-window m-2" aria-label="Encounter result">
@@ -92,7 +98,7 @@ export function RouteResultView({ event, box, busy, surveyProgress = null, onDon
         {event.members.filter((member) => member.before.dexId !== member.after.dexId).map((member) => <p key={member.id} className="mt-2 text-base text-accent">{speciesName(member.before.dexId)} evolved into {speciesName(member.after.dexId)}!</p>)}
         {event.outcome === 'lost' && <p className="text-sm text-ink-dim">You hurried back to Hearth Town. No EXP earned; the Pokémon Center will heal everyone for free.</p>}
         <FaintedNote event={event} box={box} />
-        {event.outcome === 'left' && <p className="text-sm text-ink-dim">Your search action stays spent. Battle rewards and discoveries are saved.</p>}
+        {event.outcome === 'left' && <p className="text-sm text-ink-dim">{event.kind === 'puzzle' ? 'You left the stone panels. No reward this time.' : 'Your search action stays spent. Battle rewards and discoveries are saved.'}</p>}
         {event.outcome === 'accepted' && <p className="text-sm">Survey the three landmarks from the Quest card for {ROUTE_RULES.questGreatBalls} Great Balls and {formatMoney(ROUTE_RULES.questMoney)}. Earlier discoveries count.</p>}
         {event.outcome === 'talked' && <p className="text-sm">Your survey progress is saved on the Quest card.</p>}
         {event.outcome === 'nothing' && <><p className="text-base">{nothingLine(event.id)}</p><p className="mt-1 text-sm text-ink-dim">Your action is spent. Explore again, or try another card.</p></>}
@@ -102,7 +108,7 @@ export function RouteResultView({ event, box, busy, surveyProgress = null, onDon
         {event.questId === 'honey-tree' && event.kind === 'wild' && <p className="mt-2 text-sm text-ink-dim">You spread 1 Honey on the Honey Tree.</p>}
         {event.items.some((item) => item.quantity > 0) && <ul className="space-y-1 text-base text-accent">{event.items.filter((item) => item.quantity > 0).map((item) => <li key={item.itemId}>{inventoryChangeText(item)}</li>)}</ul>}
         {moneyChangeText(event) && <p className="mt-2 text-sm text-accent">{moneyChangeText(event)}</p>}
-        {event.newLandmarks.length > 0 && <p className="mt-2 text-sm text-accent">◆ Discovered: {event.newLandmarks.map((id) => MEADOW_LANDMARKS.find((landmark) => landmark.id === id)?.name ?? id).join(', ')}</p>}
+        {event.kind !== 'landmark' && event.newLandmarks.length > 0 && <p className="mt-2 text-sm text-accent">◆ Discovered: {event.newLandmarks.map((id) => MEADOW_LANDMARKS.find((landmark) => landmark.id === id)?.name ?? id).join(', ')}</p>}
         {event.newSeen.length > 0 && <p className="mt-2 text-sm text-ink-dim">First seen: {event.newSeen.map(speciesName).join(', ')}.</p>}
         <button type="button" disabled={busy} onClick={onDone} className="ui-button-primary ui-focus mt-4 min-h-12 w-full px-3 font-label text-[10px] uppercase">{busy ? 'Continuing…' : event.outcome === 'lost' ? 'Go to the Pokémon Center' : 'Continue exploring'}</button>
       </div>

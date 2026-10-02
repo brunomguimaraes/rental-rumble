@@ -66,3 +66,11 @@ export function nothingLine(eventId: string): string {
   const sum = [...eventId].reduce((total, ch) => total + ch.charCodeAt(0), 0);
   return NOTHING_LINES[sum % NOTHING_LINES.length];
 }
+
+/** A forage result's title from its first good found ("You foraged 2 Tiny Mushrooms"); null when nothing was found. */
+export function foragedText(items: readonly ItemGrant[]): string | null {
+  const grant = items.find((item) => item.quantity > 0);
+  if (!grant) return null;
+  const def = itemById(grant.itemId);
+  return `You foraged ${grant.quantity} ${grant.quantity === 1 ? def?.name ?? grant.itemId : def?.plural ?? grant.itemId}`;
+}

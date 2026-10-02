@@ -4,7 +4,7 @@ import {
   runRouteCommand, savePendingRouteCommand, searchRoute, shouldApplyHydratedBox, tradeMarket, travelRoute, type RouteCommand,
 } from '../src/game/route-actions-client.js';
 import type { RouteEvent, RouteQuestView, RouteState } from '../src/game/route-actions.js';
-import { inventoryChangeText, moneyChangeText, nothingLine, resultFind, tradeText, travelBlock } from '../src/components/world/route-copy.js';
+import { foragedText, inventoryChangeText, moneyChangeText, nothingLine, resultFind, tradeText, travelBlock } from '../src/components/world/route-copy.js';
 import { placeHighlights } from '../src/components/world/place-highlights.js';
 import { boardCta, cardDescription, costText, pickQuest, questLine } from '../src/components/world/route-board.js';
 
@@ -155,6 +155,10 @@ check('claimed surveys do not keep advertising a quest or reward', placeHighligh
 check('resolved sightings open results instead of reviving an encounter', placeHighlights({ ...state, result: { ...wild, phase: 'resolved', choices: [], outcome: 'left' } })[0]?.focus === 'result');
 check('survey progress counts only its required unique landmarks', placeHighlights({ ...state, quest: { ...state.quest, status: 'active', landmarks: ['signpost', 'signpost', 'unrelated'] } })[0]?.detail.startsWith('1 of 3'));
 check('the empty-Explore line is stable for an encounter and varies between encounters', nothingLine('evt-1') === nothingLine('evt-1') && new Set(['a', 'b', 'c', 'd'].map(nothingLine)).size === 4);
+check('a forage title names its find, singular or plural', foragedText([{ itemId: 'honey', quantity: 1 }]) === 'You foraged 1 Honey'
+  && foragedText([{ itemId: 'tiny-mushroom', quantity: 1 }]) === 'You foraged 1 Tiny Mushroom' && foragedText([{ itemId: 'tiny-mushroom', quantity: 2 }]) === 'You foraged 2 Tiny Mushrooms');
+check('a forage title skips used items, and is null with no find', foragedText([{ itemId: 'poke', quantity: -1 }, { itemId: 'big-mushroom', quantity: 1 }]) === 'You foraged 1 Big Mushroom'
+  && foragedText([{ itemId: 'honey', quantity: -1 }]) === null);
 const panelsEvent: RouteEvent = { ...wild, id: 'panels', kind: 'puzzle', phase: 'puzzle', foe: null, newSeen: [], choices: ['solve', 'leave'], catchChances: null,
   puzzle: { size: 3, board: [1, 2, 3, 4, 5, 6, 7, 0, 8], scene: 'signpost', reward: [{ itemId: 'great', quantity: 1 }] } };
 check('an open puzzle is a highlight that resumes it', placeHighlights({ ...state, activeEvent: panelsEvent })[0]?.kind === 'puzzle' && placeHighlights({ ...state, activeEvent: panelsEvent })[0]?.focus === 'encounter');
@@ -163,6 +167,11 @@ const treeFound: RouteState = { ...state, quest: { ...state.quest, status: 'acti
 check('a found Honey Tree invites a first Spread Honey', placeHighlights(treeFound).some((h) => h.label === 'The Honey Tree' && h.focus === 'quest'));
 check('a Honey Tree that has drawn a Pokémon stops advertising', !placeHighlights({ ...treeFound, quests: treeFound.quests.map((q) => (q.id === 'honey-tree' ? { ...q, status: 'claimed' as const } : q)) }).some((h) => h.label === 'The Honey Tree'));
 check('two quest highlights stay distinct for the Hub list', new Set(placeHighlights(treeFound).map((h) => `${h.kind}:${h.label}`)).size === placeHighlights(treeFound).length && placeHighlights(treeFound).filter((h) => h.kind === 'quest').length === 2);
+check('a finished puzzle is not advertised as waiting', !placeHighlights({ ...state, result: { ...panelsEvent, phase: 'resolved', choices: [], outcome: 'solved' } }).some((h) => h.kind === 'puzzle'));
+const surveyStates: RouteState[] = [treeFound, state, { ...state, quest: { ...state.quest, status: 'ready' } }, { ...state, activeEvent: researcher }];
+const surveyHighlights = surveyStates.flatMap((s) => placeHighlights(s).filter((h) => h.kind === 'quest' && h.label !== 'The Honey Tree'));
+check('the Honey Tree highlight opens its own quest; survey highlights name none', placeHighlights(treeFound).find((h) => h.label === 'The Honey Tree')?.questId === 'honey-tree'
+  && surveyHighlights.length === 4 && surveyHighlights.every((h) => h.questId === undefined));
 
 reply = json(200, { ok: true, state: { ...state, quests: undefined } });
 check('a state without quests is not trusted', !(await fetchRouteState()).ok);

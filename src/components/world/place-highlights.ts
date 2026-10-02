@@ -1,4 +1,4 @@
-import type { RouteState } from '../../game/route-actions.js';
+import type { QuestId, RouteState } from '../../game/route-actions.js';
 
 export interface PlaceHighlight {
   kind: 'sighting' | 'person' | 'discovery' | 'quest' | 'puzzle';
@@ -7,6 +7,8 @@ export interface PlaceHighlight {
   focus: 'encounter' | 'result' | 'quest';
   dexId?: number;
   spriteKey?: string;
+  /** The quest to preselect on the Quest card. */
+  questId?: QuestId;
 }
 
 /** Highlights describe saved events, never invented activity or unread counts. */
@@ -41,7 +43,7 @@ export function placeHighlights(state: RouteState): PlaceHighlight[] {
   }
   // A found Honey Tree that has never drawn a Pokémon.
   if (state.quests.find((q) => q.id === 'honey-tree')?.status === 'active') {
-    highlights.push({ kind: 'quest', label: 'The Honey Tree', detail: 'Spread Honey on the old tree to see who comes.', focus: 'quest' });
+    highlights.push({ kind: 'quest', label: 'The Honey Tree', detail: 'Spread Honey on the old tree to see who comes.', focus: 'quest', questId: 'honey-tree' });
   }
   return highlights;
 }
