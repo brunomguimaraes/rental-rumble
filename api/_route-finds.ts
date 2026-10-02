@@ -1,12 +1,13 @@
 import { randomBytes } from 'node:crypto';
 import {
   acceptRouteQuest, changeInventory, changeMoney, dismissPriorRouteEvents, insertDiscovery, insertRouteEvent,
-  newId, readRouteQuests, type Executor,
+  markRouteQuestClaimed, newId, readDiscoveries, readRouteQuests, type Executor,
 } from './_db.js';
 import { fail } from './_route-error.js';
 import type { OwnedMon } from '../src/game/box.js';
 import { captureChance, legalChoices, rollRouteFind, ROUTE_RULES } from '../src/game/route-rules.js';
-import type { InventoryState, RouteEvent, RouteFind, RoutePhase, SearchKind, StoredRouteEvent } from '../src/game/route-actions.js';
+import { canAfford, questRecords, questViews } from '../src/game/route-quests.js';
+import type { InventoryState, QuestId, RouteEvent, RouteFind, RoutePhase, SearchKind, StoredRouteEvent } from '../src/game/route-actions.js';
 
 /** The phase a find opens in. Finds without a Pokémon or a person settle at once. */
 function openingPhase(find: RouteFind): RoutePhase {
@@ -17,16 +18,30 @@ function openingPhase(find: RouteFind): RoutePhase {
  * One search's find, rolled and persisted with its discoveries, items, ₽ and quest rows inside the search's
  * write transaction. The caller has validated the trainer and party and spent the action.
  */
-export async function commitFind(tx: Executor, { uid, kind, party, inventory, now }: {
+export async function commitFind(tx: Executor, { uid, kind, questId, party, inventory, now }: {
   uid: string;
   kind: SearchKind;
+  questId?: QuestId;
   party: OwnedMon[];
   inventory: InventoryState;
   now: number;
 }): Promise<RouteEvent> {
-  const quests = await readRouteQuests(tx, uid);
+  const [discoveries, rows] = await Promise.all([readDiscoveries(tx, uid), readRouteQuests(tx, uid)]);
+  const landmarks = discoveries.filter((d) => d.locationId === 'r1' && d.kind === 'landmark').map((d) => d.ref);
+  const records = questRecords(rows);
+  let questStep: 'meet' | 'survey' | 'spread-honey' | undefined;
+  if (kind === 'quest') {
+    // The step comes from stored progress, never from the request.
+    const quest = questViews(records, landmarks).find((q) => q.id === questId);
+    if (!quest) return fail(409, 'You haven’t found that quest yet.');
+    const next = quest.next;
+    if (!next) return fail(409, 'That quest is complete.');
+    if (next.step === 'claim') return fail(409, 'Your survey is complete. Claim its reward.');
+    if (!canAfford(next, inventory)) return fail(409, 'You have no Honey. Forage for some first.');
+    questStep = next.step;
+  }
   const seed = randomBytes(16).toString('hex');
-  const find = rollRouteFind({ seed, kind, honeyTreeFound: quests.some((q) => q.questId === 'honey-tree'), inventory, rules: ROUTE_RULES });
+  const find = rollRouteFind({ seed, kind, questStep, knownLandmarks: landmarks, honeyTreeFound: records.some((q) => q.questId === 'honey-tree'), inventory, rules: ROUTE_RULES });
   const phase = openingPhase(find);
   const event: RouteEvent = {
     id: newId(), locationId: 'r1', searchKind: kind, kind: find.kind, rulesVersion: ROUTE_RULES.version, revision: 0,
@@ -51,6 +66,8 @@ export async function commitFind(tx: Executor, { uid, kind, party, inventory, no
   }
   if (find.money > 0 && !await changeMoney(tx, uid, find.money)) throw new Error('Balance overflow');
   if (find.kind === 'secret') await acceptRouteQuest(tx, uid, 'honey-tree', now);
+  // The first honey-tree encounter completes its quest; later ones leave it complete.
+  if (find.questId === 'honey-tree' && find.kind === 'wild') await markRouteQuestClaimed(tx, uid, 'honey-tree', now);
   await dismissPriorRouteEvents(tx, uid, now);
   const data: StoredRouteEvent = { event, seed, config: ROUTE_RULES, foe: find.foe };
   await insertRouteEvent(tx, uid, { id: event.id, createdAt: now, revision: 0, active: phase !== 'resolved', seenAt: null, data });

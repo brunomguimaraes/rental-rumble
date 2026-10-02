@@ -57,6 +57,11 @@ try {
   check('array search kind is rejected instead of string-coerced', (await call('search', { requestId: 'array-kind', locationId: 'r1', kind: ['wild'], partyIds: [s.id] })).status === 400);
   const retiredSearch = await call('search', { requestId: 'old-npc', locationId: 'r1', kind: 'npc', partyIds: [s.id] });
   check('a Find NPC search from an old tab is refused with a refresh sentence', retiredSearch.status === 400 && retiredSearch.body.error === 'Sunny Meadow has new actions. Refresh to see them.');
+  check('a quest search must name a quest', (await call('search', { requestId: 'q-none', locationId: 'r1', kind: 'quest', partyIds: [s.id] })).status === 400);
+  check('a quest search rejects an unknown quest', (await call('search', { requestId: 'q-bad', locationId: 'r1', kind: 'quest', questId: 'dragon-hunt', partyIds: [s.id] })).status === 400);
+  check('only quest searches name a quest', (await call('search', { requestId: 'q-wild', locationId: 'r1', kind: 'wild', questId: 'meadow-survey', partyIds: [s.id] })).status === 400);
+  const hidden = await call('search', { requestId: 'q-tree', locationId: 'r1', kind: 'quest', questId: 'honey-tree', partyIds: [s.id] });
+  check('an unfound Honey Tree is a 409 with recovery state and no action spent', hidden.status === 409 && (hidden.body.state as RouteState).allowance.available === 12);
   check('duplicate party members are rejected', (await call('search', { requestId: 'dup', locationId: 'r1', kind: 'wild', partyIds: [s.id, s.id] })).status === 400);
   const stale = await call('search', { requestId: 'stale', locationId: 'r1', kind: 'wild', partyIds: ['foreign'] });
   check('stale party response supplies current state and party', stale.status === 409 && (stale.body.party as string[])[0] === s.id && (stale.body.state as RouteState).allowance.available === 12);

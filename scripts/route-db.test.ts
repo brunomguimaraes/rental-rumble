@@ -555,6 +555,43 @@ try {
   const left = await chooseRoute(db, 'puzzler', { requestId: rid(), eventId: givenUp.id, expectedRevision: 0, choice: 'leave' }, T);
   check('giving up a puzzle pays nothing and keeps the action spent', left.event?.outcome === 'left' && eq(left.state.inventory, beforeGiveUp) && left.state.allowance.available === 10);
 
+  console.log('[quests: survey steps and the Honey Tree]');
+  await onboardUser(db, 'quester', 6, 30);
+  await activateRoute(db, 'quester', 'activate', T);
+  const questerParty = [(await readOwnedByUser(db, 'quester')).find((m) => m.origin === 'starter')!.id];
+  const quest = (questId: 'meadow-survey' | 'honey-tree') => searchRoute(db, 'quester', { requestId: rid(), locationId: 'r1', kind: 'quest', questId, partyIds: questerParty }, T);
+  const firstLook = await loadRouteState(db, 'quester', T);
+  check('state lists the survey and hides the Honey Tree', eq(firstLook.quests.map((q) => q.id), ['meadow-survey']) && firstLook.quests[0].next?.step === 'meet');
+  const metResearcher = await quest('meadow-survey');
+  check('the first survey step meets the researcher for one action', metResearcher.event?.kind === 'researcher' && metResearcher.event.questId === 'meadow-survey' && metResearcher.state.allowance.available === 11);
+  await chooseRoute(db, 'quester', { requestId: rid(), eventId: metResearcher.event!.id, expectedRevision: 0, choice: 'accept' }, T);
+  await insertDiscovery(db, { uid: 'quester', locationId: 'r1', kind: 'landmark', ref: 'sunflowers', foundAt: T });
+  const surveyOne = await quest('meadow-survey');
+  const surveyTwo = await quest('meadow-survey');
+  check('survey steps record missing landmarks in order and skip known ones', eq(surveyOne.event?.newLandmarks, ['signpost']) && eq(surveyTwo.event?.newLandmarks, ['hilltop-oak'])
+    && surveyOne.event?.phase === 'resolved' && surveyOne.event.kind === 'landmark' && surveyTwo.state.quests[0].status === 'ready');
+  await rejects('a ready survey has no search step: its reward is claimed instead', quest('meadow-survey'), 409);
+  check('the refused step spent no action', (await loadRouteState(db, 'quester', T)).allowance.available === 9);
+  const claimedSurvey = await claimRouteQuest(db, 'quester', { requestId: rid(), questId: 'meadow-survey' }, T);
+  check('the survey claim stays free and closes the quest', claimedSurvey.state.quests[0].status === 'claimed' && claimedSurvey.state.quests[0].next === null && claimedSurvey.state.allowance.available === 9);
+  await rejects('the Honey Tree cannot be worked before it is found', quest('honey-tree'), 409);
+  await acceptRouteQuest(db, 'quester', 'honey-tree', T);
+  check('a found Honey Tree joins the quest list after the survey', eq((await loadRouteState(db, 'quester', T)).quests.map((q) => q.id), ['meadow-survey', 'honey-tree']));
+  await rejects('Spread Honey without Honey is refused', quest('honey-tree'), 409);
+  check('the refused Spread Honey spent nothing', (await loadRouteState(db, 'quester', T)).allowance.available === 9);
+  await changeInventory(db, 'quester', 'honey', 2);
+  const drawn = await quest('honey-tree');
+  check('Spread Honey uses one Honey and draws a catchable honey-tree Pokémon', drawn.event?.kind === 'wild' && drawn.event.questId === 'honey-tree' && [415, 412, 214, 446].includes(drawn.event.foe?.dexId ?? 0)
+    && drawn.event.choices.includes('catch') && drawn.state.inventory.stacks.find((s) => s.itemId === 'honey')?.quantity === 1 && drawn.state.allowance.available === 8);
+  check('the first honey-tree encounter completes the quest', drawn.state.quests.find((q) => q.id === 'honey-tree')?.status === 'claimed');
+  await leave(db, 'quester', drawn.event!);
+  const baitedAgain = await quest('honey-tree');
+  check('the Honey Tree can be baited again while Honey lasts', baitedAgain.event?.questId === 'honey-tree' && baitedAgain.state.inventory.stacks.find((s) => s.itemId === 'honey')?.quantity === 0);
+  await leave(db, 'quester', baitedAgain.event!);
+  await changeInventory(db, 'quester', 'honey', 1);
+  const honeyRace = await Promise.allSettled([quest('honey-tree'), tradeMarket(db, 'quester', { requestId: rid(), itemId: 'honey', side: 'sell', quantity: 1 }, T)]);
+  check('one Honey cannot both bait the tree and be sold', honeyRace.filter((r) => r.status === 'fulfilled').length === 1 && (await loadRouteState(db, 'quester', T)).inventory.stacks.find((s) => s.itemId === 'honey')?.quantity === 0);
+
   // Schema invariant itself, independent of domain checks.
   const sample = (await readRouteEvent(db, 'u1', trainer.event.id))!;
   const duplicate = { ...sample, id: 'constraint-a', active: true };

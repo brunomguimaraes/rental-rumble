@@ -145,6 +145,11 @@ const TRAINERS: readonly (RouteNpc & { dexId: number })[] = [
   },
 ];
 
+const RESEARCHER: RouteNpc = {
+  id: 'researcher', name: 'Meadow Researcher', spriteKey: 'random-scientist-f',
+  text: 'I’m surveying Sunny Meadow. Survey the Old Signpost, Sunflower Patch and Hilltop Oak for me, and I’ll share three Great Balls and ₽500. Places you already found count too.',
+};
+
 /** Where a species lives in the wild today: the live route's pools only, never the retired idle routes. */
 export function wildAreas(dexId: number, rules: RouteRules = ROUTE_RULES): { name: string; rare: boolean }[] {
   const entries = [rules.wild, rules.exploreRares, rules.honeyTree].flatMap((pool) => pool.pool.filter((entry) => entry.dexId === dexId));
@@ -209,9 +214,12 @@ function rollExplore(rng: RNG, { honeyTreeFound, inventory, rules }: { honeyTree
 }
 
 /** One seeded find for a search. Events stored under rules v2 and v3 are never re-rolled. */
-export function rollRouteFind({ seed, kind, honeyTreeFound = false, inventory, rules = ROUTE_RULES }: {
+export function rollRouteFind({ seed, kind, questStep, knownLandmarks = [], honeyTreeFound = false, inventory, rules = ROUTE_RULES }: {
   seed: string;
   kind: SearchKind;
+  /** A Quest search's step, derived by the server from stored progress. */
+  questStep?: 'meet' | 'survey' | 'spread-honey';
+  knownLandmarks?: readonly string[];
   /** Explore's secret is the Honey Tree until the trainer finds it. */
   honeyTreeFound?: boolean;
   inventory: InventoryState;
@@ -234,6 +242,18 @@ export function rollRouteFind({ seed, kind, honeyTreeFound = false, inventory, r
     const { items } = pickWeighted(rules.puzzle.rewards, rng);
     const board = generatePuzzle(`${STREAM_V4}:${seed}:board`, rules.puzzle);
     return quiet('puzzle', { puzzle: { size: rules.puzzle.size, board, scene, reward: items.map((item) => ({ ...item })) } });
+  }
+  if (kind === 'quest') {
+    if (questStep === 'meet') return quiet('researcher', { npc: { ...RESEARCHER }, questId: 'meadow-survey' });
+    if (questStep === 'survey') {
+      const next = MEADOW_LANDMARKS.find((landmark) => !knownLandmarks.includes(landmark.id));
+      if (!next) throw new Error('No landmark left to survey');
+      return quiet('landmark', { landmarks: [next.id], questId: 'meadow-survey' });
+    }
+    if (questStep === 'spread-honey') {
+      return { ...quiet('wild', { items: [{ itemId: 'honey', quantity: -1 }], questId: 'honey-tree' }), foe: rollFoe(rules.honeyTree, new RNG(`${STREAM_V4}:${seed}:honey`)) };
+    }
+    throw new Error('A quest search needs its step');
   }
   throw new Error(`Unsupported search kind ${kind}`);
 }

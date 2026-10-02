@@ -59,6 +59,17 @@ export interface RouteQuest {
   landmarks: string[];
   required: string[];
 }
+export type QuestStepId = 'meet' | 'survey' | 'claim' | 'spread-honey';
+/** A quest's next step and what it costs: actions, and items such as the Honey Tree's Honey. */
+export interface QuestStep { step: QuestStepId; actions: number; items: ItemGrant[] }
+/** One quest as the Quest card shows it. The server builds these; the client never decides a step. */
+export interface RouteQuestView {
+  id: QuestId;
+  status: RouteQuest['status'];
+  next: QuestStep | null;
+  /** Landmarks recorded for the survey; null for quests without a count. */
+  progress: { done: number; total: number } | null;
+}
 /** Rules frozen into encounters started before the market. Read-only: new searches use RouteRules. */
 export interface RouteRulesV2 {
   version: 2;
@@ -152,7 +163,7 @@ export type StoredRouteRules = RouteRules | RouteRulesV3 | RouteRulesV2;
 /** Private: retain the exact individual which may later become owned. */
 export interface FrozenRouteFoe { mint: MintSpec; view: WildView; statMult: number }
 export interface RouteFind {
-  kind: 'wild' | 'trainer' | 'researcher' | 'item' | 'nothing' | 'secret' | 'puzzle';
+  kind: 'wild' | 'trainer' | 'researcher' | 'item' | 'nothing' | 'secret' | 'puzzle' | 'landmark';
   foe: FrozenRouteFoe | null;
   npc: RouteNpc | null;
   items: ItemGrant[];
@@ -224,6 +235,8 @@ export interface RouteState {
   allowance: ActionAllowance;
   inventory: InventoryState;
   quest: RouteQuest;
+  /** Every quest the trainer can see: the survey always, the Honey Tree once found. */
+  quests: RouteQuestView[];
   places: PlaceView[];
   /** Where the trainer stands; searches need the route, trips leave from here. */
   trainerAt: TravelPlace;
@@ -244,6 +257,8 @@ export interface RouteSearchInput {
   requestId: string;
   locationId: 'r1';
   kind: SearchKind;
+  /** Which quest a Quest search works on; only quest searches carry it. */
+  questId?: QuestId;
   partyIds: string[];
 }
 export interface RouteChooseInput {

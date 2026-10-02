@@ -9,6 +9,7 @@ import {
   rollRouteFind, ROUTE_RULES, simulateRouteBattle, spendAllowance, wildAreas,
 } from '../src/game/route-rules.js';
 import type { CaptureBallId, InventoryState, RouteRules, RouteRulesV2, RouteRulesV3 } from '../src/game/route-actions.js';
+import { canAfford, questViews, type QuestRecord } from '../src/game/route-quests.js';
 import { isSolved } from '../src/game/sliding-puzzle.js';
 import { balanceFailures, measureRouteBalance, routeOpponents } from './route-balance.js';
 
@@ -134,6 +135,35 @@ check('puzzle rewards are a Great Ball 40%, 3 Poké Balls 30%, a Tiny Mushroom 2
 check('every meadow scene is dealt', new Set(deals.map((p) => p.scene)).size === 4);
 check('different seeds deal different boards', new Set(deals.map((p) => p.board.join())).size > 3000);
 check('a puzzle offers a solve or leaving', same(legalChoices('puzzle'), ['solve', 'leave']));
+
+const survey = (records: QuestRecord[], landmarks: string[]) => questViews(records, landmarks).find((q) => q.id === 'meadow-survey')!;
+const accepted: QuestRecord[] = [{ questId: 'meadow-survey', acceptedAt: 1, claimedAt: null }];
+const allLandmarks = ['signpost', 'sunflowers', 'hilltop-oak'];
+check('an unaccepted survey starts by meeting the researcher for one action', survey([], []).status === 'not-accepted' && same(survey([], []).next, { step: 'meet', actions: 1, items: [] }));
+check('an accepted survey surveys the next landmark for one action', survey(accepted, ['signpost']).status === 'active' && same(survey(accepted, ['signpost']).next, { step: 'survey', actions: 1, items: [] }) && same(survey(accepted, ['signpost']).progress, { done: 1, total: 3 }));
+check('every landmark recorded makes the reward claimable for free', survey(accepted, allLandmarks).status === 'ready' && same(survey(accepted, allLandmarks).next, { step: 'claim', actions: 0, items: [] }));
+check('a claimed survey has no step left', survey([{ questId: 'meadow-survey', acceptedAt: 1, claimedAt: 2 }], allLandmarks).status === 'claimed' && survey([{ questId: 'meadow-survey', acceptedAt: 1, claimedAt: 2 }], allLandmarks).next === null);
+check('landmarks found before accepting count toward progress', same(survey([], ['hilltop-oak', 'unrelated']).progress, { done: 1, total: 3 }));
+check('the Honey Tree stays hidden until found', questViews([], []).every((q) => q.id !== 'honey-tree'));
+const tree = questViews([{ questId: 'honey-tree', acceptedAt: 1, claimedAt: null }], []).find((q) => q.id === 'honey-tree')!;
+check('a found Honey Tree asks for 1 action and 1 Honey, listed after the survey', tree.status === 'active' && same(tree.next, { step: 'spread-honey', actions: 1, items: [{ itemId: 'honey', quantity: 1 }] })
+  && questViews([{ questId: 'honey-tree', acceptedAt: 1, claimedAt: null }], [])[0].id === 'meadow-survey');
+const worked = questViews([{ questId: 'honey-tree', acceptedAt: 1, claimedAt: 2 }], []).find((q) => q.id === 'honey-tree')!;
+check('a completed Honey Tree stays repeatable', worked.status === 'claimed' && worked.next?.step === 'spread-honey');
+check('Spread Honey needs Honey in the Bag', !canAfford(tree.next!, stocked) && canAfford(tree.next!, { ...stocked, stacks: [{ itemId: 'honey', quantity: 1 }] }));
+const meet = rollRouteFind({ ...findBase, seed: 'q', kind: 'quest', questStep: 'meet' });
+check('meeting the researcher opens the survey dialogue', meet.kind === 'researcher' && meet.npc?.id === 'researcher' && meet.questId === 'meadow-survey' && meet.foe === null);
+const surveyed = rollRouteFind({ ...findBase, seed: 'q', kind: 'quest', questStep: 'survey', knownLandmarks: ['sunflowers'] });
+check('a survey records the first missing landmark in list order', surveyed.kind === 'landmark' && same(surveyed.landmarks, ['signpost']) && surveyed.questId === 'meadow-survey');
+check('known landmarks are skipped', same(rollRouteFind({ ...findBase, seed: 'q', kind: 'quest', questStep: 'survey', knownLandmarks: ['signpost', 'sunflowers'] }).landmarks, ['hilltop-oak']));
+const honeys = Array.from({ length: 2000 }, (_, i) => rollRouteFind({ ...findBase, seed: `honey-${i}`, kind: 'quest', questStep: 'spread-honey' }));
+const honeyShare = (dexId: number) => honeys.filter((f) => f.foe?.mint.dexId === dexId).length / honeys.length;
+check('Spread Honey debits one Honey and draws a honey-tree Pokémon', honeys.every((f) => f.kind === 'wild' && f.questId === 'honey-tree' && same(f.items, [{ itemId: 'honey', quantity: -1 }]) && [415, 412, 214, 446].includes(f.foe?.mint.dexId ?? 0)));
+check('honey-tree weights are Combee 50%, Burmy 30%, Heracross 10%, Munchlax 10% within 3 points',
+  Math.abs(honeyShare(415) - 0.5) < 0.03 && Math.abs(honeyShare(412) - 0.3) < 0.03 && Math.abs(honeyShare(214) - 0.1) < 0.03 && Math.abs(honeyShare(446) - 0.1) < 0.03);
+check('Heracross fights at its own ×0.45 and is rare; Combee fights at ×0.6 and is common',
+  honeys.filter((f) => f.foe?.mint.dexId === 214).every((f) => f.foe?.statMult === 0.45 && f.foe.view.rare)
+  && honeys.filter((f) => f.foe?.mint.dexId === 415).every((f) => f.foe?.statMult === 0.6 && !f.foe.view.rare));
 
 check('cosmetic balls are rejected as usable items', itemById('master') === null && itemById('ultra') === null && !isCaptureBallId('master'));
 check('all five market items are known; cosmetic balls are not', ['poke', 'great', 'honey', 'tiny-mushroom', 'big-mushroom'].every(isItemId) && !isItemId('master') && !isItemId('money'));

@@ -3,7 +3,7 @@ import {
   dismissRouteEvent, healAllOwned, hasRouteEvents, insertOwned, insertRouteAccount,
   insertRouteReceipt, markRouteQuestClaimed, openWriteTx, readActiveRouteEvent, readActivity,
   readDiscoveries, readInventoryRows, readLastRouteId, readOpenActivity, readOwnedByIds, readOwnedByUser,
-  readProfile, readProgress, readRouteAccount, readRouteEvent, readRouteQuest, readRouteReceipt,
+  readProfile, readProgress, readRouteAccount, readRouteEvent, readRouteQuest, readRouteQuests, readRouteReceipt,
   readUnseenResult, readUnseenRouteEvent, recordCaughtDex, updateOwnedGrowth, updateProfileParty, updateRouteEvent, writeOwnedHp, writeRouteAllowance, writeTravel,
   type Db, type Executor, type RouteAccountRow, type RouteEventRow,
 } from './_db.js';
@@ -21,9 +21,10 @@ import {
   allowanceView, battlePrize, captureChance, legalChoices, MEADOW_LANDMARKS, rollCapture,
   ROUTE_RULES, simulateRouteBattle, spendAllowance,
 } from '../src/game/route-rules.js';
+import { isQuestId, questRecords, questViews } from '../src/game/route-quests.js';
 import { applyMoves, isSolved, MAX_PUZZLE_MOVES } from '../src/game/sliding-puzzle.js';
 import type {
-  InventoryState, MarketTradeInput, RouteChoice, RouteChooseInput, RouteQuestInput, RouteReply, RouteSearchInput,
+  InventoryState, MarketTradeInput, QuestId, RouteChoice, RouteChooseInput, RouteQuestInput, RouteReply, RouteSearchInput,
   RouteState, RouteTravelInput, SearchKind, StoredRouteEvent,
 } from '../src/game/route-actions.js';
 
@@ -33,11 +34,14 @@ const validId = (v: unknown): v is string => typeof v === 'string' && v.length >
 export const validRouteRequestId = validId;
 
 /** The cards whose searches the server runs. */
-const SEARCH_KINDS: readonly SearchKind[] = ['wild', 'trainer', 'puzzle', 'explore', 'forage'];
+const SEARCH_KINDS: readonly SearchKind[] = ['wild', 'trainer', 'puzzle', 'quest', 'explore', 'forage'];
 export function parseRouteSearch(body: Record<string, unknown>): RouteSearchInput | null {
   const partyIds = parsePartyInput(body.partyIds);
   if (!validId(body.requestId) || body.locationId !== 'r1' || !SEARCH_KINDS.includes(body.kind as SearchKind) || !partyIds) return null;
-  return { requestId: body.requestId, locationId: 'r1', kind: body.kind as SearchKind, partyIds };
+  const kind = body.kind as SearchKind;
+  // Only a quest search names its quest, and it must.
+  if (kind === 'quest' ? !isQuestId(body.questId) : body.questId !== undefined) return null;
+  return { requestId: body.requestId, locationId: 'r1', kind, partyIds, ...(kind === 'quest' ? { questId: body.questId as QuestId } : {}) };
 }
 const CHOICES: readonly RouteChoice[] = ['battle', 'catch', 'leave', 'accept', 'decline', 'talk', 'solve'];
 /** A solve's move list: 1 to MAX_PUZZLE_MOVES board indexes. */
@@ -103,11 +107,13 @@ async function currentLocation(tx: Executor, uid: string, account: RouteAccountR
 
 /** All fields and their revisions are read from the same transaction snapshot. */
 async function loadRouteStateInTx(db: Executor, uid: string, now: number): Promise<RouteState> {
-  const [account, inventory, active, unseen, discoveries, progress, quest, open, lastRoute, routeVisited, owned, profile, legacyResult] = await Promise.all([
+  const [account, inventory, active, unseen, discoveries, progress, questRows, open, lastRoute, routeVisited, owned, profile, legacyResult] = await Promise.all([
     readRouteAccount(db, uid), inventoryState(db, uid), readActiveRouteEvent(db, uid), readUnseenRouteEvent(db, uid),
-    readDiscoveries(db, uid), readProgress(db, uid), readRouteQuest(db, uid, 'meadow-survey'), readOpenActivity(db, uid),
+    readDiscoveries(db, uid), readProgress(db, uid), readRouteQuests(db, uid), readOpenActivity(db, uid),
     readLastRouteId(db, uid), hasRouteEvents(db, uid), readOwnedByUser(db, uid), readProfile(db, uid), readUnseenResult(db, uid),
   ]);
+  const records = questRecords(questRows);
+  const quest = records.find((r) => r.questId === 'meadow-survey');
   const landmarks = discoveries.filter((d) => d.locationId === 'r1' && d.kind === 'landmark').map((d) => d.ref);
   const seen = discoveries.filter((d) => d.locationId === 'r1' && d.kind === 'seen').map((d) => Number(d.ref));
   const p = progress.find((r) => r.locationId === 'r1');
@@ -120,6 +126,7 @@ async function loadRouteStateInTx(db: Executor, uid: string, now: number): Promi
     allowance: allowanceView({ available: account?.actions ?? 0, refilledAt: account?.refilledAt ?? now }, now),
     inventory,
     quest: { id: 'meadow-survey', status: quest?.claimedAt != null ? 'claimed' : !quest ? 'not-accepted' : required.every((id) => landmarks.includes(id)) ? 'ready' : 'active', landmarks, required },
+    quests: questViews(records, landmarks),
     places: [{ id: 'r1', state: routeVisited || p ? 'discovered' : 'available', progress: { ...EMPTY_PROGRESS, ...p, clearedAt: null, clears: 0, landmarks, seen } }],
     trainerAt, ownedCount: owned.length,
     travel: travelView(travelRecord(account, now), now),
@@ -202,7 +209,7 @@ export async function travelRoute(db: Db, uid: string, input: RouteTravelInput, 
 }
 
 export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, now: number): Promise<RouteReply> {
-  return writeCommand(db, uid, input.requestId, JSON.stringify(['search', input.locationId, input.kind, input.partyIds]), now, async (tx) => {
+  return writeCommand(db, uid, input.requestId, JSON.stringify(['search', input.locationId, input.kind, input.partyIds, ...(input.questId ? [input.questId] : [])]), now, async (tx) => {
     const account = await requireActivated(tx, uid);
     if (input.locationId !== 'r1') fail(400, 'Only Sunny Meadow is available.');
     if (await currentLocation(tx, uid, account) !== input.locationId) fail(400, 'You can only search Sunny Meadow while you’re there.');
@@ -216,7 +223,7 @@ export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, 
     if (partyMembers(partyIds, owned).every(isFainted)) fail(400, 'Your party needs care. Visit the Pokémon Center in Hearth Town.');
     const spent = spendAllowance({ available: account.actions, refilledAt: account.refilledAt }, now, ROUTE_RULES, ROUTE_RULES.costs[input.kind]);
     if (!spent) return fail(409, 'You have no route actions available. Your next action will refill soon.');
-    const event = await commitFind(tx, { uid, kind: input.kind, party: partyMembers(partyIds, owned), inventory: await inventoryState(tx, uid), now });
+    const event = await commitFind(tx, { uid, kind: input.kind, questId: input.questId, party: partyMembers(partyIds, owned), inventory: await inventoryState(tx, uid), now });
     await writeRouteAllowance(tx, uid, spent.available, spent.refilledAt);
     return { event };
   });

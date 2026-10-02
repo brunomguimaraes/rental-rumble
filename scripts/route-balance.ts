@@ -45,6 +45,10 @@ export function routeOpponents(): Opponent[] {
       label: speciesName(dexId), gate: 60,
       foe: (i) => firstFoe(`balance-rare:${dexId}:${i}`, (seed) => rollRouteFind({ seed, kind: 'explore', inventory, rules: rareOnly }), (find) => find.foe?.view.dexId === dexId),
     })),
+    ...ROUTE_RULES.honeyTree.pool.map(({ dexId }): Opponent => ({
+      label: speciesName(dexId), gate: 60,
+      foe: (i) => firstFoe(`balance-honey:${dexId}:${i}`, (seed) => rollRouteFind({ seed, kind: 'quest', questStep: 'spread-honey', inventory }), (find) => find.foe?.view.dexId === dexId),
+    })),
   ];
 }
 
