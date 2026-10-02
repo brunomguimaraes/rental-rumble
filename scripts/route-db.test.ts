@@ -56,7 +56,7 @@ function solvePuzzle(board: readonly number[]): number[] {
   for (let key = goal; parent.get(key); key = parent.get(key)!.from) moves.unshift(parent.get(key)!.move);
   return moves;
 }
-const moneyOf =async (db: Db, uid: string) => (await loadRouteState(db, uid, T)).inventory.money;
+const moneyOf = async (db: Db, uid: string) => (await loadRouteState(db, uid, T)).inventory.money;
 /** Controlled persisted fixture uses the real find rules; production gets its seed from crypto. */
 async function forceKind(db: Db, uid: string, e: RouteEvent, kind: 'wild' | 'trainer' | 'item', seedPrefix = 'fixture') {
   const row = (await readRouteEvent(db, uid, e.id))!;
@@ -531,13 +531,13 @@ try {
   console.log('[sliding puzzles]');
   await onboardUser(db, 'puzzler', 6, 30);
   await activateRoute(db, 'puzzler', 'activate', T);
+  const bagBefore = (await loadRouteState(db, 'puzzler', T)).inventory;
   const dealtReply = await start(db, 'puzzler', 'puzzle');
   const panels = dealtReply.event!;
   const storedPanels = (await readRouteEvent(db, 'puzzler', panels.id))!.data as StoredRouteEvent;
   check('a puzzle search opens a puzzle with its board and reward, never its seed', panels.phase === 'puzzle' && eq(panels.choices, ['solve', 'leave'])
     && panels.puzzle?.board.length === 9 && eq(panels.puzzle.board, storedPanels.event.puzzle?.board) && !JSON.stringify(dealtReply).includes(storedPanels.seed) && dealtReply.state.allowance.available === 11);
   const moves = solvePuzzle(panels.puzzle!.board);
-  const bagBefore = (await loadRouteState(db, 'puzzler', T)).inventory;
   await rejects('a move list that stops short pays nothing', chooseRoute(db, 'puzzler', { requestId: rid(), eventId: panels.id, expectedRevision: 0, choice: 'solve', moves: moves.slice(0, -1) }, T), 400);
   await rejects('an illegal slide pays nothing', chooseRoute(db, 'puzzler', { requestId: rid(), eventId: panels.id, expectedRevision: 0, choice: 'solve', moves: [...moves, 8] }, T), 400);
   check('refused solves leave the puzzle open and the Bag untouched', eq((await loadRouteState(db, 'puzzler', T)).inventory, bagBefore) && (await loadRouteState(db, 'puzzler', T)).activeEvent?.id === panels.id);
@@ -547,11 +547,11 @@ try {
   const prize = panels.puzzle!.reward[0];
   const held = (inventory: typeof bagBefore) => inventory.stacks.find((s) => s.itemId === prize.itemId)?.quantity ?? 0;
   check('a solved puzzle pays its reward once, even on a retry', solvedReply.event?.outcome === 'solved' && solvedReply.state.activeEvent === null && solvedAgain.replayed === true
-    && held((await loadRouteState(db, 'puzzler', T)).inventory) === held(bagBefore) + prize.quantity);
+    && eq(solvedReply.event.items, panels.puzzle!.reward) && held((await loadRouteState(db, 'puzzler', T)).inventory) === held(bagBefore) + prize.quantity);
   await rejects('a request ID reused with other moves is a conflict', chooseRoute(db, 'puzzler', { ...solveInput, moves: [...moves, 8] }, T), 409);
   await rejects('a second solve with a new request pays nothing more', chooseRoute(db, 'puzzler', { ...solveInput, requestId: rid() }, T), 409);
-  const givenUp = (await start(db, 'puzzler', 'puzzle')).event!;
   const beforeGiveUp = (await loadRouteState(db, 'puzzler', T)).inventory;
+  const givenUp = (await start(db, 'puzzler', 'puzzle')).event!;
   const left = await chooseRoute(db, 'puzzler', { requestId: rid(), eventId: givenUp.id, expectedRevision: 0, choice: 'leave' }, T);
   check('giving up a puzzle pays nothing and keeps the action spent', left.event?.outcome === 'left' && eq(left.state.inventory, beforeGiveUp) && left.state.allowance.available === 10);
 

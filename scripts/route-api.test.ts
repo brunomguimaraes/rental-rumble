@@ -11,6 +11,7 @@ process.env.AUTH_SECRET = 'route-test-session-secret-long-enough';
 delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 const { default: handler } = await import('../api/world/[action].js');
+const { parseRouteChoose } = await import('../api/_route-actions.js');
 type Reply = { status: number; headers: Record<string, string>; body: Record<string, unknown> };
 async function call(action: string, body?: unknown, uid: string | null = 'route-user', method = action === 'state' ? 'GET' : 'POST'): Promise<Reply> {
   const token = uid ? signSession(uid, process.env.AUTH_SECRET!) : null;
@@ -74,6 +75,8 @@ try {
     const refused = await call('choose', { requestId: `solve-${label}`, eventId: e.id, expectedRevision: 0, choice: 'solve', moves });
     check(`solve rejects ${label}`, refused.status === 400 && refused.body.error === 'Choose an available encounter action and supported ball.');
   }
+  const wellFormed = { requestId: 'solve-ok', eventId: e.id, expectedRevision: 0, choice: 'solve' as const, moves: [1, 2, 5] };
+  check('a well-formed solve passes the parser with its moves', JSON.stringify(parseRouteChoose(wellFormed)) === JSON.stringify(wellFormed));
   check('puzzle is a searchable card', (await call('search', { requestId: 'puzzle-while-open', locationId: 'r1', kind: 'puzzle', partyIds: [s.id] })).status === 409);
   check('moves cannot ride on another choice', (await call('choose', { requestId: 'moves-leave', eventId: e.id, expectedRevision: 0, choice: 'leave', moves: [1] })).status === 400);
   check('other user cannot choose encounter', (await call('choose', { requestId: 'foreign', eventId: e.id, expectedRevision: 0, choice: 'leave' }, 'other')).status === 404);
