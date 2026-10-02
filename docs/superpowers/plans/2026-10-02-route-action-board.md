@@ -272,7 +272,7 @@ export function generatePuzzle(seed: string, rules: PuzzleRules): number[] {
 - [ ] **Step 4: Run the test and confirm it passes**
 
 Run: `npx tsx scripts/sliding-puzzle.test.ts`
-Expected: `Sliding puzzle: 17 passed, 0 failed.` A prototype of this exact code gave 497 distinct boards in 500 seeds,
+Expected: `Sliding puzzle: 16 passed, 0 failed.` A prototype of this exact code gave 497 distinct boards in 500 seeds,
 a minimum distance of 10, and an average of 13.7.
 
 - [ ] **Step 5: Register the test and type-check**
