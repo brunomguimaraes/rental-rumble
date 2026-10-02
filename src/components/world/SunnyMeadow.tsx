@@ -15,8 +15,8 @@ import { formatDuration, growthLines, monName, POKEBALL, speciesName } from './s
 
 const SPOTS: readonly { kind: SearchKind; name: string; label: string; description: string; action: string; position: string }[] = [
   { kind: 'wild', name: 'Tall grass', label: 'Wild Pokémon', description: 'Something is rustling in the grass. Find a wild Pokémon to battle or catch.', action: 'Search the grass', position: 'left-[5%] top-[57%] h-[28%] w-[40%]' },
-  { kind: 'npc', name: 'Meadow path', label: 'Meet someone', description: 'Meet a friendly trainer for a battle, or the Meadow Researcher with a survey.', action: 'Find someone', position: 'left-[62%] top-[33%] h-[30%] w-[34%]' },
-  { kind: 'explore', name: 'Meadow trail', label: 'Explore', description: 'Find a wild Pokémon, an NPC, items, Honey and mushrooms, or a coin pouch. You may also discover a landmark.', action: 'Explore the meadow', position: 'left-[9%] top-[14%] h-[24%] w-[40%]' },
+  { kind: 'trainer', name: 'Meadow path', label: 'Trainer', description: 'Battle a friendly trainer for EXP and ₽200.', action: 'Find a trainer', position: 'left-[62%] top-[33%] h-[30%] w-[34%]' },
+  { kind: 'explore', name: 'Meadow trail', label: 'Explore', description: 'Anything can happen: a rare Pokémon, a rare item, a secret, or nothing at all.', action: 'Explore the meadow', position: 'left-[9%] top-[14%] h-[24%] w-[40%]' },
 ];
 
 /** Isolated clock avoids re-rendering the scene every second. Never credits actions locally. */
@@ -87,7 +87,7 @@ export function SunnyMeadow({ state, party, locked, busy, showSurvey, onSearch, 
         {!active && SPOTS.map((entry) => <button key={entry.kind} type="button" disabled={locked} onClick={() => setSelected(entry.kind)}
           aria-pressed={selected === entry.kind} aria-controls="meadow-action" aria-label={`${entry.name}: ${entry.label}. Search costs 1 action.`}
           className={`ui-focus group absolute flex min-h-14 min-w-20 flex-col items-center justify-center rounded-[3px] border-2 p-1 ${entry.position} ${selected === entry.kind ? 'border-accent bg-accent/15' : 'border-transparent hover:border-accent hover:bg-accent/10'}`}>
-          {entry.kind === 'npc' && <img src={`${import.meta.env.BASE_URL}sprites/trainers/random-frlg-bird-keeper.png`} width={64} height={64} alt="" className="h-16 w-16 object-contain [image-rendering:pixelated]" />}
+          {entry.kind === 'trainer' && <img src={`${import.meta.env.BASE_URL}sprites/trainers/random-frlg-bird-keeper.png`} width={64} height={64} alt="" className="h-16 w-16 object-contain [image-rendering:pixelated]" />}
           <span className={`max-w-full rounded-[3px] border px-1 py-1 text-center min-[360px]:px-2 shadow-[3px_3px_0_var(--color-edge)] ${selected === entry.kind ? 'border-edge bg-accent text-edge' : 'border-window-rim bg-window text-ink'}`}>
             <span className="block whitespace-nowrap text-xs min-[360px]:text-sm">{entry.name}</span><span className={`block text-xs ${selected === entry.kind ? 'text-edge' : 'text-accent'}`}>{entry.label}</span>
           </span>

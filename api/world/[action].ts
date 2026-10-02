@@ -118,7 +118,8 @@ async function mutate(req: VercelRequest, res: VercelResponse, action: string) {
       out = await activateRoute(g.db, g.uid, body.requestId, now);
     } else if (action === 'search') {
       const input = parseRouteSearch(body);
-      if (!input) return res.status(400).json({ ok: false, error: 'Choose a Sunny Meadow search and your saved party.' });
+      // Find NPC left with the action board; a tab opened before that update can still send it.
+      if (!input) return res.status(400).json({ ok: false, error: body.kind === 'npc' ? 'Sunny Meadow has new actions. Refresh to see them.' : 'Choose a Sunny Meadow search and your saved party.' });
       out = await searchRoute(g.db, g.uid, input, now);
     } else if (action === 'choose') {
       const input = parseRouteChoose(body);

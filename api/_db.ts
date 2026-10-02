@@ -898,6 +898,11 @@ export async function readRouteQuest(db: Executor, uid: string, questId: string)
   const rs = await db.execute({ sql: 'select accepted_at, claimed_at from route_quests where user_id = ? and quest_id = ?', args: [uid, questId] });
   return rs.rows[0] ? { acceptedAt: Number(rs.rows[0].accepted_at), claimedAt: nullableNumber(rs.rows[0].claimed_at) } : null;
 }
+/** Every quest row of one trainer, in one read. */
+export async function readRouteQuests(db: Executor, uid: string): Promise<{ questId: string; acceptedAt: number; claimedAt: number | null }[]> {
+  const rs = await db.execute({ sql: 'select quest_id, accepted_at, claimed_at from route_quests where user_id = ?', args: [uid] });
+  return (rs.rows as unknown as Record<string, unknown>[]).map((r) => ({ questId: String(r.quest_id), acceptedAt: Number(r.accepted_at), claimedAt: nullableNumber(r.claimed_at) }));
+}
 export async function acceptRouteQuest(db: Executor, uid: string, questId: string, now: number): Promise<void> {
   await db.execute({ sql: 'insert or ignore into route_quests (user_id, quest_id, accepted_at) values (?, ?, ?)', args: [uid, questId, now] });
 }

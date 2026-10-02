@@ -54,6 +54,8 @@ try {
   check('travelling to where you stand is a 400 with recovery state', again.status === 400 && again.body.error === 'You’re already here.' && againState?.trainerAt === 'r1' && againState.travel.available === 4);
   check('unsupported locations are rejected before spending', (await call('search', { requestId: 'bad-route', locationId: 'r2', kind: 'wild', partyIds: [s.id] })).status === 400);
   check('array search kind is rejected instead of string-coerced', (await call('search', { requestId: 'array-kind', locationId: 'r1', kind: ['wild'], partyIds: [s.id] })).status === 400);
+  const retiredSearch = await call('search', { requestId: 'old-npc', locationId: 'r1', kind: 'npc', partyIds: [s.id] });
+  check('a Find NPC search from an old tab is refused with a refresh sentence', retiredSearch.status === 400 && retiredSearch.body.error === 'Sunny Meadow has new actions. Refresh to see them.');
   check('duplicate party members are rejected', (await call('search', { requestId: 'dup', locationId: 'r1', kind: 'wild', partyIds: [s.id, s.id] })).status === 400);
   const stale = await call('search', { requestId: 'stale', locationId: 'r1', kind: 'wild', partyIds: ['foreign'] });
   check('stale party response supplies current state and party', stale.status === 409 && (stale.body.party as string[])[0] === s.id && (stale.body.state as RouteState).allowance.available === 12);

@@ -1,15 +1,15 @@
 import { isDeepStrictEqual } from 'node:util';
 import { ownedMonToCreature, type OwnedMon } from '../src/game/box.js';
 import { creatureMaxHp, simulateBattle, type BattleResult } from '../src/game/battle.js';
-import { ballCount, formatMoney, isCaptureBallId, isItemId, itemById, itemQuantity, tradeTotal, VALUABLE_ITEMS } from '../src/game/items.js';
+import { ballCount, formatMoney, isCaptureBallId, isItemId, itemById, itemQuantity, tradeTotal } from '../src/game/items.js';
 import { currentHp, hpTone, isFainted, ownedMaxHp, partyStanding } from '../src/game/health.js';
 import { starterFromOffer } from '../src/game/professions.js';
 import {
   allowanceView, battlePrize, captureChance, guaranteesSupplies, legalChoices, projectAllowance, rollCapture,
   rollRouteFind, ROUTE_RULES, simulateRouteBattle, spendAllowance, wildAreas,
 } from '../src/game/route-rules.js';
-import type { CaptureBallId, InventoryState, RouteRules, RouteRulesV2 } from '../src/game/route-actions.js';
-import { measureRouteBalance } from './route-balance.js';
+import type { CaptureBallId, InventoryState, RouteRules, RouteRulesV2, RouteRulesV3 } from '../src/game/route-actions.js';
+import { balanceFailures, measureRouteBalance, routeOpponents } from './route-balance.js';
 
 let passed = 0;
 let failed = 0;
@@ -19,12 +19,26 @@ function check(label: string, ok: boolean): void {
 }
 const same = (a: unknown, b: unknown): boolean => isDeepStrictEqual(a, b);
 
+/** The rules frozen into encounters started under the market (v3), before the action board. */
+function legacyRulesV3(): RouteRulesV3 {
+  return {
+    version: 3, capacity: 48, initialActions: 12, refillEveryMs: 600_000, starterBalls: 20,
+    wild: { min: 2, max: 5, statMult: 0.6, pool: [...ROUTE_RULES.wild.pool, { dexId: 133, weight: 1, rare: true }] },
+    recommended: { min: 3, max: 8 }, wildExp: 30, trainerExp: 50, trainerLevel: 5, trainerStatMult: 0.6,
+    npcTrainerChance: 0.7, exploreWildChance: 0.45, exploreNpcChance: 0.3, landmarkChance: 0.5,
+    pokeBundleQuantity: 3, greatBundleQuantity: 1, questGreatBalls: 3,
+    basicCatchChance: 0.6, rareCatchChance: 0.35, battleCatchBonus: 0.2, greatCatchBonus: 0.2, maxCatchChance: 0.95,
+    itemFinds: { poke: 50, great: 15, harvest: 20, pouch: 15 },
+    harvest: [{ itemId: 'honey', weight: 6 }, { itemId: 'tiny-mushroom', weight: 3 }, { itemId: 'big-mushroom', weight: 1 }],
+    pouchMoney: 300, wildMoney: 100, trainerMoney: 200, questMoney: 500,
+  };
+}
 /** A rules value frozen before the market: the v3 fields are absent. */
 function legacyRulesV2(): RouteRulesV2 {
-  const rest: Partial<RouteRules> = { ...ROUTE_RULES };
+  const rest: Partial<RouteRulesV3> = legacyRulesV3();
   delete rest.itemFinds; delete rest.harvest; delete rest.pouchMoney;
   delete rest.wildMoney; delete rest.trainerMoney; delete rest.questMoney;
-  return { ...(rest as Omit<RouteRules, 'itemFinds' | 'harvest' | 'pouchMoney' | 'wildMoney' | 'trainerMoney' | 'questMoney' | 'version'>), version: 2, pokeBundleChance: 0.75 };
+  return { ...(rest as Omit<RouteRulesV3, 'itemFinds' | 'harvest' | 'pouchMoney' | 'wildMoney' | 'trainerMoney' | 'questMoney' | 'version'>), version: 2, pokeBundleChance: 0.75 };
 }
 
 // The new allowance is permission to search, independent of legacy elapsed-time rewards.
@@ -43,9 +57,10 @@ check('full allowance has no next refill countdown', allowanceView({ available: 
 check('backward clock cannot create actions or move a partial cursor backward', same(projectAllowance({ available: 3, refilledAt: 5_000 }, 2_000), { available: 3, refilledAt: 5_000 }));
 check('backward clock while full cannot move the spend cursor backward', same(spendAllowance({ available: 48, refilledAt: 5_000 }, 2_000), { available: 47, refilledAt: 5_000 }));
 check('projection and spend leave their input unchanged', same(empty, { available: 0, refilledAt: 1_000 }));
+check('a spend can cost more than one action', same(spendAllowance({ available: 3, refilledAt: 1_000 }, 2_000, ROUTE_RULES, 2), { available: 1, refilledAt: 1_000 }));
 
 const stocked: InventoryState = { revision: 1, money: 0, stacks: [{ itemId: 'poke', quantity: 20 }] };
-const findBase = { knownLandmarks: [], questClaimed: false, inventory: stocked };
+const findBase = { inventory: stocked };
 const wild = rollRouteFind({ ...findBase, seed: 'test-0', kind: 'wild' });
 check('seeded wild retains a complete individual, including emotion and unhandicapped stats', same(wild.foe?.mint, {
   dexId: 401, level: 2, sign: 'cancer', ability: 'swarm', shiny: false, altColor: false, emotion: 'Normal',
@@ -53,45 +68,54 @@ check('seeded wild retains a complete individual, including emotion and unhandic
 }));
 check('the public foe view carries the frozen sign', wild.foe?.view.sign === 'cancer');
 check('same search seed replays exactly', same(wild, rollRouteFind({ ...findBase, seed: 'test-0', kind: 'wild' })));
-const meadow = rollRouteFind({ ...findBase, seed: 'test-3', kind: 'explore' });
-check('Explore can find a wild and a new landmark together', meadow.kind === 'wild' && meadow.foe?.mint.dexId === 187 && same(meadow.landmarks, ['sunflowers']));
-const youngster = rollRouteFind({ ...findBase, seed: 'test-4', kind: 'explore' });
-check('Explore can find Youngster and their single Zigzagoon', youngster.kind === 'trainer' && youngster.npc?.id === 'youngster' && youngster.foe?.mint.dexId === 263);
-const scout = rollRouteFind({ ...findBase, seed: 'test-4', kind: 'npc' });
-check('Find NPC can find Meadow Scout and their single Pidgey', scout.kind === 'trainer' && scout.npc?.id === 'meadow-scout' && scout.foe?.mint.dexId === 16);
-const researcher = rollRouteFind({ ...findBase, seed: 'test-6', kind: 'explore' });
-check('Explore can find the researcher with no battle foe', researcher.kind === 'researcher' && researcher.npc?.id === 'researcher' && researcher.foe === null);
-const itemsOnly = (finds: RouteRules['itemFinds']): RouteRules => ({ ...ROUTE_RULES, exploreWildChance: 0, exploreNpcChance: 0, itemFinds: finds });
-const zero = { poke: 0, great: 0, harvest: 0, pouch: 0 };
-const pokes = rollRouteFind({ ...findBase, seed: 'test-0', kind: 'explore', rules: itemsOnly({ ...zero, poke: 1 }) });
-check('a Poké Ball find grants three Poké Balls and no money', pokes.kind === 'item' && same(pokes.items, [{ itemId: 'poke', quantity: 3 }]) && pokes.money === 0 && pokes.foe === null);
-const great = rollRouteFind({ ...findBase, seed: 'test-23', kind: 'explore', rules: itemsOnly({ ...zero, great: 1 }) });
-check('a Great Ball find includes its independent landmark discovery', great.kind === 'item' && same(great.items, [{ itemId: 'great', quantity: 1 }]) && same(great.landmarks, ['sunflowers']));
-const pouch = rollRouteFind({ ...findBase, seed: 'test-5', kind: 'explore', rules: itemsOnly({ ...zero, pouch: 1 }) });
-check('a coin pouch pays ₽300 and grants no item', pouch.kind === 'item' && same(pouch.items, []) && pouch.money === 300);
-const mushroom = rollRouteFind({ ...findBase, seed: 'test-5', kind: 'explore', rules: { ...itemsOnly({ ...zero, harvest: 1 }), harvest: [{ itemId: 'big-mushroom', weight: 1 }] } });
-check('a harvest find grants one valuable from the harvest table', same(mushroom.items, [{ itemId: 'big-mushroom', quantity: 1 }]) && mushroom.money === 0);
-const finds = Array.from({ length: 2000 }, (_, i) => rollRouteFind({ ...findBase, seed: `items-${i}`, kind: 'explore', rules: itemsOnly(ROUTE_RULES.itemFinds) }));
-const share = (test: (f: (typeof finds)[number]) => boolean) => finds.filter(test).length / finds.length;
-check('item finds follow 50/15/20/15 within 3 points', Math.abs(share((f) => f.items[0]?.itemId === 'poke') - 0.5) < 0.03
-  && Math.abs(share((f) => f.items[0]?.itemId === 'great') - 0.15) < 0.03
-  && Math.abs(share((f) => f.money === 300) - 0.15) < 0.03
-  && Math.abs(share((f) => VALUABLE_ITEMS.some((v) => v.id === f.items[0]?.itemId)) - 0.2) < 0.03);
-check('Big Mushroom is the rarest harvest good', share((f) => f.items[0]?.itemId === 'big-mushroom') < share((f) => f.items[0]?.itemId === 'tiny-mushroom') && share((f) => f.items[0]?.itemId === 'tiny-mushroom') < share((f) => f.items[0]?.itemId === 'honey'));
-check('rules v3 leave wild rolls on the version 2 stream', wild.foe?.mint.dexId === 401 && wild.foe.mint.level === 2);
+check('rules v4 keep wild rolls on the version 2 stream', wild.foe?.mint.dexId === 401 && wild.foe.mint.level === 2);
+const wilds = Array.from({ length: 2000 }, (_, i) => rollRouteFind({ ...findBase, seed: `wild-${i}`, kind: 'wild' }));
+check('wild searches meet only the common pool, without Eevee', wilds.every((f) => f.kind === 'wild'
+  && ROUTE_RULES.wild.pool.some((e) => e.dexId === f.foe?.mint.dexId) && f.foe?.mint.dexId !== 133 && f.foe?.view.rare !== true));
+
+const trainerDex: Record<string, number> = { 'meadow-scout': 16, youngster: 263, lass: 191, 'bug-catcher': 401 };
+const trainers = Array.from({ length: 200 }, (_, i) => rollRouteFind({ ...findBase, seed: `trainer-${i}`, kind: 'trainer' }));
+check('a trainer search always meets a trainer with their own Pokémon at hidden level 5, ×0.6', trainers.every((f) => f.kind === 'trainer'
+  && f.npc !== null && f.foe?.mint.dexId === trainerDex[f.npc.id] && f.foe?.mint.level === 5 && f.foe?.statMult === 0.6 && f.foe?.view.rare === false));
+check('all four trainers turn up', new Set(trainers.map((f) => f.npc?.id)).size === 4);
+
+const forage = Array.from({ length: 4000 }, (_, i) => rollRouteFind({ ...findBase, seed: `forage-${i}`, kind: 'forage' }));
+const forageShare = (itemId: string) => forage.filter((f) => f.items[0]?.itemId === itemId).length / forage.length;
+check('forage always finds exactly one meadow good and no ₽', forage.every((f) => f.kind === 'item' && f.items.length === 1 && f.items[0].quantity === 1 && f.money === 0 && f.foe === null));
+check('forage finds Honey 60%, Tiny Mushroom 30%, Big Mushroom 10% within 3 points',
+  Math.abs(forageShare('honey') - 0.6) < 0.03 && Math.abs(forageShare('tiny-mushroom') - 0.3) < 0.03 && Math.abs(forageShare('big-mushroom') - 0.1) < 0.03);
+
+const exploreOnly = (weights: Partial<RouteRules['explore']>): RouteRules => ({ ...ROUTE_RULES, explore: { nothing: 0, item: 0, rare: 0, secret: 0, ...weights } });
+const nothing = rollRouteFind({ ...findBase, seed: 'quiet', kind: 'explore', rules: exploreOnly({ nothing: 1 }) });
+check('Explore can find nothing at all', nothing.kind === 'nothing' && nothing.items.length === 0 && nothing.money === 0 && nothing.foe === null && nothing.npc === null);
+const secret = rollRouteFind({ ...findBase, seed: 'secret', kind: 'explore', rules: exploreOnly({ secret: 1 }) });
+check('Explore can uncover the Honey Tree', secret.kind === 'secret' && secret.questId === 'honey-tree' && secret.foe === null);
+const afterTree = rollRouteFind({ ...findBase, seed: 'secret', kind: 'explore', honeyTreeFound: true, rules: exploreOnly({ secret: 1 }) });
+check('once the Honey Tree is found its share goes to rare Pokémon', afterTree.kind === 'wild' && afterTree.foe?.view.rare === true);
+const rares = Array.from({ length: 300 }, (_, i) => rollRouteFind({ ...findBase, seed: `rare-${i}`, kind: 'explore', rules: exploreOnly({ rare: 1 }) }));
+check('Explore rares are Eevee, Pikachu or Ralts, marked rare, hidden level 2–5 at ×0.6', rares.every((f) => f.kind === 'wild'
+  && [133, 25, 280].includes(f.foe?.mint.dexId ?? 0) && f.foe?.view.rare === true && (f.foe?.mint.level ?? 0) >= 2 && (f.foe?.mint.level ?? 9) <= 5 && f.foe?.statMult === 0.6));
+check('every Explore rare turns up', new Set(rares.map((f) => f.foe?.mint.dexId)).size === 3);
+const finds = Array.from({ length: 4000 }, (_, i) => rollRouteFind({ ...findBase, seed: `items-${i}`, kind: 'explore', rules: exploreOnly({ item: 1 }) }));
+const findShare = (test: (f: (typeof finds)[number]) => boolean) => finds.filter(test).length / finds.length;
+check('rare items are 2 Great Balls 50%, a Big Mushroom 30%, a ₽500 pouch 20% within 3 points',
+  Math.abs(findShare((f) => same(f.items, [{ itemId: 'great', quantity: 2 }]) && f.money === 0) - 0.5) < 0.03
+  && Math.abs(findShare((f) => same(f.items, [{ itemId: 'big-mushroom', quantity: 1 }]) && f.money === 0) - 0.3) < 0.03
+  && Math.abs(findShare((f) => f.items.length === 0 && f.money === 500) - 0.2) < 0.03);
+const explores = Array.from({ length: 4000 }, (_, i) => rollRouteFind({ ...findBase, seed: `explore-${i}`, kind: 'explore' }));
+const exploreShare = (kind: string) => explores.filter((f) => f.kind === kind).length / explores.length;
+check('Explore finds nothing 35%, an item 35%, a rare 20%, the secret 10% within 3 points',
+  Math.abs(exploreShare('nothing') - 0.35) < 0.03 && Math.abs(exploreShare('item') - 0.35) < 0.03
+  && Math.abs(exploreShare('wild') - 0.2) < 0.03 && Math.abs(exploreShare('secret') - 0.1) < 0.03);
+check('Explore records no landmarks under rules v4', explores.every((f) => f.landmarks.length === 0));
 const broke: InventoryState = { revision: 2, money: 199, stacks: [] };
 const resupply = rollRouteFind({ ...findBase, inventory: broke, seed: 'test-3', kind: 'explore' });
-check('no balls and under ₽200 guarantees three Poké Balls with the normal landmark roll', resupply.kind === 'item' && same(resupply.items, [{ itemId: 'poke', quantity: 3 }]) && same(resupply.landmarks, ['sunflowers']));
-check('no balls but ₽200 rolls normal Explore categories', rollRouteFind({ ...findBase, inventory: { ...broke, money: 200 }, seed: 'test-3', kind: 'explore' }).kind === 'wild');
+check('no balls and under ₽200 guarantees three Poké Balls', resupply.kind === 'item' && same(resupply.items, [{ itemId: 'poke', quantity: 3 }]) && resupply.money === 0);
+check('no balls but ₽200 explores as usual', same(rollRouteFind({ ...findBase, inventory: { ...broke, money: 200 }, seed: 'test-3', kind: 'explore' }), rollRouteFind({ ...findBase, seed: 'test-3', kind: 'explore' })));
 check('guarantee helper needs both no balls and under one ball’s price', guaranteesSupplies(broke) && !guaranteesSupplies({ ...broke, money: 200 }) && !guaranteesSupplies({ ...broke, stacks: [{ itemId: 'poke', quantity: 1 }] }));
 check('valuables do not count as capture supplies', ballCount({ revision: 1, money: 0, stacks: [{ itemId: 'honey', quantity: 9 }] }) === 0);
-check('having only a Great Ball is enough to use normal Explore categories', rollRouteFind({ ...findBase, inventory: { revision: 2, money: 0, stacks: [{ itemId: 'great', quantity: 1 }] }, seed: 'test-3', kind: 'explore' }).kind === 'wild');
-check('empty Bag does not convert a wild search to supplies', rollRouteFind({ ...findBase, inventory: { revision: 2, money: 0, stacks: [] }, seed: 'test-3', kind: 'wild' }).kind === 'wild');
-check('known landmarks are never rediscovered', !rollRouteFind({ ...findBase, knownLandmarks: ['sunflowers'], seed: 'test-3', kind: 'explore' }).landmarks.includes('sunflowers'));
-check('fully surveyed route grants no repeat landmark rewards', same(rollRouteFind({ ...findBase, knownLandmarks: ['signpost', 'sunflowers', 'hilltop-oak'], seed: 'test-3', kind: 'explore' }).landmarks, []));
-check('claiming the survey leaves Find NPC selecting trainers only', Array.from({ length: 100 }, (_, i) => rollRouteFind({ ...findBase, questClaimed: true, seed: `npc-${i}`, kind: 'npc' })).every((find) => find.kind === 'trainer'));
-const rare = rollRouteFind({ ...findBase, seed: 'test-12', kind: 'wild' });
-check('seeded Eevee remains a rare encounter', rare.foe?.view.rare === true && rare.foe.mint.dexId === 133 && rare.foe.mint.level === 4);
+check('a single Great Ball is enough to explore as usual', same(rollRouteFind({ ...findBase, inventory: { revision: 2, money: 0, stacks: [{ itemId: 'great', quantity: 1 }] }, seed: 'test-3', kind: 'explore' }), rollRouteFind({ ...findBase, seed: 'test-3', kind: 'explore' })));
+check('an empty Bag does not turn a wild search into supplies', rollRouteFind({ ...findBase, inventory: { revision: 2, money: 0, stacks: [] }, seed: 'test-3', kind: 'wild' }).kind === 'wild');
 const alt = rollRouteFind({ ...findBase, seed: 'test-13', kind: 'wild' });
 check('alternate identity is frozen in the view and mint', alt.foe?.view.altColor === true && alt.foe.mint.altColor && !alt.foe.mint.shiny);
 const shiny = rollRouteFind({ ...findBase, seed: 'test-1248', kind: 'wild' });
@@ -109,7 +133,8 @@ for (const [itemId, side, quantity, expected] of [
   check(`trade total ${itemId} ${side} ×${String(quantity)} is ${String(expected)}`, tradeTotal(itemId, side, quantity) === expected);
 }
 check('money formats with a ₽ sign and thousands separator', formatMoney(1200) === '₽1,200' && formatMoney(0) === '₽0');
-check('wild and trainer wins pay ₽100 and ₽200 under rules v3', battlePrize('wild', ROUTE_RULES) === 100 && battlePrize('trainer', ROUTE_RULES) === 200 && battlePrize('researcher', ROUTE_RULES) === 0);
+check('rules v4 pay ₽0 for a wild win and ₽200 for a trainer win', battlePrize('wild', ROUTE_RULES) === 0 && battlePrize('trainer', ROUTE_RULES) === 200 && battlePrize('researcher', ROUTE_RULES) === 0);
+check('encounters frozen under rules v3 still pay ₽100 and ₽200', battlePrize('wild', legacyRulesV3()) === 100 && battlePrize('trainer', legacyRulesV3()) === 200);
 const legacyRules = legacyRulesV2();
 check('encounters frozen under rules v2 pay no prize money', battlePrize('wild', legacyRules) === 0 && battlePrize('trainer', legacyRules) === 0);
 check('v2 frozen rules still compute catch chances', captureChance({ rare: false, wonBattle: true, ballId: 'great', rules: legacyRules }) === 0.95);
@@ -190,15 +215,18 @@ check('an empty party cannot resolve a battle', emptyPartyRejected);
 // The Pokédex's Area tab must list exactly what the route can spawn, with the same rarity.
 const spawned = new Map<number, boolean>();
 for (let i = 0; i < 400; i++) {
-  const find = rollRouteFind({ seed: `area-${i}`, kind: 'wild', knownLandmarks: [], questClaimed: true, inventory: { revision: 0, money: 0, stacks: [{ itemId: 'poke', quantity: 5 }] } });
+  const find = rollRouteFind({ seed: `area-${i}`, kind: 'wild', inventory: { revision: 0, money: 0, stacks: [{ itemId: 'poke', quantity: 5 }] } });
   if (find.foe) spawned.set(find.foe.view.dexId, find.foe.view.rare);
 }
 check('every wild spawn is listed in the Pokédex with its rarity', spawned.size > 0
   && [...spawned].every(([dexId, rare]) => same(wildAreas(dexId), [{ name: 'Route 1 · Sunny Meadow', rare }])));
-check('a species that never spawns has no wild area', wildAreas(25).length === 0 && !spawned.has(25));
+check('Explore rares and honey-tree species are listed under Sunny Meadow with their rarity',
+  ([[133, true], [25, true], [280, true], [415, false], [412, false], [214, true], [446, true]] as const)
+    .every(([dexId, rare]) => same(wildAreas(dexId), [{ name: 'Route 1 · Sunny Meadow', rare }])));
+check('a species that never spawns has no wild area', wildAreas(150).length === 0);
 
-for (const row of measureRouteBalance()) {
-  check(`${row.name} fresh starter wins ≥75% weighted wild / ≥60% each trainer over 200 seeds`, row.wild >= 75 && row.scout >= 60 && row.youngster >= 60);
-}
+const opponents = routeOpponents();
+const shortfalls = balanceFailures(measureRouteBalance(200, opponents), opponents);
+check(`every fresh starter wins ≥75% against wild Pokémon and ≥60% against every other Route 1 opponent over 200 seeds${shortfalls.length ? `: ${shortfalls.join('; ')}` : ''}`, shortfalls.length === 0);
 console.log(`Route rules: ${passed} passed, ${failed} failed.`);
 process.exit(failed ? 1 : 0);

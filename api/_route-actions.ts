@@ -1,13 +1,14 @@
-import { randomBytes } from 'node:crypto';
 import {
-  acceptRouteQuest, advanceRouteRevision, BOX_LIMIT, changeInventory, changeMoney, countOwned, dismissPriorRouteEvents,
-  dismissRouteEvent, healAllOwned, hasRouteEvents, insertDiscovery, insertOwned, insertRouteAccount, insertRouteEvent,
-  insertRouteReceipt, markRouteQuestClaimed, newId, openWriteTx, readActiveRouteEvent, readActivity,
+  acceptRouteQuest, advanceRouteRevision, BOX_LIMIT, changeInventory, changeMoney, countOwned,
+  dismissRouteEvent, healAllOwned, hasRouteEvents, insertOwned, insertRouteAccount,
+  insertRouteReceipt, markRouteQuestClaimed, openWriteTx, readActiveRouteEvent, readActivity,
   readDiscoveries, readInventoryRows, readLastRouteId, readOpenActivity, readOwnedByIds, readOwnedByUser,
   readProfile, readProgress, readRouteAccount, readRouteEvent, readRouteQuest, readRouteReceipt,
   readUnseenResult, readUnseenRouteEvent, recordCaughtDex, updateOwnedGrowth, updateProfileParty, updateRouteEvent, writeOwnedHp, writeRouteAllowance, writeTravel,
   type Db, type Executor, type RouteAccountRow, type RouteEventRow,
 } from './_db.js';
+import { fail, RouteError } from './_route-error.js';
+import { commitFind } from './_route-finds.js';
 import { isTravelPlace, quoteTravel, spendTravel, TRAVEL_RULES, travelQuotes, travelView, type TravelPlace } from '../src/game/travel.js';
 import type { MeterRecord } from '../src/game/meter.js';
 import { retireLegacyActivity } from './_world.js';
@@ -17,27 +18,25 @@ import { PARTY_MAX, parsePartyInput, partyMembers, resolveParty, sameParty } fro
 import { EMPTY_PROGRESS } from '../src/game/world.js';
 import { formatMoney, isCaptureBallId, isItemId, itemById, tradeTotal } from '../src/game/items.js';
 import {
-  allowanceView, battlePrize, captureChance, legalChoices, MEADOW_LANDMARKS, rollCapture, rollRouteFind,
+  allowanceView, battlePrize, captureChance, legalChoices, MEADOW_LANDMARKS, rollCapture,
   ROUTE_RULES, simulateRouteBattle, spendAllowance,
 } from '../src/game/route-rules.js';
 import type {
-  InventoryState, MarketTradeInput, RouteChooseInput, RouteEvent, RouteQuestInput, RouteReply, RouteSearchInput,
-  RouteState, RouteTravelInput, StoredRouteEvent,
+  InventoryState, MarketTradeInput, RouteChooseInput, RouteQuestInput, RouteReply, RouteSearchInput,
+  RouteState, RouteTravelInput, SearchKind, StoredRouteEvent,
 } from '../src/game/route-actions.js';
 
-/** Known gameplay rejections roll back every part of the command. */
-export class RouteError extends Error {
-  constructor(public status: number, message: string, public party?: string[]) { super(message); }
-}
+export { RouteError };
 
-const fail = (status: number, message: string): never => { throw new RouteError(status, message); };
 const validId = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 64;
 export const validRouteRequestId = validId;
 
+/** The cards whose searches the server runs. */
+const SEARCH_KINDS: readonly SearchKind[] = ['wild', 'trainer', 'explore', 'forage'];
 export function parseRouteSearch(body: Record<string, unknown>): RouteSearchInput | null {
   const partyIds = parsePartyInput(body.partyIds);
-  if (!validId(body.requestId) || body.locationId !== 'r1' || typeof body.kind !== 'string' || !['wild', 'npc', 'explore'].includes(body.kind) || !partyIds) return null;
-  return { requestId: body.requestId, locationId: 'r1', kind: body.kind as RouteSearchInput['kind'], partyIds };
+  if (!validId(body.requestId) || body.locationId !== 'r1' || !SEARCH_KINDS.includes(body.kind as SearchKind) || !partyIds) return null;
+  return { requestId: body.requestId, locationId: 'r1', kind: body.kind as SearchKind, partyIds };
 }
 export function parseRouteChoose(body: Record<string, unknown>): RouteChooseInput | null {
   if (!validId(body.requestId) || !validId(body.eventId) || !Number.isSafeInteger(body.expectedRevision) || Number(body.expectedRevision) < 0) return null;
@@ -64,7 +63,7 @@ function cutoverTime(): number {
 }
 function stored(row: RouteEventRow): StoredRouteEvent {
   const value = row.data as StoredRouteEvent | null;
-  if (!value || (value.config?.version !== 2 && value.config?.version !== 3) || value.event?.id !== row.id) throw new Error('Unreadable route event');
+  if (!value || ![2, 3, 4].includes(value.config?.version ?? 0) || value.event?.id !== row.id) throw new Error('Unreadable route event');
   return value;
 }
 async function inventoryState(db: Executor, uid: string): Promise<InventoryState> {
@@ -205,34 +204,10 @@ export async function searchRoute(db: Db, uid: string, input: RouteSearchInput, 
     if (!partyIds.length) fail(400, 'Choose at least one Pokémon for your party.');
     if (!sameParty(partyIds, input.partyIds)) throw new RouteError(409, 'Your party changed. Check it and try again.', partyIds);
     if (partyMembers(partyIds, owned).every(isFainted)) fail(400, 'Your party needs care. Visit the Pokémon Center in Hearth Town.');
-    const spent = spendAllowance({ available: account.actions, refilledAt: account.refilledAt }, now);
+    const spent = spendAllowance({ available: account.actions, refilledAt: account.refilledAt }, now, ROUTE_RULES, ROUTE_RULES.costs[input.kind]);
     if (!spent) return fail(409, 'You have no route actions available. Your next action will refill soon.');
-    const discoveries = await readDiscoveries(tx, uid);
-    const quest = await readRouteQuest(tx, uid, 'meadow-survey');
-    const seed = randomBytes(16).toString('hex');
-    const find = rollRouteFind({ seed, kind: input.kind, knownLandmarks: discoveries.filter((d) => d.locationId === 'r1' && d.kind === 'landmark').map((d) => d.ref), questClaimed: quest?.claimedAt != null, inventory: await inventoryState(tx, uid), rules: ROUTE_RULES });
-    const phase = find.kind === 'item' ? 'resolved' : find.kind;
-    const event: RouteEvent = {
-      id: newId(), locationId: 'r1', searchKind: input.kind, kind: find.kind, rulesVersion: ROUTE_RULES.version, revision: 0,
-      startedAt: now, resolvedAt: phase === 'resolved' ? now : null, phase, party: partyMembers(partyIds, owned),
-      foe: find.foe?.view ?? null, npc: find.npc, choices: legalChoices(phase),
-      catchChances: find.kind === 'wild' ? {
-        poke: captureChance({ rare: find.foe?.view.rare ?? false, wonBattle: false, ballId: 'poke', rules: ROUTE_RULES }),
-        great: captureChance({ rare: find.foe?.view.rare ?? false, wonBattle: false, ballId: 'great', rules: ROUTE_RULES }),
-      } : null,
-      battle: null, members: [], catch: null, items: find.items, newSeen: [], newLandmarks: [], outcome: phase === 'resolved' ? 'found' : null, money: find.money,
-    };
-    for (const landmark of find.landmarks) {
-      if (await insertDiscovery(tx, { uid, locationId: 'r1', kind: 'landmark', ref: landmark, foundAt: now })) event.newLandmarks.push(landmark);
-    }
-    // A trainer's Pokémon counts as seen too, as in the games.
-    if (find.foe && await insertDiscovery(tx, { uid, locationId: 'r1', kind: 'seen', ref: String(find.foe.view.dexId), foundAt: now })) event.newSeen.push(find.foe.view.dexId);
-    for (const item of find.items) await changeInventory(tx, uid, item.itemId, item.quantity);
-    if (find.money > 0) await changeMoney(tx, uid, find.money);
+    const event = await commitFind(tx, { uid, kind: input.kind, party: partyMembers(partyIds, owned), inventory: await inventoryState(tx, uid), now });
     await writeRouteAllowance(tx, uid, spent.available, spent.refilledAt);
-    await dismissPriorRouteEvents(tx, uid, now);
-    const data: StoredRouteEvent = { event, seed, config: ROUTE_RULES, foe: find.foe };
-    await insertRouteEvent(tx, uid, { id: event.id, createdAt: now, revision: 0, active: phase !== 'resolved', seenAt: null, data });
     return { event };
   });
 }

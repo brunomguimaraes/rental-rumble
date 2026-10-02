@@ -1,7 +1,7 @@
 /** Atomic route commands against a disposable file database, including lost replies and legacy cutover. */
 import {
   acceptRouteQuest, applySchema, changeInventory, changeMoney, countOwned, insertDiscovery, insertRouteEvent, readDiscoveries,
-  openWriteTx, readActivity, readOpenActivity, readOwnedByUser, readProfile, readRouteAccount, readRouteEvent,
+  openWriteTx, readActivity, readOpenActivity, readOwnedByUser, readProfile, readRouteAccount, readRouteEvent, readRouteQuests,
   isMissingSchema, updateOwnedNickname, updateProfileParty, updateRouteEvent, writeOwnedHp, writeRouteAllowance, type Db,
 } from '../api/_db.js';
 import {
@@ -10,7 +10,7 @@ import {
 } from '../api/_route-actions.js';
 import { dismissResult, startActivity, stepExpedition } from '../api/_world.js';
 import { legalChoices, rollCapture, rollRouteFind, simulateRouteBattle } from '../src/game/route-rules.js';
-import type { CaptureBallId, RouteBattle, RouteEvent, RouteRules, RouteRulesV2, SearchKind, StoredRouteEvent } from '../src/game/route-actions.js';
+import type { CaptureBallId, RouteBattle, RouteEvent, RouteRules, RouteRulesV2, RouteRulesV3, SearchKind, StoredRouteEvent } from '../src/game/route-actions.js';
 import { currentHp, isFainted, ownedMaxHp } from '../src/game/health.js';
 import { check, finish, legacyDb, legacyOnboard, mintMon, onboardUser, tempDb } from './world-test-kit.js';
 
@@ -29,14 +29,24 @@ async function start(db: Db, uid: string, kind: SearchKind = 'wild', now = T, id
 async function leave(db: Db, uid: string, event: RouteEvent) {
   return chooseRoute(db, uid, { requestId: rid(), eventId: event.id, expectedRevision: event.revision, choice: event.phase === 'researcher' ? 'decline' : 'leave' }, T);
 }
+/** Explore until `want` accepts the find. The seed is random, so refill the bank and keep exploring. */
+async function exploreUntil(db: Db, uid: string, want: (e: RouteEvent) => boolean, tries = 400): Promise<RouteEvent> {
+  for (let i = 0; i < tries; i++) {
+    await writeRouteAllowance(db, uid, 48, T);
+    const e = (await start(db, uid, 'explore')).event!;
+    if (want(e)) return e;
+    if (e.phase !== 'resolved') await leave(db, uid, e);
+  }
+  throw new Error('Explore never produced the wanted find');
+}
 const moneyOf = async (db: Db, uid: string) => (await loadRouteState(db, uid, T)).inventory.money;
 /** Controlled persisted fixture uses the real find rules; production gets its seed from crypto. */
-async function forceKind(db: Db, uid: string, e: RouteEvent, kind: 'wild' | 'trainer' | 'researcher' | 'item', seedPrefix = 'fixture') {
+async function forceKind(db: Db, uid: string, e: RouteEvent, kind: 'wild' | 'trainer' | 'item', seedPrefix = 'fixture') {
   const row = (await readRouteEvent(db, uid, e.id))!;
   const data = row.data as StoredRouteEvent;
   for (let i = 0; ; i++) {
     const seed = `${seedPrefix}-${i}`;
-    const find = rollRouteFind({ seed, kind: kind === 'wild' ? 'wild' : kind === 'item' ? 'explore' : 'npc', knownLandmarks: [], questClaimed: false, inventory: { revision: 0, money: 0, stacks: [{ itemId: 'poke', quantity: 20 }] } });
+    const find = rollRouteFind({ seed, kind: kind === 'item' ? 'forage' : kind, inventory: { revision: 0, money: 0, stacks: [{ itemId: 'poke', quantity: 20 }] } });
     if (find.kind !== kind) continue;
     data.seed = seed; data.foe = find.foe;
     data.event.kind = kind; data.event.foe = find.foe?.view ?? null; data.event.npc = find.npc;
@@ -100,7 +110,7 @@ try {
   check('one search freezes an active wild and spends one action', first.state.allowance.available === 11 && first.state.activeEvent?.id === e.id);
   const privateRow = (await readRouteEvent(db, 'u1', e.id))!.data as StoredRouteEvent;
   check('public response does not expose private seed or frozen rules', !JSON.stringify(first).includes(privateRow.seed) && !('config' in e));
-  await rejects('changed request payload is conflict before active check', searchRoute(db, 'u1', { ...input, kind: 'npc' }, T), 409);
+  await rejects('changed request payload is conflict before active check', searchRoute(db, 'u1', { ...input, kind: 'trainer' }, T), 409);
   await rejects('second active event is rejected', start(db, 'u1'), 409);
   await rejects('foreign event is not found', chooseRoute(db, 'u2', { requestId: rid(), eventId: e.id, expectedRevision: 0, choice: 'leave' }, T), 404);
   await rejects('stale choice spends nothing', chooseRoute(db, 'u1', { requestId: rid(), eventId: e.id, expectedRevision: 9, choice: 'catch', ballId: 'poke' }, T), 409);
@@ -184,8 +194,7 @@ try {
   await rejects('full Box rejects before consuming a ball', chooseRoute(db, 'u1', { requestId: rid(), eventId: fullEvent.id, expectedRevision: 0, choice: 'catch', ballId: 'poke' }, T), 409);
   check('full Box keeps catch decision and item untouched', eq((await loadRouteState(db, 'u1', T)).inventory, beforeCapacity) && (await loadRouteState(db, 'u1', T)).activeEvent?.id === fullEvent.id);
   await leave(db, 'u1', fullEvent);
-  const researcher = await forceKind(db, 'u1', (await start(db, 'u1', 'npc')).event!, 'researcher');
-  await chooseRoute(db, 'u1', { requestId: rid(), eventId: researcher.event.id, expectedRevision: 0, choice: 'accept' }, T);
+  await acceptRouteQuest(db, 'u1', 'meadow-survey', T);
   for (const ref of ['signpost', 'sunflowers', 'hilltop-oak']) await insertDiscovery(db, { uid: 'u1', locationId: 'r1', kind: 'landmark', ref, foundAt: T });
   const claim = { requestId: 'claim', questId: 'meadow-survey' as const };
   const moneyBeforeQuest = await moneyOf(db, 'u1');
@@ -193,7 +202,7 @@ try {
   check('quest acceptance and existing landmarks yield one raced reward', claims.every((c) => c.state.quest.status === 'claimed') && (await loadRouteState(db, 'u1', T)).inventory.stacks.find((s) => s.itemId === 'great')?.quantity === 3);
   check('the survey pays ₽500 exactly once', await moneyOf(db, 'u1') === moneyBeforeQuest + 500);
   await rejects('new request cannot duplicate quest reward', claimRouteQuest(db, 'u1', { ...claim, requestId: rid() }, T), 409);
-  const trainer = await forceKind(db, 'u1', (await start(db, 'u1', 'npc')).event!, 'trainer');
+  const trainer = await forceKind(db, 'u1', (await start(db, 'u1', 'trainer')).event!, 'trainer');
   await rejects('trainer capture is invalid before debit', chooseRoute(db, 'u1', { requestId: rid(), eventId: trainer.event.id, expectedRevision: 0, choice: 'catch', ballId: 'great' }, T), 400);
   const trained = await chooseRoute(db, 'u1', { requestId: 'trainer-battle', eventId: trainer.event.id, expectedRevision: 0, choice: 'battle' }, T);
   const trainedRetry = await chooseRoute(db, 'u1', { requestId: 'trainer-battle', eventId: trainer.event.id, expectedRevision: 0, choice: 'battle' }, T);
@@ -202,7 +211,7 @@ try {
   const beforeWild = await moneyOf(db, 'u1');
   const wildWon = await chooseRoute(db, 'u1', { requestId: 'wild-win', eventId: wildWin.event.id, expectedRevision: 0, choice: 'battle' }, T);
   await chooseRoute(db, 'u1', { requestId: 'wild-win', eventId: wildWin.event.id, expectedRevision: 0, choice: 'battle' }, T);
-  check('a wild win pays ₽100 once across retries', wildWon.event?.outcome === 'won' && wildWon.event.money === 100 && await moneyOf(db, 'u1') === beforeWild + 100);
+  check('a wild win pays no ₽ under rules v4, even on a retry', wildWon.event?.outcome === 'won' && wildWon.event.money === 0 && await moneyOf(db, 'u1') === beforeWild);
   const beforeLeave = await moneyOf(db, 'u1');
   await chooseRoute(db, 'u1', { requestId: rid(), eventId: wildWon.event!.id, expectedRevision: wildWon.event!.revision, choice: 'leave' }, T);
   check('leaving after a win pays nothing more', await moneyOf(db, 'u1') === beforeLeave);
@@ -219,6 +228,13 @@ try {
   const frozenWon = await chooseRoute(db, 'u1', { requestId: rid(), eventId: frozen.event.id, expectedRevision: 0, choice: 'battle' }, T);
   check('an encounter frozen under rules v2 still settles and pays no ₽', frozenWon.event?.outcome === 'won' && await moneyOf(db, 'u1') === beforeFrozen);
   if (frozenWon.event?.phase !== 'resolved') await leave(db, 'u1', frozenWon.event!);
+  const v3 = await forceKind(db, 'u1', (await start(db, 'u1')).event!, 'wild');
+  const v3Row = (await readRouteEvent(db, 'u1', v3.event.id))!;
+  await updateRouteEvent(db, 'u1', { ...v3Row, data: { ...v3, config: { ...(v3.config as RouteRules), version: 3, wildMoney: 100 } as unknown as RouteRulesV3, event: { ...v3.event, rulesVersion: 3 } } }, v3Row.revision);
+  const beforeV3 = await moneyOf(db, 'u1');
+  const v3Won = await chooseRoute(db, 'u1', { requestId: rid(), eventId: v3.event.id, expectedRevision: 0, choice: 'battle' }, T);
+  check('an encounter frozen under rules v3 still pays the ₽100 wild prize', v3Won.event?.outcome === 'won' && v3Won.event.money === 100 && await moneyOf(db, 'u1') === beforeV3 + 100);
+  if (v3Won.event?.phase !== 'resolved') await leave(db, 'u1', v3Won.event!);
   const revisionBeforeRollback = (await loadRouteState(db, 'u1', T)).inventory.revision;
   const aTx = await openWriteTx(db);
   await changeInventory(aTx, 'u1', 'poke', 1);
@@ -395,7 +411,7 @@ try {
   const standing = tradeWin.event!.battle!.fielded!.filter((f) => f.hp > 0).map((f) => f.id);
   check('only members standing at the end earn EXP', JSON.stringify(tradeWin.event!.members.map((m) => m.id)) === JSON.stringify(standing));
   const tradeHp = await readOwnedByUser(db, 'hp');
-  check('a win with a fainted member still pays the full ₽100 alongside the saved damage', tradeWin.event!.money === 100 && await moneyOf(db, 'hp') === beforeTrade + 100
+  check('a win with a fainted member saves the damage and pays the v4 wild prize of ₽0', tradeWin.event!.money === 0 && await moneyOf(db, 'hp') === beforeTrade
     && tradeWin.event!.battle!.fielded!.every((f) => (tradeHp.find((m) => m.id === f.id)!.hpLost ?? 0) === f.maxHp - f.hp));
   await leave(db, 'hp', tradeWin.event!);
 
@@ -455,19 +471,45 @@ try {
     check('rows read before db:setup are at full health', oldMon.hpLost === undefined && !isFainted(oldMon));
   } finally { hpLegacy.cleanup(); }
 
-  // A trainer's Pokémon counts as seen, like a wild one. The seed is random, so search until a trainer shows.
+  // A trainer's Pokémon counts as seen, like a wild one.
   await onboardUser(db, 'sightings', 6, 30);
   await activateRoute(db, 'sightings', 'activate', T);
-  let met: RouteEvent | null = null;
-  for (let i = 0; i < 12 && !met; i++) {
-    const found = (await start(db, 'sightings', 'npc')).event!;
-    if (found.kind === 'trainer') met = found;
-    else if (found.phase !== 'resolved') await leave(db, 'sightings', found);
-  }
+  const met: RouteEvent | null = (await start(db, 'sightings', 'trainer')).event ?? null;
   const metDex = met?.foe?.dexId ?? -1;
   const sightings = await readDiscoveries(db, 'sightings');
   check('a trainer’s Pokémon is recorded as seen on the route', met !== null && eq(met.newSeen, [metDex])
     && sightings.some((d) => d.locationId === 'r1' && d.kind === 'seen' && d.ref === String(metDex)));
+
+  console.log('[action board v4: forage, explore, trainers]');
+  await onboardUser(db, 'board', 6, 30);
+  await activateRoute(db, 'board', 'activate', T);
+  const goods = async () => (await loadRouteState(db, 'board', T)).inventory.stacks
+    .filter((s) => ['honey', 'tiny-mushroom', 'big-mushroom'].includes(s.itemId)).reduce((sum, s) => sum + s.quantity, 0);
+  const foraged = await start(db, 'board', 'forage');
+  check('forage spends one action and adds exactly one meadow good, settled at once', foraged.event?.kind === 'item' && foraged.event.searchKind === 'forage'
+    && foraged.event.phase === 'resolved' && foraged.event.outcome === 'found' && foraged.state.allowance.available === 11 && await goods() === 1 && foraged.state.inventory.money === 0);
+  // The Honey Tree first: once found, Explore never rolls the secret again, so a later search for it could never end.
+  const treeFind = await exploreUntil(db, 'board', (e) => e.kind === 'secret');
+  check('the Honey Tree secret records its quest once, unclaimed', treeFind.questId === 'honey-tree' && treeFind.outcome === 'found'
+    && eq((await readRouteQuests(db, 'board')).filter((q) => q.questId === 'honey-tree').map((q) => q.claimedAt), [null]));
+  let secretAgain = false;
+  for (let i = 0; i < 60; i++) {
+    await writeRouteAllowance(db, 'board', 48, T);
+    const e = (await start(db, 'board', 'explore')).event!;
+    if (e.kind === 'secret') secretAgain = true;
+    if (e.phase !== 'resolved') await leave(db, 'board', e);
+  }
+  check('a found Honey Tree is never found again', !secretAgain);
+  const quietFind = await exploreUntil(db, 'board', (e) => e.kind === 'nothing');
+  const afterQuiet = await loadRouteState(db, 'board', T);
+  check('an empty Explore spends its action and grants nothing', quietFind.phase === 'resolved' && quietFind.outcome === 'nothing' && quietFind.items.length === 0 && !quietFind.money
+    && afterQuiet.allowance.available === 47 && afterQuiet.activeEvent === null);
+  const rareFind = await exploreUntil(db, 'board', (e) => e.kind === 'wild');
+  check('an Explore rare is a catchable rare wild Pokémon', rareFind.foe?.rare === true && [133, 25, 280].includes(rareFind.foe.dexId) && rareFind.choices.includes('catch') && rareFind.catchChances?.poke === 0.35);
+  await leave(db, 'board', rareFind);
+  const meeting = (await start(db, 'board', 'trainer')).event!;
+  check('a trainer search meets a trainer with one Pokémon', meeting.kind === 'trainer' && meeting.phase === 'trainer' && meeting.npc !== null && meeting.foe !== null && meeting.searchKind === 'trainer');
+  await leave(db, 'board', meeting);
 
   // Schema invariant itself, independent of domain checks.
   const sample = (await readRouteEvent(db, 'u1', trainer.event.id))!;

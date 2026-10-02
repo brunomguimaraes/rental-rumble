@@ -1,8 +1,7 @@
 import type { OwnedMon } from './box.js';
 import type {
-  ActionAllowance, AllowanceRecord, CaptureBallId, FrozenRouteFoe, InventoryState,
-  RouteBattle, RouteChoice, RouteFind, RouteNpc, RoutePhase, RouteRules, SearchKind,
-  StoredRouteRules,
+  ActionAllowance, AllowanceRecord, CaptureBallId, FoePool, FrozenRouteFoe, InventoryState,
+  RouteBattle, RouteChoice, RouteFind, RouteNpc, RoutePhase, RouteRules, SearchKind, StoredRouteRules,
 } from './route-actions.js';
 import { partyCreatures } from './activity.js';
 import { simulateBattle } from './battle.js';
@@ -14,16 +13,16 @@ import { ballCount, isCaptureBallId, itemById } from './items.js';
 import { meterView, projectMeter, spendMeter, type MeterRules } from './meter.js';
 import { CREATURES_BY_ID } from './pokemon.js';
 import { RNG } from './rng.js';
-import { pickFromPool } from './wilds.js';
 import { placeById, placeTitle } from './world.js';
 
-/** Live route rules. Legacy activity config and its seeded content stay unchanged. */
+/** Live route rules: the action board. Encounters keep the rules they were created under. */
 export const ROUTE_RULES: RouteRules = {
-  version: 3,
+  version: 4,
   capacity: 48,
   initialActions: 12,
   refillEveryMs: 600_000,
   starterBalls: 20,
+  costs: { wild: 1, trainer: 1, puzzle: 1, quest: 1, explore: 1, forage: 1 },
   wild: {
     min: 2, max: 5, statMult: 0.6,
     pool: [
@@ -35,7 +34,6 @@ export const ROUTE_RULES: RouteRules = {
       { dexId: 191, weight: 2 },
       { dexId: 401, weight: 2 },
       { dexId: 399, weight: 2 },
-      { dexId: 133, weight: 1, rare: true },
     ],
   },
   recommended: { min: 3, max: 8 },
@@ -43,33 +41,61 @@ export const ROUTE_RULES: RouteRules = {
   trainerExp: 50,
   trainerLevel: 5,
   trainerStatMult: 0.6,
-  npcTrainerChance: 0.7,
-  exploreWildChance: 0.45,
-  exploreNpcChance: 0.3,
-  landmarkChance: 0.5,
+  wildMoney: 0,
+  trainerMoney: 200,
+  explore: { nothing: 35, item: 35, rare: 20, secret: 10 },
+  exploreItems: [
+    { items: [{ itemId: 'great', quantity: 2 }], money: 0, weight: 5 },
+    { items: [{ itemId: 'big-mushroom', quantity: 1 }], money: 0, weight: 3 },
+    { items: [], money: 500, weight: 2 },
+  ],
+  exploreRares: {
+    min: 2, max: 5, statMult: 0.6,
+    pool: [
+      { dexId: 133, weight: 2, rare: true },
+      { dexId: 25, weight: 2, rare: true },
+      { dexId: 280, weight: 1, rare: true },
+    ],
+  },
+  honeyTree: {
+    min: 2, max: 5, statMult: 0.6,
+    pool: [
+      { dexId: 415, weight: 5 },
+      { dexId: 412, weight: 3 },
+      // At ×0.6 a lone Lotad beat Heracross in under a third of fights; at ×0.45 every starter wins 72% or more.
+      { dexId: 214, weight: 1, rare: true, statMult: 0.45 },
+      { dexId: 446, weight: 1, rare: true },
+    ],
+  },
+  forage: [
+    { itemId: 'honey', weight: 6 },
+    { itemId: 'tiny-mushroom', weight: 3 },
+    { itemId: 'big-mushroom', weight: 1 },
+  ],
+  puzzle: {
+    size: 3, slides: 40, minDistance: 10,
+    scenes: ['tall-grass', 'sunflowers', 'signpost', 'hilltop-oak'],
+    rewards: [
+      { items: [{ itemId: 'great', quantity: 1 }], weight: 40 },
+      { items: [{ itemId: 'poke', quantity: 3 }], weight: 30 },
+      { items: [{ itemId: 'tiny-mushroom', quantity: 1 }], weight: 20 },
+      { items: [{ itemId: 'big-mushroom', quantity: 1 }], weight: 10 },
+    ],
+  },
   pokeBundleQuantity: 3,
-  greatBundleQuantity: 1,
   questGreatBalls: 3,
+  questMoney: 500,
   basicCatchChance: 0.6,
   rareCatchChance: 0.35,
   battleCatchBonus: 0.2,
   greatCatchBonus: itemById('great')!.catchBonus,
   maxCatchChance: 0.95,
-  itemFinds: { poke: 50, great: 15, harvest: 20, pouch: 15 },
-  harvest: [
-    { itemId: 'honey', weight: 6 },
-    { itemId: 'tiny-mushroom', weight: 3 },
-    { itemId: 'big-mushroom', weight: 1 },
-  ],
-  pouchMoney: 300,
-  wildMoney: 100,
-  trainerMoney: 200,
-  questMoney: 500,
 };
 
-// Rules version 3 changed only the Explore item table. The stream names stay at
-// 2, so wild, NPC, landmark and catch rolls replay identically across versions.
+// Wild and trainer finds stay on the version 2 stream: a wild search rolls as it did under v2 and v3.
 const STREAM = 'route:2';
+// Finds new in rules v4 (Explore's outcomes, Forage, puzzles, the Honey Tree) roll on their own stream.
+const STREAM_V4 = 'route:4';
 
 /** Weighted pick over entries in their listed order. */
 function pickWeighted<T extends { weight: number }>(entries: readonly T[], rng: RNG): T {
@@ -89,7 +115,7 @@ export function guaranteesSupplies(inventory: InventoryState): boolean {
 
 /** ₽ a won battle pays under the encounter's frozen rules; v2 encounters pay nothing. */
 export function battlePrize(kind: RouteFind['kind'], rules: StoredRouteRules): number {
-  if (rules.version !== 3) return 0;
+  if (rules.version === 2) return 0;
   return kind === 'wild' ? rules.wildMoney : kind === 'trainer' ? rules.trainerMoney : 0;
 }
 
@@ -108,18 +134,21 @@ const TRAINERS: readonly (RouteNpc & { dexId: number })[] = [
     id: 'youngster', name: 'Youngster', spriteKey: 'random-youngster', dexId: 263,
     text: 'Zigzagoon found another shortcut! We have time for a friendly battle if you do.',
   },
+  {
+    id: 'lass', name: 'Lass', spriteKey: 'random-lass', dexId: 191,
+    text: 'My Sunkern finally woke up in the sunflower patch. Will you battle us before it dozes off again?',
+  },
+  {
+    id: 'bug-catcher', name: 'Bug Catcher', spriteKey: 'random-frlg-bug-catcher', dexId: 401,
+    text: 'Kricketot has been practicing its song all morning. Want to hear how it battles?',
+  },
 ];
 
-const RESEARCHER: RouteNpc = {
-  id: 'researcher', name: 'Meadow Researcher', spriteKey: 'random-scientist-f',
-  text: 'I’m surveying Sunny Meadow. Explore the Old Signpost, Sunflower Patch and Hilltop Oak, and I’ll share three Great Balls. Places you already found count too.',
-};
-
-/** Where a species lives in the wild today: the live route pool only, never the retired idle routes. */
+/** Where a species lives in the wild today: the live route's pools only, never the retired idle routes. */
 export function wildAreas(dexId: number, rules: RouteRules = ROUTE_RULES): { name: string; rare: boolean }[] {
-  const entry = rules.wild.pool.find((e) => e.dexId === dexId);
+  const entries = [rules.wild, rules.exploreRares, rules.honeyTree].flatMap((pool) => pool.pool.filter((entry) => entry.dexId === dexId));
   const place = placeById('r1');
-  return entry && place ? [{ name: placeTitle(place), rare: Boolean(entry.rare) }] : [];
+  return entries.length > 0 && place ? [{ name: placeTitle(place), rare: entries.every((entry) => Boolean(entry.rare)) }] : [];
 }
 
 const allowanceMeter = (rules: RouteRules): MeterRules => ({ capacity: rules.capacity, refillEveryMs: rules.refillEveryMs, floor: 0 });
@@ -134,8 +163,8 @@ export function allowanceView(record: AllowanceRecord, now: number, rules: Route
 }
 
 /** A transaction persists this projection together with its new encounter. */
-export function spendAllowance(record: AllowanceRecord, now: number, rules: RouteRules = ROUTE_RULES): AllowanceRecord | null {
-  return spendMeter(record, now, 1, allowanceMeter(rules));
+export function spendAllowance(record: AllowanceRecord, now: number, rules: RouteRules = ROUTE_RULES, cost = 1): AllowanceRecord | null {
+  return spendMeter(record, now, cost, allowanceMeter(rules));
 }
 
 function mintFoe({ dexId, level, rare, statMult, rng }: {
@@ -152,58 +181,53 @@ function mintFoe({ dexId, level, rare, statMult, rng }: {
   };
 }
 
-/** One seeded primary find, plus an independent optional landmark discovery. */
-export function rollRouteFind({ seed, kind, knownLandmarks, questClaimed, inventory, rules = ROUTE_RULES }: {
+/** A weighted species from `pool` at a level in its range, fighting at its own or the pool's handicap. */
+function rollFoe(pool: FoePool, rng: RNG): FrozenRouteFoe {
+  const entry = pickWeighted(pool.pool, rng);
+  const level = rng.int(pool.min, pool.max);
+  return mintFoe({ dexId: entry.dexId, level, rare: Boolean(entry.rare), statMult: entry.statMult ?? pool.statMult, rng });
+}
+
+const quiet = (kind: RouteFind['kind'], extra: Partial<RouteFind> = {}): RouteFind =>
+  ({ kind, foe: null, npc: null, items: [], money: 0, landmarks: [], ...extra });
+
+function rollExplore(rng: RNG, { honeyTreeFound, inventory, rules }: { honeyTreeFound: boolean; inventory: InventoryState; rules: RouteRules }): RouteFind {
+  if (guaranteesSupplies(inventory)) return quiet('item', { items: [{ itemId: 'poke', quantity: rules.pokeBundleQuantity }] });
+  const outcomes: { outcome: 'nothing' | 'item' | 'rare' | 'secret'; weight: number }[] = [
+    { outcome: 'nothing', weight: rules.explore.nothing },
+    { outcome: 'item', weight: rules.explore.item },
+    { outcome: 'rare', weight: rules.explore.rare + (honeyTreeFound ? rules.explore.secret : 0) },
+    { outcome: 'secret', weight: honeyTreeFound ? 0 : rules.explore.secret },
+  ];
+  const { outcome } = pickWeighted(outcomes.filter((o) => o.weight > 0), rng);
+  if (outcome === 'nothing') return quiet('nothing');
+  if (outcome === 'secret') return quiet('secret', { questId: 'honey-tree' });
+  if (outcome === 'rare') return { ...quiet('wild'), foe: rollFoe(rules.exploreRares, rng) };
+  const { items, money } = pickWeighted(rules.exploreItems, rng);
+  return quiet('item', { items: items.map((item) => ({ ...item })), money });
+}
+
+/** One seeded find for a search. Events stored under rules v2 and v3 are never re-rolled. */
+export function rollRouteFind({ seed, kind, honeyTreeFound = false, inventory, rules = ROUTE_RULES }: {
   seed: string;
   kind: SearchKind;
-  knownLandmarks: readonly string[];
-  questClaimed: boolean;
+  /** Explore's secret is the Honey Tree until the trainer finds it. */
+  honeyTreeFound?: boolean;
   inventory: InventoryState;
   rules?: RouteRules;
 }): RouteFind {
-  const rng = new RNG(`${STREAM}:${seed}:find`);
-  let primary: SearchKind | 'item' = kind;
-  const guaranteedSupplies = kind === 'explore' && guaranteesSupplies(inventory);
-  if (guaranteedSupplies) primary = 'item';
-  else if (kind === 'explore') {
-    const category = rng.next();
-    primary = category < rules.exploreWildChance ? 'wild'
-      : category < rules.exploreWildChance + rules.exploreNpcChance ? 'npc' : 'item';
-  }
-
-  const landmarks: string[] = [];
-  if (kind === 'explore') {
-    const missing = MEADOW_LANDMARKS.filter((landmark) => !knownLandmarks.includes(landmark.id));
-    const landmarkRng = new RNG(`${STREAM}:${seed}:landmark`);
-    if (missing.length > 0 && landmarkRng.chance(rules.landmarkChance)) landmarks.push(landmarkRng.pick(missing).id);
-  }
-
-  if (primary === 'item') {
-    const found = (items: RouteFind['items'], money = 0): RouteFind => ({ kind: 'item', foe: null, npc: null, landmarks, items, money });
-    if (guaranteedSupplies) return found([{ itemId: 'poke', quantity: rules.pokeBundleQuantity }]);
-    const { find } = pickWeighted([
-      { find: 'poke', weight: rules.itemFinds.poke },
-      { find: 'great', weight: rules.itemFinds.great },
-      { find: 'harvest', weight: rules.itemFinds.harvest },
-      { find: 'pouch', weight: rules.itemFinds.pouch },
-    ] as const, rng);
-    if (find === 'poke') return found([{ itemId: 'poke', quantity: rules.pokeBundleQuantity }]);
-    if (find === 'great') return found([{ itemId: 'great', quantity: rules.greatBundleQuantity }]);
-    if (find === 'harvest') return found([{ itemId: pickWeighted(rules.harvest, rng).itemId, quantity: 1 }]);
-    return found([], rules.pouchMoney);
-  }
-  if (primary === 'npc') {
-    if (!questClaimed && !rng.chance(rules.npcTrainerChance)) {
-      return { kind: 'researcher', foe: null, npc: { ...RESEARCHER }, items: [], money: 0, landmarks };
-    }
+  if (kind === 'wild') return { ...quiet('wild'), foe: rollFoe(rules.wild, new RNG(`${STREAM}:${seed}:find`)) };
+  if (kind === 'trainer') {
+    const rng = new RNG(`${STREAM}:${seed}:find`);
     const { dexId, ...npc } = rng.pick(TRAINERS);
-    const foe = mintFoe({ dexId, level: rules.trainerLevel, rare: false, statMult: rules.trainerStatMult, rng });
-    return { kind: 'trainer', foe, npc, items: [], money: 0, landmarks };
+    return { ...quiet('trainer'), npc, foe: mintFoe({ dexId, level: rules.trainerLevel, rare: false, statMult: rules.trainerStatMult, rng }) };
   }
-  const entry = pickFromPool(rules.wild.pool, rng);
-  const level = rng.int(rules.wild.min, rules.wild.max);
-  const foe = mintFoe({ dexId: entry.dexId, level, rare: Boolean(entry.rare), statMult: rules.wild.statMult, rng });
-  return { kind: 'wild', foe, npc: null, items: [], money: 0, landmarks };
+  if (kind === 'forage') {
+    const { itemId } = pickWeighted(rules.forage, new RNG(`${STREAM_V4}:${seed}:forage`));
+    return quiet('item', { items: [{ itemId, quantity: 1 }] });
+  }
+  if (kind === 'explore') return rollExplore(new RNG(`${STREAM_V4}:${seed}:explore`), { honeyTreeFound, inventory, rules });
+  throw new Error(`Unsupported search kind ${kind}`);
 }
 
 export function legalChoices(phase: RoutePhase): RouteChoice[] {
