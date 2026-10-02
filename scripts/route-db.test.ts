@@ -574,10 +574,13 @@ try {
   check('the refused step spent no action', (await loadRouteState(db, 'quester', T)).allowance.available === 9);
   const claimedSurvey = await claimRouteQuest(db, 'quester', { requestId: rid(), questId: 'meadow-survey' }, T);
   check('the survey claim stays free and closes the quest', claimedSurvey.state.quests[0].status === 'claimed' && claimedSurvey.state.quests[0].next === null && claimedSurvey.state.allowance.available === 9);
+  await rejects('a claimed survey has no step left to search', quest('meadow-survey'), 409);
   await rejects('the Honey Tree cannot be worked before it is found', quest('honey-tree'), 409);
   await acceptRouteQuest(db, 'quester', 'honey-tree', T);
   check('a found Honey Tree joins the quest list after the survey', eq((await loadRouteState(db, 'quester', T)).quests.map((q) => q.id), ['meadow-survey', 'honey-tree']));
   await rejects('Spread Honey without Honey is refused', quest('honey-tree'), 409);
+  const noHoney = await quest('honey-tree').catch((e: unknown) => e);
+  check('Spread Honey without Honey says so', noHoney instanceof RouteError && noHoney.status === 409 && noHoney.message === 'You have no Honey. Forage for some first.');
   check('the refused Spread Honey spent nothing', (await loadRouteState(db, 'quester', T)).allowance.available === 9);
   await changeInventory(db, 'quester', 'honey', 2);
   const drawn = await quest('honey-tree');
@@ -588,6 +591,11 @@ try {
   const baitedAgain = await quest('honey-tree');
   check('the Honey Tree can be baited again while Honey lasts', baitedAgain.event?.questId === 'honey-tree' && baitedAgain.state.inventory.stacks.find((s) => s.itemId === 'honey')?.quantity === 0);
   await leave(db, 'quester', baitedAgain.event!);
+  await changeInventory(db, 'quester', 'honey', 1);
+  const sharedId = { requestId: 'quest-shared-id', locationId: 'r1' as const, kind: 'quest' as const, partyIds: questerParty };
+  const shared = await searchRoute(db, 'quester', { ...sharedId, questId: 'honey-tree' }, T);
+  await rejects('a request ID reused for another quest is a conflict', searchRoute(db, 'quester', { ...sharedId, questId: 'meadow-survey' }, T), 409);
+  await leave(db, 'quester', shared.event!);
   await changeInventory(db, 'quester', 'honey', 1);
   const honeyRace = await Promise.allSettled([quest('honey-tree'), tradeMarket(db, 'quester', { requestId: rid(), itemId: 'honey', side: 'sell', quantity: 1 }, T)]);
   check('one Honey cannot both bait the tree and be sold', honeyRace.filter((r) => r.status === 'fulfilled').length === 1 && (await loadRouteState(db, 'quester', T)).inventory.stacks.find((s) => s.itemId === 'honey')?.quantity === 0);

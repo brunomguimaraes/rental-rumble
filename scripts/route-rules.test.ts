@@ -141,6 +141,7 @@ const accepted: QuestRecord[] = [{ questId: 'meadow-survey', acceptedAt: 1, clai
 const allLandmarks = ['signpost', 'sunflowers', 'hilltop-oak'];
 check('an unaccepted survey starts by meeting the researcher for one action', survey([], []).status === 'not-accepted' && same(survey([], []).next, { step: 'meet', actions: 1, items: [] }));
 check('an accepted survey surveys the next landmark for one action', survey(accepted, ['signpost']).status === 'active' && same(survey(accepted, ['signpost']).next, { step: 'survey', actions: 1, items: [] }) && same(survey(accepted, ['signpost']).progress, { done: 1, total: 3 }));
+check('two of three landmarks leave the survey active', survey(accepted, ['signpost', 'sunflowers']).status === 'active');
 check('every landmark recorded makes the reward claimable for free', survey(accepted, allLandmarks).status === 'ready' && same(survey(accepted, allLandmarks).next, { step: 'claim', actions: 0, items: [] }));
 check('a claimed survey has no step left', survey([{ questId: 'meadow-survey', acceptedAt: 1, claimedAt: 2 }], allLandmarks).status === 'claimed' && survey([{ questId: 'meadow-survey', acceptedAt: 1, claimedAt: 2 }], allLandmarks).next === null);
 check('landmarks found before accepting count toward progress', same(survey([], ['hilltop-oak', 'unrelated']).progress, { done: 1, total: 3 }));

@@ -11,7 +11,7 @@ process.env.AUTH_SECRET = 'route-test-session-secret-long-enough';
 delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 const { default: handler } = await import('../api/world/[action].js');
-const { parseRouteChoose } = await import('../api/_route-actions.js');
+const { parseRouteChoose, parseRouteSearch } = await import('../api/_route-actions.js');
 type Reply = { status: number; headers: Record<string, string>; body: Record<string, unknown> };
 async function call(action: string, body?: unknown, uid: string | null = 'route-user', method = action === 'state' ? 'GET' : 'POST'): Promise<Reply> {
   const token = uid ? signSession(uid, process.env.AUTH_SECRET!) : null;
@@ -62,6 +62,8 @@ try {
   check('only quest searches name a quest', (await call('search', { requestId: 'q-wild', locationId: 'r1', kind: 'wild', questId: 'meadow-survey', partyIds: [s.id] })).status === 400);
   const hidden = await call('search', { requestId: 'q-tree', locationId: 'r1', kind: 'quest', questId: 'honey-tree', partyIds: [s.id] });
   check('an unfound Honey Tree is a 409 with recovery state and no action spent', hidden.status === 409 && (hidden.body.state as RouteState).allowance.available === 12);
+  const wellFormedQuest = { requestId: 'q-ok', locationId: 'r1', kind: 'quest', partyIds: [s.id], questId: 'meadow-survey' };
+  check('a quest search passes the parser with its quest', JSON.stringify(parseRouteSearch(wellFormedQuest)) === JSON.stringify(wellFormedQuest));
   check('duplicate party members are rejected', (await call('search', { requestId: 'dup', locationId: 'r1', kind: 'wild', partyIds: [s.id, s.id] })).status === 400);
   const stale = await call('search', { requestId: 'stale', locationId: 'r1', kind: 'wild', partyIds: ['foreign'] });
   check('stale party response supplies current state and party', stale.status === 409 && (stale.body.party as string[])[0] === s.id && (stale.body.state as RouteState).allowance.available === 12);
