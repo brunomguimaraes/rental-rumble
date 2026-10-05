@@ -197,7 +197,7 @@ let unsupportedBallRejected = false;
 try { captureChance({ rare: false, wonBattle: false, ballId: 'master' as CaptureBallId }); }
 catch { unsupportedBallRejected = true; }
 check('capture rule does not turn an unsupported cosmetic ball into a basic throw', unsupportedBallRejected);
-check('wild choices allow exactly one initial battle or catch decision', same(legalChoices('wild'), ['battle', 'catch', 'leave']));
+check('a wild Pokémon must be battled before any throw', same(legalChoices('wild'), ['battle', 'leave']));
 check('post-win catch phase cannot battle again', same(legalChoices('catch'), ['catch', 'leave']));
 check('trainers cannot be caught', same(legalChoices('trainer'), ['battle', 'leave']));
 check('researcher has dialogue choices only', same(legalChoices('researcher'), ['accept', 'decline', 'talk']));

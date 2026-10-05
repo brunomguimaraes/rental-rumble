@@ -5,7 +5,7 @@ import {
 } from './_db.js';
 import { fail } from './_route-error.js';
 import type { OwnedMon } from '../src/game/box.js';
-import { captureChance, legalChoices, rollRouteFind, ROUTE_RULES } from '../src/game/route-rules.js';
+import { legalChoices, rollRouteFind, ROUTE_RULES } from '../src/game/route-rules.js';
 import { canAfford, questRecords, questViews } from '../src/game/route-quests.js';
 import type { InventoryState, QuestId, RouteEvent, RouteFind, RoutePhase, SearchKind, StoredRouteEvent } from '../src/game/route-actions.js';
 
@@ -47,10 +47,7 @@ export async function commitFind(tx: Executor, { uid, kind, questId, party, inve
     id: newId(), locationId: 'r1', searchKind: kind, kind: find.kind, rulesVersion: ROUTE_RULES.version, revision: 0,
     startedAt: now, resolvedAt: phase === 'resolved' ? now : null, phase, party,
     foe: find.foe?.view ?? null, npc: find.npc, choices: legalChoices(phase),
-    catchChances: find.kind === 'wild' && find.foe ? {
-      poke: captureChance({ rare: find.foe.view.rare, wonBattle: false, ballId: 'poke', rules: ROUTE_RULES }),
-      great: captureChance({ rare: find.foe.view.rare, wonBattle: false, ballId: 'great', rules: ROUTE_RULES }),
-    } : null,
+    catchChances: null,
     battle: null, members: [], catch: null, items: find.items, newSeen: [], newLandmarks: [],
     outcome: phase !== 'resolved' ? null : find.kind === 'nothing' ? 'nothing' : 'found', money: find.money,
     ...(find.questId ? { questId: find.questId } : {}),

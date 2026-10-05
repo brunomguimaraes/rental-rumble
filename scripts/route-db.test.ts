@@ -99,6 +99,11 @@ async function forceBattle(db: Db, uid: string, e: RouteEvent, want: (b: RouteBa
   for (let i = 0; i < 50; i++) { const b = simulateRouteBattle({ party: data.event.party, foe: data.foe!, seed: `battle-${i}` }); seen.add(`${b.won} ${b.fielded![0].hp}/${b.fielded![0].maxHp}`); }
   throw new Error('No seed produced the wanted battle ' + [...seen].slice(0, 8).join('; '));
 }
+/** A wild Pokémon can only be caught once it is beaten: win the battle and return the event in its catch phase. */
+async function winWild(db: Db, uid: string, e: RouteEvent) {
+  await forceBattle(db, uid, e, (b) => b.won);
+  return (await chooseRoute(db, uid, { requestId: rid(), eventId: e.id, expectedRevision: e.revision, choice: 'battle' }, T)).event!;
+}
 /** Fixture: a tougher frozen foe, so a 1 HP lead reliably faints before its Box recruit takes over. */
 async function toughenFoe(db: Db, uid: string, e: RouteEvent, statMult: number) {
   const row = (await readRouteEvent(db, uid, e.id))!;
@@ -131,8 +136,14 @@ try {
   await rejects('second active event is rejected', start(db, 'u1'), 409);
   await rejects('foreign event is not found', chooseRoute(db, 'u2', { requestId: rid(), eventId: e.id, expectedRevision: 0, choice: 'leave' }, T), 404);
   await rejects('stale choice spends nothing', chooseRoute(db, 'u1', { requestId: rid(), eventId: e.id, expectedRevision: 9, choice: 'catch', ballId: 'poke' }, T), 409);
-  const caughtMint = await forceCatch(db, 'u1', e, true, 'poke');
-  const throwInput = { requestId: 'throw-one', eventId: e.id, expectedRevision: 0, choice: 'catch' as const, ballId: 'poke' as const };
+  check('a new wild encounter offers a battle or leaving, and no throw yet', eq(e.choices, ['battle', 'leave']) && e.catchChances === null);
+  await rejects('a throw before the battle is refused', chooseRoute(db, 'u1', { requestId: rid(), eventId: e.id, expectedRevision: 0, choice: 'catch', ballId: 'poke' }, T), 400);
+  const unbeaten = await loadRouteState(db, 'u1', T);
+  check('the refused throw spends no ball and keeps the encounter open', unbeaten.inventory.stacks.find((s) => s.itemId === 'poke')?.quantity === 20 && unbeaten.activeEvent?.revision === 0 && await countOwned(db, 'u1') === 1);
+  const beaten = await winWild(db, 'u1', e);
+  check('winning opens the one throw with its catch chances', eq(beaten.choices, ['catch', 'leave']) && eq(beaten.catchChances, { poke: 0.8, great: 0.95 }));
+  const caughtMint = await forceCatch(db, 'u1', beaten, true, 'poke');
+  const throwInput = { requestId: 'throw-one', eventId: e.id, expectedRevision: 1, choice: 'catch' as const, ballId: 'poke' as const };
   const caught = await chooseRoute(db, 'u1', throwInput, T);
   const caughtAgain = await chooseRoute(db, 'u1', throwInput, T + 1);
   check('catch debit and owned individual are exactly once', caught.event?.catch?.caught === true && caughtAgain.event?.catch?.owned?.id === caught.event.catch.owned?.id && await countOwned(db, 'u1') === 2 && caughtAgain.state.inventory.stacks.find((s) => s.itemId === 'poke')?.quantity === 19);
@@ -146,8 +157,8 @@ try {
   await updateProfileParty(db, 'full-party', fullParty);
   await activateRoute(db, 'full-party', rid(), T);
   const fullPartyWild = (await start(db, 'full-party', 'wild', T, fullParty)).event!;
-  await forceCatch(db, 'full-party', fullPartyWild, true, 'poke');
-  const toBox = await chooseRoute(db, 'full-party', { requestId: rid(), eventId: fullPartyWild.id, expectedRevision: 0, choice: 'catch', ballId: 'poke' }, T);
+  await forceCatch(db, 'full-party', await winWild(db, 'full-party', fullPartyWild), true, 'poke');
+  const toBox = await chooseRoute(db, 'full-party', { requestId: rid(), eventId: fullPartyWild.id, expectedRevision: 1, choice: 'catch', ballId: 'poke' }, T);
   check('a catch with a full party goes to the Box and leaves the party alone', toBox.event?.catch?.caught === true && toBox.event.catch.joinedParty === false && toBox.party === undefined && eq((await readProfile(db, 'full-party'))?.party, fullParty) && await countOwned(db, 'full-party') === 7);
   await rejects('a second throw cannot consume another ball', chooseRoute(db, 'u1', { ...throwInput, requestId: rid() }, T), 409);
   await dismissRouteResult(db, 'u1', e.id, T);
@@ -156,17 +167,18 @@ try {
   const replayedOld = await searchRoute(db, 'u1', input, T);
   check('old search receipt keeps original event and newer current state', replayedOld.event?.id === e.id && replayedOld.state.activeEvent?.id === second.id && replayedOld.state.allowance.available === 10);
   await changeInventory(db, 'u1', 'great', 2);
-  await forceCatch(db, 'u1', second, false, 'great');
-  const failThrow = await chooseRoute(db, 'u1', { requestId: rid(), eventId: second.id, expectedRevision: 0, choice: 'catch', ballId: 'great' }, T);
+  await forceCatch(db, 'u1', await winWild(db, 'u1', second), false, 'great');
+  const failThrow = await chooseRoute(db, 'u1', { requestId: rid(), eventId: second.id, expectedRevision: 1, choice: 'catch', ballId: 'great' }, T);
   check('failed Great Ball attempt consumes one and ends encounter', failThrow.event?.outcome === 'escaped' && failThrow.state.inventory.stacks.find((s) => s.itemId === 'great')?.quantity === 1 && failThrow.state.activeEvent === null);
   const third = (await start(db, 'u1')).event!;
   await updateOwnedNickname(db, 'u1', starter.id, 'Still mine');
   const battleInput = { requestId: rid(), eventId: third.id, expectedRevision: 0, choice: 'battle' as const };
   const won = await chooseRoute(db, 'u1', battleInput, T);
   const wonAgain = await chooseRoute(db, 'u1', battleInput, T);
-  check('wild win immediately pays growth and retains catch phase', won.event?.battle?.won === true && won.event.phase === 'catch' && won.event.members[0]?.expGained === 7 && wonAgain.box?.find((m) => m.id === starter.id)?.exp === 7 && wonAgain.box.find((m) => m.id === starter.id)?.nickname === 'Still mine');
+  // The starter already won the two encounters above: 7 EXP each.
+  check('wild win immediately pays growth and retains catch phase', won.event?.battle?.won === true && won.event.phase === 'catch' && won.event.members[0]?.expGained === 7 && wonAgain.box?.find((m) => m.id === starter.id)?.exp === 21 && wonAgain.box.find((m) => m.id === starter.id)?.nickname === 'Still mine');
   await leave(db, 'u1', won.event!);
-  check('leaving after battle does not pay again', (await readOwnedByUser(db, 'u1')).find((m) => m.id === starter.id)?.exp === 7);
+  check('leaving after battle does not pay again', (await readOwnedByUser(db, 'u1')).find((m) => m.id === starter.id)?.exp === 21);
 
   console.log('[all supported throws and initialization races]');
   for (const ballId of ['poke', 'great'] as const) for (const success of [true, false]) {
@@ -176,8 +188,8 @@ try {
     check(`${uid} concurrent first activation grants supplies once`, activations.every((r) => r.state.inventory.stacks[0].quantity === 20) && activations.filter((r) => r.replayed).length === 1);
     if (ballId === 'great') await changeInventory(db, uid, 'great', 1);
     const encounter = (await start(db, uid)).event!;
-    await forceCatch(db, uid, encounter, success, ballId);
-    const command = { requestId: rid(), eventId: encounter.id, expectedRevision: 0, choice: 'catch' as const, ballId };
+    await forceCatch(db, uid, await winWild(db, uid, encounter), success, ballId);
+    const command = { requestId: rid(), eventId: encounter.id, expectedRevision: 1, choice: 'catch' as const, ballId };
     const responses = await Promise.all([chooseRoute(db, uid, command, T), chooseRoute(db, uid, command, T)]);
     const state = await loadRouteState(db, uid, T);
     check(`${uid} concurrent same throw debits exactly once`, responses.every((r) => r.event?.catch?.caught === success) && state.inventory.stacks.find((stack) => stack.itemId === ballId)?.quantity === (ballId === 'poke' ? 19 : 0) && await countOwned(db, uid) === (success ? 2 : 1));
@@ -186,10 +198,10 @@ try {
   await writeRouteAllowance(db, 'u2', 1, T);
   const race = await Promise.allSettled([start(db, 'u2'), start(db, 'u2')]);
   check('two concurrent searches spend the last action only once', race.filter((r) => r.status === 'fulfilled').length === 1 && (await loadRouteState(db, 'u2', T)).allowance.available === 0);
-  const active = (await loadRouteState(db, 'u2', T)).activeEvent!;
+  const active = await winWild(db, 'u2', (await loadRouteState(db, 'u2', T)).activeEvent!);
   const choices = await Promise.allSettled([
-    chooseRoute(db, 'u2', { requestId: rid(), eventId: active.id, expectedRevision: 0, choice: 'leave' }, T),
-    chooseRoute(db, 'u2', { requestId: rid(), eventId: active.id, expectedRevision: 0, choice: 'catch', ballId: 'poke' }, T),
+    chooseRoute(db, 'u2', { requestId: rid(), eventId: active.id, expectedRevision: 1, choice: 'leave' }, T),
+    chooseRoute(db, 'u2', { requestId: rid(), eventId: active.id, expectedRevision: 1, choice: 'catch', ballId: 'poke' }, T),
   ]);
   check('competing encounter choices commit only one result', choices.filter((r) => r.status === 'fulfilled').length === 1);
   await rejects('exhausted searches are conflict', start(db, 'u2'), 409);
@@ -197,18 +209,18 @@ try {
   await writeRouteAllowance(db, 'u1', 48, T);
   const inv = (await loadRouteState(db, 'u1', T)).inventory;
   for (const stack of inv.stacks) if (stack.quantity) await changeInventory(db, 'u1', stack.itemId, -stack.quantity);
-  const emptyWild = (await start(db, 'u1')).event!;
-  await rejects('empty Bag catch consumes no action and stays unresolved', chooseRoute(db, 'u1', { requestId: rid(), eventId: emptyWild.id, expectedRevision: 0, choice: 'catch', ballId: 'poke' }, T), 409);
+  const emptyWild = await winWild(db, 'u1', (await start(db, 'u1')).event!);
+  await rejects('empty Bag catch consumes no action and stays unresolved', chooseRoute(db, 'u1', { requestId: rid(), eventId: emptyWild.id, expectedRevision: 1, choice: 'catch', ballId: 'poke' }, T), 409);
   check('failed item check retains encounter and zero inventory', (await loadRouteState(db, 'u1', T)).activeEvent?.id === emptyWild.id && (await loadRouteState(db, 'u1', T)).inventory.stacks.every((s) => s.quantity === 0));
   await leave(db, 'u1', emptyWild);
   await db.execute({ sql: 'update route_accounts set money = 0 where user_id = ?', args: ['u1'] });
   const resupply = await start(db, 'u1', 'explore');
   check('empty Bag Explore guarantees persisted three Poké Balls for one action', resupply.event?.kind === 'item' && resupply.event.items[0]?.itemId === 'poke' && resupply.event.items[0]?.quantity === 3 && resupply.state.allowance.available === 46);
-  const fullEvent = (await start(db, 'u1')).event!;
+  const fullEvent = await winWild(db, 'u1', (await start(db, 'u1')).event!);
   const slots = 600 - await countOwned(db, 'u1');
   await db.batch(Array.from({ length: slots }, (_, i) => ({ sql: 'insert into owned_pokemon (id, user_id, dex_id, level, exp, sign, origin) values (?, ?, 10, 5, 0, ?, ?)', args: [`filler-${i}`, 'u1', 'aries', 'catch'] })));
   const beforeCapacity = (await loadRouteState(db, 'u1', T)).inventory;
-  await rejects('full Box rejects before consuming a ball', chooseRoute(db, 'u1', { requestId: rid(), eventId: fullEvent.id, expectedRevision: 0, choice: 'catch', ballId: 'poke' }, T), 409);
+  await rejects('full Box rejects before consuming a ball', chooseRoute(db, 'u1', { requestId: rid(), eventId: fullEvent.id, expectedRevision: 1, choice: 'catch', ballId: 'poke' }, T), 409);
   check('full Box keeps catch decision and item untouched', eq((await loadRouteState(db, 'u1', T)).inventory, beforeCapacity) && (await loadRouteState(db, 'u1', T)).activeEvent?.id === fullEvent.id);
   await leave(db, 'u1', fullEvent);
   await acceptRouteQuest(db, 'u1', 'meadow-survey', T);
@@ -261,14 +273,14 @@ try {
   console.log('[failure and inventory concurrency]');
   await onboardUser(db, 'failure', 6, 30);
   await activateRoute(db, 'failure', 'activate', T);
-  const failingEvent = (await start(db, 'failure')).event!;
+  const failingEvent = await winWild(db, 'failure', (await start(db, 'failure')).event!);
   await forceCatch(db, 'failure', failingEvent, true, 'poke');
   const beforeFailure = await loadRouteState(db, 'failure', T);
   await db.execute(`create trigger reject_route_receipt before insert on route_receipts when new.user_id = 'failure' begin select raise(abort, 'injected receipt failure'); end`);
   let rolledBack = false;
-  try { await chooseRoute(db, 'failure', { requestId: 'failed-write', eventId: failingEvent.id, expectedRevision: 0, choice: 'catch', ballId: 'poke' }, T); } catch { rolledBack = true; }
+  try { await chooseRoute(db, 'failure', { requestId: 'failed-write', eventId: failingEvent.id, expectedRevision: 1, choice: 'catch', ballId: 'poke' }, T); } catch { rolledBack = true; }
   const afterFailure = await loadRouteState(db, 'failure', T);
-  check('receipt persistence failure rolls back catch, ball, dex and phase', rolledBack && await countOwned(db, 'failure') === 1 && eq(afterFailure.inventory, beforeFailure.inventory) && afterFailure.activeEvent?.revision === 0 && Number((await db.execute({ sql: 'select count(*) as n from pokedex_cells where user_id = ?', args: ['failure'] })).rows[0].n) === 0);
+  check('receipt persistence failure rolls back catch, ball, dex and phase', rolledBack && await countOwned(db, 'failure') === 1 && eq(afterFailure.inventory, beforeFailure.inventory) && afterFailure.activeEvent?.revision === 1 && Number((await db.execute({ sql: 'select count(*) as n from pokedex_cells where user_id = ?', args: ['failure'] })).rows[0].n) === 0);
   await db.execute('drop trigger reject_route_receipt');
   check('money cannot go negative', !await changeMoney(db, 'failure', -1) && await moneyOf(db, 'failure') === 0);
   const revBefore = (await loadRouteState(db, 'failure', T)).inventory.revision;
@@ -279,7 +291,7 @@ try {
   await changeInventory(db, 'failure', 'great', 1);
   const grantDebit = await Promise.all([
     claimRouteQuest(db, 'failure', { requestId: 'simultaneous-grant', questId: 'meadow-survey' }, T),
-    chooseRoute(db, 'failure', { requestId: 'simultaneous-debit', eventId: failingEvent.id, expectedRevision: 0, choice: 'catch', ballId: 'great' }, T),
+    chooseRoute(db, 'failure', { requestId: 'simultaneous-debit', eventId: failingEvent.id, expectedRevision: 1, choice: 'catch', ballId: 'great' }, T),
   ]);
   const total = (await loadRouteState(db, 'failure', T)).inventory.stacks.find((stack) => stack.itemId === 'great')?.quantity;
   check('quest grant racing capture debit preserves exact inventory total', grantDebit.length === 2 && total === 3);
@@ -320,7 +332,7 @@ try {
   check('racing purchases with funds for one buy exactly one ball', raced.filter((r) => r.status === 'fulfilled').length === 1 && (await shop()).inventory.money === 0 && await have('poke') === 18);
   // Review focus 3: buy mid-encounter, then throw the bought ball.
   await db.execute({ sql: 'update route_accounts set money = 600 where user_id = ?', args: ['shopper'] });
-  const open = (await start(db, 'shopper')).event!;
+  const open = await winWild(db, 'shopper', (await start(db, 'shopper')).event!);
   const midTrade = await tradeMarket(db, 'shopper', { requestId: rid(), itemId: 'great', side: 'buy', quantity: 1 }, T);
   check('a trade leaves the open encounter untouched', midTrade.state.activeEvent?.id === open.id && midTrade.state.activeEvent.revision === open.revision);
   const greatThrow = await chooseRoute(db, 'shopper', { requestId: rid(), eventId: open.id, expectedRevision: open.revision, choice: 'catch', ballId: 'great' }, T);
@@ -328,7 +340,7 @@ try {
   console.log('[consistent state snapshot]');
   await onboardUser(db, 'snapshot', 6, 30);
   await activateRoute(db, 'snapshot', 'activate', T);
-  const snapshotEvent = (await start(db, 'snapshot')).event!;
+  const snapshotEvent = await winWild(db, 'snapshot', (await start(db, 'snapshot')).event!);
   let releaseAccount!: () => void;
   const accountGate = new Promise<void>((resolve) => { releaseAccount = resolve; });
   let signalRows!: () => void;
@@ -352,7 +364,7 @@ try {
   } });
   const stateInFlight = loadRouteState(delayedDb, 'snapshot', T + 2);
   await rowsStarted;
-  const interleaved = await chooseRoute(db, 'snapshot', { requestId: 'interleaved', eventId: snapshotEvent.id, expectedRevision: 0, choice: 'catch', ballId: 'poke' }, T + 1);
+  const interleaved = await chooseRoute(db, 'snapshot', { requestId: 'interleaved', eventId: snapshotEvent.id, expectedRevision: 1, choice: 'catch', ballId: 'poke' }, T + 1);
   releaseAccount();
   const snapshotState = await stateInFlight;
   const snapshotQuantity = snapshotState.inventory.stacks.find((stack) => stack.itemId === 'poke')?.quantity;
@@ -522,8 +534,10 @@ try {
   check('an empty Explore spends its action and grants nothing', quietFind.phase === 'resolved' && quietFind.outcome === 'nothing' && quietFind.items.length === 0 && !quietFind.money
     && afterQuiet.allowance.available === 47 && afterQuiet.activeEvent === null);
   const rareFind = await exploreUntil(db, 'board', (e) => e.kind === 'wild');
-  check('an Explore rare is a catchable rare wild Pokémon', rareFind.foe?.rare === true && [133, 25, 280].includes(rareFind.foe.dexId) && rareFind.choices.includes('catch') && rareFind.catchChances?.poke === 0.35);
-  await leave(db, 'board', rareFind);
+  check('an Explore rare is a rare wild Pokémon to battle', rareFind.foe?.rare === true && [133, 25, 280].includes(rareFind.foe.dexId) && eq(rareFind.choices, ['battle', 'leave']));
+  const rareBeaten = await winWild(db, 'board', rareFind);
+  check('a beaten Explore rare is catchable at the rare odds', rareBeaten.choices.includes('catch') && eq(rareBeaten.catchChances, { poke: 0.55, great: 0.75 }));
+  await leave(db, 'board', rareBeaten);
   const meeting = (await start(db, 'board', 'trainer')).event!;
   check('a trainer search meets a trainer with one Pokémon', meeting.kind === 'trainer' && meeting.phase === 'trainer' && meeting.npc !== null && meeting.foe !== null && meeting.searchKind === 'trainer');
   await leave(db, 'board', meeting);
@@ -584,8 +598,8 @@ try {
   check('the refused Spread Honey spent nothing', (await loadRouteState(db, 'quester', T)).allowance.available === 9);
   await changeInventory(db, 'quester', 'honey', 2);
   const drawn = await quest('honey-tree');
-  check('Spread Honey uses one Honey and draws a catchable honey-tree Pokémon', drawn.event?.kind === 'wild' && drawn.event.questId === 'honey-tree' && [415, 412, 214, 446].includes(drawn.event.foe?.dexId ?? 0)
-    && drawn.event.choices.includes('catch') && drawn.state.inventory.stacks.find((s) => s.itemId === 'honey')?.quantity === 1 && drawn.state.allowance.available === 8);
+  check('Spread Honey uses one Honey and draws a wild honey-tree Pokémon', drawn.event?.kind === 'wild' && drawn.event.questId === 'honey-tree' && [415, 412, 214, 446].includes(drawn.event.foe?.dexId ?? 0)
+    && drawn.event.phase === 'wild' && drawn.state.inventory.stacks.find((s) => s.itemId === 'honey')?.quantity === 1 && drawn.state.allowance.available === 8);
   check('the first honey-tree encounter completes the quest', drawn.state.quests.find((q) => q.id === 'honey-tree')?.status === 'claimed');
   await leave(db, 'quester', drawn.event!);
   const baitedAgain = await quest('honey-tree');

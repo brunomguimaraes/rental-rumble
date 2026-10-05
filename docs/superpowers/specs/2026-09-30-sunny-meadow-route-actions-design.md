@@ -73,20 +73,20 @@ The total weight is 21, so Eevee starts at 1 in 21 wild finds. Preserve hidden w
 
 Show the Pokémon, variant, and available choices:
 
-- **Try to catch**: select an owned Poké Ball or Great Ball from the Bag, see its quantity and catch chance, then throw once. No ball means no throw.
 - **Battle**: fight this one opponent using the saved party snapshot of 1–6 Pokémon.
+- **Try to catch** (only after a battle win, changed 2026-10-03): select an owned Poké Ball or Great Ball from the Bag, see its quantity and catch chance, then throw once. No ball means no throw. A throw before the battle is refused.
 - **Leave**: close the encounter without further reward. The search action stays spent.
 
-After a battle win, show the EXP/growth result and offer the unused catch attempt or Leave. Winning does not require catching. A loss ends the encounter with no new EXP or catch opportunity. After either throw outcome, the encounter ends; a failed throw cannot be followed by a battle or another throw. There is never more than one battle and one throw per wild encounter.
+After a battle win, show the EXP/growth result and offer the catch attempt or Leave. Winning does not require catching. A loss ends the encounter with no new EXP or catch opportunity. After either throw outcome, the encounter ends; a failed throw cannot be followed by a battle or another throw. There is never more than one battle and one throw per wild encounter.
 
 Proposed catch probabilities:
 
 | Situation | Common species | Rare species |
 | --- | ---: | ---: |
-| Poké Ball before battle | 60% | 35% |
 | Poké Ball after a win | 80% | 55% |
-| Great Ball before battle | 80% | 55% |
 | Great Ball after a win | 95% | 75% |
+
+The before-battle rows (60% / 35%, and 80% / 55% with a Great Ball) were retired on 2026-10-03, when the win became required.
 
 Display the applicable percentage before throwing. Great Ball adds 20 percentage points, capped at 95%. Variant color does not further penalize the chance. This is an explicit early-game rule, not the main-series capture formula. No HP-based catch calculation is introduced.
 

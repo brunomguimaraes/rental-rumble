@@ -30,6 +30,7 @@ them into a dated, versioned section and opens a fresh Unreleased. See
 - **Travel stamina** — trips between Hearth Town and Sunny Meadow cost travel points that refill over time, cheaper with a ride Pokémon in your party. The trainer bar shows Travel and Actions on the Hub and across the world.
 
 ### Changed
+- **Defeat it, then catch it** — a wild Pokémon can no longer be caught without a battle. Win the battle to earn your one throw; the catch chance after a win is unchanged (80% common and 55% rare with a Poké Ball, 95% and 75% with a Great Ball). Losing or leaving ends the encounter with no throw.
 - **Wild battles and Find NPC** — wild wins no longer pay prize money (trainers still pay ₽200), and the Find NPC search is replaced by the Trainer and Quest cards.
 - **Catching** — ball throws now arc into the meadow, draw the Pokémon inside, and build suspense with three shakes before a sparkling catch or breakout reveal. Skip the animation at any time; reduced motion shows a still result.
 - **Caught Pokémon join your party** — a catch goes straight into your party when it has fewer than six Pokémon; with a full party it goes to the Box as before.

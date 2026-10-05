@@ -51,7 +51,7 @@ Every search still requires all of the following, and a search that fails any of
   joins rare Pokémon (30).
 - Rare items (weights): 2 Great Balls 5, 1 Big Mushroom 3, a ₽500 coin pouch 2.
 - Rare Pokémon (weights): Eevee 2, Pikachu 2, Ralts 1. Hidden level 2–5, multiplier 0.6, marked rare, so they use
-  the rare catch odds (35% base, +20 after a win, +20 with a Great Ball, capped at 95%).
+  the rare catch odds (35% base, +20 for the required win, +20 with a Great Ball, capped at 95%).
 - Nothing: the action is spent and the result says so plainly.
 - Unchanged safety net: when the Bag holds no capture balls and the trainer has under ₽200 (one Poké Ball's price),
   Explore grants 3 Poké Balls instead of rolling.

@@ -260,7 +260,8 @@ export function rollRouteFind({ seed, kind, questStep, knownLandmarks = [], hone
 
 export function legalChoices(phase: RoutePhase): RouteChoice[] {
   switch (phase) {
-    case 'wild': return ['battle', 'catch', 'leave'];
+    // A wild Pokémon is caught only after it is beaten: the win opens the 'catch' phase.
+    case 'wild': return ['battle', 'leave'];
     case 'catch': return ['catch', 'leave'];
     case 'trainer': return ['battle', 'leave'];
     case 'researcher': return ['accept', 'decline', 'talk'];

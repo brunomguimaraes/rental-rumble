@@ -138,7 +138,7 @@ const wild: RouteEvent = {
   id: 'wild', locationId: 'r1', searchKind: 'wild', kind: 'wild', rulesVersion: 2, revision: 0,
   startedAt: 1_000, resolvedAt: null, phase: 'wild', party: [],
   foe: { dexId: 16, level: 5, shiny: false, altColor: false, rare: false, guardian: false },
-  npc: null, choices: ['battle', 'catch', 'leave'], catchChances: { poke: 0.5, great: 0.7 },
+  npc: null, choices: ['battle', 'leave'], catchChances: null,
   battle: null, members: [], catch: null, items: [], newSeen: [16], newLandmarks: [], outcome: null,
 };
 check('without a researcher Home offers a survey hint, not a new quest', placeHighlights(state).every((h) => h.label !== 'New quest' && h.focus === 'quest'));
